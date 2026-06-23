@@ -1,99 +1,586 @@
-import React from 'react';
-import { Users, CheckCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, PenTool, RotateCcw } from 'lucide-react';
+import { getContrastClass } from '../../../utils/colorUtils';
 
-const LineupModal = ({ isOpen,  teamHome, teamAway, homeLineup, awayLineup, homeLiberos, awayLiberos, onSlotClick, onConfirm }) => {
-    if (!isOpen) return null;
+const SignaturePad = ({ width = 500, height = 220, onSave, defaultValue }) => {
+    const canvasRef = useRef(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [hasDrawn, setHasDrawn] = useState(!!defaultValue);
 
-    // ฟังก์ชันดึงเบอร์เสื้อ (เผื่อ API ใช้ชื่อ key อื่น)
-    const getPlayerNumber = (player) => player.number || player.jersey_number || player.shirt_number || '?';
-    // ฟังก์ชันดึงชื่อ (เผื่อ API ใช้ชื่อ key อื่น)
-    const getPlayerName = (player) => {
-        if (player.name) return player.name;
-        if (player.firstname) return `${player.firstname} ${player.lastname || ''}`.trim();
-        if (player.first_name) return `${player.first_name} ${player.last_name || ''}`.trim();
-        return 'Unknown';
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#1e293b'; // slate-800
+
+        if (defaultValue) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = defaultValue;
+        }
+    }, [defaultValue]);
+
+    const getCoordinates = (e) => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        if (e.touches && e.touches.length > 0) {
+            return {
+                x: (e.touches[0].clientX - rect.left) * scaleX,
+                y: (e.touches[0].clientY - rect.top) * scaleY
+            };
+        }
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
     };
 
-    const renderTeamSlots = (teamName, teamCode, lineup, liberos) => {
-        const safeLineup = lineup || [];
-        const safeLiberos = liberos || {};
-        return (
-        <div className="flex-1 bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
-            <h3 className={`font-bold text-center mb-4 text-lg ${teamCode === 'home' ? 'text-indigo-400' : 'text-rose-400'}`}>{teamName}</h3>
-            
-            <div className="mb-4">
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-2 text-center">Starting 6</label>
-                <div className="grid grid-cols-3 gap-3">
-                    {/* Position mapping: 4-3-2 (Front), 5-6-1 (Back) */}
-                    {[3, 2, 1, 4, 5, 0].map((posIndex, i) => {
-                         const uiPos = [4, 3, 2, 5, 6, 1][i]; // ตำแหน่งที่แสดงบน UI (P1-P6)
-                         const player = safeLineup[posIndex]; // ใช้ posIndex ที่ถูกต้อง (0-5)
-                         
-                         return (
-                            <button key={uiPos} onClick={() => onSlotClick(teamCode, posIndex)} className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center relative hover:bg-slate-700 transition ${player ? 'border-green-500/50 bg-green-500/10' : 'border-slate-600 bg-slate-800'}`}>
-                                <span className="absolute top-1 left-2 text-[10px] text-slate-500 font-bold">P{uiPos}</span>
-                                {player ? (
-                                    <div className="flex flex-col items-center justify-center w-full px-1 mt-2">
-                                        <span className="text-3xl font-black text-white leading-none">
-                                            {getPlayerNumber(player)}
-                                        </span>
-                                        <span className="text-[11px] text-slate-300 truncate w-full text-center mt-1">
-                                            {getPlayerName(player)}
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center text-slate-500 mt-2">
-                                        <Users size={24} className="mb-1" />
-                                        <span className="text-[10px]">Select</span>
-                                    </div>
-                                )}
-                            </button>
-                         );
-                    })}
-                </div>
-            </div>
+    const startDrawing = (e) => {
+        e.preventDefault();
+        const { x, y } = getCoordinates(e);
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        setIsDrawing(true);
+    };
 
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase block mb-2 text-center">Liberos</label>
-                <div className="flex justify-center gap-3">
-                    {['l1', 'l2'].map(role => {
-                        const player = safeLiberos[role];
-                        return (
-                            <button key={role} onClick={() => onSlotClick(teamCode, role)} className={`w-20 h-20 rounded-xl border-2 flex flex-col items-center justify-center relative hover:bg-slate-700 transition ${player ? 'border-blue-500/50 bg-blue-500/10' : 'border-slate-600 border-dashed bg-slate-800'}`}>
-                                <span className="absolute top-1 left-2 text-[10px] text-blue-400 font-bold">{role.toUpperCase()}</span>
-                                {player ? (
-                                    <span className="text-2xl font-black text-white mt-2">#{getPlayerNumber(player)}</span>
-                                ) : <span className="text-xs text-slate-600 mt-2">Empty</span>}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-        );
+    const draw = (e) => {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const { x, y } = getCoordinates(e);
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        setHasDrawn(true);
+    };
+
+    const stopDrawing = () => {
+        if (isDrawing) {
+            const ctx = canvasRef.current.getContext('2d');
+            ctx.closePath();
+            setIsDrawing(false);
+            if (onSave && hasDrawn) {
+                onSave(canvasRef.current.toDataURL('image/png'));
+            }
+        }
+    };
+
+    const clearCanvas = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setHasDrawn(false);
+        if (onSave) onSave(null);
     };
 
     return (
-        <div className="fixed inset-0 z-[80] bg-slate-950/95 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-slate-900 w-full max-w-5xl rounded-3xl border border-slate-700 shadow-2xl flex flex-col max-h-[90vh]">
-                <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800 rounded-t-3xl">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-3"><Users className="text-green-500"/> Starting Line-ups</h2>
-                    <div className="text-sm text-slate-400">Select players for each position</div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="flex gap-8 min-w-[800px]">
-                        {renderTeamSlots(teamHome, 'home', homeLineup, homeLiberos)}
-                        <div className="w-px bg-slate-700 self-stretch mx-2"></div>
-                        {renderTeamSlots(teamAway, 'away', awayLineup, awayLiberos)}
+        <div className="flex flex-col gap-2 w-full">
+            <div className="relative rounded-2xl border-2 border-slate-200 bg-slate-50 shadow-inner overflow-hidden aspect-[500/220] max-w-full">
+                <canvas
+                    ref={canvasRef}
+                    width={width}
+                    height={height}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                    className="cursor-crosshair w-full h-full bg-slate-50/50 relative z-10 touch-none"
+                />
+                {!hasDrawn && (
+                    <div className="absolute inset-0 z-0 flex items-center justify-center font-bold text-slate-350 pointer-events-none select-none uppercase tracking-widest text-sm text-slate-300">
+                        ลงลายมือชื่อที่นี่ (Sign Here)
                     </div>
-                </div>
-                <div className="p-6 border-t border-slate-700 bg-slate-800 rounded-b-3xl flex justify-end">
-                     <button onClick={onConfirm} className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg">
-                        Confirm Lineups <CheckCircle />
-                     </button>
-                </div>
+                )}
+                {hasDrawn && (
+                    <button
+                        type="button"
+                        onClick={clearCanvas}
+                        className="absolute top-3 right-3 z-20 bg-white/90 p-2 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-md active:scale-95"
+                        title="Clear Signature"
+                    >
+                        <RotateCcw size={18} />
+                    </button>
+                )}
             </div>
         </div>
     );
 };
+
+const LineupModal = ({ 
+    isOpen, 
+    onClose,
+    teamHome, 
+    teamAway, 
+    homeLineup, 
+    awayLineup, 
+    onSlotClick, 
+    onConfirm,
+    homeRoster = [],
+    awayRoster = [],
+    teamColors = { home: '#1e3a8a', away: '#eab308' },
+    onSetRoster,
+    onColorChange,
+    onClearTeamLineup,
+    signatures = {},
+    onSignaturesChange
+}) => {
+    const [activeField, setActiveField] = useState(null);
+    const tempSignatureRef = useRef(null);
+
+    const handleButtonClick = (field) => {
+        tempSignatureRef.current = signatures[field] || null;
+        setActiveField(field);
+    };
+
+    const getFieldTitle = (field) => {
+        switch (field) {
+            case 'homeCaptain': return `${teamHome} Captain`;
+            case 'homeCoach': return `${teamHome} Coach`;
+            case 'awayCaptain': return `${teamAway} Captain`;
+            case 'awayCoach': return `${teamAway} Coach`;
+            default: return '';
+        }
+    };
+
+    const homeColorInputRef = useRef(null);
+    const awayColorInputRef = useRef(null);
+
+    if (!isOpen) return null;
+
+    // Helper to format name as Lastname F.
+    const formatPlayerName = (player) => {
+        const lastName = (player.last_name || player.lastname || '').trim();
+        const firstName = (player.first_name || player.firstname || '').trim();
+        if (!lastName && !firstName) return 'Unknown';
+        if (!firstName) return lastName;
+        if (!lastName) return firstName;
+        return `${lastName} ${firstName.charAt(0)}.`;
+    };
+
+    // Helper to get role badge (C, L1, L2)
+    const getPlayerBadge = (player) => {
+        const isCap = player.isCaptain || player.is_captain || player.role === 'C' || player.role?.includes('C');
+        const isL1 = player.role === 'L1' || player.role?.includes('L1') || player.isLibero1 || (player.isLibero && !player.role?.includes('L2'));
+        const isL2 = player.role === 'L2' || player.role?.includes('L2') || player.isLibero2;
+        
+        const badges = [];
+        if (isCap) {
+            badges.push(<span key="cap" className="bg-[#2563eb] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm select-none">C</span>);
+        }
+        if (isL1) {
+            badges.push(<span key="l1" className="bg-[#f97316] text-white text-[10px] font-black px-1 py-0.5 rounded-sm select-none">L1</span>);
+        } else if (isL2) {
+            badges.push(<span key="l2" className="bg-[#f97316] text-white text-[10px] font-black px-1 py-0.5 rounded-sm select-none">L2</span>);
+        } else if (player.isLibero) {
+            badges.push(<span key="lib" className="bg-[#f97316] text-white text-[10px] font-black px-1 py-0.5 rounded-sm select-none">L</span>);
+        }
+        
+        if (badges.length === 0) return null;
+        return <div className="flex gap-1">{badges}</div>;
+    };
+
+    // Helper to extract 3-letter code from team name
+    const getTeamCode = (teamName) => {
+        if (!teamName) return '';
+        if (teamName.includes('-')) {
+            return teamName.split('-')[0].trim().toUpperCase();
+        }
+        return teamName.substring(0, 3).toUpperCase();
+    };
+
+    const homeColor = teamColors.home || '#1e3a8a';
+    const awayColor = teamColors.away || '#eab308';
+    
+    const homeCode = getTeamCode(teamHome);
+    const awayCode = getTeamCode(teamAway);
+
+    const safeHomeRoster = homeRoster || [];
+    const safeAwayRoster = awayRoster || [];
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all font-sans select-none">
+            <div className="bg-white w-full max-w-[1100px] rounded-2xl border border-slate-200 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in duration-300">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+                    <h2 className="text-xl font-bold text-slate-800 tracking-tight">Starting lineup</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                        <X size={20} />
+                    </button>
+                </div>
+                
+                {/* Three Columns Container */}
+                <div className="flex-1 flex overflow-hidden min-h-0 bg-white">
+                    
+                    {/* Column 1: Home Team (Left) */}
+                    <div className="w-[32%] flex flex-col p-6 min-h-0 border-r border-slate-100">
+                        <h3 className="text-center font-bold text-slate-700 pb-2 text-sm uppercase tracking-wider">
+                            {teamHome}
+                        </h3>
+                        <div className="border-b border-slate-100 w-full mb-3" />
+                        
+                        {/* Scrollable list */}
+                        <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                            {safeHomeRoster.length > 0 ? (
+                                safeHomeRoster.map((player, index) => (
+                                    <div 
+                                        key={player.id} 
+                                        className={`flex justify-between items-center py-2 px-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded transition-colors ${
+                                            index % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-slate-900 w-5 text-left">{player.number}</span>
+                                            <span className="text-sm text-slate-700">{formatPlayerName(player)}</span>
+                                        </div>
+                                        <div>
+                                            {getPlayerBadge(player)}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-10 text-slate-400 text-xs italic">No roster data</div>
+                            )}
+                        </div>
+                        
+                        {/* Column footer buttons */}
+                        <div className="shrink-0 pt-4">
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={onSetRoster} 
+                                    className={`flex-1 py-2 text-xs font-bold ${getContrastClass(homeColor)} rounded transition-colors shadow-sm hover:opacity-90 cursor-pointer`}
+                                    style={{ backgroundColor: homeColor }}
+                                >
+                                    Set roster
+                                </button>
+                                <button 
+                                    onClick={() => homeColorInputRef.current.click()} 
+                                    className="flex-1 py-2 border border-slate-200 rounded text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                                >
+                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-200 shadow-inner" style={{ backgroundColor: homeColor }} />
+                                    Shirt Color
+                                </button>
+                                <input 
+                                    type="color" 
+                                    ref={homeColorInputRef} 
+                                    value={homeColor} 
+                                    onChange={(e) => onColorChange('home', e.target.value)} 
+                                    className="hidden" 
+                                />
+                            </div>
+                            
+                            <div className="text-[11px] font-bold text-slate-500 mt-4 mb-2 uppercase tracking-wide">Approvals - Roster</div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleButtonClick('homeCaptain')}
+                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
+                                        signatures.homeCaptain 
+                                        ? `${getContrastClass(homeColor)} border border-transparent shadow-sm` 
+                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                    style={signatures.homeCaptain ? { backgroundColor: homeColor } : { borderColor: homeColor, color: homeColor }}
+                                >
+                                    Captain {homeCode}
+                                </button>
+                                <button
+                                    onClick={() => handleButtonClick('homeCoach')}
+                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
+                                        signatures.homeCoach 
+                                        ? `${getContrastClass(homeColor)} border border-transparent shadow-sm` 
+                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                    style={signatures.homeCoach ? { backgroundColor: homeColor } : { borderColor: homeColor, color: homeColor }}
+                                >
+                                    Coach {homeCode}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Column 2: Court Diagrams (Middle) */}
+                    <div className="w-[36%] flex flex-col p-6 bg-white border-r border-slate-100 overflow-y-auto justify-center gap-8">
+                        {/* Home Court */}
+                        <div className="w-[230px] flex flex-col self-start shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-lg overflow-hidden border border-slate-100">
+                            <div className="bg-slate-100/90 py-2 px-4 text-center font-bold text-xs uppercase text-slate-700 border-b-[3px]" style={{ borderBottomColor: homeColor }}>
+                                {teamHome}
+                            </div>
+                            {/* Blue court margin background */}
+                            <div className="bg-[#1b4fc6] p-2.5 pb-4 pt-0 relative aspect-[4/3] flex flex-col justify-between">
+                                {/* Orange Court Area with white border lines */}
+                                <div className="flex-1 bg-[#f2a167] border-[1.5px] border-white relative p-2.5 flex flex-col justify-between">
+                                    {/* Attack Line */}
+                                    <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-white -translate-y-1/2" />
+                                    
+                                    {/* Front Row (P4, P3, P2) */}
+                                    <div className="grid grid-cols-3 gap-2.5 relative z-10">
+                                        {[3, 2, 1].map((posIndex) => {
+                                            const player = homeLineup[posIndex];
+                                            return (
+                                                <button 
+                                                    key={posIndex}
+                                                    onClick={() => onSlotClick('home', posIndex)}
+                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
+                                                >
+                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    
+                                    {/* Back Row (P5, P6, P1) */}
+                                    <div className="grid grid-cols-3 gap-2.5 relative z-10">
+                                        {[4, 5, 0].map((posIndex) => {
+                                            const player = homeLineup[posIndex];
+                                            return (
+                                                <button 
+                                                    key={posIndex}
+                                                    onClick={() => onSlotClick('home', posIndex)}
+                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
+                                                >
+                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => onClearTeamLineup('home')}
+                                className="py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors border-t border-slate-100 cursor-pointer text-center"
+                            >
+                                Clear Lineup
+                            </button>
+                        </div>
+                        
+                        {/* Away Court */}
+                        <div className="w-[230px] flex flex-col self-end shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-lg overflow-hidden border border-slate-100">
+                            <div className="bg-slate-100/90 py-2 px-4 text-center font-bold text-xs uppercase text-slate-700 border-b-[3px]" style={{ borderBottomColor: awayColor }}>
+                                {teamAway}
+                            </div>
+                            {/* Blue court margin background */}
+                            <div className="bg-[#1b4fc6] p-2.5 pb-4 pt-0 relative aspect-[4/3] flex flex-col justify-between">
+                                {/* Orange Court Area with white border lines */}
+                                <div className="flex-1 bg-[#f2a167] border-[1.5px] border-white relative p-2.5 flex flex-col justify-between">
+                                    {/* Attack Line */}
+                                    <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-white -translate-y-1/2" />
+                                    
+                                    {/* Front Row (P4, P3, P2) */}
+                                    <div className="grid grid-cols-3 gap-2.5 relative z-10">
+                                        {[3, 2, 1].map((posIndex) => {
+                                            const player = awayLineup[posIndex];
+                                            return (
+                                                <button 
+                                                    key={posIndex}
+                                                    onClick={() => onSlotClick('away', posIndex)}
+                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
+                                                >
+                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    
+                                    {/* Back Row (P5, P6, P1) */}
+                                    <div className="grid grid-cols-3 gap-2.5 relative z-10">
+                                        {[4, 5, 0].map((posIndex) => {
+                                            const player = awayLineup[posIndex];
+                                            return (
+                                                <button 
+                                                    key={posIndex}
+                                                    onClick={() => onSlotClick('away', posIndex)}
+                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
+                                                >
+                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => onClearTeamLineup('away')}
+                                className="py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors border-t border-slate-100 cursor-pointer text-center"
+                            >
+                                Clear Lineup
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Column 3: Away Team (Right) */}
+                    <div className="w-[32%] flex flex-col p-6 min-h-0">
+                        <h3 className="text-center font-bold text-slate-700 pb-2 text-sm uppercase tracking-wider">
+                            {teamAway}
+                        </h3>
+                        <div className="border-b border-slate-100 w-full mb-3" />
+                        
+                        {/* Scrollable list */}
+                        <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                            {safeAwayRoster.length > 0 ? (
+                                safeAwayRoster.map((player, index) => (
+                                    <div 
+                                        key={player.id} 
+                                        className={`flex justify-between items-center py-2 px-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded transition-colors ${
+                                            index % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-slate-900 w-5 text-left">{player.number}</span>
+                                            <span className="text-sm text-slate-700">{formatPlayerName(player)}</span>
+                                        </div>
+                                        <div>
+                                            {getPlayerBadge(player)}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-10 text-slate-400 text-xs italic">No roster data</div>
+                            )}
+                        </div>
+                        
+                        {/* Column footer buttons */}
+                        <div className="shrink-0 pt-4">
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={onSetRoster} 
+                                    className={`flex-1 py-2 text-xs font-bold ${getContrastClass(awayColor)} rounded transition-colors shadow-sm hover:opacity-90 cursor-pointer`}
+                                    style={{ backgroundColor: awayColor }}
+                                >
+                                    Set roster
+                                </button>
+                                <button 
+                                    onClick={() => awayColorInputRef.current.click()} 
+                                    className="flex-1 py-2 border border-slate-200 rounded text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                                >
+                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-200 shadow-inner" style={{ backgroundColor: awayColor }} />
+                                    Shirt color
+                                </button>
+                                <input 
+                                    type="color" 
+                                    ref={awayColorInputRef} 
+                                    value={awayColor} 
+                                    onChange={(e) => onColorChange('away', e.target.value)} 
+                                    className="hidden" 
+                                />
+                            </div>
+                            
+                            <div className="text-[11px] font-bold text-slate-500 mt-4 mb-2 uppercase tracking-wide">Approvals - Roster</div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleButtonClick('awayCaptain')}
+                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
+                                        signatures.awayCaptain 
+                                        ? `${getContrastClass(awayColor)} border border-transparent shadow-sm` 
+                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                    style={signatures.awayCaptain ? { backgroundColor: awayColor } : { borderColor: awayColor, color: awayColor }}
+                                >
+                                    Captain {awayCode}
+                                </button>
+                                <button
+                                    onClick={() => handleButtonClick('awayCoach')}
+                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
+                                        signatures.awayCoach 
+                                        ? `${getContrastClass(awayColor)} border border-transparent shadow-sm` 
+                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                    style={signatures.awayCoach ? { backgroundColor: awayColor } : { borderColor: awayColor, color: awayColor }}
+                                >
+                                    Coach {awayCode}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Modal Footer (Action Buttons) */}
+                <div className="p-4 border-t border-slate-100 bg-white flex justify-center gap-3 shrink-0">
+                    <button 
+                        onClick={onClose} 
+                        className="px-8 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-md text-sm transition-colors shadow-sm cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={onConfirm} 
+                        className="px-8 py-2 bg-[#3b82f6] hover:bg-blue-600 text-white font-bold rounded-md text-sm transition-colors shadow-sm cursor-pointer"
+                    >
+                        Save
+                    </button>
+                </div>
+            </div>
+
+            {/* 📝 LARGE SIGNATURE OVERLAY DIALOG 📝 */}
+            {activeField && (
+                <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white p-6 rounded-[2rem] max-w-xl w-full flex flex-col gap-6 shadow-2xl border border-slate-100 animate-in zoom-in duration-200">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                                <PenTool className="text-indigo-600" size={22} />
+                                Signature — {getFieldTitle(activeField)}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveField(null);
+                                    tempSignatureRef.current = null;
+                                }}
+                                className="text-slate-400 hover:text-slate-600 transition-colors active:scale-90"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        {/* Large Responsive Drawing Pad */}
+                        <div className="w-full flex justify-center">
+                            <SignaturePad
+                                width={500}
+                                height={220}
+                                onSave={(data) => {
+                                    tempSignatureRef.current = data;
+                                }}
+                                defaultValue={signatures[activeField]}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveField(null);
+                                    tempSignatureRef.current = null;
+                                }}
+                                className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl uppercase tracking-wider text-sm transition-all active:scale-95 cursor-pointer text-center"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (onSignaturesChange) {
+                                        onSignaturesChange(prev => ({ ...prev, [activeField]: tempSignatureRef.current }));
+                                    }
+                                    setActiveField(null);
+                                    tempSignatureRef.current = null;
+                                }}
+                                className="py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl uppercase tracking-wider text-sm transition-all shadow-md shadow-indigo-200 active:scale-95 cursor-pointer text-center"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export default LineupModal;

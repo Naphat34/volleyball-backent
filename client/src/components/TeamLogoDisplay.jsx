@@ -3,7 +3,6 @@ import React from 'react';
 // --- Helper Component: แสดงโลโก้ + ชื่อทีม (ฉบับสมบูรณ์: ชื่อเต็มอยู่บน, ไม่ตัดคำ) ---
 const TeamLogoDisplay = ({ logo, code, name, isRightAligned = false, textColor = '' }) => {
     // URL รูปภาพ (ปรับตาม Server ของคุณ)
-    // URL รูปภาพ (ปรับตาม Server ของคุณ)
     const BASE_URL = 'http://localhost:3000';
 
     const imageUrl = logo ? (logo.startsWith('http') ? logo : `${BASE_URL}${logo}`) : null;

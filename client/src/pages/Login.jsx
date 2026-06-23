@@ -1,12 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
-
-import Swal from 'sweetalert2'; // Import SweetAlert2
+import Swal from 'sweetalert2'; 
+import { User, Lock, Eye, EyeOff, LogIn, Trophy } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
+import Logo from '../assets/img/Logo1.png';
 
 export default function Login() {
+  const { language, setLanguage, t } = useLanguage();
   const [formData, setFormData] = useState({ username: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.role === 'admin') {
+          navigate('/admin');
+        } else if (user.role === 'score') {
+          navigate('/adminscorer');
+        } else if (user.team_id) {
+          navigate('/team-dashboard');
+        } else {
+          navigate('/create-team');
+        }
+      } catch (e) {
+        console.error("Error auto-redirecting user:", e);
+      }
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -21,31 +46,56 @@ export default function Login() {
         password: formData.password,
       });
 
-      console.log("LOGIN RESPONSE", response.data);
-
       const { user, token } = response.data;
       const { role, status, team_id } = user;
 
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      console.log("ROLE =", role);
 
       if (role === "admin") {
+        await Swal.fire({
+          icon: "success",
+          title: t('login.successTitle'),
+          text: t('login.successAdmin'),
+          timer: 1500,
+          showConfirmButton: false,
+        });
         navigate("/admin");
+        return;
+      }
+
+      // เพิ่ม redirect สำหรับ scorer
+      if (role === "score") {
+        await Swal.fire({
+          icon: "success",
+          title: t('login.successTitle'),
+          text: t('login.successScorer'),
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        navigate("/adminscorer");
         return;
       }
 
       if (status !== "approved") {
         await Swal.fire({
           icon: "warning",
-          title: "Account Pending",
-          text: "Your account is pending approval from Admin.",
+          title: t('login.pendingTitle'),
+          text: t('login.pendingText'),
         });
 
         await api.logout();
         return;
       }
+
+      await Swal.fire({
+        icon: "success",
+        title: t('login.successTitle'),
+        text: t('login.successUser'),
+        timer: 1500,
+        showConfirmButton: false,
+      });
 
       if (team_id) {
         navigate("/team-dashboard");
@@ -55,87 +105,137 @@ export default function Login() {
     } catch (err) {
       Swal.fire({
         icon: "error",
-        title: "Login Failed",
-        text: err.response?.data?.error || "Invalid username or password.",
+        title: t('login.failTitle'),
+        text: err.response?.data?.error || t('login.failText'),
+        confirmButtonColor: "#0243c6ff",
       });
     }
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left Pane */}
-      <div className="hidden lg:flex items-center justify-center flex-1 bg-white text-black">
-        <img
-          src="https://img2.pic.in.th/Gemini_Generated_Image_nxb2q2nxb2q2nxb2.png"
-          alt="Volleyball"
-          className="w-full h-full object-cover"
-        />
+    <div className="relative min-h-screen flex flex-col justify-between bg-gradient-to-tr from-[#1e40af] via-[#3b82f6] to-[#60a5fa] overflow-hidden font-sans pb-24">
+      {/* Language Switcher */}
+      <div className="absolute top-4 right-4 z-25 flex gap-2">
+        <button
+          onClick={() => setLanguage('THA')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            language === 'THA'
+              ? 'bg-white text-blue-600 shadow-md scale-105'
+              : 'bg-white/20 text-white hover:bg-white/30'
+          }`}
+        >
+          TH
+        </button>
+        <button
+          onClick={() => setLanguage('ENG')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            language === 'ENG'
+              ? 'bg-white text-blue-600 shadow-md scale-105'
+              : 'bg-white/20 text-white hover:bg-white/30'
+          }`}
+        >
+          EN
+        </button>
       </div>
 
-      {/* Right Pane */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-100">
-        <div className="max-w-md w-full p-6">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-              Volley Manager Login
+      {/* Background decoration elements */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-blue-400/20 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-indigo-400/20 blur-3xl pointer-events-none" />
+
+      {/* Main Container */}
+      <div className="flex-grow flex items-center justify-center px-4 py-12 relative z-10">
+        <div className="w-full max-w-md bg-white/70 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(30,64,175,0.3)] border border-white/20 p-8 md:p-10 transition-all duration-300 hover:shadow-[0_25px_60px_rgba(30,64,175,0.4)]">
+          
+          {/* Logo & Header */}
+          <div className="text-center mb-8">            
+            <img src={Logo} alt="Logo" className='w-[300px] mx-auto mb-4'/>           
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              {t('login.title')}
             </h1>
-            <p className="text-sm text-gray-500 mt-2">
-              ระบบจัดการแข่งขันวอลเลย์บอล
+            <p className="text-sm text-gray-500 mt-2 font-medium">
+              {t('login.subtitle')}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Username
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                {t('login.username')}
               </label>
-              <input
-                name="username"
-                type="text"
-                required
-                placeholder="Enter your username"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 bg-gray-50 hover:bg-white"
-                onChange={handleChange}
-              />
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400" />
+                </span>
+                <input
+                  name="username"
+                  type="text"
+                  required
+                  placeholder={t('login.usernamePlaceholder')}
+                  className="w-full pl-11 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200"
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Password
-                </label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                {t('login.password')}
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </span>
+                <input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder={t('login.passwordPlaceholder')}
+                  className="w-full pl-11 pr-11 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200"
+                  onChange={handleChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-blue-500 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
-              <input
-                name="password"
-                type="password"
-                required
-                placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 bg-gray-50 hover:bg-white"
-                onChange={handleChange}
-              />
             </div>
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-lg font-bold shadow-lg hover:shadow-indigo-500/50 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-200 active:scale-95"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
-              Sign In
+              <LogIn className="w-5 h-5" />
+              {t('login.signIn')}
             </button>
           </form>
 
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-600">
-              เจ้าหน้าที่ทีมยังไม่มีทีม?&nbsp;{' '}
+          {/* Registration Link */}
+          <div className="mt-8 text-center border-t border-gray-100 pt-6">
+            <p className="text-sm text-gray-500">
+              {t('login.noAccount')}&nbsp;
               <Link
                 to="/register"
-                className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                className="font-bold text-blue-600 hover:text-indigo-600 hover:underline transition-colors"
               >
-                Register here
+                {t('login.registerHere')}
               </Link>
             </p>
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="fixed bottom-0 left-0 w-full bg-black/20 backdrop-blur-md border-t border-white/10 py-4 px-4 z-20 text-center">
+        <div className="max-w-7xl mx-auto">
+          <p className="text-white/90 text-sm font-medium">
+            © {new Date().getFullYear()} Volley Manager. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

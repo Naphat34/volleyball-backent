@@ -1,175 +1,408 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowRightLeft, AlertCircle, ShieldAlert } from 'lucide-react';
 
 export default function SubstitutionModal({ 
-    isOpen, onClose, teamName, roster, currentLineup, playerOut, posIndex, subTracker, disqualifiedPlayers = [], onConfirm
+    isOpen, onClose, teamName, roster, currentLineup, playerOut, posIndex, subTracker, disqualifiedPlayers = [], initialExceptional, onConfirm
 }) {
     const [selectedPlayerIn, setSelectedPlayerIn] = useState(null);
-    const [isExceptional, setIsExceptional] = useState(false); // สถานะกรณีพิเศษ
+    const [isExceptional, setIsExceptional] = useState(false); 
+    
+    // 🌟 ใหม่: State สำหรับควบคุมการเปิดหน้า Confirm
+    const [isConfirmStep, setIsConfirmStep] = useState(false); 
 
-    // รีเซ็ตค่าเมื่อเปิด Modal เท่านั้น
+    const [localPosIndex, setLocalPosIndex] = useState(null);
+    const [localPlayerOut, setLocalPlayerOut] = useState(null);
+
+    const playerOutId = localPlayerOut?.id || localPlayerOut?.player_id;
+    let posData = null;
+
+    if (subTracker && subTracker.positions) {
+        const entry = Object.entries(subTracker.positions).find(
+            ([key, data]) => data.currentOnCourt == playerOutId || data.starterId == playerOutId
+        );
+        if (entry) posData = entry[1];
+    }
+
+    // รีเซ็ตค่าและเลือก Auto-select เมื่อเปิด Modal
     useEffect(() => {
         if (isOpen) {
             setSelectedPlayerIn(null);
-            setIsExceptional(false);
+            setIsExceptional(!!initialExceptional);
+            setIsConfirmStep(false); // รีเซ็ตหน้า Confirm เสมอเมื่อเปิดใหม่
+            setLocalPosIndex(posIndex);
+            setLocalPlayerOut(playerOut);
         }
-    }, [isOpen]);
+    }, [isOpen, posIndex, playerOut, initialExceptional]);
+
+    useEffect(() => {
+        
+        if (isOpen && posData && !posData.returned && posData.starterId) {
+            const starter = roster.find(p => (p.id || p.player_id) == posData.starterId);
+            if (starter) setSelectedPlayerIn(starter);
+        }
+    }, [isOpen, posData, roster]);
 
     if (!isOpen) return null;
 
     const courtIds = currentLineup.filter(p => p).map(p => p?.id || p?.player_id || p);
     
-    // กรองคนที่โดนแบนตลอดแมตช์ออกไปจากม้านั่งสำรอง
+    const isBackRow = [0, 4, 5].includes(localPosIndex);
+
     const availableBench = roster.filter(p => {
         const pId = p.id || p.player_id;
+        const isLib = p.isLibero;
+        
+        // กฎ: ในการเปลี่ยนตัวปกติ (Substitution) จะไม่ใช้ Libero
+        // Libero จะแสดงในหน้านี้เฉพาะกรณีที่เป็น Exceptional Substitution เท่านั้น
+        if (isLib && !isExceptional) return false;
+
+        // กฎ: Libero เข้าได้เฉพาะตำแหน่งแดนหลัง (0, 4, 5) ในกรณีที่เป็น Exceptional
+        if (isLib && isExceptional && !isBackRow) return false;
+
         return !courtIds.some(cId => cId == pId) && 
-               !p.isLibero && 
                !disqualifiedPlayers.some(dId => dId == pId);
     });
     
-    // --- 🚨 FIVB SUBSTITUTION LOGIC 🚨 ---
+    // --- FIVB LOGIC ---
     let eligibleBenchPlayers = [];
-    let ruleMessage = "";
     let isError = false;
+    let ruleMessage = "";
 
     if (isExceptional) {
-        // กติกา 15.7: กรณีพิเศษ เลือกใครก็ได้ในม้านั่งสำรอง (ที่ไม่ใช่ลิเบอโร่)
         eligibleBenchPlayers = availableBench;
-        ruleMessage = "กรณีพิเศษ: ไม่นับโควต้า 6 ครั้ง และผู้เล่นที่ออกจะไม่สามารถกลับมาเล่นได้อีกในแมตช์นี้";
     } else {
-        // กติกา 15.6: เปลี่ยนตัวปกติ
-        if (subTracker && playerOut) {
-            const posData = subTracker.positions[posIndex];
-            
-            if (subTracker.count >= 6) {
+        if (subTracker && localPlayerOut) {
+            if (subTracker.count >= 6) { 
                 isError = true;
-                ruleMessage = "หมดโควต้าเปลี่ยนตัวปกติ 6 ครั้งแล้วในเซตนี้ ";
+                ruleMessage = "หมดโควต้าเปลี่ยนตัวปกติ 6 ครั้งแล้ว";
             } else if (posData) {
                 if (posData.returned) {
                     isError = true;
-                    ruleMessage = "ตำแหน่งนี้ไม่สามารถเปลี่ยนตัวได้อีกในเซตนี้";
-                    eligibleBenchPlayers = [];
+                    ruleMessage = "ตำแหน่งนี้ไม่สามารถเปลี่ยนตัวได้อีก";
                 } else {
-                    // เปลี่ยนตัวกลับ: ต้องเป็นผู้เล่นตัวจริงคนเดิมเท่านั้น
                     eligibleBenchPlayers = availableBench.filter(p => {
                         const pId = p.id || p.player_id;
                         return pId == posData.starterId;
                     });
-                    
-                    if (eligibleBenchPlayers.length > 0) {
-                        ruleMessage = `เปลี่ยนตัวกลับ: ต้องเปลี่ยนตัวจริงเบอร์ ${eligibleBenchPlayers[0].number} กลับเข้าสนามเท่านั้น`;
-                    } else {
-                        ruleMessage = "ไม่พบผู้เล่นตัวจริงในม้านั่งสำรอง";
+                    if (eligibleBenchPlayers.length === 0) {
                         isError = true;
+                        ruleMessage = "ไม่พบผู้เล่นตัวจริงในม้านั่งสำรอง";
                     }
                 }
             } else {
-                // เปลี่ยนตัวครั้งแรกของตำแหน่งนี้: ห้ามซ้ำกับคนที่เคยเปลี่ยนลงไปแล้ว
                 const usedIds = subTracker.usedPlayers || [];
                 eligibleBenchPlayers = availableBench.filter(p => {
                     const pId = p.id || p.player_id;
                     return !usedIds.some(uId => uId == pId);
                 });
-                ruleMessage = "กรุณาเลือกนักกีฬา";
             }
         }
     }
 
-    const handleConfirm = () => {
-        if (selectedPlayerIn) {
-            // ส่งค่า isExceptional กลับไปที่หน้าหลักด้วย
-            onConfirm(selectedPlayerIn, isExceptional);
-            onClose();
+    // เมื่อกดปุ่ม Run the substitution ให้แสดงหน้า Confirm ก่อน
+    const handleRunSubstitution = () => {
+        if (selectedPlayerIn && localPlayerOut) {
+            setIsConfirmStep(true); 
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col">
-                
-                <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <ArrowRightLeft className="text-blue-400" />
-                        Substitution - {teamName}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition">
-                        <X size={24} />
-                    </button>
-                </div>
+    // เมื่อกดยืนยันในหน้า Confirm จึงจะทำการเปลี่ยนตัวและปิดหน้าต่างทั้งหมด
+    const finalizeSubstitution = () => {
+        onConfirm(selectedPlayerIn, isExceptional, localPosIndex, localPlayerOut);
+        setIsConfirmStep(false);
+        onClose();
+    };
 
-                <div className="p-6 flex gap-6 h-[450px]">
-                    {/* ด้านซ้าย: Player OUT */}
-                    <div className="w-1/3 flex flex-col items-center justify-center bg-slate-800 border border-slate-700 rounded-xl p-4 relative">
-                        <span className="text-red-400 font-bold uppercase mb-2 tracking-widest text-sm">Player Out</span>
-                        <div className="w-24 h-24 rounded-full bg-red-600 flex items-center justify-center text-4xl font-black text-white shadow-lg mb-4">
-                            {playerOut?.number || (typeof playerOut === 'string' || typeof playerOut === 'number' ? '?' : '?')}
-                        </div>
-                        <div className="text-center mb-6">
-                            <p className="text-white font-bold text-lg">
-                                {playerOut?.first_name || playerOut?.firstname || playerOut?.name || (playerOut?.number ? `Athlete #${playerOut.number}` : (typeof playerOut === 'string' || typeof playerOut === 'number' ? `Athlete ID: ${playerOut}` : 'Unknown'))}
-                            </p>
-                            <p className="text-slate-400 text-sm">Position {posIndex + 1}</p>
-                        </div>
 
-                        {/* Toggle กรณีพิเศษ */}
-                        <div className="absolute bottom-4 left-4 right-4 bg-red-950/40 border border-red-900 p-3 rounded-lg flex items-start gap-3 cursor-pointer hover:bg-red-900/50 transition" onClick={() => setIsExceptional(!isExceptional)}>
-                            <input type="checkbox" checked={isExceptional} readOnly className="mt-1 w-4 h-4 accent-red-600" />
-                            <div className="text-left select-none">
-                                <p className="text-red-400 font-bold text-xs uppercase flex items-center gap-1"><ShieldAlert size={14}/> Exceptional Sub</p>
-                                <p className="text-[10px] text-red-300 mt-0.5 leading-tight">กรณีบาดเจ็บ/ให้ออก (ไม่นับ 6 ครั้ง)</p>
-                            </div>
+
+    // ==========================================
+    // 🌟 หน้า 2: หน้าต่าง Confirm Substitution (Modern Preview)
+    // ==========================================
+    if (isConfirmStep) {
+        return (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300">
+                <div className="bg-white rounded-3xl shadow-2xl w-[500px] overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+                    
+                    {/* Header */}
+                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                        <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Confirm Substitution</span>
+                        <div className="flex gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full bg-slate-200"></div>
+                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
                         </div>
                     </div>
 
-                    {/* ด้านขวา: Player IN */}
-                    <div className="flex-1 flex flex-col">
-                        <div className="flex justify-between items-end mb-2">
-                            <span className="text-green-400 font-bold uppercase tracking-widest text-sm text-center">Select Player In</span>
-                            <span className="text-xs font-bold px-2 py-1 bg-slate-800 rounded text-slate-300">
-                                Sub: <span className={subTracker?.count >= 6 ? "text-red-400" : "text-white"}>{subTracker?.count || 0}/6</span>
-                            </span>
-                        </div>
-                        
-                        <div className={`border p-3 rounded-lg mb-4 flex items-start gap-2 text-sm ${isError && !isExceptional ? 'bg-red-900/20 border-red-900/50 text-red-400' : isExceptional ? 'bg-orange-900/20 border-orange-900/50 text-orange-400' : 'bg-blue-900/20 border-blue-900/50 text-blue-300'}`}>
-                            <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                            <p>{ruleMessage}</p>
+                    <div className="p-8 flex flex-col items-center">
+                        <h2 className="text-2xl font-black text-slate-900 mb-8 tracking-tight uppercase text-center">{teamName}</h2>
+
+                        <div className="w-full flex items-center justify-between gap-4 relative py-4">
+                            
+                            {/* OUT PLAYER CARD */}
+                            <div className="flex-1 flex flex-col items-center">
+                                <div className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter mb-2">Player Out</div>
+                                <div className="w-full aspect-[3/4] bg-rose-50 rounded-2xl border-2 border-rose-100 flex flex-col items-center justify-center relative overflow-hidden shadow-sm group">
+                                    <div className="absolute top-2 left-2 p-1.5 bg-rose-500 rounded-lg text-white">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                                    </div>
+                                    <span className="text-6xl font-black text-rose-600 mb-1 leading-none">{localPlayerOut?.number}</span>
+                                    <span className="text-xs font-bold text-rose-700 px-3 truncate w-full text-center">{localPlayerOut?.first_name || localPlayerOut?.name}</span>
+                                </div>
+                            </div>
+
+                            {/* VS/ARROW AREA */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold shadow-inner">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20"/></svg>
+                                </div>
+                            </div>
+
+                            {/* IN PLAYER CARD */}
+                            <div className="flex-1 flex flex-col items-center">
+                                <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter mb-2">Player In</div>
+                                <div className="w-full aspect-[3/4] bg-emerald-50 rounded-2xl border-2 border-emerald-100 flex flex-col items-center justify-center relative overflow-hidden shadow-sm group">
+                                    <div className="absolute top-2 right-2 p-1.5 bg-emerald-500 rounded-lg text-white">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                                    </div>
+                                    <span className="text-6xl font-black text-emerald-600 mb-1 leading-none">{selectedPlayerIn?.number}</span>
+                                    <span className="text-xs font-bold text-emerald-700 px-3 truncate w-full text-center">{selectedPlayerIn?.first_name || selectedPlayerIn?.name}</span>
+                                </div>
+                            </div>
+
                         </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-2 gap-3 pr-2 content-start">
-                            {eligibleBenchPlayers.length > 0 ? (
-                                eligibleBenchPlayers.map(p => (
-                                    <button
-                                        key={p.id} onClick={() => setSelectedPlayerIn(p)}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                                            selectedPlayerIn?.id === p.id 
-                                            ? 'bg-green-600 border-green-400 text-white shadow-[0_0_15px_rgba(22,163,74,0.5)]' 
-                                            : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-400'
+                        {/* EXCEPTIONAL BADGE */}
+                        {isExceptional && (
+                            <div className="mt-4 px-4 py-1.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-widest border border-amber-100 flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                                Exceptional Substitution
+                            </div>
+                        )}
+
+                        {/* ACTION BUTTONS */}
+                        <div className="flex gap-3 mt-10 w-full">
+                            <button 
+                                onClick={finalizeSubstitution} 
+                                className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                Confirm
+                            </button>
+                            <button 
+                                onClick={() => setIsConfirmStep(false)} 
+                                className="px-8 h-14 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95"
+                            >
+                                Back
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+
+    // ==========================================
+    // 🌟 หน้า 1: หน้าต่างเลือกนักกีฬา (Selection)
+    // ==========================================
+    return (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl w-[900px] h-[650px] overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-300">
+                
+                {/* Modern Header Bar */}
+                <div className="bg-white px-8 py-6 flex justify-between items-center shrink-0 border-b border-slate-50">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20"/></svg>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">Substitution</h3>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{teamName || 'Select Team'}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-all flex items-center justify-center"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div className="flex-1 flex overflow-hidden p-6 gap-6">
+                    
+                    {/* LEFT PANEL: COURT (OUT) */}
+                    <div className="flex-1 flex flex-col">
+                        <div className="flex items-center justify-between mb-4 px-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                                </div>
+                                <span className="font-black text-slate-900 text-sm uppercase tracking-wider">Out</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Players on Court</span>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 gap-2">
+                            {currentLineup.map((p, idx) => {
+                                if (!p) return null;
+                                const isSelected = idx === localPosIndex;
+                                
+                                return (
+                                    <button 
+                                        key={idx}
+                                        onClick={() => {
+                                            setLocalPosIndex(idx);
+                                            setLocalPlayerOut(p);
+                                        }}
+                                        className={`group relative flex items-center p-3 rounded-2xl border-2 transition-all duration-200 text-left ${
+                                            isSelected 
+                                            ? 'bg-rose-500 border-rose-500 shadow-lg shadow-rose-200' 
+                                            : 'bg-white border-slate-100 hover:border-rose-200 hover:shadow-md'
                                         }`}
                                     >
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                                            selectedPlayerIn?.id === p.id ? 'bg-white text-green-700' : 'bg-slate-700 text-white'
-                                        }`}>{p.number}</div>
-                                        <div className="text-left flex-1 overflow-hidden">
-                                            <div className="font-bold truncate">{p.first_name || p.firstname || p.name || `Athlete #${p.number}`}</div>
-                                            <div className="text-xs opacity-70 truncate">{p.lastname || ''}</div>
+                                        <div className={`w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center shrink-0 transition-colors ${
+                                            isSelected ? 'bg-white text-rose-600' : 'bg-slate-50 text-slate-900 group-hover:bg-rose-50 group-hover:text-rose-600'
+                                        }`}>
+                                            {p.number}
                                         </div>
+                                        <div className="ml-4 flex-1 truncate">
+                                            <div className={`font-bold text-sm leading-none truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                                                {p.first_name || p.name}
+                                            </div>
+                                            
+                                        </div>
+                                        {p.isCaptain && (
+                                            <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border shrink-0 ${
+                                                isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-amber-50 border-amber-200 text-amber-600'
+                                            }`}>C</div>
+                                        )}
                                     </button>
-                                ))
-                            ) : (
-                                <div className="col-span-2 flex items-center justify-center h-full text-slate-500 italic">
-                                    {isError && !isExceptional ? "ไม่สามารถเปลี่ยนตัวตามปกติได้ กรุณาใช้กรณีพิเศษหากมีผู้เล่นบาดเจ็บ" : "ไม่มีผู้เล่นสำรองที่ถูกกติกา"}
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* MIDDLE DIVIDER */}
+                    <div className="w-px bg-slate-50 relative flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-white border border-slate-100 text-slate-300 flex items-center justify-center absolute">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20"/></svg>
+                        </div>
+                    </div>
+
+                    {/* RIGHT PANEL: BENCH (IN) */}
+                    <div className="flex-1 flex flex-col">
+                        <div className="flex items-center justify-between mb-4 px-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
                                 </div>
+                                <span className="font-black text-slate-900 text-sm uppercase tracking-wider">In</span>
+                            </div>
+                            
+                            <label className="group flex items-center gap-2 cursor-pointer">
+                                <span className="text-[10px] font-bold text-slate-400 group-hover:text-amber-500 transition-colors uppercase tracking-widest">Exceptional</span>
+                                <div className="relative inline-flex items-center">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={isExceptional} 
+                                        onChange={() => setIsExceptional(!isExceptional)}
+                                        className="sr-only"
+                                    />
+                                    <div className={`w-8 h-4 rounded-full transition-colors ${isExceptional ? 'bg-amber-500' : 'bg-slate-200'}`}></div>
+                                    <div className={`absolute w-3 h-3 bg-white rounded-full transition-transform shadow-sm transform ${isExceptional ? 'translate-x-4' : 'translate-x-1'}`}></div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 gap-2">
+                            {isError && !isExceptional ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                                    <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-3">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    </div>
+                                    <div className="text-xs font-bold text-slate-600 uppercase mb-1">Rule Violation</div>
+                                    <div className="text-[10px] font-medium text-slate-400">{ruleMessage}</div>
+                                </div>
+                            ) : (
+                                <>
+                                    {eligibleBenchPlayers.map((p) => {
+                                        const isLib = p.isLibero;
+                                        const isSelected = selectedPlayerIn?.id === (p.id || p.player_id);
+
+                                        return (
+                                            <button
+                                                key={p.id || p.number}
+                                                onClick={() => setSelectedPlayerIn(p)}
+                                                className={`group relative flex items-center p-3 rounded-2xl border-2 transition-all duration-200 text-left ${
+                                                    isSelected 
+                                                    ? 'bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-200' 
+                                                    : isLib ? 'bg-amber-50 border-amber-100 hover:border-amber-300' : 'bg-white border-slate-100 hover:border-emerald-200 hover:shadow-md'
+                                                }`}
+                                            >
+                                                <div className={`w-10 h-10 rounded-xl font-black text-lg flex items-center justify-center shrink-0 transition-colors ${
+                                                    isSelected 
+                                                    ? 'bg-white text-emerald-600' 
+                                                    : isLib ? 'bg-amber-400 text-white' : 'bg-slate-50 text-slate-900 group-hover:bg-emerald-50 group-hover:text-emerald-600'
+                                                }`}>
+                                                    {p.number}
+                                                </div>
+                                                <div className="ml-4 flex-1 truncate">
+                                                    <div className={`font-bold text-sm leading-none truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                                                        {p.first_name || p.name}
+                                                    </div>
+                                                </div>
+                                                {isLib && (
+                                                    <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border shrink-0 ${
+                                                        isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                                                    }`}>L</div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                    {eligibleBenchPlayers.length === 0 && (
+                                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-2 opacity-20"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                                            <div className="text-xs font-bold uppercase tracking-widest">No Players</div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-slate-800 bg-slate-900 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2 rounded-lg font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition">Cancel</button>
-                    <button onClick={handleConfirm} disabled={!selectedPlayerIn} className="px-8 py-2 rounded-lg font-bold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
-                        <ArrowRightLeft size={18} /> Confirm {isExceptional ? 'Exceptional Sub' : 'Sub'}
-                    </button>
+                {/* PREMIUM FOOTER */}
+                <div className="bg-slate-50 px-10 py-8 flex items-center justify-between gap-6">
+                    <div className="flex-1 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-300">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-xs font-bold text-slate-900 leading-tight">Need assistance?</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Select an active player on the left and a replacement from the bench on the right.</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={onClose}
+                            className="px-8 h-14 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-2xl border border-slate-200 transition-all active:scale-95"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleRunSubstitution}
+                            disabled={!selectedPlayerIn}
+                            className={`px-10 h-14 font-black rounded-2xl shadow-lg transition-all active:scale-95 flex items-center gap-2 ${
+                                selectedPlayerIn 
+                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100' 
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                            }`}
+                        >
+                            Proceed to Preview
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
                 </div>
+
             </div>
         </div>
     );

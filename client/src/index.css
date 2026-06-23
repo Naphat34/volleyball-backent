@@ -1,10 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Anuphan:wght@100..700&family=Playpen+Sans+Thai:wght@100..800&family=Prompt:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&family=Rubik:ital,wght@0,300..900;1,300..900&family=Sarabun:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anuphan:wght@100..700&family=Prompt:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Rubik:ital,wght@0,300..900;1,300..900&family=Sarabun:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* เปลี่ยน font-sans เริ่มต้นให้เป็น Prompt */
-  --font-sans: "Anuphan", "Sarabun", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Anuphan", "Prompt", "Sarabun", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Anuphan", sans-serif;
+  --font-mono: "Rubik", "ui-monospace", monospace;
+}
+
+@layer base {
+  body {
+    @apply font-sans;
+  }
+}
+@media print {
+  /* ซ่อนทุกอย่างยกเว้น ID #o2-form */
+  body * {
+    visibility: hidden;
+  }
+  #o2-form, #o2-form * {
+    visibility: visible;
+  }
+  #o2-form {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block !important; /* บังคับให้แสดงผลตอนพิมพ์ */
+  }
   
-  /* หรือสร้างคลาสใหม่ เช่น font-display */
-  --font-display: "Playpen Sans Thai", sans-serif;
+  /* ตั้งค่าหน้ากระดาษ A4 */
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
 }

@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
-import { Users, Shield, User, Eye, X, CheckCircle, Briefcase, Plus, Edit2, Trash2, Save } from 'lucide-react';
+import { Users, Shield, User, Eye, X, CheckCircle, Briefcase } from 'lucide-react';
 import { Toast, EmptyState, DetailItem, Input, Button } from './AdminShared';
 import Swal from 'sweetalert2';
 
-export default function PlayerViewTab({ darkMode }) {
+export default function PlayerViewTab() {
     const [competitions, setCompetitions] = useState([]);
     const [registeredTeams, setRegisteredTeams] = useState([]);
     const [teamPlayers, setTeamPlayers] = useState([]);
     const [teamStaff, setTeamStaff] = useState([]);
-    
+
     // New states for filtering
     const [uniqueBaseNames, setUniqueBaseNames] = useState([]);
     const [selectedBaseName, setSelectedBaseName] = useState('');
@@ -19,13 +19,7 @@ export default function PlayerViewTab({ darkMode }) {
     const [selectedTeamId, setSelectedTeamId] = useState('');
     const [viewingPlayer, setViewingPlayer] = useState(null);
 
-    // Player Management State
-    const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
-    const [editingPlayerId, setEditingPlayerId] = useState(null);
-    const [playerForm, setPlayerForm] = useState({
-        number: '', first_name: '', last_name: '', nickname: '', position: 'OH',
-        height_cm: '', weight: '', birth_date: '', nationality: '', photo: '', gender: 'Male', is_captain: false
-    });
+
 
     // Initial Load
     useEffect(() => {
@@ -33,7 +27,7 @@ export default function PlayerViewTab({ darkMode }) {
             try {
                 const res = await api.getAllCompetitions();
                 setCompetitions(res.data.filter(c => c.status?.toLowerCase() === 'open'));
-                
+
                 const bases = new Set();
                 res.data.forEach(c => {
                     const rawTitle = c.title || c.name || '';
@@ -66,13 +60,17 @@ export default function PlayerViewTab({ darkMode }) {
 
             const allGenders = relatedComps.flatMap(c => c.gender ? c.gender.split(',') : []);
             const uniqueGenders = [...new Set(allGenders)].filter(Boolean).sort();
-            setAvailableGenders(uniqueGenders);
 
-            if (uniqueGenders.length > 0 && !uniqueGenders.includes(filterGender) && filterGender !== 'All') {
-                setFilterGender('All');
-            }
+            const timeout = setTimeout(() => {
+                setAvailableGenders(uniqueGenders);
+
+                if (uniqueGenders.length > 0 && !uniqueGenders.includes(filterGender) && filterGender !== 'All') {
+                    setFilterGender('All');
+                }
+            }, 0);
+            return () => clearTimeout(timeout);
         }
-    }, [selectedBaseName, competitions]);
+    }, [selectedBaseName, competitions, filterGender]);
 
     // Load Teams when Competition or Gender filter changes
     useEffect(() => {
@@ -114,20 +112,13 @@ export default function PlayerViewTab({ darkMode }) {
             }
         };
 
-        fetchTeams();
+        const timeout = setTimeout(() => {
+            fetchTeams();
+        }, 0);
+        return () => clearTimeout(timeout);
     }, [selectedBaseName, filterGender, competitions]);
 
-    // Load Players when Team Changes
-    useEffect(() => {
-        if(selectedTeamId) {
-            fetchTeamData (selectedTeamId);
-        } else {
-            setTeamPlayers([]);
-            setTeamStaff([]);
-        }
-    }, [selectedTeamId]);
-
-    const fetchTeamData = async (teamId) => {
+    const fetchTeamData = useCallback(async (teamId) => {
         try {
             const [resPlayers, resStaff] = await Promise.all([
                 api.getPlayersByTeam(teamId),
@@ -139,71 +130,35 @@ export default function PlayerViewTab({ darkMode }) {
             console.error("Fetch Team Data Error:", err);
             Toast.fire({ icon: 'error', title: 'Could not load team data' });
         }
-    };
+    }, []);
 
-    // Handlers for Player Management
-    const handleAddPlayer = () => {
-        setEditingPlayerId(null);
-        setPlayerForm({
-            number: '', first_name: '', last_name: '', nickname: '', position: 'OH',
-            height_cm: '', weight: '', birth_date: '', nationality: '', photo: '', gender: 'Male', is_captain: false
-        });
-        setIsPlayerModalOpen(true);
-    };
-
-    const handleEditPlayer = (p) => {
-        setEditingPlayerId(p.id);
-        setPlayerForm({
-            number: p.number || '', first_name: p.first_name || '', last_name: p.last_name || '', nickname: p.nickname || '',
-            position: p.position || 'OH', height_cm: p.height_cm || '', weight: p.weight || '',
-            birth_date: p.birth_date ? p.birth_date.split('T')[0] : '', nationality: p.nationality || '',
-            photo: p.photo || '', gender: p.gender || 'Male', is_captain: p.is_captain || false
-        });
-        setIsPlayerModalOpen(true);
-    };
-
-    const handleDeletePlayer = async (id) => {
-        const result = await Swal.fire({
-            title: 'Are you sure?', text: "You won't be able to revert this!", icon: 'warning',
-            showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Yes, delete it!'
-        });
-
-        if (result.isConfirmed) {
-            try {
-                await api.deletePlayerAdmin(id);
-                Toast.fire({ icon: 'success', title: 'Player deleted' });
+    // Load Players when Team Changes
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (selectedTeamId) {
                 fetchTeamData(selectedTeamId);
-            } catch (err) {
-                Toast.fire({ icon: 'error', title: 'Failed to delete player' });
+            } else {
+                setTeamPlayers([]);
+                setTeamStaff([]);
             }
-        }
-    };
+        }, 0);
+        return () => clearTimeout(timeout);
+    }, [selectedTeamId, fetchTeamData]);
 
-    const handlePlayerSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (editingPlayerId) await api.updatePlayerAdmin(editingPlayerId, playerForm);
-            else await api.addPlayerAdmin(selectedTeamId, playerForm);
-            Toast.fire({ icon: 'success', title: editingPlayerId ? 'Player updated' : 'Player added' });
-            setIsPlayerModalOpen(false);
-            fetchTeamData(selectedTeamId);
-        } catch (err) {
-            Toast.fire({ icon: 'error', title: err.response?.data?.error || 'Failed to save player' });
-        }
-    };
+
 
     return (
         <div className="space-y-6">
             {/* Filters */}
-            <div className={`p-6 rounded-xl shadow-sm border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+            <div className="p-6 rounded-xl shadow-sm border bg-white border-gray-100">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Competition Dropdown */}
                     <div>
-                        <label className={`block text-xs font-bold uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Competition</label>
-                        <select 
-                            value={selectedBaseName} 
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Competition</label>
+                        <select
+                            value={selectedBaseName}
                             onChange={(e) => setSelectedBaseName(e.target.value)}
-                            className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                            className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
                             <option value="">-- Choose Competition --</option>
                             {uniqueBaseNames.map(name => <option key={name} value={name}>{name}</option>)}
@@ -212,19 +167,19 @@ export default function PlayerViewTab({ darkMode }) {
 
                     {/* Gender Filter */}
                     <div>
-                        <label className={`block text-xs font-bold uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gender</label>
-                        <div className={`flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 h-[46px] items-center`}>
-                            <button 
-                                onClick={() => setFilterGender('All')} 
-                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition w-full ${filterGender === 'All' ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gender</label>
+                        <div className="flex bg-gray-50 border border-gray-200 shadow-sm rounded-lg p-1 h-[42px] items-center">
+                            <button
+                                onClick={() => setFilterGender('All')}
+                                className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === 'All' ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
                             >
                                 All
                             </button>
                             {availableGenders.map(g => (
-                                <button 
-                                    key={g} 
-                                    onClick={() => setFilterGender(g)} 
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition w-full ${filterGender === g ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                                <button
+                                    key={g}
+                                    onClick={() => setFilterGender(g)}
+                                    className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === g ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
                                 >
                                     {g}
                                 </button>
@@ -234,12 +189,12 @@ export default function PlayerViewTab({ darkMode }) {
 
                     {/* Team Dropdown */}
                     <div>
-                        <label className={`block text-xs font-bold uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Team</label>
-                        <select 
-                            value={selectedTeamId} 
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Team</label>
+                        <select
+                            value={selectedTeamId}
                             onChange={(e) => setSelectedTeamId(e.target.value)}
                             disabled={!selectedBaseName || registeredTeams.length === 0}
-                            className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                            className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
                             <option value="">-- Choose Team --</option>
                             {registeredTeams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
@@ -249,60 +204,54 @@ export default function PlayerViewTab({ darkMode }) {
             </div>
 
             {/* Player List */}
-            <div className={`rounded-xl shadow-sm border overflow-hidden mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? 'bg-gray-700/50 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
-                    <h3 className="font-bold flex items-center gap-2"><Users size={18} className="text-gray-400"/> Player List</h3>
-                    <span className="text-xs font-bold px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">{teamPlayers.length} Players</span>
-                    {selectedTeamId && (
-                        <button onClick={handleAddPlayer} className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
-                            <Plus size={14} />
-                            Add Player
-                        </button>
-                    )}
+            <div className="rounded-xl shadow-sm border overflow-hidden mb-6 bg-white border-gray-200">
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/80 backdrop-blur-sm border-gray-100">
+                    <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Users size={18} className="text-gray-400" /> Player List</h3>
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-indigo-700 border border-blue-100">{teamPlayers.length} Players</span>
                 </div>
 
                 {!selectedTeamId ? (
-                    <EmptyState text="Please select a team to view roster." darkMode={darkMode} />
+                    <EmptyState text="Please select a team to view roster." />
                 ) : teamPlayers.length === 0 ? (
-                    <EmptyState text="No players found in this team." darkMode={darkMode} />
+                    <EmptyState text="No players found in this team." />
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                            <thead className={darkMode ? 'bg-gray-700/50 text-gray-300' : 'bg-gray-50 text-gray-500'}>
+                            <thead className="bg-gray-50/80 backdrop-blur-sm text-gray-500">
                                 <tr>
-                                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">No.</th>
-                                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Position</th>
-                                    <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider">Actions</th>
+                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">No.</th>
+                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Name</th>
+                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Position</th>
+                                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
+                            <tbody className="divide-y divide-gray-100">
                                 {teamPlayers.map(p => (
-                                    <tr key={p.id} className={`transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
-                                        <td className="px-6 py-4 font-mono font-bold text-indigo-500">{p.number}</td>
+                                    <tr key={p.id} className="transition hover:bg-gray-50">
+                                        <td className="px-6 py-4 font-mono font-medium text-gray-900 text-lg">{p.number}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
-                                                    {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover"/> : <User className="w-full h-full p-1 text-gray-400"/>}
+                                                <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">
+                                                    {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-full h-full p-2 text-gray-400" />}
                                                 </div>
-                                                <div className="font-medium">
+                                                <div className="font-medium text-gray-900">
                                                     {p.first_name} {p.last_name}
-                                                    {p.is_captain && <span className="ml-2 text-[10px] bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full font-bold">C</span>}
+                                                    {p.is_captain && <span className="ml-2 text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-full font-bold" title="Captain">C</span>}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold border border-blue-100">{p.position}</span></td>
+                                        <td className="px-6 py-4"><span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium border border-blue-100">{p.position}</span></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => setViewingPlayer(p)} className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition" title="View Details">
+                                                <button onClick={() => setViewingPlayer(p)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="View Details">
                                                     <Eye size={16} />
                                                 </button>
-                                                <button onClick={() => handleEditPlayer(p)} className="p-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg transition" title="Edit">
+                                                {/* <button onClick={() => handleEditPlayer(p)} className="p-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg transition" title="Edit">
                                                     <Edit2 size={16} />
                                                 </button>
                                                 <button onClick={() => handleDeletePlayer(p.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition" title="Delete">
                                                     <Trash2 size={16} />
-                                                </button>
+                                                </button> */}
                                             </div>
                                         </td>
                                     </tr>
@@ -315,28 +264,28 @@ export default function PlayerViewTab({ darkMode }) {
 
             {/* Staff List */}
             {selectedTeamId && (
-                <div className={`rounded-xl shadow-sm border overflow-hidden ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                    <div className={`px-6 py-4 border-b flex justify-between items-center ${darkMode ? 'bg-gray-700/50 border-gray-700' : 'bg-gray-50/50 border-gray-100'}`}>
-                        <h3 className="font-bold flex items-center gap-2"><Briefcase size={18} className="text-gray-400"/> Staff List</h3>
-                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">{teamStaff.length} Staff</span>
+                <div className="rounded-xl shadow-sm border overflow-hidden bg-white border-gray-200">
+                    <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/80 backdrop-blur-sm border-gray-100">
+                        <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Briefcase size={18} className="text-gray-400" /> Staff List</h3>
+                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-indigo-700 border border-blue-100">{teamStaff.length} Staff</span>
                     </div>
 
                     {teamStaff.length === 0 ? (
-                        <EmptyState text="No staff members found in this team." darkMode={darkMode} />
+                        <EmptyState text="No staff members found in this team." />
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
-                                <thead className={darkMode ? 'bg-gray-700/50 text-gray-300' : 'bg-gray-50 text-gray-500'}>
+                                <thead className="bg-gray-50/80 backdrop-blur-sm text-gray-500">
                                     <tr>
-                                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Name</th>
-                                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Role</th>
+                                        <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Role</th>
                                     </tr>
                                 </thead>
-                                <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
+                                <tbody className="divide-y divide-gray-100">
                                     {teamStaff.map(s => (
-                                        <tr key={s.id} className={`transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
-                                            <td className="px-6 py-4 font-medium">{s.first_name} {s.last_name}</td>
-                                            <td className="px-6 py-4"><span className="px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs font-bold border border-purple-100">{s.role}</span></td>
+                                        <tr key={s.id} className="transition hover:bg-gray-50">
+                                            <td className="px-6 py-4 font-medium text-gray-900">{s.first_name} {s.last_name}</td>
+                                            <td className="px-6 py-4"><span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium border border-purple-100">{s.role}</span></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -348,23 +297,23 @@ export default function PlayerViewTab({ darkMode }) {
 
             {/* Modal: View Player */}
             {viewingPlayer && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-                    <div className={`relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'}`}>
-                        
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col bg-white text-gray-900">
+
                         {/* Header Background with Profile Image */}
-                        <div className="relative h-32 bg-gradient-to-r from-indigo-600 to-purple-600">
-                            <button 
-                                onClick={() => setViewingPlayer(null)} 
-                                className="absolute top-4 right-4 text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition z-10"
+                        <div className="relative h-32 bg-gray-100 border-b border-gray-200">
+                            <button
+                                onClick={() => setViewingPlayer(null)}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 hover:bg-gray-200 p-2 rounded-full transition z-10"
                             >
-                                <X size={20}/>
+                                <X size={20} />
                             </button>
                             <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
-                                <div className={`w-32 h-32 rounded-full border-4 shadow-xl overflow-hidden flex items-center justify-center ${darkMode ? 'border-gray-900 bg-gray-800' : 'border-white bg-gray-100'}`}>
+                                <div className="w-32 h-32 rounded-full border-4 shadow-xl overflow-hidden flex items-center justify-center border-white bg-gray-50">
                                     {viewingPlayer.photo ? (
-                                        <img src={viewingPlayer.photo} alt="Player" className="w-full h-full object-cover"/>
+                                        <img src={viewingPlayer.photo} alt="Player" className="w-full h-full object-cover" />
                                     ) : (
-                                        <User size={64} className="text-gray-400"/>
+                                        <User size={64} className="text-gray-400" />
                                     )}
                                 </div>
                             </div>
@@ -372,50 +321,50 @@ export default function PlayerViewTab({ darkMode }) {
 
                         {/* Content */}
                         <div className="pt-20 pb-8 px-8 flex flex-col items-center">
-                            
+
                             {/* Name & Team */}
                             <div className="text-center mb-6">
-                                <h2 className="text-2xl font-black tracking-tight mb-1">
+                                <h2 className="text-2xl font-semibold tracking-tight mb-1">
                                     {viewingPlayer.first_name} {viewingPlayer.last_name}
                                 </h2>
-                                <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                                    <Shield size={14} className="text-indigo-500"/>
+                                <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-500">
+                                    <Shield size={14} className="text-blue-600" />
                                     <span>{registeredTeams.find(t => t.id === selectedTeamId)?.name || 'Unknown Team'}</span>
                                 </div>
                             </div>
 
                             {/* Badges (Captain / Position) */}
                             <div className="flex gap-3 mb-8">
-                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 uppercase tracking-wider">
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-indigo-700 border border-blue-200 uppercase tracking-wider">
                                     {viewingPlayer.position || 'N/A'}
                                 </span>
-                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 font-mono">
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200 font-mono">
                                     #{viewingPlayer.number}
                                 </span>
                                 {viewingPlayer.is_captain && (
-                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700 flex items-center gap-1">
-                                        <CheckCircle size={12}/> Captain
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 flex items-center gap-1">
+                                        <CheckCircle size={12} /> Captain
                                     </span>
                                 )}
                             </div>
 
                             {/* Stats Grid */}
                             <div className="w-full grid grid-cols-2 gap-4">
-                                <div className={`p-4 rounded-2xl border text-center ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-                                    <div className="text-xs text-gray-500 uppercase font-bold mb-1">Height</div>
-                                    <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">
-                                        {viewingPlayer.height_cm ? `${viewingPlayer.height_cm}` : '-'} <span className="text-sm text-gray-400 font-normal">cm</span>
+                                <div className="p-4 rounded-xl border text-center bg-gray-50/50 border-gray-100">
+                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Height</div>
+                                    <div className="text-xl font-semibold text-gray-900">
+                                        {viewingPlayer.height_cm ? `${viewingPlayer.height_cm}` : '-'} <span className="text-sm text-gray-400 font-medium">cm</span>
                                     </div>
                                 </div>
-                                <div className={`p-4 rounded-2xl border text-center ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-                                    <div className="text-xs text-gray-500 uppercase font-bold mb-1">Weight</div>
-                                    <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">
-                                        {viewingPlayer.weight ? `${viewingPlayer.weight}` : '-'} <span className="text-sm text-gray-400 font-normal">kg</span>
+                                <div className="p-4 rounded-xl border text-center bg-gray-50/50 border-gray-100">
+                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Weight</div>
+                                    <div className="text-xl font-semibold text-gray-900">
+                                        {viewingPlayer.weight ? `${viewingPlayer.weight}` : '-'} <span className="text-sm text-gray-400 font-medium">kg</span>
                                     </div>
                                 </div>
-                                <div className={`p-4 rounded-2xl border text-center col-span-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-                                    <div className="text-xs text-gray-500 uppercase font-bold mb-1">Date of Birth</div>
-                                    <div className="text-lg font-bold">
+                                <div className="p-4 rounded-xl border text-center col-span-2 bg-gray-50/50 border-gray-100">
+                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Date of Birth</div>
+                                    <div className="text-lg font-semibold text-gray-900">
                                         {viewingPlayer.birth_date ? new Date(viewingPlayer.birth_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
                                     </div>
                                 </div>
@@ -426,64 +375,7 @@ export default function PlayerViewTab({ darkMode }) {
                 </div>
             )}
 
-            {/* Modal: Add/Edit Player */}
-            {isPlayerModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
-                        <div className="px-6 py-4 border-b flex justify-between items-center dark:border-gray-700">
-                            <h3 className="font-bold text-lg">{editingPlayerId ? 'Edit Player' : 'Add New Player'}</h3>
-                            <button onClick={() => setIsPlayerModalOpen(false)}><X size={20} /></button>
-                        </div>
-                        <form onSubmit={handlePlayerSubmit} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Number" value={playerForm.number} onChange={e => setPlayerForm({...playerForm, number: e.target.value})} required darkMode={darkMode} />
-                                <div>
-                                    <label className={`block text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Position</label>
-                                    <select value={playerForm.position} onChange={e => setPlayerForm({...playerForm, position: e.target.value})} className={`w-full px-3 py-2 border rounded-lg outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}>
-                                        {['OH', 'OPP', 'S', 'MB', 'L'].map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="First Name" value={playerForm.first_name} onChange={e => setPlayerForm({...playerForm, first_name: e.target.value})} required darkMode={darkMode} />
-                                <Input label="Last Name" value={playerForm.last_name} onChange={e => setPlayerForm({...playerForm, last_name: e.target.value})} required darkMode={darkMode} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Nickname" value={playerForm.nickname} onChange={e => setPlayerForm({...playerForm, nickname: e.target.value})} darkMode={darkMode} />
-                                <Input label="Nationality" value={playerForm.nationality} onChange={e => setPlayerForm({...playerForm, nationality: e.target.value})} darkMode={darkMode} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label="Height (cm)" type="number" value={playerForm.height_cm} onChange={e => setPlayerForm({...playerForm, height_cm: e.target.value})} darkMode={darkMode} />
-                                <Input label="Weight (kg)" type="number" value={playerForm.weight} onChange={e => setPlayerForm({...playerForm, weight: e.target.value})} darkMode={darkMode} />
-                            </div>
-                            <Input label="Date of Birth" type="date" value={playerForm.birth_date} onChange={e => setPlayerForm({...playerForm, birth_date: e.target.value})} required darkMode={darkMode} />
-                            <Input label="Photo URL" value={playerForm.photo} onChange={e => setPlayerForm({...playerForm, photo: e.target.value})} darkMode={darkMode} />
-                            
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" id="is_captain" checked={playerForm.is_captain} onChange={e => setPlayerForm({...playerForm, is_captain: e.target.checked})} className="w-4 h-4" />
-                                    <label htmlFor="is_captain" className={`text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Captain</label>
-                                </div>
-                                <div className="flex gap-4 ml-auto">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="gender" value="Male" checked={playerForm.gender === 'Male'} onChange={e => setPlayerForm({...playerForm, gender: e.target.value})} />
-                                        <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Male</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="gender" value="Female" checked={playerForm.gender === 'Female'} onChange={e => setPlayerForm({...playerForm, gender: e.target.value})} />
-                                        <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Female</span>
-                                    </label>
-                                </div>
-                            </div>
 
-                            <div className="pt-2 flex justify-end gap-2">
-                                <button type="button" onClick={() => setIsPlayerModalOpen(false)} className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 font-bold">Cancel</button>
-                                <Button type="submit" label={editingPlayerId ? "Update" : "Add Player"} icon={<Save size={18}/>} />
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

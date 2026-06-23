@@ -1,5 +1,6 @@
 import React from 'react';
-import { Calendar, MapPin, Swords, Edit2, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Swords, Edit2, Trash2, FileText } from 'lucide-react';
+import Swal from 'sweetalert2';
 import TeamLogoDisplay from './TeamLogoDisplay';
 import { EmptyState } from '../pages/AdminShared';
 import { formatThaiDate, formatThaiTime } from '../utils';
@@ -7,9 +8,8 @@ import { formatThaiDate, formatThaiTime } from '../utils';
 const MatchList = ({
     matches,
     darkMode,
-    onEdit,
-    onDelete,
     onScore,
+    onClick,
     isAdmin = false // Default to false (read-only)
 }) => {
 
@@ -19,21 +19,26 @@ const MatchList = ({
 
     return (
         <div className="space-y-3">
-            {matches.map(m => {
+            {matches.map((m, idx) => {
+                if (!m) return null;
                 const isCompleted = m.status === 'completed';
-                const homeWin = isCompleted && Number(m.home_set_score) > Number(m.away_set_score);
-                const awayWin = isCompleted && Number(m.away_set_score) > Number(m.home_set_score);
+                const homeWin = isCompleted && Number(m.home_set_score || 0) > Number(m.away_set_score || 0);
+                const awayWin = isCompleted && Number(m.away_set_score || 0) > Number(m.home_set_score || 0);
 
                 return (
-                    <div key={m.id} className={`p-4 rounded-xl border mb-3 flex flex-col md:flex-row items-center gap-4 transition-all hover:shadow-md ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <div
+                        key={m.id || idx}
+                        onClick={() => onClick && onClick(m)}
+                        className={`p-4 rounded-md border mb-3 flex flex-col md:flex-row items-center gap-4 transition-all hover:shadow-md ${onClick ? 'cursor-pointer' : ''} ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                    >
 
                         {/* 1. Info (Left) - ปรับปรุงใหม่: เพิ่ม Round, Pool, Gender, Time */}
                         <div className="flex flex-col items-center md:items-start w-full md:w-40 shrink-0 gap-1.5 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 pb-2 md:pb-0 md:pr-4">
 
                             {/* บรรทัด 1: เลขแมตช์ และ เพศ */}
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
-                                    #{m.match_number || '-'}
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                                    #{m.match_number ?? '-'}
                                 </span>
                                 {/* แสดงเพศ */}
                                 {m.gender && (
@@ -55,13 +60,17 @@ const MatchList = ({
                             {/* บรรทัด 3: วันที่ และ เวลา (เน้นเวลา) */}
                             <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                 <Calendar size={12} className="mr-1.5 shrink-0" />
-                                {m.start_time ? (
+                                {m.start_time || m.match_date ? (
                                     <div className="flex items-center gap-1">
-                                        <span>{formatThaiDate(m.start_time, { day: 'numeric', month: 'short' })}</span>
-                                        <span className="w-px h-3 bg-gray-300 dark:bg-gray-600 mx-0.5"></span>
-                                        <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                                            {formatThaiTime(m.start_time)}
-                                        </span>
+                                        <span>{formatThaiDate(m.match_date || m.start_time, { day: 'numeric', month: 'short' })}</span>
+                                        {(m.start_time) && (
+                                            <>
+                                                <span className="w-px h-3 bg-gray-300 dark:bg-gray-600 mx-0.5"></span>
+                                                <span className="font-bold text-blue-600 dark:text-indigo-400">
+                                                    {formatThaiTime(m.start_time)}
+                                                </span>
+                                            </>
+                                        )}
                                     </div>
                                 ) : 'TBD'}
                             </div>
@@ -73,11 +82,11 @@ const MatchList = ({
                             </div>
                         </div>
 
-                        {/* 2. Versus Area (Center) - ปรับปรุง: สกอร์ขึ้นก่อน, Completed อยู่ล่างสุด */}
-                        <div className="flex-1 grid grid-cols-7 items-center w-full gap-2">
+                        {/* 2. Versus Area (Center) - Responsive: flex-col on mobile, grid on desktop */}
+                        <div className="flex-1 flex flex-col sm:grid sm:grid-cols-7 items-center w-full gap-3 sm:gap-2">
 
                             {/* Home Team */}
-                            <div className="col-span-3 flex justify-end">
+                            <div className="sm:col-span-3 flex justify-center sm:justify-end w-full">
                                 <TeamLogoDisplay
                                     logo={m.home_team_logo_url}
                                     code={m.home_team_code}
@@ -88,12 +97,12 @@ const MatchList = ({
                             </div>
 
                             {/* Score / VS */}
-                            <div className="col-span-1 flex flex-col items-center justify-center min-w-[80px]">
-                                {(isCompleted || (m.home_set_score || 0) > 0 || (m.away_set_score || 0) > 0) ? (
+                            <div className="sm:col-span-1 flex flex-col items-center justify-center min-w-[80px] w-full">
+                                {(isCompleted || m.status === 'in_progress' || m.home_set_score != null || m.away_set_score != null) ? (
                                     <div className="flex flex-col items-center w-full">
-                                        {/* 1. สกอร์หลัก (Score) - ย้ายขึ้นบนสุด */}
-                                        <div className="text-2xl font-black tracking-widest text-gray-800 dark:text-white leading-none mb-1">
-                                            {m.home_set_score}-{m.away_set_score}
+                                        {/* 1. สกอร์หลัก (Score) */}
+                                        <div className="text-2xl font-semibold tracking-widest text-gray-800 dark:text-white leading-none mb-1">
+                                            {m.home_set_score ?? 0}-{m.away_set_score ?? 0}
                                         </div>
 
                                         {/* 2. คะแนนรายเซต (Set Scores) */}
@@ -108,7 +117,7 @@ const MatchList = ({
                                             </div>
                                         </div>
 
-                                        {/* 3. ป้ายสถานะ (Completed Badge) - ย้ายลงล่างสุด */}
+                                        {/* 3. ป้ายสถานะ (Completed Badge) */}
                                         {isCompleted && (
                                             <div className="flex flex-col items-center gap-1 mt-1">
                                                 <span className="text-[9px] px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 font-bold whitespace-nowrap border border-green-200 dark:border-green-700">
@@ -125,7 +134,7 @@ const MatchList = ({
                             </div>
 
                             {/* Away Team */}
-                            <div className="col-span-3 flex justify-start">
+                            <div className="sm:col-span-3 flex justify-center sm:justify-start w-full">
                                 <TeamLogoDisplay
                                     logo={m.away_team_logo_url}
                                     code={m.away_team_code}
@@ -142,35 +151,24 @@ const MatchList = ({
 
                                 {/* --- ปุ่มเดิม: Manual Score (สีเขียว) --- */}
                                 {onScore && (
-                                    <button
-                                        onClick={() => onScore(m)}
-                                        className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-green-400 hover:bg-green-900/30' : 'text-green-600 hover:bg-green-50'}`}
-                                        title="Manual Edit Result"
-                                    >
-                                        <Swords size={18} />
-                                    </button>
-                                )}
-
-                                {/* ปุ่ม Edit */}
-                                {onEdit && (
-                                    <button
-                                        onClick={() => onEdit(m)}
-                                        className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-blue-400 hover:bg-blue-900/30' : 'text-blue-600 hover:bg-blue-50'}`}
-                                        title="Edit Info"
-                                    >
-                                        <Edit2 size={18} />
-                                    </button>
-                                )}
-
-                                {/* ปุ่ม Delete */}
-                                {onDelete && (
-                                    <button
-                                        onClick={() => onDelete(m.id)}
-                                        className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-red-400 hover:bg-red-900/30' : 'text-red-500 hover:bg-red-50'}`}
-                                        title="Delete"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}`, '_blank'); }}
+                                            className="flex items-center gap-1.5 px-2.5 py-1 mt-0.5 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95"
+                                            title="Official Score Sheet"
+                                        >
+                                            <FileText size={12} />
+                                            Official Score Sheet
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}?view=result`, '_blank'); }}
+                                            className="flex items-center gap-1.5 px-2.5 py-1 mt-0.5 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95"
+                                            title="O-4 Match Report"
+                                        >
+                                            <FileText size={12} />
+                                            O-4 Match Report
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         )}

@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, MapPin, Flag, Briefcase,
-    UserCog, Settings, Sliders, UserCheck, LogOut,
-    Ruler, Moon, Sun, Users, Trophy, Swords, Shield,
-    Star, Eye, Edit2, Trash2, Calendar, PlusCircle, X,
-    ToggleLeft, ToggleRight, BarChart2, PlayCircle
+    LayoutDashboard, MapPin, Flag, UserCog,
+    UserCheck, LogOut, Users, Trophy, Swords, Shield,
+    Star, BarChart2, PlayCircle, Menu, X, User, Bell
 } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { useLanguage } from '../context/LanguageContext';
 
-// Import Tabs (Components หน้าลูก)
+// Import Tabs
 import CompetitionsTab from './CompetitionsTab';
 import HomeTab from './HomeTab';
 import MatchManagementTab from './MatchManagementTab';
@@ -22,172 +22,335 @@ import StadiumsTab from './StadiumsTab';
 import TeamRankingTab from './TeamRankingTab';
 import LiveScorerTab from './LiveScorerTab';
 import OfficialsTab from './OfficialsTab';
-//import RefereesTab from './RefereesTab';
 
-
-// สร้าง Component Placeholder สำหรับหน้าทียังไม่ได้ทำจริง
-const PlaceholderTab = ({ title }) => (
-    <div className="p-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h2 className="text-2xl font-bold mb-4 dark:text-white">{title}</h2>
-        <p className="text-gray-500 dark:text-gray-400">หน้านี้กำลังอยู่ระหว่างการพัฒนา...</p>
-    </div>
-);
+const PlaceholderTab = ({ title }) => {
+    const { language } = useLanguage();
+    return (
+        <div className="p-6 bg-white rounded-lg shadow">
+            <h2 className="text-2xl font-bold mb-4">{title}</h2>
+            <p className="text-gray-500">
+                {language === 'THA' ? 'หน้านี้กำลังอยู่ระหว่างการพัฒนา...' : 'This page is under development...'}
+            </p>
+        </div>
+    );
+};
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('competitions');
-    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+    const { language, setLanguage, t } = useLanguage();
+    const [activeTab, setActiveTab] = useState(() => {
+        return sessionStorage.getItem('adminActiveTab') || 'home';
+    });
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // สำหรับ iPad/Mobile
+    const [isCollapsed, setIsCollapsed] = useState(false); // สำหรับย่อแถบเมนูใน Desktop
+    const [user] = useState(() => {
+        const storedUser = localStorage.getItem('user');
+        return storedUser ? JSON.parse(storedUser) : null;
+    });
+    const [pendingUsersCount, setPendingUsersCount] = useState(0);
+
+    const fetchPendingUsersCount = useCallback(async () => {
+        try {
+            const res = await api.getPendingUsers();
+            if (res.data) setPendingUsersCount(res.data.length);
+        } catch (error) {
+            console.error("Error fetching pending users count", error);
+        }
+    }, []);
 
     useEffect(() => {
-        localStorage.setItem('darkMode', darkMode);
-        if (darkMode) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
-    }, [darkMode]);
+        const updateCount = async () => {
+            await fetchPendingUsersCount();
+        };
+        updateCount();
+    }, [fetchPendingUsersCount, activeTab]);
+
+    useEffect(() => {
+        sessionStorage.setItem('adminActiveTab', activeTab);
+    }, [activeTab]);
 
     const handleLogout = async () => {
-        try {
-            await api.logout();
-            localStorage.clear(); // ✅ ลบข้อมูลทั้งหมดออกจาก LocalStorage
-            navigate('/login');
-        } catch (error) {
-            console.error("Logout failed", error);
-            // แม้ API จะพลาด แต่เราควรลบข้อมูลในเครื่องและเด้งออกไปเพื่อความปลอดภัย
-            localStorage.clear();
-            navigate('/login');
+        const result = await Swal.fire({
+            title: t('admin.logoutConfirmTitle'),
+            text: t('admin.logoutConfirmText'),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#4f46e5',
+            cancelButtonColor: '#d33',
+            confirmButtonText: t('admin.logoutConfirmBtn'),
+            cancelButtonText: t('common.cancel')
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await api.logout();
+                localStorage.clear();
+                sessionStorage.clear();
+                navigate('/login');
+            } catch (error) {
+                console.error("Logout failed", error);
+                localStorage.clear();
+                sessionStorage.clear();
+                navigate('/login');
+            }
         }
     };
 
+    const toggleSidebar = () => {
+        if (window.innerWidth >= 1024) {
+            setIsCollapsed(prev => !prev);
+        } else {
+            setIsSidebarOpen(prev => !prev);
+        }
+    };
+
+    const getTabName = (tab) => {
+        const mapping = {
+            home: 'home',
+            competitions: 'competitions',
+            clubs: 'teams',
+            stadium: 'stadium',
+            team_ranking: 'teamRanking',
+            players: 'players',
+            coaches: 'coaches',
+            officials: 'officials',
+            accounts: 'accounts',
+            pending_users: 'pendingUsers',
+            matches: 'matches',
+            escore: 'vis',
+            live_scorer: 'liveScorer'
+        };
+        const key = mapping[tab] || tab;
+        return t(`admin.${key}`);
+    };
+
     return (
-        <div className={`flex h-screen overflow-hidden transition-colors duration-200 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+        <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
+
+            {/* Overlay สำหรับมือถือ/iPad เมื่อเปิด Sidebar */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
 
             {/* ================= Sidebar (Left Menu) ================= */}
-            <aside className={`w-64 flex-shrink-0 flex flex-col border-r shadow-sm z-20 transition-all ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-
-                {/* Logo / Header */}
-                <div className="h-16 flex items-center justify-center border-b dark:border-gray-700">
-                    <h1 className="text-xl font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
-                        ADMIN PANEL
-                    </h1>
+            <aside className={`
+                fixed inset-y-0 left-0 z-40 bg-white shadow-sm transition-all duration-300 transform flex flex-col overflow-x-hidden
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                lg:translate-x-0 lg:static lg:inset-0
+                ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
+                w-64
+            `}>
+                <div className={`h-16 flex items-center justify-between px-6 border-b border-gray-100 ${isCollapsed ? 'lg:px-4 lg:justify-center' : ''}`}>
+                    {!isCollapsed ? (
+                        <h1 className="text-xl font-bold tracking-wider text-blue-600 truncate">
+                            {t('admin.title')}
+                        </h1>
+                    ) : (
+                        <h1 className="text-xl font-black text-blue-600 lg:block hidden">
+                            VM
+                        </h1>
+                    )}
+                    {isCollapsed && (
+                        <h1 className="text-xl font-bold tracking-wider text-blue-600 lg:hidden">
+                            {t('admin.title')}
+                        </h1>
+                    )}
+                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 text-gray-500 hover:text-gray-700 cursor-pointer">
+                        <X size={24} />
+                    </button>
                 </div>
 
-                {/* Scrollable Menu Area */}
-                <nav className="flex-1 overflow-y-auto py-4">
-
-                    {/* --- Group 1: Main --- */}
-                    <div className="px-3 space-y-1 mb-4">
-                        <MenuButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<LayoutDashboard size={20} />} label="Home" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'competitions'} onClick={() => setActiveTab('competitions')} icon={<Trophy size={20} />} label="Competitions" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'clubs'} onClick={() => setActiveTab('clubs')} icon={<Shield size={20} />} label="Teams" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'stadium'} onClick={() => setActiveTab('stadium')} icon={<MapPin size={20} />} label="Stadium" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'team_ranking'} onClick={() => setActiveTab('team_ranking')} icon={<BarChart2 size={20} />} label="Team Ranking" darkMode={darkMode} />
+                <nav className="flex-1 overflow-y-auto py-6 space-y-8">
+                    {/* Group 1: Main */}
+                    <div className="px-4 space-y-1">
+                        <SectionHeader label={t('admin.mainMenu')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'home'} onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} icon={<LayoutDashboard size={20} />} label={t('admin.home')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'competitions'} onClick={() => { setActiveTab('competitions'); setIsSidebarOpen(false); }} icon={<Trophy size={20} />} label={t('admin.competitions')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'clubs'} onClick={() => { setActiveTab('clubs'); setIsSidebarOpen(false); }} icon={<Shield size={20} />} label={t('admin.teams')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'stadium'} onClick={() => { setActiveTab('stadium'); setIsSidebarOpen(false); }} icon={<MapPin size={20} />} label={t('admin.stadium')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'team_ranking'} onClick={() => { setActiveTab('team_ranking'); setIsSidebarOpen(false); }} icon={<BarChart2 size={20} />} label={t('admin.teamRanking')} isCollapsed={isCollapsed} />
                     </div>
 
-                    <div className={`border-b mx-4 mb-4 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}></div>
-
-                    {/* --- Group 2: People --- */}
-                    <div className="px-3 space-y-1 mb-4">
-                        <MenuButton active={activeTab === 'players'} onClick={() => setActiveTab('players')} icon={<Users size={20} />} label="Players" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'coaches'} onClick={() => setActiveTab('coaches')} icon={<UserCog size={20} />} label="Coaches" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'officials'} onClick={() => setActiveTab('officials')} icon={<Flag size={20} />} label="Officials" darkMode={darkMode} />
+                    {/* Group 2: People */}
+                    <div className="px-4 space-y-1">
+                        <SectionHeader label={t('admin.people')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'players'} onClick={() => { setActiveTab('players'); setIsSidebarOpen(false); }} icon={<Users size={20} />} label={t('admin.players')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'coaches'} onClick={() => { setActiveTab('coaches'); setIsSidebarOpen(false); }} icon={<UserCog size={20} />} label={t('admin.coaches')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'officials'} onClick={() => { setActiveTab('officials'); setIsSidebarOpen(false); }} icon={<Flag size={20} />} label={t('admin.officials')} isCollapsed={isCollapsed} />
                     </div>
 
-                    <div className={`border-b mx-4 mb-4 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}></div>
-
-                    {/* --- Group 3: Score --- */}
-                    <div className="px-3 space-y-1 mb-4">
-                        <MenuButton active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} icon={<Swords size={20} />} label="Matches" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'escore'} onClick={() => setActiveTab('escore')} icon={<Star size={20} />} label="VIS" darkMode={darkMode} />
-                        <MenuButton active={activeTab === 'live_scorer'} onClick={() => setActiveTab('live_scorer')} icon={<PlayCircle size={20} />} label="Live Scorer" darkMode={darkMode} />
+                    {/* Group 3: Game Operations */}
+                    <div className="px-4 space-y-1">
+                        <SectionHeader label={t('admin.operations')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'matches'} onClick={() => { setActiveTab('matches'); setIsSidebarOpen(false); }} icon={<Swords size={20} />} label={t('admin.matches')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'escore'} onClick={() => { setActiveTab('escore'); setIsSidebarOpen(false); }} icon={<Star size={20} />} label={t('admin.vis')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'live_scorer'} onClick={() => { setActiveTab('live_scorer'); setIsSidebarOpen(false); }} icon={<PlayCircle size={20} />} label={t('admin.liveScorer')} isCollapsed={isCollapsed} />
                     </div>
 
-                    <div className={`border-b mx-4 mb-4 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}></div>
-
-                    {/* --- Group 4: System --- */}
-                    <div className="px-3 space-y-1">
-                        <MenuButton active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} icon={<UserCheck size={20} />} label="Accounts" darkMode={darkMode} />
-
-                        {/* Control Panel (สมมติว่าเป็นหน้า Dashboard รวม หรือ Settings ขั้นสูง) */}
-                        <MenuButton active={activeTab === 'pending_users'} onClick={() => setActiveTab('pending_users')} icon={<Sliders size={20} />} label="Pending Users" darkMode={darkMode} />
-
-                        {/* Setting Panel (Toggle Dark Mode หรืออื่นๆ) */}
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setDarkMode(!darkMode)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 
-                            ${darkMode
-                                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                        : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
-                                    }`}
-                            >
-                                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-                                <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
-                            </button>
-                        </div>
+                    {/* Group 4: System */}
+                    <div className="px-4 space-y-1">
+                        <SectionHeader label={t('admin.system')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setIsSidebarOpen(false); }} icon={<UserCheck size={20} />} label={t('admin.accounts')} isCollapsed={isCollapsed} />
+                        <MenuButton active={activeTab === 'pending_users'} onClick={() => { setActiveTab('pending_users'); setIsSidebarOpen(false); }} icon={<User size={20} />} label={t('admin.pendingUsers')} badge={pendingUsersCount} isCollapsed={isCollapsed} />
                     </div>
                 </nav>
 
-                {/* Footer Sidebar (Logout) */}
-                <div className={`p-4 border-t ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 text-red-500 hover:text-red-700 font-medium text-sm transition"
+                <div className="p-4 bg-gray-50 border-t border-gray-100">
+                    <button 
+                        onClick={handleLogout} 
+                        title={isCollapsed ? t('nav.logout') : undefined}
+                        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-bold text-sm transition-all shadow-sm cursor-pointer ${isCollapsed ? 'px-0' : ''}`}
                     >
-                        <LogOut size={18} /> Logout
+                        <LogOut size={18} className="shrink-0" />
+                        <span className={`transition-all duration-200 ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
+                            {t('nav.logout')}
+                        </span>
                     </button>
                 </div>
             </aside>
 
             {/* ================= Main Content Area ================= */}
-            <main className="flex-1 overflow-x-hidden overflow-y-auto relative">
-                <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="flex-1 flex flex-col min-w-0">
 
-                    {/* Header ของเนื้อหา (Optional) */}
-                    <div className="mb-6 flex justify-between items-end">
-                        <h2 className="text-3xl font-bold dark:text-white capitalize">
-                            {activeTab.replace('_', ' ')}
+                {/* Navbar ด้านบน */}
+                <header className="h-16 bg-white flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={toggleSidebar} 
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <h2 className="hidden md:block text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                            {t('admin.dashboard')} / <span className="text-gray-900">{getTabName(activeTab)}</span>
                         </h2>
-                        {/* ปุ่ม Action ขวาบนถ้าต้องการ */}
                     </div>
 
-                    {/* Render เนื้อหาตาม Tab */}
-                    {activeTab === 'home' && <HomeTab darkMode={darkMode} />}
-                    {activeTab === 'competitions' && <CompetitionsTab darkMode={darkMode} />}
-                    {activeTab === 'clubs' && <ClubsTab darkMode={darkMode} />}
-                    {activeTab === 'stadium' && <StadiumsTab darkMode={darkMode} />}
-                    {activeTab === 'team_ranking' && <TeamRankingTab darkMode={darkMode} />}
+                    <div className="flex items-center gap-3 lg:gap-6">
+                        {/* Language Selector */}
+                        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                            <button
+                                onClick={() => setLanguage('THA')}
+                                className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                    language === 'THA'
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                                TH
+                            </button>
+                            <button
+                                onClick={() => setLanguage('ENG')}
+                                className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                    language === 'ENG'
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                                EN
+                            </button>
+                        </div>
 
-                    {activeTab === 'players' && <PlayerViewTab darkMode={darkMode} />}
-                    {activeTab === 'coaches' && <PlaceholderTab title="Coaches Management" />}
-                    {activeTab === 'officials' && <OfficialsTab darkMode={darkMode} />}
+                        <button className="p-2 text-gray-400 hover:text-blue-600 transition relative">
+                            <Bell size={20} />
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                        </button>
 
-                    {activeTab === 'accounts' && <AccountsTab darkMode={darkMode} />}
-                    {activeTab === 'pending_users' && <PendingUsersTab darkMode={darkMode} />}
-                    {activeTab === 'control_panel' && <PlaceholderTab title="Control Panel" />}
-                    {activeTab === 'matches' && <MatchManagementTab darkMode={darkMode} />}
-                    {activeTab === 'escore' && <EScoreTab darkMode={darkMode} />}
-                    {activeTab === 'live_scorer' && <LiveScorerTab darkMode={darkMode} />}
-                </div>
-            </main>
+                        <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block"></div>
 
+                        {/* ชื่อผู้ใช้งาน */}
+                        <div className="flex items-center gap-3 pl-2">
+                            <div className="text-right hidden sm:block">
+                                <p className="text-sm font-semibold text-gray-900 leading-none">
+                                    {user?.username || 'Admin User'}
+                                </p>
+                                <p className="text-xs font-medium text-gray-500 mt-1">
+                                    {language === 'THA' ? 'ผู้ดูแลระบบ' : 'Administrator'}
+                                </p>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-md border-2 border-blue-100">
+                                <User size={20} />
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                {/* Content Area */}
+                <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+                    <div className="w-full">
+                        {/* Render เนื้อหาตาม Tab */}
+                        {activeTab === 'home' && <HomeTab />}
+                        {activeTab === 'competitions' && <CompetitionsTab />}
+                        {activeTab === 'clubs' && <ClubsTab />}
+                        {activeTab === 'stadium' && <StadiumsTab />}
+                        {activeTab === 'team_ranking' && <TeamRankingTab />}
+
+                        {activeTab === 'players' && <PlayerViewTab />}
+                        {activeTab === 'coaches' && <PlaceholderTab title="Coaches Management" />}
+                        {activeTab === 'officials' && <OfficialsTab />}
+
+                        {activeTab === 'accounts' && <AccountsTab />}
+                        {activeTab === 'pending_users' && <PendingUsersTab />}
+                        {activeTab === 'matches' && <MatchManagementTab />}
+                        {activeTab === 'escore' && <EScoreTab />}
+                        {activeTab === 'live_scorer' && <LiveScorerTab />}
+                    </div>
+                </main>
+            </div>
         </div>
     );
 }
 
+// Helper: Sidebar Section Header
+function SectionHeader({ label, isCollapsed }) {
+    if (isCollapsed) {
+        return (
+            <>
+                <div className="border-b border-gray-100 my-4 lg:block hidden" />
+                <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3 lg:hidden">{label}</p>
+            </>
+        );
+    }
+    return <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">{label}</p>;
+}
+
 // Helper: Sidebar Menu Button
-function MenuButton({ active, onClick, icon, label }) {
+function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
     return (
         <button
             onClick={onClick}
+            title={isCollapsed ? label : undefined}
             className={`
-                w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200
+                w-full flex items-center justify-between px-3 py-2.5 my-0.5 rounded-md text-sm font-medium transition-all duration-200 relative cursor-pointer
+                ${isCollapsed ? 'lg:justify-center' : 'justify-between'}
                 ${active
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : `text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white`
+                    ? 'bg-blue-50 text-blue-700 font-bold'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }
             `}
         >
-            {icon}
-            {label}
+            <div className="flex items-center gap-3 min-w-0">
+                <span className={active ? 'text-blue-600 shrink-0' : 'text-gray-400 group-hover:text-gray-500 shrink-0'}>{icon}</span>
+                <span className={`transition-all duration-200 truncate ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
+                    {label}
+                </span>
+            </div>
+            {!isCollapsed && badge > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium min-w-[20px] text-center shrink-0 ${active ? 'bg-blue-100 text-blue-700' : 'bg-red-50 text-red-600'}`}>
+                    {badge}
+                </span>
+            )}
+            {isCollapsed && badge > 0 && (
+                <>
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white lg:block hidden"></span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium min-w-[20px] text-center lg:hidden ${active ? 'bg-blue-100 text-blue-700' : 'bg-red-50 text-red-600'}`}>
+                        {badge}
+                    </span>
+                </>
+            )}
         </button>
     );
 }

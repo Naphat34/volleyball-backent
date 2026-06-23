@@ -27,43 +27,11 @@ export default function LiveScorerTab({ darkMode }) {
 
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchCompetitions();
-        fetchMasterData();
-    }, []);
-
-    // Effect: Update available genders when base name changes
-    useEffect(() => {
-        if (selectedBaseName && competitions.length > 0) {
-            const relatedComps = competitions.filter(c => {
-                const rawTitle = c.title || c.name || '';
-                const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
-                return cBase === selectedBaseName;
-            });
-
-            const genders = [...new Set(relatedComps.map(c => c.gender))].filter(Boolean).sort();
-            setAvailableGenders(['All', ...genders]);
-
-            // Default select first gender if current selection is invalid
-            if (!filterGender || (filterGender !== 'All' && !genders.includes(filterGender))) {
-                setFilterGender('All');
-            }
-        }
-    }, [selectedBaseName, competitions]);
-
-    // Effect: Fetch matches when selection changes
-    useEffect(() => {
-        if (selectedBaseName && filterGender) {
-            fetchMatches();
-        }
-    }, [selectedBaseName, filterGender, competitions]);
-
-    const fetchCompetitions = async () => {
+    const fetchCompetitions = React.useCallback(async () => {
         try {
             const res = await api.getAllCompetitions();
-            setCompetitions(res.data.filter(c => c.status?.toLowerCase() === 'open'));
+            setCompetitions(res.data);
             
-            // Extract unique base names
             const bases = new Set();
             res.data.forEach(c => {
                 const rawTitle = c.title || c.name || '';
@@ -76,16 +44,15 @@ export default function LiveScorerTab({ darkMode }) {
             setUniqueBaseNames(sortedBases);
 
             if (sortedBases.length > 0) {
-                setSelectedBaseName(sortedBases[0]);
+                setSelectedBaseName(prev => prev || sortedBases[0]);
             }
         } catch (err) {
             console.error("Fetch competitions error:", err);
         }
-    };
+    }, []);
 
-    const fetchMatches = async () => {
+    const fetchMatches = React.useCallback(async () => {
         if (!selectedBaseName) return;
-        setMatches([]);
 
         try {
             let targetComps = [];
@@ -115,7 +82,8 @@ export default function LiveScorerTab({ darkMode }) {
                 if (res.data) {
                     const compMatches = res.data.map(m => ({
                         ...m,
-                        gender: comp.gender,
+                        gender: m.gender || comp.gender,
+                        competition_category: comp.age_group_id,
                         competition_id: comp.id
                     }));
                     allMatches = [...allMatches, ...compMatches];
@@ -127,9 +95,21 @@ export default function LiveScorerTab({ darkMode }) {
         } catch (err) {
             console.error("Fetch matches error:", err);
         }
-    };
+    }, [selectedBaseName, filterGender, competitions]);
 
-    const fetchMasterData = async () => {
+    const getAgeGroupName = (id) => {
+    // ปรับตัวเลขและข้อความให้ตรงกับตาราง Age Groups ใน Database ของคุณ
+    const ageGroups = {
+        1: "Senior",
+        2: "Junior",
+        3: "Youth"
+    };
+    
+    // ถ้าไม่มีในรายการให้แสดงคำว่า 'ไม่ระบุรุ่น' หรือจะให้แสดง ID ก็ได้
+    return ageGroups[id] || "ไม่ระบุรุ่น"; 
+};
+
+    const fetchMasterData = React.useCallback(async () => {
         try {
             const [refs, scrs, ljs] = await Promise.all([
                 api.getAllReferees(),
@@ -139,70 +119,104 @@ export default function LiveScorerTab({ darkMode }) {
             setReferees(refs.data || []);
             setScorers(scrs.data || []);
             setLineJudges(ljs.data || []);
-        } catch (err) {
+        } catch {
             console.warn("Could not fetch officials data.");
         }
-    };
+    }, []);
 
-    // --- Modal Logic ---
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            fetchCompetitions();
+            fetchMasterData();
+        }, 0);
+        return () => clearTimeout(timeout);
+    }, [fetchCompetitions, fetchMasterData]);
+
+    useEffect(() => {
+        if (selectedBaseName && competitions.length > 0) {
+            const relatedComps = competitions.filter(c => {
+                const rawTitle = c.title || c.name || '';
+                const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
+                return cBase === selectedBaseName;
+            });
+
+            const genders = [...new Set(relatedComps.map(c => c.gender))].filter(Boolean).sort();
+            const allGenders = ['All', ...genders];
+
+            const timeout = setTimeout(() => {
+                setAvailableGenders(allGenders);
+                if (!filterGender || (filterGender !== 'All' && !genders.includes(filterGender))) {
+                    setFilterGender('All');
+                }
+            }, 0);
+            return () => clearTimeout(timeout);
+        }
+    }, [selectedBaseName, competitions, filterGender]);
+
+    useEffect(() => {
+        if (selectedBaseName && filterGender && competitions.length > 0) {
+            const timeout = setTimeout(() => {
+                fetchMatches();
+            }, 0);
+            return () => clearTimeout(timeout);
+        }
+    }, [selectedBaseName, filterGender, fetchMatches, competitions.length]);
+
     const handleOpenConsoleClick = (match) => {
         const comp = competitions.find(c => c.id === match.competition_id) || {};
 
-        // Prepare initial data based on match and competition
         const initialData = {
-            // Read-only / Pre-filled
-            title: comp.title || 'Unknown Competition', // 1. Title
-            city: '', // 2. City (Textbox)
-            stadium: match.location || '', // 3. Stadium
-            countryCode: 'THA', // 4. Country Code (Default)
-            phase: match.round || 'Preliminary', // 5. Phase
-            pool: match.pool_name || '-', // 6. Pool
-            matchNumber: match.match_number || '-', // 7. Match Number
-            division: comp.gender || '-', // 8. Division (Men/Women)
-            category: comp.category || 'Open', // 9. Category
-            dateTime: match.start_time ? new Date(match.start_time).toLocaleString() : '-', // 10. Date Time
-            teamHome: match.home_team || match.home_team_name, // 11. Team Home
-            teamAway: match.away_team || match.away_team_name, // 12. Team Away
+            title: comp.title || 'Unknown Competition',
+            city: match.city || '',
+            stadium: match.location || '',
+            countryCode: match.country || 'THA',
+            phase: match.round_name || match.round || 'Preliminary',
+            pool: match.pool_name || '-',
+            matchNumber: match.match_number || '-',
+            division: comp.gender || '-',
+            category: (() => {
+                const catStr = String(match.category || '');
+                if (catStr && isNaN(catStr)) return catStr;
+                return getAgeGroupName(parseInt(catStr) || comp.age_group_id);
+            })(),
+            dateTime: match.match_date 
+                ? `${new Date(match.match_date).toLocaleDateString('en-GB')} ${match.start_time?.substring(0,5) || ''}`
+                : (match.start_time 
+                    ? (match.start_time.includes('T') ? new Date(match.start_time).toLocaleString('en-GB', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit'}) : match.start_time.substring(0, 5)) 
+                    : '-'),
+            teamHome: match.home_team || match.home_team_name,
+            teamAway: match.away_team || match.away_team_name,
             teamHomeId: match.home_team_id,
             teamAwayId: match.away_team_id,
 
-            // Officials (Textboxes - using IDs for value but they are text inputs for names, 
-            // BUT api expects IDs if we are selecting from dropdowns. 
-            // Reviewing the UI, they seem to be TextInputs in a real app, but here we might want dropdowns later.
-            // For now, let's map what we have from DB match object.
-
-            // Stat 1 Officials
             referee1: match.referee_1_id || '',
             referee2: match.referee_2_id || '',
-
             rrName: match.rr_name || '',
             rrCountry: match.rr_country || '',
             rrCode: match.rr_code || '',
-
             rcName: match.rc_name || '',
             rcCountry: match.rc_country || '',
             rcCode: match.rc_code || '',
 
-            // Stat 2 Scores
             scorer: match.scorer_id || '',
+            scorerName: match.scorer_name || (match.scorer_firstname ? `${match.scorer_firstname} ${match.scorer_lastname}`.trim() : ''),
+            scorerCountry: match.scorer_country || '',
             assistantScorerName: match.assistant_scorer_name || '',
             assistantScorerCountry: match.assistant_scorer_country || '',
             assistantScorerCode: match.assistant_scorer_code || '',
 
-            // Stat 3 Line Judges
             lineJudge1: match.line_judge_1_id || '',
             lineJudge2: match.line_judge_2_id || '',
             lineJudge3: match.line_judge_3_id || '',
             lineJudge4: match.line_judge_4_id || '',
 
-            // Stat 4 Committees
             tdName: match.td_name || '',
             tdCountry: match.td_country || '', 
             tdCode: match.td_code || '',
-
             rdName: match.rd_name || '',
             rdCountry: match.rd_country || '',
-            rdCode: match.rd_code || ''
+            rdCode: match.rd_code || '',
+            hasChallenge: match.has_challenge === true || match.has_challenge === 'true',
         };
 
         setSelectedMatch(match);
@@ -218,42 +232,43 @@ export default function LiveScorerTab({ darkMode }) {
     const handleEnterScorer = async () => {
         try {
             const payload = {
-                referee_1_id: formData.referee1,
-                referee_2_id: formData.referee2,
-                scorer_id: formData.scorer,
-                line_judge_1_id: formData.lineJudge1,
+                referee_1_id: formData.referee1 || null,
+                referee_2_id: formData.referee2 || null,
+                scorer_id: formData.scorer || null,
+                scorer_name: formData.scorerName || null,
+                scorer_country: formData.scorerCountry || null,
+                line_judge_1_id: formData.lineJudge1 || null,
                 line_judge_2_id: formData.lineJudge2,
                 line_judge_3_id: formData.lineJudge3,
                 line_judge_4_id: formData.lineJudge4,
-
                 rr_name: formData.rrName,
                 rr_country: formData.rrCountry,
                 rr_code: formData.rrCode,
-
                 rc_name: formData.rcName,
                 rc_country: formData.rcCountry,
                 rc_code: formData.rcCode,
-
                 assistant_scorer_name: formData.assistantScorerName,
                 assistant_scorer_country: formData.assistantScorerCountry,
                 assistant_scorer_code: formData.assistantScorerCode,
-
                 td_name: formData.tdName,
                 td_country: formData.tdCountry,
                 td_code: formData.tdCode,
-
                 rd_name: formData.rdName,
                 rd_country: formData.rdCountry,
-                rd_code: formData.rdCode
+                rd_code: formData.rdCode,
+
+                // General match details edited in the modal
+                match_number: formData.matchNumber,
+                pool_name: formData.pool,
+                round_name: formData.phase,
+                city: formData.city,
+                location: formData.stadium,
+                country: formData.countryCode,
+                has_challenge: formData.hasChallenge
             };
 
-            // 2. Save to Backend
             await api.updateMatchOfficials(selectedMatch.id, payload);
-
-            // 3. Navigate
-            navigate(`/scorer/${selectedMatch.id}`, {
-                state: { matchData: formData }
-            });
+            navigate(`/scorer/${selectedMatch.id}`, { state: { matchData: formData } });
             setShowModal(false);
         } catch (error) {
             console.error("Failed to save match officials:", error);
@@ -262,17 +277,25 @@ export default function LiveScorerTab({ darkMode }) {
     };
 
     return (
-        <div className={`min-h-screen p-6 transition-colors duration-200 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
-            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Swords className="text-indigo-600" /> Live Scorer Console
-                </h1>
+        <div className={`min-h-screen p-6 transition-colors duration-200 font-['Anuphan'] ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 shadow-sm">
+                        <Swords className="text-blue-600" size={24} />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                            Live Scorer Console
+                        </h1>
+                    </div>
+                </div>
                 
-                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                    <div className="w-full md:w-64">
-                        <label className={`block text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Competition</label>
+                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-end">
+                    <div className="w-full md:w-72">
+                        <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Competition</label>
                         <select 
-                            className={`w-full p-2 rounded-lg border shadow-sm focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}
+                            className={`w-full h-12 px-4 rounded-md border shadow-sm focus:ring-2 focus:ring-blue-500 font-medium transition-all ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}
                             value={selectedBaseName}
                             onChange={(e) => setSelectedBaseName(e.target.value)}
                         >
@@ -283,14 +306,14 @@ export default function LiveScorerTab({ darkMode }) {
                         </select>
                     </div>
 
-                    <div>
-                        <label className={`block text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gender</label>
-                        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <div className="w-full md:w-auto">
+                        <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gender</label>
+                        <div className="flex bg-gray-50 border border-gray-200 dark:bg-gray-700 rounded-lg p-1 h-12 shadow-sm items-center">
                             {availableGenders.map(g => (
                                 <button 
                                     key={g} 
                                     onClick={() => setFilterGender(g)} 
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${filterGender === g ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filterGender === g ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-indigo-400 shadow-sm border border-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                                 >
                                     {g}
                                 </button>
@@ -300,48 +323,72 @@ export default function LiveScorerTab({ darkMode }) {
                 </div>
             </div>
 
-            <div className={`p-6 rounded-xl shadow-sm border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Trophy size={20} className="text-yellow-500" /> Select Match to Score
+            {/* Match List */}
+            <div className={`p-8 rounded-[0.5rem] shadow-sm border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <Trophy size={24} className="text-yellow-500" /> Select Match to Score
                 </h3>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-4">
                     {matches.length === 0 ? (
                         <EmptyState text="No matches found in this competition." darkMode={darkMode} />
                     ) : (
                         matches.map(m => {
                             const isCompleted = m.status === 'completed';
                             return (
-                                <div key={m.id} className={`p-4 rounded-xl border flex flex-col md:flex-row justify-between items-center gap-4 transition-all hover:shadow-md ${darkMode ? 'bg-gray-700/30 border-gray-600 hover:bg-gray-700' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">#{m.match_number || '-'}</span>
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                <div key={m.id} className={`group p-2 rounded-[0.5rem] border flex flex-col md:flex-row justify-between items-center gap-6 transition-all hover:border-indigo-400 hover:shadow-xl hover:shadow-indigo-500/10 ${darkMode ? 'bg-gray-700/30 border-gray-600 hover:bg-gray-700' : 'bg-white border-gray-200 hover:bg-blue-50/30'}`}>
+                                    <div className="flex-1 w-full">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <span className="text-sm font-bold px-3 py-1 rounded-lg bg-blue-50 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">#{m.match_number || '-'}</span>
+                                            <span className={`text-sm font-bold px-3 py-1 rounded-lg ${
                                                 m.gender === 'Female' 
                                                 ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300' 
                                                 : m.gender === 'Male' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' 
                                                 : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
                                             }`}>{m.gender}</span>
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${isCompleted ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'}`}>{isCompleted ? 'Finished' : 'Scheduled'}</span>
+                                            <span className={`text-sm font-semibold px-3 py-1 rounded-lg ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                                {isCompleted ? 'Finished' : 'Scheduled'}
+                                            </span>
                                         </div>
-                                        <div className="text-lg font-bold flex items-center gap-3"><span className={m.home_set_score > m.away_set_score ? 'text-green-600 dark:text-green-400' : ''}>{m.home_team}</span><span className="text-gray-400 text-sm">VS</span><span className={m.away_set_score > m.home_set_score ? 'text-green-600 dark:text-green-400' : ''}>{m.away_team}</span></div>
-                                        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-4 mt-1"><span className="flex items-center gap-1"><Calendar size={14} /> {m.start_time ? new Date(m.start_time).toLocaleString() : 'TBD'}</span><span className="flex items-center gap-1"><MapPin size={14} /> {m.location || '-'}</span></div>
+                                        <div className="text-xl font-bold flex items-center gap-4 mb-2">
+                                            <span className={m.home_set_score > m.away_set_score ? 'text-green-600' : ''}>{m.home_team}</span>
+                                            <span className="text-gray-400 text-base font-medium italic">VS</span>
+                                            <span className={m.away_set_score > m.home_set_score ? 'text-green-600' : ''}>{m.away_team}</span>
+                                        </div>
+                                        <div className="text-base text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-6">
+                                            <span className="flex items-center gap-2"><Calendar size={18} className="text-blue-600" /> 
+                                                {m.match_date ? new Date(m.match_date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year:'numeric'}) : (m.start_time && m.start_time.includes('T') ? new Date(m.start_time).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year:'numeric'}) : 'TBD')}
+                                                {' '}
+                                                {m.start_time ? (m.start_time.includes('T') ? new Date(m.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : m.start_time.substring(0, 5)) : ''}
+                                            </span>
+                                            <span className="flex items-center gap-2"><MapPin size={18} className="text-rose-500" /> {m.city ? `${m.location || ''} ${m.city}`.trim() : (m.location || '-')}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 w-full md:w-auto">
                                         <Link
                                             to={`/match/${m.id}/referee`}
                                             target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform active:scale-95 bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-500`}
+                                            className="flex-1 md:flex-none h-10 w-10 rounded-lg font-medium flex items-center justify-center transition-all bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                                            title="Open Referee View"
                                         >
                                             <Monitor size={20} />
                                         </Link>
                                         <button
                                             onClick={() => handleOpenConsoleClick(m)}
-                                            className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all transform active:scale-95 ${isCompleted ? 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400' : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-orange-500/30'}`}
+                                            className={`flex-1 md:flex-none px-6 h-10 rounded-lg font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all ${isCompleted ? 'bg-gray-100 text-gray-500 border border-gray-200' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                                         >
-                                            <PlayCircle size={20} /> {isCompleted ? 'View Console' : 'Open Console'}
+                                            <PlayCircle size={18} /> {isCompleted ? 'View Data' : 'Open Console'}
                                         </button>
+                                        {isCompleted && (
+                                            <Link
+                                                to={`/scoresheet/${m.id}`}
+                                                target="_blank"
+                                                className="flex-1 md:flex-none px-5 h-10 rounded-lg font-medium text-sm flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-400 transition-all border border-emerald-100 dark:border-emerald-800"
+                                                title="Print Official Score Sheet"
+                                            >
+                                                <FileText size={16} /> Official Score Sheet
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -350,157 +397,114 @@ export default function LiveScorerTab({ darkMode }) {
                 </div>
             </div>
 
-            {/* --- MATCH DATA MODAL --- */}
+            {/* --- MODERN MATCH DATA MODAL --- */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-                    <div className={`w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
-
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4 font-sans max-h-screen overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl flex flex-col my-4">
+                        
                         {/* Header */}
-                        <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex justify-between items-center shrink-0">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <Save size={20} /> Match Data Setup
-                            </h2>
-                            <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-2 rounded-full transition"><X size={20} /></button>
+                        <div className="p-6 border-b border-gray-100 bg-gray-50/80 backdrop-blur-sm flex justify-between items-center rounded-t-xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-blue-50 border border-blue-100">
+                                    <Swords className="text-blue-600" size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">Match Officials & Setup</h3>
+                                    <p className="text-sm text-gray-500">{formData.title}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">
+                                <X size={20} />
+                            </button>
                         </div>
 
-                        {/* Scrollable Form Body */}
-                        <div className="p-6 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-                            {/* Section 1: Match Info (Read Only / Pre-filled) */}
-                            <div className={`col-span-full p-3 rounded-lg border mb-2 ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-blue-50 border-blue-100'}`}>
-                                <h3 className="text-sm font-bold text-indigo-500 mb-3 uppercase tracking-wider">Competition Info</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <InputGroup label="Competition" name="title" val={formData.title} readOnly darkMode={darkMode} />
-                                    <InputGroup label="Division" name="division" val={formData.division} readOnly darkMode={darkMode} />
-                                    <InputGroup label="Category" name="category" val={formData.category} readOnly darkMode={darkMode} />
-                                    <InputGroup label="Date/Time" name="dateTime" val={formData.dateTime} readOnly darkMode={darkMode} />
-                                    <InputGroup label="Home Team" name="teamHome" val={formData.teamHome} readOnly darkMode={darkMode} />
-                                    <InputGroup label="Away Team" name="teamAway" val={formData.teamAway} readOnly darkMode={darkMode} />
+                        {/* Body Content */}
+                        <div className="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-8">
+                            
+                            {/* General Match Info */}
+                            <div>
+                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 border-b border-gray-100 pb-2">
+                                    <FileText size={16} /> General Match Info
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <InputGroup label="Category" val={formData.category} readOnly />
+                                    <InputGroup label="Gender" val={formData.division} readOnly />
+                                    <InputGroup label="Match No" name="matchNumber" val={formData.matchNumber} onChange={handleFormChange} />
+                                    <InputGroup label="Phase" name="phase" val={formData.phase} onChange={handleFormChange} />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                                    <InputGroup label="Date" val={formData.dateTime?.split(' ')[0]} readOnly icon={<Calendar size={16} />} />
+                                    <InputGroup label="Time" val={formData.dateTime?.split(' ')[1]} readOnly />
+                                    <InputGroup label="Home Team" val={formData.teamHome} readOnly />
+                                    <InputGroup label="Away Team" val={formData.teamAway} readOnly />
                                 </div>
                             </div>
 
-                            {/* Section 2: Match Details (Editable) */}
-                            <div className="col-span-full mb-2">
-                                <h3 className="text-sm font-bold text-indigo-500 mb-3 uppercase tracking-wider">Match Specifics</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <InputGroup label="Match No." name="matchNumber" val={formData.matchNumber} onChange={handleFormChange} darkMode={darkMode} />
-                                    <InputGroup label="Phase" name="phase" val={formData.phase} onChange={handleFormChange} darkMode={darkMode} />
-                                    <InputGroup label="Pool" name="pool" val={formData.pool} onChange={handleFormChange} darkMode={darkMode} />
-                                    <InputGroup label="City" name="city" val={formData.city} onChange={handleFormChange} darkMode={darkMode} />
-                                    <InputGroup label="Stadium" name="stadium" val={formData.stadium} onChange={handleFormChange} darkMode={darkMode} />
-                                    <InputGroup label="Country Code" name="countryCode" val={formData.countryCode} onChange={handleFormChange} darkMode={darkMode} />
-                                </div>
-                            </div>
-
-                            {/* Section 3: Officials (Editable) */}
-                            <div className="col-span-full">
-                                <h3 className="text-sm font-bold text-indigo-500 mb-3 uppercase tracking-wider">Officials</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                                    {/* 1st Referee */}
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">1st Referee</div>
-                                        <SelectGroup label="Name - Surname" name="referee1" val={formData.referee1} onChange={handleFormChange} options={referees} icon={<User size={14} />} darkMode={darkMode} />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <InputGroup label="Country" name="referee1Country" val={referees.find(r => r.id == formData.referee1)?.country || ''} readOnly darkMode={darkMode} />
-                                            <InputGroup label="Code" name="referee1Code" val="" readOnly darkMode={darkMode} /> {/* Assuming Code is not in DB yet for Ref? */}
-                                        </div>
-                                    </div>
-
-                                    {/* 2nd Referee */}
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">2nd Referee</div>
-                                        <SelectGroup label="Name - Surname" name="referee2" val={formData.referee2} onChange={handleFormChange} options={referees} icon={<User size={14} />} darkMode={darkMode} />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <InputGroup label="Country" name="referee2Country" val={referees.find(r => r.id == formData.referee2)?.country || ''} readOnly darkMode={darkMode} />
-                                            <InputGroup label="Code" name="referee2Code" val="" readOnly darkMode={darkMode} />
-                                        </div>
-                                    </div>
-
-                                    {/* RR */}
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">Reserve Referee (RR)</div>
-                                        <InputGroup label="Name - Surname" name="rrName" val={formData.rrName} onChange={handleFormChange} darkMode={darkMode} />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <InputGroup label="Country" name="rrCountry" val={formData.rrCountry} onChange={handleFormChange} darkMode={darkMode} />
-                                            <InputGroup label="Code" name="rrCode" val={formData.rrCode} onChange={handleFormChange} darkMode={darkMode} />
-                                        </div>
-                                    </div>
-
-                                    {/* RC - Wait, user asked for "RC" text box. Is RC = Reserve Controller? Or Referee Coach? Assuming RC is the label. */}
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">RC</div>
-                                        <InputGroup label="Name - Surname" name="rcName" val={formData.rcName} onChange={handleFormChange} darkMode={darkMode} />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <InputGroup label="Country" name="rcCountry" val={formData.rcCountry} onChange={handleFormChange} darkMode={darkMode} />
-                                            <InputGroup label="Code" name="rcCode" val={formData.rcCode} onChange={handleFormChange} darkMode={darkMode} />
-                                        </div>
+                            {/* Location */}
+                            <div>
+                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-rose-600 mb-4 border-b border-gray-100 pb-2">
+                                    <MapPin size={16} /> Location
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <InputGroup label="Country" name="countryCode" val={formData.countryCode} onChange={handleFormChange} />
+                                    <InputGroup label="City" name="city" val={formData.city} onChange={handleFormChange} />
+                                    <InputGroup label="Stadium / Hall" name="stadium" val={formData.stadium} onChange={handleFormChange} />
+                                    <div className="flex flex-col gap-2 justify-end pb-3">
+                                        <label className="flex items-center gap-3 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                name="hasChallenge"
+                                                checked={formData.hasChallenge || false}
+                                                onChange={e => setFormData(prev => ({ ...prev, hasChallenge: e.target.checked }))}
+                                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            />
+                                            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Video Challenge</span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Stat 2: Scores */}
-                            <div className="col-span-full mt-2">
-                                <h3 className="text-sm font-bold text-indigo-500 mb-3 uppercase tracking-wider">Scores</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">Scorer</div>
-                                        <SelectGroup label="Name - Surname" name="scorer" val={formData.scorer} onChange={handleFormChange} options={scorers} icon={<User size={14} />} darkMode={darkMode} />
-                                        <InputGroup label="Country" name="scorerCountry" val={scorers.find(s => s.id == formData.scorer)?.country || ''} readOnly darkMode={darkMode} />
+                            {/* Officials */}
+                            <div>
+                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600 mb-4 border-b border-gray-100 pb-2">
+                                    <User size={16} /> Match Officials
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="flex flex-col gap-4">
+                                        <SelectGroup label="1st Referee" name="referee1" val={formData.referee1} onChange={handleFormChange} options={referees} />
+                                        <SelectGroup label="2nd Referee" name="referee2" val={formData.referee2} onChange={handleFormChange} options={referees} />
+                                        <InputGroup label="Challenge Operator" name="tdName" val={formData.tdName} onChange={handleFormChange} />
                                     </div>
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">Assistant Scorer</div>
-                                        <InputGroup label="Name - Surname" name="assistantScorerName" val={formData.assistantScorerName} onChange={handleFormChange} darkMode={darkMode} />
-                                        <InputGroup label="Country" name="assistantScorerCountry" val={formData.assistantScorerCountry} onChange={handleFormChange} darkMode={darkMode} />
+                                    <div className="flex flex-col gap-4">
+                                        <InputGroup label="Scorer Name" name="scorerName" val={formData.scorerName} onChange={handleFormChange} />
+                                        <InputGroup label="Scorer Country Code" name="scorerCountry" val={formData.scorerCountry} onChange={handleFormChange} />
+                                        <InputGroup label="Assistant Scorer Name" name="assistantScorerName" val={formData.assistantScorerName} onChange={handleFormChange} />
+                                        <InputGroup label="Assistant Scorer Country Code" name="assistantScorerCountry" val={formData.assistantScorerCountry} onChange={handleFormChange} />
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Stat 3: Line Judges */}
-                            <div className="col-span-full mt-2">
-                                <h3 className="text-sm font-bold text-indigo-500 mb-3 uppercase tracking-wider">Line Judges</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                                    <SelectGroup label="1. Name - Surname" name="lineJudge1" val={formData.lineJudge1} onChange={handleFormChange} options={lineJudges} darkMode={darkMode} />
-                                    <SelectGroup label="2. Name - Surname" name="lineJudge2" val={formData.lineJudge2} onChange={handleFormChange} options={lineJudges} darkMode={darkMode} />
-                                    <SelectGroup label="3. Name - Surname" name="lineJudge3" val={formData.lineJudge3} onChange={handleFormChange} options={lineJudges} darkMode={darkMode} />
-                                    <SelectGroup label="4. Name - Surname" name="lineJudge4" val={formData.lineJudge4} onChange={handleFormChange} options={lineJudges} darkMode={darkMode} />
-                                </div>
-                            </div>
-
-                            {/* Stat 4: Committees */}
-                            <div className="col-span-full mt-2">
-                                <h3 className="text-sm font-bold text-indigo-500 mb-3 uppercase tracking-wider">Committees</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">Technical Delegate (TD)</div>
-                                        <InputGroup label="Name - Surname" name="tdName" val={formData.tdName} onChange={handleFormChange} darkMode={darkMode} />
-                                        {/* Added Country/Code for TD just in case, or hide if not needed. User only said "1. TD 2. RD". I will assume just Name for now? 
-                                            Wait, "RR > Text box, Country, Code". "RC > Text box, Country, Code".
-                                            But for Stat 4, user just listed "1. TD 2. RD". 
-                                            I'll keep it simple: Just Name for TD and RD as requested. 
-                                        */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+                                    <div className="flex flex-col gap-4">
+                                        <SelectGroup label="Line Judge 1" name="lineJudge1" val={formData.lineJudge1} onChange={handleFormChange} options={lineJudges} />
+                                        <SelectGroup label="Line Judge 2" name="lineJudge2" val={formData.lineJudge2} onChange={handleFormChange} options={lineJudges} />
                                     </div>
-                                    <div className="space-y-2">
-                                        <div className="font-semibold text-sm mb-1">Referee Delegate (RD)</div>
-                                        <InputGroup label="Name - Surname" name="rdName" val={formData.rdName} onChange={handleFormChange} darkMode={darkMode} />
+                                    <div className="flex flex-col gap-4">
+                                        <SelectGroup label="Line Judge 3" name="lineJudge3" val={formData.lineJudge3} onChange={handleFormChange} options={lineJudges} />
+                                        <SelectGroup label="Line Judge 4" name="lineJudge4" val={formData.lineJudge4} onChange={handleFormChange} options={lineJudges} />
                                     </div>
                                 </div>
                             </div>
 
                         </div>
 
-                        {/* Footer */}
-                        <div className={`p-4 border-t flex justify-end gap-3 shrink-0 ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
-                            <button
-                                onClick={() => setShowModal(false)}
-                                className="px-5 py-2.5 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition"
-                            >
+                        {/* Footer Controls */}
+                        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 rounded-b-xl">
+                            <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all font-medium text-sm">
                                 Cancel
                             </button>
-                            <button
-                                onClick={handleEnterScorer}
-                                className="px-6 py-2.5 rounded-lg font-bold bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2"
-                            >
-                                Enter Console <CheckCircle size={18} />
+                            <button onClick={handleEnterScorer} className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all flex items-center gap-2">
+                                <CheckCircle size={18} />
+                                Launch Console
                             </button>
                         </div>
                     </div>
@@ -511,52 +515,52 @@ export default function LiveScorerTab({ darkMode }) {
 }
 
 // Helper Component for Inputs
-const InputGroup = ({ label, name, val, onChange, readOnly = false, icon, darkMode }) => (
-    <div className="flex flex-col gap-1">
-        <label className={`text-xs font-bold uppercase ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{label}</label>
+const InputGroup = ({ label, name, val, onChange, readOnly = false, icon }) => (
+    <div className="flex flex-col gap-2">
+        <label className={`text-sm font-semibold uppercase tracking-wide ${readOnly ? 'text-slate-400' : 'text-slate-600'}`}>{label}</label>
         <div className="relative">
-            {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>}
+            {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{icon}</div>}
             <input
                 type="text"
                 name={name}
                 value={val || ''}
                 onChange={onChange}
                 readOnly={readOnly}
-                className={`w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all
+                className={`w-full rounded-md border px-4 py-3 text-base font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all
                     ${readOnly
-                        ? (darkMode ? 'bg-gray-700 text-gray-300 border-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed')
-                        : (darkMode ? 'bg-gray-900 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300')
+                        ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed'
+                        : 'bg-white text-slate-900 border-slate-300 hover:border-slate-400'
                     }
-                    ${icon ? 'pl-9' : ''}
+                    ${icon ? 'pl-10' : ''}
                 `}
             />
         </div>
     </div>
 );
 
-const SelectGroup = ({ label, name, val, onChange, options = [], icon, darkMode }) => (
-    <div className="flex flex-col gap-1">
-        <label className={`text-xs font-bold uppercase ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{label}</label>
+const SelectGroup = ({ label, name, val, onChange, options = [], icon }) => (
+    <div className="flex flex-col gap-2">
+        <label className="text-sm font-semibold uppercase tracking-wide text-slate-600">{label}</label>
         <div className="relative">
-            {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>}
+            {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10">{icon}</div>}
             <select
                 name={name}
                 value={val || ''}
                 onChange={onChange}
-                className={`w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all appearance-none
-                    ${darkMode ? 'bg-gray-900 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'}
-                    ${icon ? 'pl-9' : ''}
+                className={`w-full rounded-md border px-4 py-3 text-base font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none
+                    bg-white text-slate-900 border-slate-300 hover:border-slate-400
+                    ${icon ? 'pl-10' : ''}
                 `}
             >
-                <option value="">-- Select --</option>
+                <option value="" className="text-slate-400">-- Select --</option>
                 {options.map(opt => (
-                    <option key={opt.id} value={opt.id}>
+                    <option key={opt.id} value={opt.id} className="text-slate-900">
                         {opt.firstname} {opt.lastname} ({opt.country || '-'})
                     </option>
                 ))}
             </select>
-            <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </div>
         </div>
     </div>

@@ -1,22 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import { User, Plus, Edit2, Trash2, X, Save, Flag, FileText } from 'lucide-react';
 
-export default function Referees({ darkMode }) {
+export default function Referees({ darkMode = false }) {
     const [activeTab, setActiveTab] = useState('referee'); // referee, scorer, linejudge
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
-    
+
     // Modal State
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
     const [formData, setFormData] = useState({ firstname: '', lastname: '', country: '', code: '' });
 
-    useEffect(() => {
-        fetchData();
-    }, [activeTab]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             let res;
@@ -24,14 +20,21 @@ export default function Referees({ darkMode }) {
             if (activeTab === 'referee') res = await api.getAllReferees();
             else if (activeTab === 'scorer') res = await api.getAllScorers();
             else if (activeTab === 'linejudge') res = await api.getAllLineJudges();
-            
+
             setData(res.data || []);
         } catch (err) {
             console.error("Error fetching officials:", err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            fetchData();
+        }, 0);
+        return () => clearTimeout(timeout);
+    }, [fetchData]);
 
     const handleSave = async () => {
         try {
@@ -69,15 +72,15 @@ export default function Referees({ darkMode }) {
 
     const openModal = (item = null) => {
         setEditItem(item);
-        setFormData(item 
-            ? { firstname: item.firstname, lastname: item.lastname, country: item.country, code: item.code } 
-            : { firstname: '', lastname: '', country: '', code: ''}
+        setFormData(item
+            ? { firstname: item.firstname, lastname: item.lastname, country: item.country, code: item.code }
+            : { firstname: '', lastname: '', country: '', code: '' }
         );
         setShowModal(true);
     };
 
     const getTabIcon = (tab) => {
-        switch(tab) {
+        switch (tab) {
             case 'referee': return <User size={18} />;
             case 'scorer': return <FileText size={18} />;
             case 'linejudge': return <Flag size={18} />;
@@ -86,30 +89,29 @@ export default function Referees({ darkMode }) {
     };
 
     return (
-        <div className={`min-h-screen p-6 transition-colors duration-200 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
+        <div className="min-h-screen p-6 transition-colors duration-200 bg-gray-50 text-gray-800">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <User className="text-indigo-600" /> Officials Management
+                    <User className="text-blue-600" /> Officials Management
                 </h1>
-                <button 
-                    onClick={() => openModal()} 
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-lg transition-transform active:scale-95"
+                <button
+                    onClick={() => openModal()}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-lg transition-transform active:scale-95"
                 >
                     <Plus size={20} /> Add New {activeTab === 'linejudge' ? 'Line Judge' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
                 {['referee', 'scorer', 'linejudge'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`pb-3 px-6 font-bold capitalize transition-all flex items-center gap-2 whitespace-nowrap ${
-                            activeTab === tab 
-                            ? 'text-indigo-600 border-b-2 border-indigo-600 dark:text-indigo-400' 
-                            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-lg'
-                        }`}
+                        className={`pb-3 px-6 font-bold capitalize transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-t-lg'
+                            }`}
                     >
                         {getTabIcon(tab)}
                         {tab === 'linejudge' ? 'Line Judges' : tab + 's'}
@@ -118,7 +120,7 @@ export default function Referees({ darkMode }) {
             </div>
 
             {/* List */}
-            <div className={`rounded-xl border overflow-hidden shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            <div className="rounded-md border overflow-hidden shadow-sm bg-white border-gray-200">
                 {loading ? (
                     <div className="text-center py-10 text-gray-500">Loading...</div>
                 ) : data.length === 0 ? (
@@ -158,7 +160,7 @@ export default function Referees({ darkMode }) {
                                                 {item.code || 'No Code'}
                                             </div>
                                         </td>
-                                        
+
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => openModal(item)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Edit2 size={18} /></button>
@@ -175,8 +177,8 @@ export default function Referees({ darkMode }) {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden transform transition-all ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md rounded-lg shadow-2xl overflow-hidden transform transition-all bg-white text-gray-900">
                         <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex justify-between items-center">
                             <h3 className="text-lg font-bold flex items-center gap-2">
                                 {editItem ? <Edit2 size={18} /> : <Plus size={18} />}
@@ -184,51 +186,51 @@ export default function Referees({ darkMode }) {
                             </h3>
                             <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-full transition"><X size={20} /></button>
                         </div>
-                        
+
                         <div className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className={`block text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>First Name</label>
-                                    <input 
-                                        value={formData.firstname} 
-                                        onChange={e => setFormData({...formData, firstname: e.target.value})}
-                                        className={`w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">First Name</label>
+                                    <input
+                                        value={formData.firstname}
+                                        onChange={e => setFormData({ ...formData, firstname: e.target.value })}
+                                        className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
                                         placeholder="John"
                                     />
                                 </div>
                                 <div>
-                                    <label className={`block text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Last Name</label>
-                                    <input 
-                                        value={formData.lastname} 
-                                        onChange={e => setFormData({...formData, lastname: e.target.value})}
-                                        className={`w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Last Name</label>
+                                    <input
+                                        value={formData.lastname}
+                                        onChange={e => setFormData({ ...formData, lastname: e.target.value })}
+                                        className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
                                         placeholder="Doe"
                                     />
                                 </div>
                             </div>
                             <div>
-                                <label className={`block text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Country / Association</label>
-                                <input 
-                                    value={formData.country} 
-                                    onChange={e => setFormData({...formData, country: e.target.value})}
-                                    className={`w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Country / Association</label>
+                                <input
+                                    value={formData.country}
+                                    onChange={e => setFormData({ ...formData, country: e.target.value })}
+                                    className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
                                     placeholder="THA"
                                 />
                             </div>
                             <div>
-                                <label className={`block text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Code</label>
-                                <input 
-                                    value={formData.code} 
-                                    onChange={e => setFormData({...formData, code: e.target.value})}
-                                    className={`w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                                <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Code</label>
+                                <input
+                                    value={formData.code}
+                                    onChange={e => setFormData({ ...formData, code: e.target.value })}
+                                    className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
                                     placeholder="THA"
                                 />
                             </div>
                         </div>
 
-                        <div className={`px-6 py-4 border-t flex justify-end gap-3 ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-100 bg-gray-50'}`}>
+                        <div className="px-6 py-4 border-t flex justify-end gap-3 border-gray-100 bg-gray-50">
                             <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition">Cancel</button>
-                            <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg active:scale-95 transition flex items-center gap-2">
+                            <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-blue-600 text-white hover:bg-indigo-700 shadow-lg active:scale-95 transition flex items-center gap-2">
                                 <Save size={18} /> Save
                             </button>
                         </div>

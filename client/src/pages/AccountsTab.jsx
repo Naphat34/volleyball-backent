@@ -5,7 +5,7 @@ import {
     User, Shield, Key, CheckCircle, AlertCircle, Loader2
 } from 'lucide-react';
 
-const AccountsTab = ({ darkMode }) => {
+const AccountsTab = () => {
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -111,20 +111,20 @@ const AccountsTab = ({ darkMode }) => {
     );
 
     return (
-        <div className={`p-6 rounded-lg shadow-sm transition-colors duration-200 ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'}`}>
+        <div className="p-6 rounded-lg shadow-sm transition-colors duration-200 bg-white text-gray-900">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <User className="text-indigo-500" /> Accounts Management
+                        <User className="text-blue-600" /> Accounts Management
                     </h2>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <p className="text-sm text-gray-500">
                         Manage user accounts, roles, and permissions.
                     </p>
                 </div>
                 <button
                     onClick={() => handleOpenModal('create')}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md"
                 >
                     <Plus size={18} /> Add New User
                 </button>
@@ -140,11 +140,7 @@ const AccountsTab = ({ darkMode }) => {
                     placeholder="Search users by username or team..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-colors
-                        ${darkMode
-                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
-                        }`}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500"
                 />
             </div>
 
@@ -152,7 +148,7 @@ const AccountsTab = ({ darkMode }) => {
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className={`border-b ${darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'}`}>
+                        <tr className="border-b border-gray-200 text-gray-500">
                             <th className="p-4 font-medium">User</th>
                             <th className="p-4 font-medium">Role</th>
                             <th className="p-4 font-medium">Status</th>
@@ -174,23 +170,23 @@ const AccountsTab = ({ darkMode }) => {
                             </tr>
                         ) : (
                             filteredUsers.map(user => (
-                                <tr key={user.id} className={`border-b last:border-0 transition-colors ${darkMode ? 'border-gray-700 hover:bg-gray-750' : 'border-gray-100 hover:bg-gray-50'}`}>
+                                <tr key={user.id} className="border-b last:border-0 transition-colors border-gray-100 hover:bg-gray-50">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200">
                                                 <User size={20} className="text-gray-500" />
                                             </div>
                                             <div>
                                                 <div className="font-medium">{user.username}</div>
-                                                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user.team_name || '-'}</div>
+                                                <div className="text-sm text-gray-500">{user.team_name || '-'}</div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="p-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
                                             ${user.role === 'admin'
-                                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                                ? 'bg-purple-100 text-purple-800'
+                                                : 'bg-blue-100 text-blue-800'
                                             }`}>
                                             {user.role}
                                         </span>
@@ -198,8 +194,8 @@ const AccountsTab = ({ darkMode }) => {
                                     <td className="p-4">
                                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
                                             ${user.status === 'active'
-                                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-red-100 text-red-800'
                                             }`}>
                                             {user.status === 'active' ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
                                             {user.status}
@@ -207,10 +203,10 @@ const AccountsTab = ({ darkMode }) => {
                                     </td>
                                     <td className="p-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button onClick={() => handleOpenModal('edit', user)} className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}>
+                                            <button onClick={() => handleOpenModal('edit', user)} className="p-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-600">
                                                 <Edit2 size={18} />
                                             </button>
-                                            <button onClick={() => handleDelete(user.id)} className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
+                                            <button onClick={() => handleDelete(user.id)} className="p-2 rounded-lg transition-colors hover:bg-red-50 text-red-600">
                                                 <Trash2 size={18} />
                                             </button>
                                         </div>
@@ -225,21 +221,21 @@ const AccountsTab = ({ darkMode }) => {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className={`w-full max-w-md rounded-xl shadow-2xl transform transition-all ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
-                        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+                    <div className="w-full max-w-md rounded-md shadow-2xl transform transition-all bg-white text-gray-900">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-200">
                             <h3 className="text-xl font-bold">{modalMode === 'create' ? 'Add New User' : 'Edit User'}</h3>
-                            <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"><X size={24} /></button>
+                            <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div><label className="block text-sm font-medium mb-1">Username</label><div className="relative"><User className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="text" name="username" required value={formData.username} onChange={handleInputChange} className={`w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'}`} placeholder="johndoe" /></div></div>
-                            <div><label className="block text-sm font-medium mb-1">Password {modalMode === 'edit' && <span className="text-xs font-normal text-gray-500">(Leave blank to keep)</span>}</label><div className="relative"><Key className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="password" name="password" required={modalMode === 'create'} value={formData.password} onChange={handleInputChange} className={`w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'}`} placeholder="••••••••" /></div></div>
+                            <div><label className="block text-sm font-medium mb-1">Username</label><div className="relative"><User className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="text" name="username" required value={formData.username} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="johndoe" /></div></div>
+                            <div><label className="block text-sm font-medium mb-1">Password {modalMode === 'edit' && <span className="text-xs font-normal text-gray-500">(Leave blank to keep)</span>}</label><div className="relative"><Key className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="password" name="password" required={modalMode === 'create'} value={formData.password} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="••••••••" /></div></div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium mb-1">Role</label><div className="relative"><Shield className="absolute left-3 top-2.5 text-gray-400" size={18} /><select name="role" value={formData.role} onChange={handleInputChange} className={`w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none appearance-none ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'}`}><option value="user">User</option><option value="staff">Staff</option><option value="admin">Admin</option></select></div></div>
-                                <div><label className="block text-sm font-medium mb-1">Status</label><select name="status" value={formData.status} onChange={handleInputChange} className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'}`}><option value="active">Active</option><option value="inactive">Inactive</option><option value="banned">Banned</option></select></div>
+                                <div><label className="block text-sm font-medium mb-1">Role</label><div className="relative"><Shield className="absolute left-3 top-2.5 text-gray-400" size={18} /><select name="role" value={formData.role} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-gray-50 border-gray-300"><option value="user">User</option><option value="staff">Staff</option><option value="admin">Admin</option></select></div></div>
+                                <div><label className="block text-sm font-medium mb-1">Status</label><select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300"><option value="active">Active</option><option value="inactive">Inactive</option><option value="banned">Banned</option></select></div>
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
-                                <button type="button" onClick={handleCloseModal} className={`px-4 py-2 rounded-lg font-medium transition-colors ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancel</button>
-                                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-md transition-colors"><Save size={18} /> {modalMode === 'create' ? 'Create User' : 'Save Changes'}</button>
+                                <button type="button" onClick={handleCloseModal} className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700">Cancel</button>
+                                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-md transition-colors"><Save size={18} /> {modalMode === 'create' ? 'Create User' : 'Save Changes'}</button>
                             </div>
                         </form>
                     </div>

@@ -1,141 +1,294 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import client from '../../api'; // Axios instance ของคุณ
-import { Trophy, Calendar, MapPin, Users, ArrowRight, LogIn } from 'lucide-react';
-import { formatThaiDate } from '../../utils';
+import { Trophy, ArrowRight, LogIn, CalendarDays, Clock, MapPin, Menu, X } from 'lucide-react';
+import { api } from '../../api';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function LandingPage() {
     const navigate = useNavigate();
-    const [competitions, setCompetitions] = useState([]);
+    const { language, setLanguage, t } = useLanguage();
+    const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     useEffect(() => {
-        fetchPublicData();
+        const fetchMatches = async () => {
+            try {
+                const res = await api.getPublicMatches();
+                setMatches(res.data);
+            } catch (error) {
+                console.error("Error fetching matches:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMatches();
     }, []);
 
-    const fetchPublicData = async () => {
-        try {
-            // เรียก API Public ที่เราเพิ่งเปิด
-            const res = await client.get('/public/competitions');
-            setCompetitions(res.data.filter(c => c.status?.toLowerCase() === 'open'));
-        } catch (err) {
-            console.error("Error fetching public data:", err);
-        } finally {
-            setLoading(false);
+    const TeamLogo = ({ name, logoUrl }) => {
+        if (logoUrl) {
+            return (
+                <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center overflow-hidden shadow-sm">
+                    <img src={logoUrl} alt={name || "Team"} className="w-full h-full object-cover" />
+                </div>
+            );
         }
+        const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : "??";
+        return (
+            <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center text-[10px] font-bold text-gray-500 shadow-sm">
+                {initials}
+            </div>
+        );
     };
 
+    // Group matches by date
+    const groupedMatches = matches.reduce((acc, match) => {
+        const key = match.match_date || "Unknown Date";
+        if (!acc[key]) {
+            acc[key] = {
+                dateString: match.match_date,
+                stadium: match.stadium_name || "",
+                matches: []
+            };
+        }
+        acc[key].matches.push(match);
+        return acc;
+    }, {});
+
     return (
-        <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
-            
+        <div className="min-h-screen bg-[#f8f9fa] text-gray-800 font-sans pb-16">
+
             {/* --- Navbar --- */}
             <nav className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">V</div>
-                            <span className="font-bold text-xl tracking-tight text-indigo-900">VolleySystem</span>
+                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">V</div>
+                            <span className="font-bold text-xl tracking-tight text-indigo-900">{t('nav.systemName')}</span>
                         </div>
-                        <div className="hidden md:flex items-center gap-8">
-                            <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">หน้าแรก</button>
-                            <button onClick={() => navigate('/teams')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">ทีม</button>
-                            <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">ตารางแข่งขัน</button>
-                            <button onClick={() => navigate('/standings')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">อันดับทีม</button>
-                            <button onClick={() => navigate('/statistics')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">Statistics</button>
+                        <div className="flex items-center gap-8">
+                            <div className="hidden md:flex items-center gap-8">
+                                <button onClick={() => navigate('/')} className="text-sm font-medium text-blue-600 hover:text-blue-700 transition cursor-pointer">{t('nav.home')}</button>
+                                <button onClick={() => navigate('/teams')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.teams')}</button>
+                                <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.matches')}</button>
+                                <button onClick={() => navigate('/standings')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.standings')}</button>
+                                <button onClick={() => navigate('/stats')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.stats')}</button>
+                            </div>
+                            <div className="hidden md:flex gap-4 items-center">
+                                {/* Language Selector */}
+                                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setLanguage('THA')}
+                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                            language === 'THA'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        TH
+                                    </button>
+                                    <button
+                                        onClick={() => setLanguage('ENG')}
+                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                            language === 'ENG'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        EN
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={() => navigate('/login')}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm cursor-pointer"
+                                >
+                                    <LogIn size={18} /> {t('nav.login')}
+                                </button>
+                            </div>
+                            {/* Hamburger Menu Icon */}
+                            <div className="flex items-center md:hidden">
+                                <button
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 focus:outline-none"
+                                >
+                                    {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex gap-4">
-                            <button 
-                                onClick={() => navigate('/login')} 
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
+                    </div>
+                </div>
+                {/* Mobile Menu Dropdown */}
+                {isMenuOpen && (
+                    <div className="md:hidden bg-white border-t border-gray-100 shadow-inner px-4 pt-2 pb-4 space-y-1">
+                        <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-blue-650 hover:bg-gray-55">{t('nav.home')}</button>
+                        <button onClick={() => { navigate('/teams'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.teams')}</button>
+                        <button onClick={() => { navigate('/matches'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.matches')}</button>
+                        <button onClick={() => { navigate('/standings'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.standings')}</button>
+                        <button onClick={() => { navigate('/stats'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.stats')}</button>
+                        
+                        {/* Mobile Menu Language Selector */}
+                        <div className="flex justify-between items-center px-3 py-2 border-t border-gray-100 mt-2">
+                            <span className="text-sm font-medium text-gray-500">Language / ภาษา</span>
+                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                                <button
+                                    onClick={() => setLanguage('THA')}
+                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                        language === 'THA'
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-500'
+                                    }`}
+                                >
+                                    TH
+                                </button>
+                                <button
+                                    onClick={() => setLanguage('ENG')}
+                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                        language === 'ENG'
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-500'
+                                    }`}
+                                >
+                                    EN
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 mt-2">
+                            <button
+                                onClick={() => { navigate('/login'); setIsMenuOpen(false); }}
+                                className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
                             >
-                                <LogIn size={18} /> เข้าสู่ระบบ
+                                <LogIn size={18} /> {t('nav.login')}
                             </button>
                         </div>
                     </div>
-                </div>
+                )}
             </nav>
 
-            {/* --- Hero Section --- */}
-            <div className="bg-indigo-900 text-white py-20 px-4 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-                <div className="max-w-4xl mx-auto text-center relative z-10">
-                    <h1 className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight">
-                        Experience the Thrill of <br/> <span className="text-yellow-400">Volleyball</span>
-                    </h1>
-                    <p className="text-lg md:text-xl text-indigo-200 mb-8 max-w-2xl mx-auto">
-                        ติดตามผลการแข่งขัน ตารางแข่ง และอันดับทีมได้แบบ Real-time พร้อมระบบจัดการทีมที่ครบวงจร
-                    </p>
-                    <button 
-                        onClick={() => navigate('/register')}
-                        className="px-8 py-4 bg-yellow-500 hover:bg-yellow-400 text-indigo-900 font-bold rounded-full shadow-lg transform hover:scale-105 transition-all flex items-center gap-2 mx-auto"
-                    >
-                        สร้างทีมของคุณเลย <ArrowRight size={20} />
-                    </button>
+            {/* --- Match Schedule Section --- */}
+            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 ">
+                <div className="flex items-center justify-center md:justify-start gap-2 text-[#14366A] font-semibold text-xl">
+                    <CalendarDays size={24} />
+                    <span>{t('landing.schedule')}</span>
                 </div>
             </div>
-
-            {/* --- Competitions Section --- */}
-            <div className="max-w-7xl mx-auto px-4 py-16">
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
-                        <Trophy className="text-yellow-500" /> รายการแข่งขันที่เปิดรับสมัคร
-                    </h2>
-                </div>
-
+            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-4 mb-20">
                 {loading ? (
-                    <div className="text-center py-10 text-gray-400">Loading tournaments...</div>
-                ) : competitions.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100">
-                        <Trophy size={48} className="mx-auto text-gray-300 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-500">ยังไม่มีรายการแข่งขันในขณะนี้</h3>
-                    </div>
+                    <div className="text-center py-20 text-gray-500 font-medium">{t('landing.loading')}</div>
+                ) : Object.keys(groupedMatches).length === 0 ? (
+                    <div className="text-center py-20 text-gray-500 font-medium">{t('landing.noMatches')}</div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {competitions.map((comp) => (
-                            <div key={comp.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 overflow-hidden group">
-                                <div className="h-3 bg-indigo-500 w-full"></div>
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h3 className="font-bold text-lg text-gray-900 group-hover:text-indigo-600 transition">
-                                            {comp.title}
-                                        </h3>
-                                        {comp.status === 'open' && (
-                                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase">
-                                                Open
-                                            </span>
+                    Object.values(groupedMatches).map((group, index) => {
+                        const dateFormatted = group.dateString 
+                            ? new Date(group.dateString).toLocaleDateString(language === 'THA' ? 'th-TH' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' }) 
+                            : t('landing.unknownDate');
+
+                        return (
+                            <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 mb-8">
+                                {/* Header */}
+                                <div className="bg-[#14366A] text-white px-6 py-4 flex flex-col md:flex-row justify-between items-center shadow-inner">
+                                    <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-center md:text-left text-sm md:text-base font-medium">
+                                        <span className="font-bold text-lg md:text-xl">{t('landing.matchSchedule')}</span>
+                                        {group.stadium && (
+                                            <>
+                                                <span className="hidden md:inline text-white/50">|</span>
+                                                <span className="text-blue-50 uppercase tracking-tight text-xs md:text-sm flex items-center gap-1">
+                                                    <MapPin size={14} /> {group.stadium}
+                                                </span>
+                                            </>
                                         )}
                                     </div>
-                                    
-                                    <div className="space-y-2 text-sm text-gray-600 mb-6">
-                                        <div className="flex items-center gap-2">
-                                            <Calendar size={16} className="text-gray-400" />
-                                            {formatThaiDate(comp.start_date)}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <MapPin size={16} className="text-gray-400" />
-                                            {comp.location}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Users size={16} className="text-gray-400" />
-                                            {comp.gender} / {comp.age_group_name || 'General'}
-                                        </div>
+                                    <div className="mt-4 md:mt-0 bg-white text-[#14366A] px-4 py-1.5 rounded text-sm font-bold shadow-sm whitespace-nowrap">
+                                        {group.dateString}
                                     </div>
+                                </div>
 
-                                    <button 
-                                        onClick={() => navigate('/login')} // หรือลิงก์ไปหน้าดูรายละเอียด
-                                        className="w-full py-2.5 rounded-lg border border-indigo-100 text-indigo-600 font-medium hover:bg-indigo-50 transition"
-                                    >
-                                        ดูรายละเอียด / สมัคร
-                                    </button>
+                                {/* Day Bar */}
+                                <div className="bg-[#eaf3fc] border-b border-gray-200 px-6 py-3 flex items-center justify-center md:justify-start gap-2 text-[#14366A] font-semibold text-sm">
+                                    <CalendarDays size={18} />
+                                    <span>{dateFormatted}</span>
+                                </div>
+
+                                {/* Matches Container */}
+                                <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 bg-white">
+                                    {group.matches.map((match, mIndex) => {
+                                        // Determine color based on gender
+                                        const genderText = (match.match_gender || '').toLowerCase();
+                                        let themeColor = "#14366A"; // Default / Men (น้ำเงินเข้ม)
+                                        if (genderText.includes('women') || genderText.includes('หญิง') || genderText.includes('female')) {
+                                            themeColor = "#ec4899"; // Women (สีชมพู)
+                                        }
+
+                                        return (
+                                            <div key={match.id} className="bg-white border border-gray-200 rounded-lg relative shadow-sm hover:shadow-md transition-shadow flex flex-col min-h-[160px] overflow-hidden">
+                                                {/* Left strip */}
+                                                <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{ backgroundColor: themeColor }}></div>
+                                                
+                                                {/* Match Info Header */}
+                                                <div className="flex justify-between items-center bg-gray-50 px-4 py-3 pl-5 border-b border-gray-100">
+                                                    <span className="font-bold text-sm" style={{ color: themeColor }}>#{match.id || mIndex + 1}</span>
+                                                    <div className="flex items-center gap-1.5 text-gray-500 text-xs font-semibold">
+                                                        <Clock size={13} className="text-gray-400" /> {match.start_time}
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => navigate(`/match-centre/${match.id}`)}
+                                                        className="border text-[11px] font-semibold px-3 py-1 rounded-full transition bg-white hover:bg-gray-500 hover:text-white shadow-sm" 
+                                                        style={{ borderColor: themeColor, color: themeColor }}
+                                                    >
+                                                        Match Centre
+                                                    </button>
+                                                </div>
+                                                
+                                                {/* Teams and Score Content */}
+                                                <div className="flex justify-between items-center flex-1 gap-2 p-4 pt-6 pl-5 pb-8">
+                                                    {/* Team A */}
+                                                    <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-3 flex-1 w-[35%] text-center sm:text-right">
+                                                        <div className="text-[11px] sm:text-[13px] font-semibold text-gray-800 leading-tight order-2 sm:order-1 sm:mt-0 mt-1">
+                                                            {match.team_a_name || "TBD"}
+                                                        </div>
+                                                        <div className="order-1 sm:order-2">
+                                                            <TeamLogo name={match.team_a_name} logoUrl={match.team_a_logo} />
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Score */}
+                                                    <div className="flex flex-col items-center justify-center w-[30%] px-1 relative shrink-0 -mt-2">
+                                                        <div className="text-2xl sm:text-[28px] font-bold tracking-widest text-[#1e293b] whitespace-nowrap">
+                                                            {match.team_a_score ?? '-'} <span className="text-gray-400 mx-1">-</span> {match.team_b_score ?? '-'}
+                                                        </div>
+                                                        <div className="absolute -bottom-6 flex flex-col items-center">
+                                                            <span className={`text-[9px] font-bold px-2 py-[3px] rounded tracking-wider shadow-sm uppercase ${
+                                                                match.status === 'COMPLETED' ? 'bg-[#cdedd1] text-[#2db540]' 
+                                                                : match.status === 'LIVE' ? 'bg-red-100 text-red-600'
+                                                                : 'bg-gray-100 text-gray-500'
+                                                            }`}>
+                                                                {match.status || 'SCHEDULED'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Team B */}
+                                                    <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 flex-1 w-[35%] text-center sm:text-left">
+                                                        <div className="order-1">
+                                                            <TeamLogo name={match.team_b_name} logoUrl={match.team_b_logo} />
+                                                        </div>
+                                                        <div className="text-[11px] sm:text-[13px] font-semibold text-gray-800 leading-tight order-2 sm:mt-0 mt-1">
+                                                            {match.team_b_name || "TBD"}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })
                 )}
             </div>
 
             {/* --- Footer --- */}
-            <footer className="bg-gray-900 text-gray-400 py-8 text-center text-sm">
+            <footer className="bg-gray-900 text-gray-400 py-6 text-center text-sm w-full fixed bottom-0 z-40">
                 <p>&copy; {new Date().getFullYear()} Volleyball Tournament System. All rights reserved.</p>
             </footer>
 

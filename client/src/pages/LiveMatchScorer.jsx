@@ -7,6 +7,7 @@ import { api } from '../api';
 import { generateScoresheetPDF } from '../utils/pdfGenerator';
 import Swal from 'sweetalert2';
 import LineupSelector from '../components/LineupSelector';
+import { formatThaiTime } from '../utils';
 
 // ============================================================================
 // HELPER FUNCTIONS - Volleyball Logic
@@ -61,7 +62,7 @@ const PlayerButton = ({
 }) => {
     const isSelected = selectedPlayer?.id === player.id;
     
-    let buttonClass = 'aspect-square rounded-xl text-center flex items-center justify-center transition-all duration-200 relative group shadow-md';
+    let buttonClass = 'aspect-square rounded-md text-center flex items-center justify-center transition-all duration-200 relative group shadow-md';
     
     if (isSelected) {
         buttonClass += team === 'home' 
@@ -111,7 +112,7 @@ const PlayerButton = ({
                 </div>
             )}
             
-            <span className={`font-mono font-black ${numberSize} text-white drop-shadow-lg`}>{player.number}</span>
+            <span className={`font-mono font-semibold ${numberSize} text-white drop-shadow-lg`}>{player.number}</span>
         </button>
     );
 };
@@ -255,11 +256,9 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
 
 
     // Team Compositions
-    const [homeStarters, setHomeStarters] = useState([]);
     const [homeSubs, setHomeSubs] = useState([]);
     const [homeLibero, setHomeLibero] = useState(null);
     
-    const [awayStarters, setAwayStarters] = useState([]);
     const [awaySubs, setAwaySubs] = useState([]);
     const [awayLibero, setAwayLibero] = useState(null);
 
@@ -297,24 +296,27 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
     // Effect to check if both lineups are confirmed
     useEffect(() => {
         if (homeLineupConfirmed && awayLineupConfirmed) {
-            setLineupSubmitted(true);
-            
-            // Add Lineup to Action Log
-            const homeNumbers = homeRotation.map(p => p.number).join(', ');
-            const awayNumbers = awayRotation.map(p => p.number).join(', ');
-            
-            setActionLog(prev => [{
-                id: Date.now(),
-                set_number: currentSet,
-                team_id: null,
-                player_id: null,
-                skill: 'LINEUP_CONFIRM',
-                grade: '!',
-                score_home: pointScore.home,
-                score_away: pointScore.away,
-                description: `Lineup Confirmed - ${matchData.home_team}: [${homeNumbers}] | ${matchData.away_team}: [${awayNumbers}]`,
-                time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-            }, ...prev]);
+            const timeout = setTimeout(() => {
+                setLineupSubmitted(true);
+                
+                // Add Lineup to Action Log
+                const homeNumbers = homeRotation.map(p => p.number).join(', ');
+                const awayNumbers = awayRotation.map(p => p.number).join(', ');
+                
+                setActionLog(prev => [{
+                    id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                    set_number: currentSet,
+                    team_id: null,
+                    player_id: null,
+                    skill: 'LINEUP_CONFIRM',
+                    grade: '!',
+                    score_home: pointScore.home,
+                    score_away: pointScore.away,
+                    description: `Lineup Confirmed - ${matchData.home_team}: [${homeNumbers}] | ${matchData.away_team}: [${awayNumbers}]`,
+                    time: formatThaiTime(new Date())
+                }, ...prev]);
+            }, 0);
+            return () => clearTimeout(timeout);
         }
     }, [homeLineupConfirmed, awayLineupConfirmed, homeRotation, awayRotation, currentSet, pointScore, matchData]);
 
@@ -389,11 +391,9 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                     const hStart = hPlayers.slice(0, 6);
                     const aStart = aPlayers.slice(0, 6);
                     
-                    setHomeStarters(hStart);
                     setHomeRotation(hStart);
                     setHomeSubs(hPlayers.slice(6));
                     
-                    setAwayStarters(aStart);
                     setAwayRotation(aStart);
                     setAwaySubs(aPlayers.slice(6));
                     
@@ -408,8 +408,11 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
         };
 
         if (match) {
-            setMatchData(match);
-            fetchRosters();
+            const timeout = setTimeout(() => {
+                setMatchData(match);
+                fetchRosters();
+            }, 0);
+            return () => clearTimeout(timeout);
         }
     }, [match, isReadOnly]);
 
@@ -472,14 +475,12 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
         }).catch(err => console.error(`Error saving ${teamType} lineup`, err));
 
         if (isHome) {
-            setHomeStarters(starters);
             setHomeRotation(starters);
             setHomeLibero(libero);
             setHomeSubs(homePlayers.filter(p => !starters.find(s => s.id === p.id) && p.id !== libero?.id));
             setHomeLineupConfirmed(true);
             checkLineupComplete(true, awayLineupConfirmed);
         } else {
-            setAwayStarters(starters);
             setAwayRotation(starters);
             setAwayLibero(libero);
             setAwaySubs(awayPlayers.filter(p => !starters.find(s => s.id === p.id) && p.id !== libero?.id));
@@ -610,7 +611,11 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                 confirmButtonColor: '#10b981'
             });
         } else {
-            setCurrentSet(prev => prev + 1);
+            const nextSetNumber = currentSet + 1;
+            setCurrentSet(nextSetNumber);
+            api.startSet(matchData.id, { setNumber: nextSetNumber })
+               .catch(err => console.error("Failed to save set start time:", err));
+            
             setPointScore({ home: 0, away: 0 });
             setTimeouts({ home: 0, away: 0 });
             setSubCounts({ home: 0, away: 0 });
@@ -798,14 +803,14 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
             <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 
                           text-white z-50 flex flex-col items-center justify-center p-6 overflow-y-auto">
                 <div className="text-center mb-8">
-                    <h2 className="text-4xl font-black mb-2 bg-gradient-to-r from-indigo-400 to-purple-400 
+                    <h2 className="text-4xl font-semibold mb-2 bg-gradient-to-r from-indigo-400 to-purple-400 
                                  bg-clip-text text-transparent">
                         Pre-Match Line-up
                     </h2>
                     <p className="text-gray-400">Select 6 starters and 1 libero for each team</p>
                 </div>
                 
-                <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-8 px-4 lg:px-12">
                     {!homeLineupConfirmed ? (
                         <LineupSelector 
                             teamName={matchData.home_team} 
@@ -814,7 +819,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                         />
                     ) : (
                         <div className="bg-gradient-to-br from-green-900/30 to-green-800/30 p-8 
-                                      rounded-2xl border-2 border-green-500 flex flex-col items-center 
+                                      rounded-lg border-2 border-green-500 flex flex-col items-center 
                                       justify-center shadow-xl">
                             <CheckCircle size={64} className="text-green-400 mb-4 animate-pulse" />
                             <h3 className="text-2xl font-bold text-green-300">{matchData.home_team} Ready</h3>
@@ -829,7 +834,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                         />
                     ) : (
                         <div className="bg-gradient-to-br from-green-900/30 to-green-800/30 p-8 
-                                      rounded-2xl border-2 border-green-500 flex flex-col items-center 
+                                      rounded-lg border-2 border-green-500 flex flex-col items-center 
                                       justify-center shadow-xl">
                             <CheckCircle size={64} className="text-green-400 mb-4 animate-pulse" />
                             <h3 className="text-2xl font-bold text-green-300">{matchData.away_team} Ready</h3>
@@ -849,7 +854,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
             <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 
                           text-white z-[100] flex flex-col items-center justify-center p-4">
                 <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-8 rounded-3xl 
-                              shadow-2xl max-w-2xl w-full border border-gray-700">
+                              shadow-2xl w-full border border-gray-700">
                     <h2 className="text-3xl font-bold mb-8 text-center flex items-center justify-center gap-3">
                         <Activity className="text-yellow-500" size={32} />
                         <span className="bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
@@ -865,10 +870,10 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                         <div className="grid grid-cols-2 gap-6">
                             <button 
                                 onClick={() => setServingTeam('home')}
-                                className={`p-6 rounded-2xl border-2 transition-all duration-300 
+                                className={`p-6 rounded-lg border-2 transition-all duration-300 
                                           flex flex-col items-center gap-3 transform hover:scale-105 ${
                                     servingTeam === 'home' 
-                                        ? 'border-indigo-500 bg-gradient-to-br from-indigo-900/50 to-indigo-800/50 text-white shadow-xl shadow-indigo-500/20' 
+                                        ? 'border-blue-500 bg-gradient-to-br from-indigo-900/50 to-indigo-800/50 text-white shadow-xl shadow-blue-500/10' 
                                         : 'border-gray-600 bg-gray-700/50 text-gray-400 hover:bg-gray-600/50'
                                 }`}
                             >
@@ -880,7 +885,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             
                             <button 
                                 onClick={() => setServingTeam('away')}
-                                className={`p-6 rounded-2xl border-2 transition-all duration-300 
+                                className={`p-6 rounded-lg border-2 transition-all duration-300 
                                           flex flex-col items-center gap-3 transform hover:scale-105 ${
                                     servingTeam === 'away' 
                                         ? 'border-rose-500 bg-gradient-to-br from-rose-900/50 to-rose-800/50 text-white shadow-xl shadow-rose-500/20' 
@@ -900,16 +905,16 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                         <h3 className="text-xl font-semibold mb-4 text-gray-300 text-center">
                             Court Side (Scorer's View)
                         </h3>
-                        <div className="relative bg-gray-700 rounded-2xl p-1 flex items-center">
+                        <div className="relative bg-gray-700 rounded-lg p-1 flex items-center">
                             <div 
                                 className={`absolute top-1 bottom-1 w-1/2 bg-gradient-to-r from-indigo-600 to-indigo-700 
-                                          rounded-xl transition-all duration-300 shadow-lg ${
+                                          rounded-md transition-all duration-300 shadow-lg ${
                                     isHomeLeft ? 'left-1' : 'left-[calc(50%-4px)]'
                                 }`}
                             />
                             <button 
                                 onClick={() => setIsHomeLeft(true)}
-                                className={`relative z-10 flex-1 py-4 text-center font-bold transition-colors rounded-xl ${
+                                className={`relative z-10 flex-1 py-4 text-center font-bold transition-colors rounded-md ${
                                     isHomeLeft ? 'text-white' : 'text-gray-400'
                                 }`}
                             >
@@ -917,7 +922,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             </button>
                             <button 
                                 onClick={() => setIsHomeLeft(false)}
-                                className={`relative z-10 flex-1 py-4 text-center font-bold transition-colors rounded-xl ${
+                                className={`relative z-10 flex-1 py-4 text-center font-bold transition-colors rounded-md ${
                                     !isHomeLeft ? 'text-white' : 'text-gray-400'
                                 }`}
                             >
@@ -945,11 +950,13 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             }
                             
                             setMatchStarted(true);
+                            api.startSet(matchData.id, { setNumber: 1 })
+                               .catch(err => console.error("Failed to save set start time:", err));
                         }}
                         disabled={!servingTeam}
                         className="w-full py-5 bg-gradient-to-r from-green-600 to-green-700 
                                  hover:from-green-700 hover:to-green-800 text-white font-bold 
-                                 rounded-2xl shadow-xl shadow-green-900/30 transition-all duration-300 
+                                 rounded-lg shadow-xl shadow-green-900/30 transition-all duration-300 
                                  flex items-center justify-center gap-3 text-lg
                                  disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 
                                  disabled:cursor-not-allowed disabled:shadow-none
@@ -1007,7 +1014,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                         {leftTeamData.name}
                     </h2>
                     <div className="flex items-center justify-center gap-6">
-                        <div className={`text-7xl font-black ${
+                        <div className={`text-7xl font-semibold ${
                             leftTeamData.color === 'indigo' ? 'text-indigo-400' : 'text-rose-400'
                         } drop-shadow-lg`}>
                             {leftTeamData.setWins}
@@ -1028,7 +1035,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                     <div className="text-sm text-gray-400 uppercase tracking-widest mb-2 font-bold">
                         Set {currentSet}
                     </div>
-                    <div className="text-6xl font-black text-white tracking-wider drop-shadow-2xl">
+                    <div className="text-6xl font-semibold text-white tracking-wider drop-shadow-2xl">
                         {leftTeamData.pointScore} - {rightTeamData.pointScore}
                     </div>
                     <div className="text-xs text-gray-500 mt-3 font-mono flex justify-center gap-3">
@@ -1060,7 +1067,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                 rightTeamData.timeouts > 1 ? 'bg-red-500 shadow-lg shadow-red-500/50' : 'bg-gray-700'
                             }`} title="Timeout 2" />
                         </div>
-                        <div className={`text-7xl font-black ${
+                        <div className={`text-7xl font-semibold ${
                             rightTeamData.color === 'indigo' ? 'text-indigo-400' : 'text-rose-400'
                         } drop-shadow-lg`}>
                             {rightTeamData.setWins}
@@ -1264,10 +1271,10 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                             key={skill.code}
                                             onClick={() => handleSkillSelect(skill.code)}
                                             disabled={isReadOnly}
-                                            className="h-24 rounded-2xl bg-gradient-to-br from-gray-700 to-gray-800 
+                                            className="h-24 rounded-lg bg-gradient-to-br from-gray-700 to-gray-800 
                                                      hover:from-gray-600 hover:to-gray-700 border-2 border-gray-600 
-                                                     hover:border-indigo-500 flex flex-col items-center justify-center 
-                                                     gap-2 transition-all duration-200 shadow-lg hover:shadow-indigo-500/20 
+                                                     hover:border-blue-500 flex flex-col items-center justify-center 
+                                                     gap-2 transition-all duration-200 shadow-lg hover:shadow-blue-500/10 
                                                      hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <span className="text-4xl">{skill.icon}</span>
@@ -1280,12 +1287,12 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                             key={grade.code}
                                             onClick={() => handleGradeSelect(grade)}
                                             disabled={isReadOnly}
-                                            className={`h-24 rounded-2xl flex flex-col items-center justify-center 
+                                            className={`h-24 rounded-lg flex flex-col items-center justify-center 
                                                       gap-2 transition-all duration-200 text-white shadow-lg 
                                                       hover:shadow-xl hover:scale-105 ${grade.color} 
                                                       disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
-                                            <span className="text-3xl font-black">{grade.code}</span>
+                                            <span className="text-3xl font-semibold">{grade.code}</span>
                                             <span className="text-xs font-semibold uppercase px-2 text-center">
                                                 {grade.name}
                                             </span>
@@ -1295,7 +1302,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                     {selectedSkill && (
                                         <button 
                                             onClick={() => setSelectedSkill(null)}
-                                            className="h-24 rounded-2xl bg-gray-600 hover:bg-gray-500 
+                                            className="h-24 rounded-lg bg-gray-600 hover:bg-gray-500 
                                                      flex items-center justify-center gap-2 font-bold 
                                                      transition-all hover:scale-105"
                                         >
@@ -1387,7 +1394,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
             {showSubModal && (
                 <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center 
                               justify-center p-4 animate-fadeIn">
-                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-5xl 
+                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 w-full 
                                   rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] 
                                   border border-gray-700">
                         <div className="p-6 border-b border-gray-700 flex justify-between items-center 
@@ -1409,10 +1416,10 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             <div className="flex justify-center gap-6 mb-8">
                                 <button 
                                     onClick={() => setSubData({ team: 'home', playerOut: null, playerIn: null })}
-                                    className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all 
+                                    className={`px-8 py-4 rounded-lg font-bold text-lg transition-all 
                                               duration-300 transform hover:scale-105 ${
                                         subData.team === 'home' 
-                                            ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white ring-2 ring-indigo-400 shadow-xl shadow-indigo-500/20' 
+                                            ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white ring-2 ring-indigo-400 shadow-xl shadow-blue-500/10' 
                                             : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                                     }`}
                                 >
@@ -1420,7 +1427,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                 </button>
                                 <button 
                                     onClick={() => setSubData({ team: 'away', playerOut: null, playerIn: null })}
-                                    className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all 
+                                    className={`px-8 py-4 rounded-lg font-bold text-lg transition-all 
                                               duration-300 transform hover:scale-105 ${
                                         subData.team === 'away' 
                                             ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white ring-2 ring-rose-400 shadow-xl shadow-rose-500/20' 
@@ -1434,7 +1441,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             {/* Player Selection */}
                             <div className="flex gap-8 flex-1 overflow-hidden">
                                 {/* Player OUT */}
-                                <div className="flex-1 bg-gray-900/50 rounded-2xl p-6 overflow-y-auto 
+                                <div className="flex-1 bg-gray-900/50 rounded-lg p-6 overflow-y-auto 
                                               border-2 border-red-900/50">
                                     <h4 className="text-red-400 font-bold mb-4 text-center uppercase 
                                                  tracking-wider text-lg">
@@ -1445,7 +1452,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                             <button 
                                                 key={p.id}
                                                 onClick={() => setSubData({ ...subData, playerOut: p })}
-                                                className={`w-full p-4 rounded-xl flex items-center justify-between 
+                                                className={`w-full p-4 rounded-md flex items-center justify-between 
                                                           transition-all duration-200 ${
                                                     subData.playerOut?.id === p.id 
                                                         ? 'bg-red-900/50 border-2 border-red-500 text-white shadow-lg shadow-red-500/20' 
@@ -1466,7 +1473,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                 </div>
 
                                 {/* Player IN */}
-                                <div className="flex-1 bg-gray-900/50 rounded-2xl p-6 overflow-y-auto 
+                                <div className="flex-1 bg-gray-900/50 rounded-lg p-6 overflow-y-auto 
                                               border-2 border-green-900/50">
                                     <h4 className="text-green-400 font-bold mb-4 text-center uppercase 
                                                  tracking-wider text-lg">
@@ -1477,7 +1484,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                             <button 
                                                 key={p.id}
                                                 onClick={() => setSubData({ ...subData, playerIn: p })}
-                                                className={`w-full p-4 rounded-xl flex items-center justify-between 
+                                                className={`w-full p-4 rounded-md flex items-center justify-between 
                                                           transition-all duration-200 ${
                                                     subData.playerIn?.id === p.id 
                                                         ? 'bg-green-900/50 border-2 border-green-500 text-white shadow-lg shadow-green-500/20' 
@@ -1503,14 +1510,14 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             <button 
                                 onClick={() => setShowSubModal(false)}
                                 className="px-6 py-3 text-gray-400 hover:text-white hover:bg-gray-700 
-                                         rounded-xl transition-all font-bold"
+                                         rounded-md transition-all font-bold"
                             >
                                 Cancel
                             </button>
                             <button 
                                 onClick={performSubstitution}
                                 disabled={!subData.playerOut || !subData.playerIn}
-                                className={`px-8 py-3 rounded-xl font-bold flex items-center gap-3 
+                                className={`px-8 py-3 rounded-md font-bold flex items-center gap-3 
                                           transition-all duration-200 ${
                                     (!subData.playerOut || !subData.playerIn) 
                                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
@@ -1543,9 +1550,9 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             <div className="flex gap-3">
                                 <button 
                                     onClick={() => setSanctionData({...sanctionData, team: 'home', player: null})}
-                                    className={`flex-1 py-3 rounded-xl border-2 font-bold transition-all ${
+                                    className={`flex-1 py-3 rounded-md border-2 font-bold transition-all ${
                                         sanctionData.team === 'home' 
-                                            ? 'bg-indigo-600 border-indigo-400 text-white' 
+                                            ? 'bg-blue-600 border-indigo-400 text-white' 
                                             : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
                                     }`}
                                 >
@@ -1553,7 +1560,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                 </button>
                                 <button 
                                     onClick={() => setSanctionData({...sanctionData, team: 'away', player: null})}
-                                    className={`flex-1 py-3 rounded-xl border-2 font-bold transition-all ${
+                                    className={`flex-1 py-3 rounded-md border-2 font-bold transition-all ${
                                         sanctionData.team === 'away' 
                                             ? 'bg-rose-600 border-rose-400 text-white' 
                                             : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
@@ -1568,8 +1575,8 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                         <div className="mb-6">
                             <label className="block text-sm text-gray-400 mb-2 font-bold">Player / Coach</label>
                             <select 
-                                className="w-full bg-gray-700 border-2 border-gray-600 rounded-xl p-3 text-white 
-                                         font-bold focus:border-indigo-500 focus:outline-none transition-colors"
+                                className="w-full bg-gray-700 border-2 border-gray-600 rounded-md p-3 text-white 
+                                         font-bold focus:border-blue-500 focus:outline-none transition-colors"
                                 onChange={(e) => setSanctionData({...sanctionData, player: JSON.parse(e.target.value)})}
                             >
                                 <option value="null">-- Select --</option>
@@ -1587,7 +1594,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             <div className="flex gap-3">
                                 <button 
                                     onClick={() => setSanctionData({...sanctionData, type: 'yellow'})}
-                                    className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all ${
+                                    className={`flex-1 py-4 rounded-md font-bold border-2 transition-all ${
                                         sanctionData.type === 'yellow' 
                                             ? 'bg-yellow-500 text-black border-yellow-400 shadow-lg shadow-yellow-500/20' 
                                             : 'bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-600'
@@ -1597,7 +1604,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                                 </button>
                                 <button 
                                     onClick={() => setSanctionData({...sanctionData, type: 'red'})}
-                                    className={`flex-1 py-4 rounded-xl font-bold border-2 transition-all ${
+                                    className={`flex-1 py-4 rounded-md font-bold border-2 transition-all ${
                                         sanctionData.type === 'red' 
                                             ? 'bg-red-600 text-white border-red-400 shadow-lg shadow-red-500/20' 
                                             : 'bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-600'
@@ -1612,14 +1619,14 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
                             <button 
                                 onClick={() => setShowSanctionModal(false)}
                                 className="px-6 py-3 text-gray-400 hover:text-white hover:bg-gray-700 
-                                         rounded-xl transition-all font-bold"
+                                         rounded-md transition-all font-bold"
                             >
                                 Cancel
                             </button>
                             <button 
                                 onClick={handleSanctionSubmit}
                                 className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-700 
-                                         hover:from-red-700 hover:to-red-800 text-white rounded-xl 
+                                         hover:from-red-700 hover:to-red-800 text-white rounded-md 
                                          font-bold shadow-lg shadow-red-500/20 transition-all 
                                          transform hover:scale-105"
                             >

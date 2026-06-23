@@ -33,7 +33,7 @@ const RosterList = ({ list, team, toggleSelect, setRole }) => {
                             <div className="col-span-1 flex justify-center">
                                 <input type="checkbox" checked={p.selected || false} onChange={() => toggleSelect(team, p.id)} className="w-5 h-5 accent-green-500 rounded cursor-pointer transition-transform active:scale-90" />
                             </div>
-                            <div className={`col-span-1 font-black text-center text-lg ${p.selected ? 'text-white' : 'text-slate-500'}`}>{p.number}</div>
+                            <div className={`col-span-1 font-semibold text-center text-lg ${p.selected ? 'text-white' : 'text-slate-500'}`}>{p.number}</div>
                             <div className={`col-span-6 text-sm truncate font-medium ${p.selected ? 'text-slate-200' : 'text-slate-500'}`} title={displayName}>{displayName}</div>
                             <div className="col-span-2 flex justify-center">
                                 <button onClick={() => p.selected && setRole(team, p.id, 'isCaptain')} disabled={!p.selected} className={`w-8 h-8 rounded-full text-xs font-bold transition-all border-2 flex items-center justify-center ${!p.selected ? 'opacity-20 cursor-not-allowed border-slate-700 text-slate-700' : p.isCaptain ? 'bg-yellow-500 text-black border-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.4)] scale-110' : 'bg-transparent text-slate-500 border-slate-600 hover:border-slate-400 hover:text-white' }`}>C</button>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Users } from 'lucide-react';
 
 const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos, onSelect, context }) => {
     if (!isOpen) return null;
@@ -20,19 +20,26 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
     const safeLiberos = liberos || { l1: null, l2: null };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-200">
-            <div className="bg-slate-800 rounded-2xl shadow-2xl border border-slate-600 w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
-                <div className="bg-slate-900 p-4 border-b border-slate-700 flex justify-between items-center">
+        <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all">
+            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in duration-300">
+                <div className="bg-slate-50/50 p-6 border-b border-slate-100 flex justify-between items-center">
                     <div>
-                        <span className="font-bold text-white text-lg block">Select Player ({teamName})</span>
-                        <span className="text-xs text-slate-400">
-                            Position: {isCourtPosition ? `P${safeContext.posIndex + 1}` : (typeof safeContext.posIndex === 'string' ? safeContext.posIndex.toUpperCase() : '')}
-                        </span>
+                        <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-3 tracking-tight">
+                            <div className="bg-blue-600 p-2 rounded-md text-white shadow-lg shadow-indigo-100">
+                                <Users size={20} />
+                            </div>
+                            SELECT PLAYER
+                        </h2>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                            {teamName} • {isCourtPosition ? `POS P${safeContext.posIndex + 1}` : (typeof safeContext.posIndex === 'string' ? safeContext.posIndex.toUpperCase() : 'GENERAL')}
+                        </div>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
+                        <X size={24} />
+                    </button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-3 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 gap-3 custom-scrollbar bg-white">
                     {roster && roster.map(player => {
                         const alreadyInLineup = lineup && lineup.some(p => 
                             p && getPlayerId(p) === getPlayerId(player)
@@ -49,27 +56,27 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
                                 key={getPlayerId(player)}
                                 disabled={isDisabled}
                                 onClick={() => onSelect(player)}
-                                className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left relative ${isDisabled ? 'bg-slate-900/50 border-slate-800 opacity-40 cursor-not-allowed' : 'bg-slate-700 border-slate-600 hover:border-blue-500 hover:bg-slate-600 active:scale-95'}`}
+                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left relative group ${isDisabled ? 'bg-slate-50 border-slate-50 opacity-20 grayscale cursor-not-allowed' : 'bg-white border-slate-100 hover:border-blue-500 hover:shadow-lg hover:shadow-indigo-50 active:scale-95'}`}
                             >
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${player.isLibero ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-lg transition-colors ${player.isLibero ? 'bg-rose-100 text-rose-600' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
                                     {getPlayerNumber(player)}
                                 </div>
                                 <div className="flex-1 overflow-hidden">
-                                    <div className="text-white font-bold truncate text-sm">{player.firstname || player.first_name || player.name}</div>
-                                    <div className="text-xs text-slate-400 truncate">{player.lastname || player.last_name || ''}</div>
+                                    <div className={`font-semibold uppercase tracking-tight truncate text-xs ${isDisabled ? 'text-slate-400' : 'text-slate-800 group-hover:text-blue-600'}`}>{player.firstname || player.first_name || player.name}</div>
+                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{player.position || 'Player'}</div>
                                 </div>
-                                {player.isLibero && <span className="absolute top-1 right-1 bg-blue-500 text-[10px] px-1 rounded font-black text-white">L</span>}
+                                {player.isLibero && <span className="absolute top-2 right-2 bg-rose-500 text-[8px] px-1.5 py-0.5 rounded font-semibold text-white uppercase tracking-tighter">LIB</span>}
                                 {isRestrictedLibero && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-xl">
-                                        <span className="text-[10px] font-bold text-red-400">LIBERO ONLY</span>
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg backdrop-blur-[1px]">
+                                        <div className="bg-rose-500 text-white text-[8px] font-semibold px-2 py-0.5 rounded shadow-sm uppercase tracking-widest">Libero Only</div>
                                     </div>
                                 )}
                             </button>
                         );
                     })}
                 </div>
-                <div className="p-4 bg-slate-900 text-xs text-slate-500 text-center italic">
-                    * Libero players are restricted to L1/L2 positions only.
+                <div className="p-4 bg-slate-50 border-t border-slate-100 text-[9px] text-slate-400 font-bold text-center uppercase tracking-widest px-8 leading-relaxed">
+                    Libero players are restricted to specialized positions. Players already assigned are hidden or disabled.
                 </div>
             </div>
         </div>

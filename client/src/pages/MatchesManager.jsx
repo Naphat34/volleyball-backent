@@ -3,7 +3,7 @@ import api from '../api'; // Path to your api setup
 import { Trophy, Calendar, CheckCircle, Edit3, Save, X, PlusCircle, Shield } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
-import { formatForInput, formatThaiDateTime } from '../utils';
+import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
 
 export default function MatchesManager({ competition, onClose }) {
     const competitionId = competition?.id;
@@ -23,7 +23,7 @@ export default function MatchesManager({ competition, onClose }) {
         away_team_id: '',
         start_time: '',
         location: '',
-        gender: 'Female', // Default
+        gender: competition?.gender || 'Female', // Default
         pool_name: 'A'    // Default
     });
 
@@ -57,6 +57,12 @@ export default function MatchesManager({ competition, onClose }) {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useEffect(() => {
+        if (competition?.gender) {
+            setNewMatchForm(prev => ({ ...prev, gender: competition.gender }));
+        }
+    }, [competition]);
 
     const handleGenerateMatches = async () => {
         const result = await Swal.fire({
@@ -121,7 +127,7 @@ export default function MatchesManager({ competition, onClose }) {
                 location: newMatchForm.location || '',
                 round_name: newMatchForm.round_name || 'Round 1',
                 pool_name: newMatchForm.pool_name || '',
-                gender: newMatchForm.gender || 'Male',
+                gender: newMatchForm.gender || competition?.gender || 'Male',
 
                 // ถ้าเป็นการแก้ไข ให้คงสถานะ (Status) เดิมไว้
                 ...(editingMatchId && { status: matches.find(m => m.id === editingMatchId)?.status })
@@ -155,7 +161,7 @@ export default function MatchesManager({ competition, onClose }) {
                 match_number: '', 
                 round_name: 'Round 1', // ตั้งค่าเริ่มต้นให้
                 pool_name: '', 
-                gender: 'Male'         // ตั้งค่าเริ่มต้นให้
+                gender: competition?.gender || 'Male'         // ตั้งค่าเริ่มต้นให้
             });
             
             setEditingMatchId(null); // ออกจากโหมดแก้ไข
@@ -180,7 +186,7 @@ export default function MatchesManager({ competition, onClose }) {
             away_team_id: match.away_team_id || '',
             start_time: match.start_time ? formatForInput(match.start_time) : '', // format local input
             location: match.location || '',
-            gender: match.gender || 'Female',
+            gender: match.gender || competition?.gender || 'Female',
             pool_name: match.pool_name || 'A'
         });
         setEditingMatchId(match.id);
@@ -221,7 +227,8 @@ export default function MatchesManager({ competition, onClose }) {
             });
 
             // ตัดสินผลแพ้ชนะ (เช่น Best of 5 ต้องชนะ 3, Best of 3 ต้องชนะ 2)
-            const setsToWin = Math.ceil(maxSets / 2);
+            const matchMaxSets = editingMatch?.max_sets || maxSets;
+            const setsToWin = Math.ceil(matchMaxSets / 2);
             const isCompleted = hScore >= setsToWin || aScore >= setsToWin;
 
             await api.put(`/matches/${editingMatch.id}/result`, {
@@ -248,7 +255,7 @@ export default function MatchesManager({ competition, onClose }) {
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-lg p-6 max-w-4xl mx-auto mt-4 animate-in fade-in zoom-in duration-200">
+        <div className="bg-white rounded-md shadow-lg p-6 w-full mx-auto mt-4 animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 className="text-xl font-bold flex items-center gap-2">
                     <Trophy className="text-yellow-500" /> Match Schedule
@@ -259,11 +266,11 @@ export default function MatchesManager({ competition, onClose }) {
                             setEditingMatchId(null);
                             setNewMatchForm({
                                 round_name: 'Round 1', match_number: '', home_team_id: '', away_team_id: '',
-                                start_time: '', location: '', gender: 'Female', pool_name: 'A'
+                                start_time: '', location: '', gender: competition?.gender || 'Female', pool_name: 'A'
                             });
                             setIsCreating(true);
                         }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition flex items-center gap-2"
+                        className="bg-blue-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition flex items-center gap-2"
                     >
                         <PlusCircle size={16} /> New Match
                     </button>
@@ -316,7 +323,7 @@ export default function MatchesManager({ competition, onClose }) {
                                             {typeof match.set_scores === 'object' ? match.set_scores.join(', ') : match.set_scores}
                                         </div>
                                     )}
-                                    <div className="mt-1 text-xs text-indigo-500 font-medium">{match.start_time ? new Date(match.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD'}</div>
+                                    <div className="mt-1 text-xs text-blue-600 font-medium">{match.start_time ? formatThaiTime(match.start_time) : 'TBD'}</div>
                                     <div className="text-[10px] text-gray-400">{match.location}</div>
                                 </div>
 
@@ -357,66 +364,169 @@ export default function MatchesManager({ competition, onClose }) {
 
             {/* --- Modal สร้าง/แก้ไข แมตช์ (Create/Edit Match) --- */}
             {isCreating && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-2xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">{editingMatchId ? 'Edit Match Details' : 'Create New Match'}</h3>
-                            <button onClick={() => { setIsCreating(false); setEditingMatchId(null); }}><X size={20} /></button>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col transform transition-all scale-100">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white px-6 py-4 flex items-center justify-between shadow-md">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/10 rounded-lg backdrop-blur-md">
+                                    <Calendar className="text-white" size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-lg leading-tight">
+                                        {editingMatchId ? 'แก้ไขข้อมูลการแข่งขัน' : 'เพิ่มแมตช์การแข่งขันใหม่'}
+                                    </h3>
+                                    <p className="text-xs text-blue-100 font-medium">Tournament: {competition?.title || competition?.name}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => { setIsCreating(false); setEditingMatchId(null); }}
+                                className="p-1 rounded-md hover:bg-white/10 text-white/80 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
 
-                        <form onSubmit={handleCreateMatch} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <Input label="Round Name" value={newMatchForm.round_name} onChange={e => setNewMatchForm({ ...newMatchForm, round_name: e.target.value })} required placeholder="e.g. Round 1" />
-                                <Input label="Match No." type="number" value={newMatchForm.match_number} onChange={e => setNewMatchForm({ ...newMatchForm, match_number: e.target.value })} placeholder="#" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
+                        <form onSubmit={handleCreateMatch} className="p-6 space-y-5 overflow-y-auto max-h-[85vh]">
+                            {/* Section 1: Match Identification */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Home Team</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Round (รอบแข่ง)</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
+                                        value={newMatchForm.round_name} 
+                                        onChange={e => setNewMatchForm({ ...newMatchForm, round_name: e.target.value })} 
+                                        required 
+                                        placeholder="e.g. Round 1" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Match No. (แมตช์ที่)</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
+                                        value={newMatchForm.match_number} 
+                                        onChange={e => setNewMatchForm({ ...newMatchForm, match_number: e.target.value })} 
+                                        placeholder="e.g. 1" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Pool / Group (สาย)</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
+                                        value={newMatchForm.pool_name} 
+                                        onChange={e => setNewMatchForm({ ...newMatchForm, pool_name: e.target.value })} 
+                                        placeholder="e.g. A" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Gender (ประเภททีม)</label>
                                     <select
-                                        className="w-full p-2 border rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                        value={newMatchForm.home_team_id}
-                                        onChange={e => setNewMatchForm({ ...newMatchForm, home_team_id: e.target.value })}
+                                        className="w-full p-2 border rounded-lg text-sm bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm text-gray-900"
+                                        value={newMatchForm.gender}
+                                        onChange={e => setNewMatchForm({ ...newMatchForm, gender: e.target.value })}
                                         required
                                     >
-                                        <option value="">Select Team</option>
-                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Mixed">Mixed</option>
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Away Team</label>
-    <select
-        className="w-full p-2 border rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-        value={newMatchForm.away_team_id}
-        onChange={e => setNewMatchForm({ ...newMatchForm, away_team_id: e.target.value })}
-        required
-    >
-        <option value="">Select Team</option>
-        {teams
-            // กรองทีมที่ถูกเลือกเป็น Home Team ออกไป (ไม่ให้แข่งกับตัวเอง)
-            .filter(t => t.id.toString() !== newMatchForm.home_team_id.toString()) 
-            .map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-            ))
-        }
-    </select>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-4">
-                                <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Start Date & Time (24h)</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Input 
+                            {/* Section 2: Competitors Selection */}
+                            <div className="bg-gray-50 border border-gray-150 rounded-xl p-4 shadow-inner">
+                                <div className="text-center font-bold text-xs text-gray-400 mb-3 uppercase tracking-wider">Competitors / คู่แข่งขัน</div>
+                                <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
+                                    {/* Home Team */}
+                                    <div className="md:col-span-5 space-y-2">
+                                        <label className="block text-xs font-bold uppercase text-gray-600">Home Team (ทีมเหย้า)</label>
+                                        <select
+                                            className="w-full p-2.5 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm border-gray-300 text-gray-900"
+                                            value={newMatchForm.home_team_id}
+                                            onChange={e => setNewMatchForm({ ...newMatchForm, home_team_id: e.target.value })}
+                                            required
+                                        >
+                                            <option value="">-- Select Home Team --</option>
+                                            {teams.map(t => <option key={t.id} value={t.id}>[{t.code}] {t.name}</option>)}
+                                        </select>
+                                        {teams.find(t => t.id.toString() === newMatchForm.home_team_id.toString()) && (() => {
+                                            const homeTeam = teams.find(t => t.id.toString() === newMatchForm.home_team_id.toString());
+                                            return (
+                                                <div className="flex items-center gap-2.5 p-2 bg-blue-50/70 border border-blue-100/80 rounded-lg animate-in fade-in duration-200">
+                                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden border shrink-0">
+                                                        {homeTeam.logo_url ? <img src={homeTeam.logo_url} className="w-full h-full object-contain p-0.5" alt="" /> : <Shield size={14} className="text-gray-400" />}
+                                                    </div>
+                                                    <div className="truncate">
+                                                        <p className="text-xs font-bold text-gray-800 truncate">{homeTeam.name}</p>
+                                                        <p className="text-[10px] text-gray-500 font-mono">{homeTeam.code}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+
+                                    {/* VS Badge */}
+                                    <div className="md:col-span-1 flex justify-center py-2 md:py-0">
+                                        <span className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-xs shadow-md border-2 border-white">
+                                            VS
+                                        </span>
+                                    </div>
+
+                                    {/* Away Team */}
+                                    <div className="md:col-span-5 space-y-2">
+                                        <label className="block text-xs font-bold uppercase text-gray-600">Away Team (ทีมเยือน)</label>
+                                        <select
+                                            className="w-full p-2.5 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm border-gray-300 text-gray-900"
+                                            value={newMatchForm.away_team_id}
+                                            onChange={e => setNewMatchForm({ ...newMatchForm, away_team_id: e.target.value })}
+                                            required
+                                        >
+                                            <option value="">-- Select Away Team --</option>
+                                            {teams
+                                                .filter(t => t.id.toString() !== newMatchForm.home_team_id.toString())
+                                                .map(t => <option key={t.id} value={t.id}>[{t.code}] {t.name}</option>)
+                                            }
+                                        </select>
+                                        {teams.find(t => t.id.toString() === newMatchForm.away_team_id.toString()) && (() => {
+                                            const awayTeam = teams.find(t => t.id.toString() === newMatchForm.away_team_id.toString());
+                                            return (
+                                                <div className="flex items-center gap-2.5 p-2 bg-blue-50/70 border border-blue-100/80 rounded-lg animate-in fade-in duration-200">
+                                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden border shrink-0">
+                                                        {awayTeam.logo_url ? <img src={awayTeam.logo_url} className="w-full h-full object-contain p-0.5" alt="" /> : <Shield size={14} className="text-gray-400" />}
+                                                    </div>
+                                                    <div className="truncate">
+                                                        <p className="text-xs font-bold text-gray-800 truncate">{awayTeam.name}</p>
+                                                        <p className="text-[10px] text-gray-500 font-mono">{awayTeam.code}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Time and Venue */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Date (วันที่แข่งขัน)</label>
+                                    <input 
                                         type="date" 
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
                                         value={newMatchForm.start_time ? newMatchForm.start_time.split('T')[0] : ''}
                                         onChange={e => {
                                             const timePart = newMatchForm.start_time?.includes('T') ? newMatchForm.start_time.split('T')[1] : '00:00';
                                             setNewMatchForm({...newMatchForm, start_time: `${e.target.value}T${timePart}`});
                                         }}
                                     />
-                                    <Input 
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Time (เวลาแข่งขัน)</label>
+                                    <input 
                                         type="time" 
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
                                         value={newMatchForm.start_time?.includes('T') ? newMatchForm.start_time.split('T')[1] : ''}
                                         onChange={e => {
                                             const datePart = newMatchForm.start_time?.includes('T') ? newMatchForm.start_time.split('T')[0] : new Date().toISOString().split('T')[0];
@@ -424,16 +534,56 @@ export default function MatchesManager({ competition, onClose }) {
                                         }}
                                     />
                                 </div>
-                                {newMatchForm.start_time && (
-                                    <p className="text-[10px] text-indigo-500 font-medium mt-1">
-                                        Selected: {formatThaiDateTime(newMatchForm.start_time)}
-                                    </p>
-                                )}
-                            </div>
-                                <Input label="Location" value={newMatchForm.location} onChange={e => setNewMatchForm({ ...newMatchForm, location: e.target.value })} placeholder="Court 1" />
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Location / Venue (สถานที่แข่งขัน)</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
+                                        value={newMatchForm.location} 
+                                        onChange={e => setNewMatchForm({ ...newMatchForm, location: e.target.value })} 
+                                        placeholder="e.g. Court 1, Main Gymnasium" 
+                                    />
+                                </div>
                             </div>
 
-                            <Button type="submit" label={editingMatchId ? "Update Match" : "Create Match"} icon={editingMatchId ? <Edit3 size={18} /> : <PlusCircle size={18} />} full />
+                            {newMatchForm.start_time && (
+                                <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 text-center animate-in fade-in duration-200">
+                                    <p className="text-xs text-blue-700 font-bold">
+                                        📅 กำหนดการแข่งขัน: {formatThaiDateTime(newMatchForm.start_time)}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Modal Actions */}
+                            <div className="flex gap-3 justify-end pt-3 border-t mt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsCreating(false);
+                                        setEditingMatchId(null);
+                                        setNewMatchForm({
+                                            round_name: 'Round 1',
+                                            match_number: '',
+                                            home_team_id: '',
+                                            away_team_id: '',
+                                            start_time: '',
+                                            location: '',
+                                            gender: competition?.gender || 'Female',
+                                            pool_name: 'A'
+                                        });
+                                    }}
+                                    className="px-5 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm active:scale-95"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold text-sm rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                                >
+                                    {editingMatchId ? <Edit3 size={15} /> : <PlusCircle size={15} />}
+                                    {editingMatchId ? "บันทึกการแก้ไข" : "สร้างแมตช์แข่งขัน"}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

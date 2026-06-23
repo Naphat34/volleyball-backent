@@ -1,162 +1,157 @@
 import React, { useState, useEffect } from 'react';
-import { X, Repeat, ShieldAlert, CheckCircle } from 'lucide-react';
 
-export default function LiberoModal({ 
-    isOpen, onClose, teamName, lineup, liberos, tracker, disqualifiedPlayers = [], onConfirm 
-}) {
-    const [selectedOutIndex, setSelectedOutIndex] = useState(null);
-    const [selectedInPlayer, setSelectedInPlayer] = useState(null);
+export default function LiberoModal({ isOpen, onClose, teamName, lineup = [], liberos = {}, tracker = {}, isServing, onConfirm }) {
+    const [selectedOut, setSelectedOut] = useState(null);
+    const [selectedIn, setSelectedIn] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
-            setSelectedOutIndex(null);
-            setSelectedInPlayer(null);
+            setSelectedOut(null);
+            setSelectedIn(null);
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
-    // ตรวจสอบว่ามี Libero และ "ต้องไม่ติดแบน"
-    const isL1Available = liberos?.l1 && !disqualifiedPlayers.includes(liberos.l1.id);
-    const isL2Available = liberos?.l2 && !disqualifiedPlayers.includes(liberos.l2.id);
-    const hasLibero = isL1Available || isL2Available || tracker.onCourt;
+    const allowedIndices = isServing ? [4, 5] : [0, 4, 5];
 
+    // ฝั่ง Out: ดึงผู้เล่นตัวจริงที่อยู่ในสนามปัจจุบัน (และต้องไม่ใช่ Libero อยู่แล้ว)
+    const availablePlayers = lineup
+        .map((player, index) => ({ ...player, posIndex: index }))
+        .filter(player => player && player.id && !player.isLibero && allowedIndices.includes(player.posIndex));
 
-    const handleConfirm = () => {
-        if (tracker.onCourt) {
-            // กรณี Libero อยู่ในสนาม -> เปลี่ยนออก
-            onConfirm('OUT', { 
-                posIndex: tracker.posIndex, 
-                playerIn: selectedInPlayer, // อาจเป็นตัวจริงคนเดิม หรือ Libero อีกคน
-                playerOut: tracker.activeLibero 
-            });
-        } else {
-            // กรณี Libero อยู่ข้างสนาม -> เปลี่ยนเข้า
-            if (selectedOutIndex !== null && selectedInPlayer) {
-                onConfirm('IN', { 
-                    posIndex: selectedOutIndex, 
-                    playerIn: selectedInPlayer, 
-                    playerOut: lineup[selectedOutIndex] 
-                });
-            }
+    // ฝั่ง In: ดึงข้อมูล Libero ที่ลงทะเบียนไว้
+    const availableLiberos = [liberos.l1, liberos.l2].filter(Boolean);
+
+    const handleReplace = () => {
+        if (!selectedOut || !selectedIn) {
+            alert("กรุณาเลือกผู้เล่นที่จะออก และ Libero ที่จะเข้าให้ครบถ้วน");
+            return;
         }
-        onClose();
+        
+        // ส่งค่าการสลับตัวกลับไปให้ ScorerConsole เพื่อทำงานต่อ (IN = เอา Libero ลงสนาม)
+        onConfirm('IN', {
+            posIndex: selectedOut.posIndex,
+            playerIn: selectedIn,
+            playerOut: selectedOut
+        });
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+            {/* กล่อง Modal สไตล์คลาสสิกขอบน้ำเงิน */}
+            <div className="bg-white border-[3px] border-[#000080] w-[700px] shadow-2xl font-sans select-none">
                 
-                <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Repeat className="text-pink-500" />
-                        Libero Replacement - {teamName}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition">
-                        <X size={24} />
-                    </button>
+                {/* Header Bar */}
+                <div className="bg-[#000080] text-white flex justify-between items-center px-2 py-1.5 text-sm">
+                    <span className="font-bold tracking-wide">Libero in</span>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={onClose}
+                            className="bg-red-600 hover:bg-red-700 text-white px-2.5 py-0.5 font-bold border border-white leading-none transition-colors"
+                            title="Close"
+                        >
+                            X
+                        </button>
+                    </div>
                 </div>
 
-                <div className="p-6 h-[400px] flex flex-col">
-                    <div className="bg-blue-900/20 border border-blue-900/50 p-3 rounded-lg mb-4 flex items-start gap-2 text-xs text-blue-300">
-                        <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                        <p><strong>กฎ FIVB (19.3.1.1):</strong> ตัวรับอิสระสามารถเปลี่ยนเข้าแทน <b>ผู้เล่นแดนหลัง</b> ได้เท่านั้น และผู้เล่นตัวจริงจะต้องกลับเข้ามาที่เดิมเสมอ</p>
+                <div className="p-4 bg-gray-50/50">
+                    {/* ชื่อทีม */}
+                    <h2 className="text-center text-2xl font-bold text-[#000080] mb-6 drop-shadow-sm">{teamName || 'Team'}</h2>
+
+                    <div className="flex justify-between gap-6">
+                        
+                        {/* ---------------- ฝั่งซ้าย: Out (ผู้เล่นที่จะออก) ---------------- */}
+                        <div className="w-1/2">
+                            <div className="flex items-center gap-2 mb-1 pl-1">
+                                <span className="text-red-600 text-3xl font-semibold leading-none drop-shadow-sm">↓</span>
+                                <span className="font-bold text-lg">Out</span>
+                            </div>
+                            <div className="border border-[#8aaee0] rounded-t-md overflow-hidden shadow-inner">
+                                <div className="bg-[#8aaee0] text-white text-center py-1.5 font-semibold text-sm">
+                                    Players available for replacement
+                                </div>
+                                <div className="p-2 min-h-[160px] bg-white border-t border-[#8aaee0]">
+                                    {availablePlayers.map((player) => (
+                                        <div
+                                            key={player.id || player.number}
+                                            onClick={() => setSelectedOut(player)}
+                                            className={`flex items-center px-2 py-1.5 cursor-pointer border-b border-gray-100 last:border-0 transition-colors ${
+                                                selectedOut?.id === player.id ? 'bg-[#3b82f6] text-white' : 'hover:bg-[#f0f5ff] text-slate-800'
+                                            }`}
+                                        >
+                                            <div className="w-8"></div>
+                                            <div className="w-12 font-bold text-base">{player.number}</div>
+                                            <div className="truncate">{player.first_name || player.name}</div>
+                                        </div>
+                                    ))}
+                                    {availablePlayers.length === 0 && (
+                                        <div className="text-center text-gray-400 italic mt-4 text-sm">No players available</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ---------------- ฝั่งขวา: In (Libero ที่จะเข้า) ---------------- */}
+                        <div className="w-1/2">
+                            <div className="flex items-center justify-end gap-2 mb-1 pr-1">
+                                <span className="font-bold text-lg">In</span>
+                                <span className="text-green-500 text-3xl font-semibold leading-none drop-shadow-sm">↑</span>
+                            </div>
+                            <div className="border border-[#8aaee0] rounded-t-md overflow-hidden shadow-inner">
+                                <div className="bg-[#8aaee0] text-white text-center py-1.5 font-semibold text-sm">
+                                    Libero
+                                </div>
+                                <div className="p-2 min-h-[160px] bg-white border-t border-[#8aaee0]">
+                                    {availableLiberos.map((libero, index) => (
+                                        <div
+                                            key={libero.id || libero.number}
+                                            onClick={() => setSelectedIn(libero)}
+                                            className={`flex items-center px-2 py-2 cursor-pointer mb-1 border-2 transition-all ${
+                                                index === 0 ? 'bg-[#ffeb3b]' : 'bg-gray-200'
+                                            } ${
+                                                selectedIn?.id === libero.id ? 'border-blue-500 ring-2 ring-blue-500 shadow-md scale-[1.02]' : 'border-transparent'
+                                            }`}
+                                        >
+                                            <div className="w-10 font-bold text-[#000080] text-sm flex items-center justify-center">
+                                                <span className="bg-[#e6f0ff] rounded-full w-5 h-5 flex items-center justify-center border border-[#8aaee0] text-[11px] shadow-sm">L</span>
+                                            </div>
+                                            <div className="w-12 font-bold text-red-600 text-base">{libero.number}</div>
+                                            <div className="text-red-600 font-medium truncate">{libero.first_name || libero.name}</div>
+                                        </div>
+                                    ))}
+                                    {availableLiberos.length === 0 && (
+                                        <div className="text-center text-gray-400 italic mt-4 text-sm">No Libero registered</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
-                    {!hasLibero ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
-                            <ShieldAlert size={48} className="mb-4 opacity-50" />
-                            <p>ไม่มีการลงทะเบียนตัวรับอิสระ (Libero) สำหรับทีมนี้ในเซตนี้</p>
+                    {/* ---------------- ส่วนล่าง: ข้อความแนะนำและปุ่มกดยืนยัน ---------------- */}
+                    <div className="mt-8 flex justify-between items-end">
+                        <p className="text-[#3b82f6] text-sm max-w-[200px] text-center leading-tight">
+                            Select the player to substitute the Libero and click on 'Replace'
+                        </p>
+                        <div className="flex gap-2 w-[300px]">
+                            <button 
+                                onClick={handleReplace}
+                                className="flex-1 bg-[#1d4ed8] hover:bg-blue-800 text-white font-bold py-2.5 px-4 shadow-md transition-colors border border-[#000080]"
+                            >
+                                Replace
+                            </button>
+                            <button 
+                                onClick={onClose}
+                                className="w-[110px] bg-[#6b7280] hover:bg-gray-700 text-white font-bold py-2.5 px-4 shadow-md transition-colors border border-gray-600"
+                            >
+                                Cancel
+                            </button>
                         </div>
-                    ) : (
-                        <div className="flex-1 flex gap-6">
-                            
-                            {/* --- กรณีที่ 1: LIBERO อยู่ในสนาม (ต้องการสลับออก) --- */}
-                            {tracker.onCourt ? (
-                                <>
-                                    <div className="w-1/2 bg-red-950/30 border border-red-900/50 rounded-xl p-4 flex flex-col items-center justify-center">
-                                        <span className="text-red-400 font-bold mb-4">Libero ออก (Out)</span>
-                                        <div className="w-20 h-20 rounded-full bg-pink-600 flex items-center justify-center text-3xl font-black text-white shadow-lg mb-2">
-                                            {tracker.activeLibero?.number || 'L'}
-                                        </div>
-                                        <p className="text-white">{tracker.activeLibero?.firstname}</p>
-                                    </div>
-                                    <div className="w-1/2 flex flex-col">
-                                        <span className="text-green-400 font-bold mb-4 text-center">Player In</span>
-                                        <div className="space-y-3">
-                                            {/* เปลี่ยนกลับเป็นผู้เล่นตัวจริงคนเดิม (ตามกติกา 19.3.2.2) */}
-                                            <button onClick={() => setSelectedInPlayer(tracker.replacedPlayer)} className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all ${selectedInPlayer?.id === tracker.replacedPlayer?.id ? 'bg-green-600 border-green-400 text-white' : 'bg-slate-800 border-slate-600 text-white hover:border-slate-400'}`}>
-                                                <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center font-bold">{tracker.replacedPlayer?.number}</div>
-                                                <div className="text-left"><p className="font-bold"></p><p className="text-xs opacity-70">{tracker.replacedPlayer?.firstname}</p></div>
-                                            </button>
-                                            
-                                            {/* หรือ เปลี่ยนกับ Libero คนที่ 2 (ถ้ามี) */}
-                                            {isL1Available && isL2Available && (
-                                                <button onClick={() => {
-                                                    const nextLibero = tracker.activeLibero.id === liberos.l1.id ? liberos.l2 : liberos.l1;
-                                                    setSelectedInPlayer(nextLibero);
-                                                }} className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all ${selectedInPlayer?.isLibero ? 'bg-pink-600 border-pink-400 text-white' : 'bg-slate-800 border-slate-600 text-white hover:border-slate-400'}`}>
-                                                    <div className="w-10 h-10 bg-pink-700 rounded-full flex items-center justify-center font-bold text-white">L</div>
-                                                    <div className="text-left"><p className="font-bold">สลับ Libero อีกคน</p></div>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                            /* --- กรณีที่ 2: LIBERO อยู่ข้างสนาม (ต้องการเปลี่ยนลงไป) --- */
-                                <>
-                                    <div className="w-1/2 flex flex-col">
-                                        <span className="text-red-400 font-bold mb-2 text-center text-sm">Player</span>
-                                        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                            {[0, 5, 4].map(idx => { // ตำแหน่ง P1, P6, P5
-                                                const p = lineup[idx];
-                                                const posMap = { 0: 'P1', 5: 'P6', 4: 'P5' };
-                                                if (!p) return null;
-
-                                                return (
-                                                    <button key={idx} onClick={() => setSelectedOutIndex(idx)} className={`w-full p-2 rounded-lg border flex items-center gap-3 transition-colors ${selectedOutIndex === idx ? 'bg-red-900 border-red-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500'}`}>
-                                                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold">{p.number}</div>
-                                                        <div className="text-left text-sm truncate flex-1">{p.firstname}</div>
-                                                        <span className="text-xs font-bold text-slate-500 bg-slate-900 px-2 py-1 rounded">{posMap[idx]}</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                    <div className="w-1/2 flex flex-col">
-                                        <span className="text-green-400 font-bold mb-2 text-center text-sm">Libero In</span>
-                                        <div className="space-y-3">
-                                            {isL1Available && (
-                                                <button onClick={() => setSelectedInPlayer(liberos.l1)} className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all ${selectedInPlayer?.id === liberos.l1.id ? 'bg-pink-600 border-pink-400 text-white' : 'bg-slate-800 border-slate-600 text-white'}`}>
-                                                    <div className="w-10 h-10 bg-pink-700 rounded-full flex items-center justify-center font-bold text-white">{liberos.l1.number || 'L1'}</div>
-                                                    <div className="text-left"><p className="font-bold">{liberos.l1.firstname}</p></div>
-                                                </button>
-                                            )}
-                                            {isL2Available && (
-                                                <button onClick={() => setSelectedInPlayer(liberos.l2)} className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all ${selectedInPlayer?.id === liberos.l2.id ? 'bg-pink-600 border-pink-400 text-white' : 'bg-slate-800 border-slate-600 text-white'}`}>
-                                                    <div className="w-10 h-10 bg-pink-700 rounded-full flex items-center justify-center font-bold text-white">{liberos.l2.number || 'L2'}</div>
-                                                    <div className="text-left"><p className="font-bold">{liberos.l2.firstname}</p></div>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
+                    </div>
                 </div>
 
-                <div className="p-4 border-t border-slate-800 bg-slate-900 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2 rounded-lg font-bold text-slate-400 hover:text-white hover:bg-slate-800">Cancel</button>
-                    <button 
-                        onClick={handleConfirm} 
-                        disabled={!hasLibero || (tracker.onCourt && !selectedInPlayer) || (!tracker.onCourt && (selectedOutIndex === null || !selectedInPlayer))}
-                        className="px-8 py-2 rounded-lg font-bold bg-pink-600 hover:bg-pink-500 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                        <CheckCircle size={18} /> ยืนยันสลับตัว
-                    </button>
-                </div>
             </div>
         </div>
     );

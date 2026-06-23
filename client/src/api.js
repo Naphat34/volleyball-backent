@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+//const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+
+const BASE_URL = `http://localhost:3000/api`;
+
 
 // สร้าง instance ของ axios
 const apiClient = axios.create({
@@ -39,6 +42,7 @@ export const api = {
   createMyTeam: (data) => apiClient.post('/my-team/create', data),
   getMyTeam: () => apiClient.get('/my-team'),
   updateMyTeam: (data) => apiClient.put('/my-team', data),
+  getMyMatches: () => apiClient.get('/my-team/matches'),
 
   // ข้อมูลเดิม (ถ้ามี)
   getPlayers: () => apiClient.get('/players'),
@@ -50,12 +54,14 @@ export const api = {
   deletePlayer: (id) => apiClient.delete(`/my-team/players/${id}`),
   getMyPlayersStats: () => apiClient.get('/my-team/players/stats'),
   getPlayerStats: (id) => apiClient.get(`/players/${id}/stats`),
-  getPlayersByTeam: (teamId) => apiClient.get(`/admin/teams/${teamId}/players`),
-  getStaffByTeam: (teamId) => apiClient.get(`/admin/teams/${teamId}/staff`),
+  getPlayersByTeam: (teamId) => apiClient.get(`/public/teams/${teamId}/players`),
+  getStaffByTeam: (teamId) => apiClient.get(`/public/teams/${teamId}/staff`),
 
   // Staff Management
   getMyStaff: () => apiClient.get('/my-team/staff'),
   addStaff: (data) => apiClient.post('/my-team/staff', data),
+  updateStaff: (id, data) => apiClient.put(`/my-team/staff/${id}`, data),
+  deleteStaff: (id) => apiClient.delete(`/my-team/staff/${id}`),
 
   // === Admin Management ===
   getAllUsers: () => apiClient.get('/admin/users'),
@@ -80,11 +86,16 @@ export const api = {
   getPublicCompetitionMatches: (id) => apiClient.get(`/public/competitions/${id}/matches`),
   getPublicCompetitionTeams: (id) => apiClient.get(`/public/competitions/${id}/teams`),
   getPublicTeamsList: () => apiClient.get('/public/teams'),
+  getPublicMatches: () => apiClient.get('/public/matches'),
   joinCompetition: (competition_id) => apiClient.post('/competitions/join', { competition_id }),
   leaveCompetition: (competition_id) => apiClient.post('/competitions/leave', { competition_id }),
 
   // --- Age Groups ---
   getAllAgeGroups: () => apiClient.get('/age-groups'),
+  // --- Categories ---
+  getAllCategories: () => apiClient.get('/categories'),
+
+  saveCoinToss: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/toss`, data),
 
   // --- Stadiums Management ---
   getStadiums: () => apiClient.get('/admin/stadiums'),
@@ -95,7 +106,8 @@ export const api = {
   // --- Match APIs (Admin) ---
   createMatch: (data) => apiClient.post('/matches', data),
   getTeamsByCompetition: (compId) => apiClient.get(`/admin/competitions/${compId}/teams`),
-  getMatchesByCompetition: (competitionId) => apiClient.get(`/admin/competitions/${competitionId}/matches`),
+  removeTeamFromCompetition: (compId, teamId) => apiClient.delete(`/admin/competitions/${compId}/teams/${teamId}`),
+  getMatchesByCompetition: (competitionId) => apiClient.get(`/competitions/${competitionId}/matches`),
   getAllMatches: () => apiClient.get('/admin/matches/all'),
   deleteMatch: (id) => apiClient.delete(`/matches/${id}`),
   updateMatch: (id, data) => apiClient.put(`/matches/${id}`, data),
@@ -117,6 +129,7 @@ export const api = {
   getMatchEvents: (matchId) => apiClient.get(`/scorer/match/${matchId}/events`),
   updateLiveState: (matchId, state) => apiClient.put(`/scorer/match/${matchId}/state`, { state }),
   getLiveState: (matchId) => apiClient.get(`/scorer/match/${matchId}/state`),
+  getMatchLineups: (matchId) => apiClient.get(`/scorer/match/${matchId}/lineup`),
 
   // --- Officials (Referees/Scorers/LineJudges) ---
   getAllReferees: () => apiClient.get('/admin/referees'),
@@ -137,6 +150,7 @@ export const api = {
   // อัปเดตข้อมูลเจ้าหน้าที่ในแมตช์
   updateMatchOfficials: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/officials`, data),
   endSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/end-set`, data),
+  startSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/start-set`, data),
   getMatchScoresheetData: (matchId) => apiClient.get(`/scorer/match/${matchId}/scoresheet`),
   getMatchRosterData: (matchId) => apiClient.get(`/scorer/match/${matchId}/roster`),
 };

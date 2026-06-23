@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api';
-import { Trophy, Filter, LogIn, X } from 'lucide-react';
+import { Trophy, Filter, LogIn, X, Menu } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function PublicStandings() {
     const navigate = useNavigate();
+    const { language, setLanguage, t } = useLanguage();
     const [competitions, setCompetitions] = useState([]);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedCompId, setSelectedCompId] = useState('');
     const [standings, setStandings] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -95,7 +98,7 @@ export default function PublicStandings() {
                         // Small Points (ถ้ามีข้อมูล set_scores)
                         if (m.set_scores) {
                              let scores = [];
-                             try { scores = typeof m.set_scores === 'string' ? JSON.parse(m.set_scores) : m.set_scores; } catch (e) { scores = []; }
+                             try { scores = typeof m.set_scores === 'string' ? JSON.parse(m.set_scores) : m.set_scores; } catch (_e) { scores = []; }
                              if (Array.isArray(scores)) {
                                  scores.forEach(setScore => {
                                      const [h, a] = setScore.split('-').map(v => parseInt(v));
@@ -151,48 +154,125 @@ export default function PublicStandings() {
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-20">
             {/* Navbar */}
             <nav className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16 items-center">
                         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">V</div>
-                            <span className="font-bold text-xl tracking-tight text-indigo-900">VolleySystem</span>
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">V</div>
+                            <span className="font-bold text-xl tracking-tight text-indigo-900">{t('nav.systemName')}</span>
                         </div>
-                        <div className="hidden md:flex items-center gap-8">
-                            <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">หน้าแรก</button>
-                            <button onClick={() => navigate('/teams')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">ทีม</button>
-                            <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">ตารางแข่งขัน</button>
-                            <button onClick={() => navigate('/standings')} className="text-sm font-medium text-indigo-600 transition">อันดับทีม</button>
-                            <button onClick={() => navigate('/statistics')} className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition">Statistics</button>
-                        </div>
-                        <div className="flex gap-4">
-                            <button onClick={() => navigate('/login')} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm">
-                                <LogIn size={18} /> เข้าสู่ระบบ
-                            </button>
+                        <div className="flex items-center gap-8">
+                            <div className="hidden md:flex items-center gap-8">
+                                <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.home')}</button>
+                                <button onClick={() => navigate('/teams')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.teams')}</button>
+                                <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.matches')}</button>
+                                <button onClick={() => navigate('/standings')} className="text-sm font-medium text-blue-600 transition cursor-pointer">{t('nav.standings')}</button>
+                                <button onClick={() => navigate('/statistics')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.stats')}</button>
+                            </div>
+                            <div className="hidden md:flex gap-4 items-center">
+                                {/* Language Selector */}
+                                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setLanguage('THA')}
+                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                            language === 'THA'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        TH
+                                    </button>
+                                    <button
+                                        onClick={() => setLanguage('ENG')}
+                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                            language === 'ENG'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        EN
+                                    </button>
+                                </div>
+                                <button onClick={() => navigate('/login')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm cursor-pointer">
+                                    <LogIn size={18} /> {t('nav.login')}
+                                </button>
+                            </div>
+                            {/* Hamburger Menu Icon */}
+                            <div className="flex items-center md:hidden">
+                                <button
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-655 hover:bg-gray-100 focus:outline-none"
+                                >
+                                    {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
+                {/* Mobile Menu Dropdown */}
+                {isMenuOpen && (
+                    <div className="md:hidden bg-white border-t border-gray-100 shadow-inner px-4 pt-2 pb-4 space-y-1">
+                        <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.home')}</button>
+                        <button onClick={() => { navigate('/teams'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.teams')}</button>
+                        <button onClick={() => { navigate('/matches'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.matches')}</button>
+                        <button onClick={() => { navigate('/standings'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-gray-50">{t('nav.standings')}</button>
+                        <button onClick={() => { navigate('/statistics'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.stats')}</button>
+                        
+                        {/* Mobile Menu Language Selector */}
+                        <div className="flex justify-between items-center px-3 py-2 border-t border-gray-100 mt-2">
+                            <span className="text-sm font-medium text-gray-500">Language / ภาษา</span>
+                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                                <button
+                                    onClick={() => setLanguage('THA')}
+                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                        language === 'THA'
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-500'
+                                    }`}
+                                >
+                                    TH
+                                </button>
+                                <button
+                                    onClick={() => setLanguage('ENG')}
+                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
+                                        language === 'ENG'
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-500'
+                                    }`}
+                                >
+                                    EN
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 mt-2">
+                            <button onClick={() => { navigate('/login'); setIsMenuOpen(false); }} className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm">
+                                <LogIn size={18} /> {t('nav.login')}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </nav>
 
             {/* Header */}
             <div className="bg-indigo-900 text-white py-12 px-4 shadow-lg mb-8">
-                <div className="max-w-7xl mx-auto text-center">
+                <div className="w-full mx-auto text-center">
                     <h1 className="text-4xl font-extrabold flex items-center justify-center gap-3 mb-2">
-                        <Trophy className="text-yellow-400" size={40} /> Team Standings
+                        <Trophy className="text-yellow-400" size={40} /> {language === 'THA' ? 'อันดับทีมแข่งขัน' : 'Team Standings'}
                     </h1>
-                    <p className="text-indigo-200">ตารางคะแนนและอันดับทีมล่าสุด</p>
+                    <p className="text-indigo-200">{language === 'THA' ? 'ตารางคะแนนและอันดับทีมล่าสุด' : 'Latest standings and tournament statistics'}</p>
                 </div>
             </div>
 
             {/* Filter */}
-            <div className="max-w-7xl mx-auto px-4 mb-8">
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="w-full mx-auto px-4 mb-8">
+                <div className="bg-white p-4 rounded-md shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
                     <label className="font-bold text-gray-700 flex items-center gap-2">
-                        <Filter size={18} className="text-indigo-500"/> เลือกรายการแข่งขัน:
+                        <Filter size={18} className="text-blue-600"/> {language === 'THA' ? 'เลือกรายการแข่งขัน:' : 'Select Competition:'}
                     </label>
                     <select
                         value={selectedCompId}
                         onChange={(e) => setSelectedCompId(e.target.value)}
-                        className="w-full md:w-1/2 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full md:w-1/2 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium"
                     >
                         {competitions.map((c) => (
                             <option key={c.id} value={c.id}>
@@ -205,8 +285,8 @@ export default function PublicStandings() {
 
             {/* Match History Modal */}
             {selectedTeam && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={() => setSelectedTeam(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={() => setSelectedTeam(null)}>
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
                         
                         {/* Modal Header */}
                         <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -214,7 +294,7 @@ export default function PublicStandings() {
                                 {selectedTeam.logo_url ? (
                                     <img src={selectedTeam.logo_url} alt="" className="w-10 h-10 object-contain bg-white rounded-full p-1 shadow-sm"/>
                                 ) : (
-                                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold">
+                                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-bold">
                                         {selectedTeam.name.charAt(0)}
                                     </div>
                                 )}
@@ -232,7 +312,7 @@ export default function PublicStandings() {
                         <div className="p-0 overflow-y-auto">
                             {allMatches.filter(m => m.home_team_id === selectedTeam.id || m.away_team_id === selectedTeam.id).length === 0 ? (
                                 <div className="p-10 text-center text-gray-400">
-                                    <p>ยังไม่มีประวัติการแข่งขัน</p>
+                                    <p>{language === 'THA' ? 'ยังไม่มีประวัติการแข่งขัน' : 'No match history yet'}</p>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-100">
@@ -257,7 +337,7 @@ export default function PublicStandings() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`text-2xl font-black ${isWin ? 'text-green-600' : 'text-red-500'}`}>
+                                                        <div className={`text-2xl font-semibold ${isWin ? 'text-green-600' : 'text-red-500'}`}>
                                                             {myScore} - {opScore}
                                                         </div>
                                                         <div className={`px-2 py-1 rounded text-xs font-bold uppercase ${isWin ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -275,18 +355,18 @@ export default function PublicStandings() {
             )}
 
             {/* Table */}
-            <div className="max-w-7xl mx-auto px-4">
+            <div className="w-full mx-auto px-4">
                 {loading ? (
                     <div className="text-center py-20">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-900 mx-auto"></div>
-                        <p className="mt-4 text-gray-500">Loading standings...</p>
+                        <p className="mt-4 text-gray-500">{t('common.loading')}</p>
                     </div>
                 ) : standings.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-200">
-                        <p className="text-gray-400">ยังไม่มีข้อมูลการแข่งขันสำหรับรายการนี้</p>
+                    <div className="text-center py-20 bg-white rounded-md shadow-sm border border-gray-200">
+                        <p className="text-gray-400">{language === 'THA' ? 'ยังไม่มีข้อมูลการแข่งขันสำหรับรายการนี้' : 'No standings information available for this tournament yet.'}</p>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
@@ -296,7 +376,7 @@ export default function PublicStandings() {
                                         <th className="px-2 py-3 text-center">Played</th>
                                         <th className="px-2 py-3 text-center text-green-600">Won</th>
                                         <th className="px-2 py-3 text-center text-red-500">Lost</th>
-                                        <th className="px-4 py-3 text-center bg-indigo-50 text-indigo-700 text-base">Points</th>
+                                        <th className="px-4 py-3 text-center bg-blue-50 text-indigo-700 text-base">Points</th>
                                         <th className="px-2 py-3 text-center border-l">Sets W</th>
                                         <th className="px-2 py-3 text-center">Sets L</th>
                                         <th className="px-2 py-3 text-center text-[10px]">Ratio</th>
@@ -314,7 +394,7 @@ export default function PublicStandings() {
                                             <td className="px-4 py-3 cursor-pointer group" onClick={() => setSelectedTeam(team)}>
                                                 <div className="flex items-center gap-3">
                                                     {team.logo_url && <img src={team.logo_url} alt="" className="w-8 h-8 object-contain" />}
-                                                    <span className="font-bold text-gray-800 group-hover:text-indigo-600 group-hover:underline decoration-indigo-600 underline-offset-2 transition-colors">
+                                                    <span className="font-bold text-gray-800 group-hover:text-blue-600 group-hover:underline decoration-indigo-600 underline-offset-2 transition-colors">
                                                         {team.name}
                                                     </span>
                                                 </div>
@@ -322,7 +402,7 @@ export default function PublicStandings() {
                                             <td className="px-2 py-3 text-center">{team.played}</td>
                                             <td className="px-2 py-3 text-center font-bold text-green-600">{team.won}</td>
                                             <td className="px-2 py-3 text-center text-red-500">{team.lost}</td>
-                                            <td className="px-4 py-3 text-center font-black text-lg bg-indigo-50 text-indigo-700">{team.points}</td>
+                                            <td className="px-4 py-3 text-center font-semibold text-lg bg-blue-50 text-indigo-700">{team.points}</td>
                                             <td className="px-2 py-3 text-center border-l">{team.sets_won}</td>
                                             <td className="px-2 py-3 text-center">{team.sets_lost}</td>
                                             <td className="px-2 py-3 text-center text-xs text-gray-500 font-mono">{team.setRatioStr}</td>

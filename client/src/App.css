@@ -1,19 +1,13 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  /* text-align: center; */
-  --primary-font: 'Prompt', sans-serif;
-  --stat-font: 'Rubik', 'Roboto', sans-serif;
-  --heading-font: 'Kanit', sans-serif; /* เพิ่มตัวแปรฟอนต์ใหม่ */
+  width: 100%;
+  min-height: 100vh;
 }
 body {
-    font-family: var(--heading-font);
     background-color: #f4f7f6;
     color: #333;
 }
 .stat-table {
-    font-family: var(--stat-font);
+    font-family: inherit;
     font-variant-numeric: tabular-nums; /* ทำให้ตัวเลขกว้างเท่ากัน ดูง่ายขึ้น */
 }
 

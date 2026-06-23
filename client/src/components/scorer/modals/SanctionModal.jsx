@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Users, CheckCircle } from 'lucide-react';
 
 const SanctionModal = ({ isOpen, onClose, teamName, roster, onConfirm }) => {
-    if (!isOpen) return null;
-
     const [selectedPlayerId, setSelectedPlayerId] = useState('');
     const [cardType, setCardType] = useState('YELLOW');
+
+    if (!isOpen) return null;
 
     const handleConfirmClick = () => {
         const player = roster.find(p => p.id == selectedPlayerId);
@@ -15,45 +15,79 @@ const SanctionModal = ({ isOpen, onClose, teamName, roster, onConfirm }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200">
-            <div className="bg-slate-800 rounded-2xl shadow-2xl border border-slate-600 w-full max-w-md overflow-hidden">
-                <div className="bg-slate-900 p-4 border-b border-slate-700 flex justify-between items-center">
-                    <h3 className="font-bold text-white text-lg flex items-center gap-2">
-                        <AlertTriangle className="text-yellow-500" size={20} /> Issue Sanction
-                    </h3>
-                    <button onClick={onClose}><X className="text-slate-400 hover:text-white" /></button>
+        <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all">
+            <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden animate-in zoom-in duration-300">
+                <div className="bg-slate-50/50 p-6 border-b border-slate-100 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-3 tracking-tight">
+                            <div className="bg-rose-500 p-2 rounded-md text-white shadow-lg shadow-rose-100">
+                                <AlertTriangle size={20} />
+                            </div>
+                            ISSUE SANCTION
+                        </h2>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Team: <span className="text-blue-600">{teamName}</span></div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
+                        <X size={24} />
+                    </button>
                 </div>
-                <div className="p-6 space-y-6">
-                    <div>
-                        <label className="block text-xs font-bold uppercase mb-2 text-slate-400">Team</label>
-                        <div className="bg-slate-700 p-3 rounded-lg text-white font-bold">{teamName}</div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase mb-2 text-slate-400">Player</label>
-                        <select
-                            value={selectedPlayerId}
-                            onChange={(e) => setSelectedPlayerId(e.target.value)}
-                            className="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                        >
-                            <option value="">-- Select Player --</option>
-                            {roster.map(p => (
-                                <option key={p.id} value={p.id}>
-                                    #{p.number} - {p.name || `${p.firstname} ${p.lastname}`}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase mb-2 text-slate-400">Card Type</label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <button onClick={() => setCardType('YELLOW')} className={`p-4 rounded-xl font-bold border-b-4 flex flex-col items-center gap-1 transition-all ${cardType === 'YELLOW' ? 'bg-yellow-500 text-black border-yellow-700' : 'bg-slate-700 text-slate-300 border-slate-800 hover:bg-slate-600'}`}>Yellow Card <span className="text-xs font-normal opacity-75">(Warning)</span></button>
-                            <button onClick={() => setCardType('RED')} className={`p-4 rounded-xl font-bold border-b-4 flex flex-col items-center gap-1 transition-all ${cardType === 'RED' ? 'bg-red-600 text-white border-red-800' : 'bg-slate-700 text-slate-300 border-slate-800 hover:bg-slate-600'}`}>Red Card <span className="text-xs font-normal opacity-75">(Penalty Point)</span></button>
+
+                <div className="p-8 space-y-8 bg-white">
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-semibold uppercase tracking-widest text-slate-400 px-1">Select Offending Player</label>
+                            <div className="relative group">
+                                <select
+                                    value={selectedPlayerId}
+                                    onChange={(e) => setSelectedPlayerId(e.target.value)}
+                                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-lg text-slate-800 font-semibold uppercase text-xs tracking-widest focus:ring-4 focus:ring-indigo-50 focus:border-blue-200 focus:outline-none appearance-none cursor-pointer transition-all"
+                                >
+                                    <option value="">— SELECT ATHLETE —</option>
+                                    {roster.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            #{p.number} — {p.name || `${p.firstname} ${p.lastname}`}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300 group-hover:text-slate-500 transition-colors">
+                                    <Users size={18} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <label className="block text-[10px] font-semibold uppercase tracking-widest text-slate-400 px-1 text-center">Sanction Gravity</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button 
+                                    onClick={() => setCardType('YELLOW')} 
+                                    className={`p-6 rounded-3xl font-semibold uppercase tracking-widest text-[10px] border transition-all flex flex-col items-center gap-3 ${cardType === 'YELLOW' ? 'bg-amber-50 border-amber-200 text-amber-600 shadow-xl shadow-amber-50 translate-y-[-4px]' : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-white hover:border-slate-300'}`}
+                                >
+                                    <div className={`w-8 h-12 rounded-lg shadow-sm transition-colors ${cardType === 'YELLOW' ? 'bg-amber-400' : 'bg-slate-200 opacity-50'}`}></div>
+                                    YELLOW CARD
+                                    <span className="text-[8px] opacity-60 font-bold">(Warning)</span>
+                                </button>
+                                <button 
+                                    onClick={() => setCardType('RED')} 
+                                    className={`p-6 rounded-3xl font-semibold uppercase tracking-widest text-[10px] border transition-all flex flex-col items-center gap-3 ${cardType === 'RED' ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-xl shadow-rose-50 translate-y-[-4px]' : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-white hover:border-slate-300'}`}
+                                >
+                                    <div className={`w-8 h-12 rounded-lg shadow-sm transition-colors ${cardType === 'RED' ? 'bg-rose-500' : 'bg-slate-200 opacity-50'}`}></div>
+                                    RED CARD
+                                    <span className="text-[8px] opacity-60 font-bold">(Penalty Point)</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div className="p-4 bg-slate-900 border-t border-slate-700 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2 text-slate-400 hover:text-white font-bold">Cancel</button>
-                    <button onClick={handleConfirmClick} disabled={!selectedPlayerId} className="px-8 py-2 rounded-xl font-bold text-white transition-all flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed">Confirm</button>
+
+                <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-8 py-3 rounded-md font-semibold text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all">Cancel</button>
+                    <button 
+                        onClick={handleConfirmClick} 
+                        disabled={!selectedPlayerId} 
+                        className="px-10 py-3 rounded-md font-semibold text-[10px] uppercase tracking-widest bg-slate-900 hover:bg-black text-white disabled:opacity-20 disabled:grayscale transition-all shadow-xl active:scale-95 flex items-center gap-3"
+                    >
+                        Confirm Sanction <CheckCircle size={18} />
+                    </button>
                 </div>
             </div>
         </div>

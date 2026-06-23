@@ -9,7 +9,10 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
     useEffect(() => {
         const liberos = players.filter(p => p.position === 'L');
         if (liberos.length > 0 && !selectedLibero) {
-            setSelectedLibero(liberos[0]);
+            const timer = setTimeout(() => {
+                setSelectedLibero(liberos[0]);
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [players, selectedLibero]);
 
@@ -32,43 +35,45 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
     };
 
     return (
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl border border-gray-700 shadow-xl">
-            <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <Shield className="text-indigo-400" size={24} />
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="text-xl font-bold text-gray-900 tracking-tight mb-6 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 hidden sm:block">
+                    <Shield className="text-blue-600" size={20} />
+                </div>
                 {teamName}
             </h3>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {players.map(player => {
                     const isStarter = selectedStarters.find(s => s.id === player.id);
                     const isLibero = selectedLibero?.id === player.id;
                     const isLiberoPos = player.position === 'L';
                     
-                    let containerClass = 'p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:scale-105';
+                    let containerClass = 'p-4 rounded-xl border-2 transition-all duration-200';
                     
                     if (isStarter) {
-                        containerClass += ' bg-gradient-to-br from-indigo-600 to-indigo-700 border-indigo-400 shadow-lg shadow-indigo-500/50';
+                        containerClass += ' bg-blue-50 border-blue-600 shadow-sm';
                     } else if (isLibero) {
-                        containerClass += ' bg-gradient-to-br from-yellow-600 to-yellow-700 border-yellow-400 shadow-lg shadow-yellow-500/50';
+                        containerClass += ' bg-yellow-50 border-yellow-500 shadow-sm';
                     } else {
-                        containerClass += ' bg-gray-700 border-gray-600 hover:bg-gray-600 hover:border-gray-500';
+                        containerClass += ' bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm';
                     }
                     
-                    if (isLiberoPos) {
-                        containerClass += ' ring-2 ring-yellow-500/40';
+                    if (isLiberoPos && !isLibero) {
+                        containerClass += ' ring-2 ring-yellow-400/30';
                     }
 
                     return (
                         <div key={player.id} className={containerClass}>
-                            <div className="flex justify-between items-start mb-3">
-                                <span className="text-2xl font-black text-white">#{player.number}</span>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-sm text-gray-200 font-medium truncate max-w-[100px]">
+                            <div className="flex justify-between items-start mb-4">
+                                <span className={`text-2xl font-bold font-mono ${isStarter ? 'text-blue-700' : isLibero ? 'text-yellow-700' : 'text-gray-900'}`}>#{player.number}</span>
+                                <div className="flex flex-col items-end gap-1">
+                                    <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]" title={player.name}>
                                         {player.name}
                                     </span>
                                     {isLiberoPos && (
-                                        <span className="text-[9px] bg-yellow-400 text-black px-1.5 py-0.5 rounded-full font-bold">
-                                            L
+                                        <span className="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2 py-0.5 rounded-full font-bold">
+                                            LIBERO
                                         </span>
                                     )}
                                 </div>
@@ -78,22 +83,22 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                                 <button 
                                     onClick={() => toggleStarter(player)} 
                                     disabled={isLibero}
-                                    className={`flex-1 text-xs py-2 rounded-lg font-bold transition-all ${
+                                    className={`flex-1 text-xs py-2 rounded-lg font-medium transition-all border ${
                                         isStarter 
-                                            ? 'bg-white text-indigo-700 shadow-md' 
-                                            : 'bg-gray-600/50 text-gray-300 hover:bg-gray-600'
-                                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+                                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:text-gray-900'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     {isStarter ? '✓ Starter' : 'Starter'}
                                 </button>
                                 <button 
                                     onClick={() => selectLibero(player)} 
                                     disabled={isStarter}
-                                    className={`flex-1 text-xs py-2 rounded-lg font-bold transition-all ${
+                                    className={`flex-1 text-xs py-2 rounded-lg font-medium transition-all border ${
                                         isLibero 
-                                            ? 'bg-white text-yellow-700 shadow-md' 
-                                            : 'bg-gray-600/50 text-gray-300 hover:bg-gray-600'
-                                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                                            ? 'bg-yellow-500 text-white border-yellow-500 shadow-sm' 
+                                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:text-gray-900'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     {isLibero ? '✓ Libero' : 'Libero'}
                                 </button>
@@ -103,17 +108,17 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                 })}
             </div>
             
-            <div className="flex justify-between items-center bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-                <div className="flex gap-6 text-sm">
-                    <span className="text-gray-400">
-                        Starters: <span className={`font-bold ${
-                            selectedStarters.length === 6 ? 'text-green-400' : 'text-red-400'
+            <div className="flex flex-col sm:flex-row justify-between items-center bg-gray-50 rounded-xl p-4 border border-gray-200 gap-4">
+                <div className="flex flex-wrap items-center gap-6 text-sm">
+                    <span className="text-gray-600 font-medium">
+                        Starters: <span className={`font-bold ml-1 px-2 py-1 rounded-md ${
+                            selectedStarters.length === 6 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
                         }`}>
-                            {selectedStarters.length}/6
+                            {selectedStarters.length} / 6
                         </span>
                     </span>
-                    <span className="text-gray-400">
-                        Libero: <span className="text-yellow-400 font-bold">
+                    <span className="text-gray-600 font-medium">
+                        Libero: <span className="font-bold ml-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-md">
                             {selectedLibero ? `#${selectedLibero.number}` : 'None'}
                         </span>
                     </span>
@@ -122,10 +127,10 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                 <button 
                     onClick={() => onConfirm(selectedStarters, selectedLibero)} 
                     disabled={selectedStarters.length !== 6}
-                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl 
-                             disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 
-                             disabled:cursor-not-allowed font-bold shadow-lg hover:shadow-green-500/50 
-                             transition-all duration-200 flex items-center gap-2"
+                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg 
+                             disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none
+                             disabled:cursor-not-allowed shadow-sm 
+                             transition-all duration-200 flex items-center justify-center gap-2"
                 >
                     <CheckCircle size={18} />
                     Confirm {teamName}

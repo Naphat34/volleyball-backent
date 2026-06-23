@@ -1,27 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Clock, RefreshCw, ArrowRightLeft, Wifi, WifiOff, MonitorPlay, PauseCircle } from 'lucide-react';
+import { Clock, RefreshCw, ArrowRightLeft, Wifi, WifiOff, MonitorPlay, PauseCircle, Smartphone, Monitor } from 'lucide-react';
 import { api } from '../../api';
 import CourtView from '../CourtView.jsx';
-import TimeoutTimerModal from '../scorer/modals/TimeoutTimerModal';
+import { getContrastClass } from '../../utils/colorUtils';
+
+const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, isLandscape = false }) => (
+    <div className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-full ${isLandscape ? 'w-full' : 'w-full'}`}>
+        {/* VC (Challenges) */}
+        <div className="grid grid-cols-3 border-b border-slate-100 flex-1 py-2 sm:py-3.5">
+            <div className="flex items-center justify-center font-black text-blue-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{challenges[leftTeam.code]}</div>
+            <div className="flex flex-col items-center justify-center gap-1 bg-slate-50/50 text-slate-400 font-black text-[10px] sm:text-xs md:text-sm uppercase tracking-wider border-x border-slate-100">
+                <MonitorPlay size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" /> 
+                <span className="hidden sm:inline text-center leading-none">Challenges</span>
+            </div>
+            <div className="flex items-center justify-center font-black text-blue-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{challenges[rightTeam.code]}</div>
+        </div>
+
+        {/* TO (Timeouts) */}
+        <div className="grid grid-cols-3 border-b border-slate-100 flex-1 py-2 sm:py-3.5">
+            <div className="flex items-center justify-center font-black text-amber-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{timeouts[leftTeam.code]}</div>
+            <div className="flex flex-col items-center justify-center gap-1 bg-slate-50/50 text-slate-400 font-black text-[10px] sm:text-xs md:text-sm uppercase tracking-wider border-x border-slate-100">
+                <PauseCircle size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" /> 
+                <span className="hidden sm:inline text-center leading-none">Timeouts</span>
+            </div>
+            <div className="flex items-center justify-center font-black text-amber-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{timeouts[rightTeam.code]}</div>
+        </div>
+
+        {/* SUB (Substitutions) */}
+        <div className="grid grid-cols-3 flex-1 py-2 sm:py-3.5">
+            <div className="flex items-center justify-center font-black text-emerald-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{substitutions[leftTeam.code]}</div>
+            <div className="flex flex-col items-center justify-center gap-1 bg-slate-50/50 text-slate-400 font-black text-[10px] sm:text-xs md:text-sm uppercase tracking-wider border-x border-slate-100">
+                <ArrowRightLeft size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" /> 
+                <span className="hidden sm:inline text-center leading-none">Subs</span>
+            </div>
+            <div className="flex items-center justify-center font-black text-emerald-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{substitutions[rightTeam.code]}</div>
+        </div>
+    </div>
+);
 
 export default function ScoreViewReferee() {
     const { matchId } = useParams();
     const [localFlip, setLocalFlip] = useState(false);
-    const [lastUpdated, setLastUpdated] = useState(Date.now());
+    const [lastUpdated, setLastUpdated] = useState(() => Date.now());
 
     // --- LOCAL STORAGE HELPER ---
     const loadState = (key, defaultValue) => {
         try {
             const saved = localStorage.getItem(`match_${matchId}_${key}`);
             return saved !== null ? JSON.parse(saved) : defaultValue;
-        } catch (e) {
+        } catch {
             return defaultValue;
         }
     };
 
     // --- STATE MANAGEMENT ---
     const [matchData, setMatchData] = useState(() => loadState('matchData', { teamHome: "HOME", teamAway: "AWAY", currentSet: 1 }));
+    const [isVertical, setIsVertical] = useState(() => loadState('isVertical', true));
     const [score, setScore] = useState(() => loadState('score', { home: 0, away: 0 }));
     const [setsWon, setSetsWon] = useState(() => loadState('setsWon', { home: 0, away: 0 }));
     const [timeouts, setTimeouts] = useState(() => loadState('timeouts', { home: 0, away: 0 }));
@@ -35,19 +70,36 @@ export default function ScoreViewReferee() {
     // Lineup & Liberos for CourtView
     const [homeLineup, setHomeLineup] = useState(() => loadState('homeLineup', Array(6).fill(null)));
     const [awayLineup, setAwayLineup] = useState(() => loadState('awayLineup', Array(6).fill(null)));
+    const [homeRoster, setHomeRoster] = useState([]);
+    const [awayRoster, setAwayRoster] = useState([]);
     const [homeLiberos, setHomeLiberos] = useState(() => loadState('homeLiberos', { l1: null, l2: null }));
     const [awayLiberos, setAwayLiberos] = useState(() => loadState('awayLiberos', { l1: null, l2: null }));
+    const [homeLiberoSwaps, setHomeLiberoSwaps] = useState(() => loadState('homeLiberoSwaps', {}));
+    const [awayLiberoSwaps, setAwayLiberoSwaps] = useState(() => loadState('awayLiberoSwaps', {}));
+    const [homeSubTracker, setHomeSubTracker] = useState(() => loadState('homeSubTracker', { count: 0, positions: {}, usedPlayers: [] }));
+    const [awaySubTracker, setAwaySubTracker] = useState(() => loadState('awaySubTracker', { count: 0, positions: {}, usedPlayers: [] }));
     const [teamColors, setTeamColors] = useState(() => loadState('teamColors', { home: '#4f46e5', away: '#e11d48' }));
-    const [showTimeoutTimer, setShowTimeoutTimer] = useState(false);
-    const [timeoutStartTime, setTimeoutStartTime] = useState(null);
+    const [isConnected, setIsConnected] = useState(true);
 
-    const refreshData = async () => {
+    const refreshData = useCallback(async () => {
         try {
             const res = await api.getLiveState(matchId);
             const state = res.data;
 
             // Set all states from the fetched data, with fallbacks
-            setMatchData(state.matchData || { teamHome: "HOME", teamAway: "AWAY", currentSet: 1 });
+            if (state.matchData) {
+                const m = state.matchData;
+                setMatchData(m);
+                
+                // Fetch rosters if not already loaded
+                if (m.teamHomeId && homeRoster.length === 0) {
+                    api.getPlayersByTeam(m.teamHomeId).then(r => setHomeRoster(r.data || []));
+                }
+                if (m.teamAwayId && awayRoster.length === 0) {
+                    api.getPlayersByTeam(m.teamAwayId).then(r => setAwayRoster(r.data || []));
+                }
+            }
+
             setScore(state.score || { home: 0, away: 0 });
             setSetsWon(state.setsWon || { home: 0, away: 0 });
             setTimeouts(state.timeouts || { home: 0, away: 0 });
@@ -61,34 +113,54 @@ export default function ScoreViewReferee() {
             setAwayLineup(state.awayLineup || Array(6).fill(null));
             setHomeLiberos(state.homeLiberos || { l1: null, l2: null });
             setAwayLiberos(state.awayLiberos || { l1: null, l2: null });
-            setTeamColors(state.teamColors || { home: '#4f46e5', away: '#e11d48' });
-            setShowTimeoutTimer(state.showTimeoutTimer || false);
-            setTimeoutStartTime(state.timeoutStartTime || null);
+            setHomeLiberoSwaps(state.homeLiberoSwaps || {});
+            setAwayLiberoSwaps(state.awayLiberoSwaps || {});
+            
+            // ✅ ดึงข้อมูลการเปลี่ยนตัว (Sub Tracker)
+            if (state.subTracker) {
+                setHomeSubTracker(state.subTracker.home || { count: 0, positions: {}, usedPlayers: [] });
+                setAwaySubTracker(state.subTracker.away || { count: 0, positions: {}, usedPlayers: [] });
+            }
 
+            setTeamColors(state.teamColors || { home: '#4f46e5', away: '#e11d48' });
             setLastUpdated(Date.now());
         } catch (error) {
             console.error("Failed to refresh data from server:", error);
-            // The UI will show "Disconnected" because lastUpdated won't be recent
         }
-    };
+    }, [matchId, homeRoster, awayRoster]);
 
     // --- EFFECT: LIVE POLLING ---
     useEffect(() => {
-        refreshData(); // Fetch data immediately on load
+        const timeout = setTimeout(() => {
+            refreshData();
+        }, 0);
         const interval = setInterval(refreshData, 1000); // Poll every 1 second
+        return () => {
+            clearTimeout(timeout);
+            clearInterval(interval);
+        };
+    }, [matchId, refreshData]);
+
+    // --- EFFECT: CONNECTION CHECK ---
+    useEffect(() => {
+        const check = () => {
+            setIsConnected(Date.now() - lastUpdated < 3000);
+        };
+        const interval = setInterval(check, 1000);
         return () => clearInterval(interval);
-    }, [matchId]);
+    }, [lastUpdated]);
 
     // --- UI HELPERS ---
     const effectiveIsHomeLeft = localFlip ? !isHomeLeft : isHomeLeft;
+    const isSetupPhase = ['COIN_TOSS', 'SIGNATURES', 'ROSTER_CHECK', 'SERVER_SELECT', 'LINEUP_SELECT', 'LINEUP'].includes(workflowStep) || !workflowStep;
 
     const getLeftTeam = () => effectiveIsHomeLeft
-        ? { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, lineup: homeLineup, liberos: homeLiberos }
-        : { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, lineup: awayLineup, liberos: awayLiberos };
+        ? { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps }
+        : { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps };
 
     const getRightTeam = () => effectiveIsHomeLeft
-        ? { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, lineup: awayLineup, liberos: awayLiberos }
-        : { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, lineup: homeLineup, liberos: homeLiberos };
+        ? { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps }
+        : { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps };
 
     const leftTeam = getLeftTeam();
     const rightTeam = getRightTeam();
@@ -101,107 +173,123 @@ export default function ScoreViewReferee() {
     };
 
     return (
-        <div className="h-screen w-screen bg-slate-900 text-white flex flex-col overflow-hidden font-sans">
-            {/* 1. Header: Set Won A | Name A | Duration | Name B | Set Won B */}
-            <div className="flex items-center justify-between px-6 py-4 bg-slate-800 border-b border-slate-700 shadow-md h-20 shrink-0">
-                <div className="flex items-center gap-4 flex-1">
-                    <div className="bg-slate-700 px-4 py-2 rounded-lg text-3xl font-bold text-yellow-400 border border-slate-600 min-w-[60px] text-center">
-                        {leftTeam.sets}
-                    </div>
-                    <div className="text-3xl font-bold truncate" style={{ color: leftTeam.color }}>
-                        {leftTeam.name}
-                    </div>
-                </div>
+        <div className="h-screen w-screen bg-slate-50 text-slate-800 flex flex-col overflow-hidden font-sans select-none">
+            {/* 2. Main Content Area: Responsive Layout for Court + Stats */}
+            <div className={`flex-1 flex overflow-hidden relative ${isVertical ? 'flex-col' : 'flex-row'}`}>
+                
+                {/* Left Column: Header + Court View Area */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* 1. Header: Modern & Adaptive */}
+                    <header className="bg-white border-b border-slate-200 shadow-sm z-20 px-4 md:px-8 py-2 md:py-4 shrink-0">
+                        <div className="max-w-[1920px] mx-auto flex items-center justify-between gap-2 md:gap-6">
+                            {/* Left Team */}
+                            <div className="flex items-center gap-2 md:gap-4 flex-1 justify-end overflow-hidden">
+                                <div className="bg-slate-100 px-3 py-1.5 md:px-5 md:py-2.5 rounded-xl text-xl md:text-4xl font-black border border-slate-200 min-w-[50px] md:min-w-[80px] text-center text-slate-700 shadow-inner">
+                                    {leftTeam.sets}
+                                </div>
+                                <h1 className="text-lg md:text-3xl font-black truncate text-slate-800 uppercase tracking-tight">
+                                    {leftTeam.name}
+                                </h1>
+                            </div>
 
-                <div className="flex flex-col items-center px-6">
-                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Duration</div>
-                    <div className="text-3xl font-mono font-bold text-white flex items-center gap-2">
-                        <Clock size={24} className="text-slate-500" />
-                        {formatTime(matchDuration)}
-                    </div>
-                </div>
+                            {/* Center Info */}
+                            <div className="flex flex-col items-center px-4 md:px-10 border-x border-slate-100">
+                                <div className="text-[9px] md:text-[11px] text-slate-400 uppercase font-black tracking-[0.2em] mb-0.5 md:mb-1">Duration</div>
+                                <div className="text-lg md:text-3xl font-mono font-black text-blue-600 flex items-center gap-1.5 md:gap-3">
+                                    <Clock size={20} className="text-blue-400" />
+                                    {formatTime(matchDuration)}
+                                </div>
+                            </div>
 
-                <div className="flex items-center gap-4 flex-1 justify-end">
-                    <div className="text-3xl font-bold truncate" style={{ color: rightTeam.color }}>
-                        {rightTeam.name}
-                    </div>
-                    <div className="bg-slate-700 px-4 py-2 rounded-lg text-3xl font-bold text-yellow-400 border border-slate-600 min-w-[60px] text-center">
-                        {rightTeam.sets}
+                            {/* Right Team */}
+                            <div className="flex items-center gap-2 md:gap-4 flex-1 justify-start overflow-hidden">
+                                <h1 className="text-lg md:text-3xl font-black truncate text-slate-800 uppercase tracking-tight text-right">
+                                    {rightTeam.name}
+                                </h1>
+                                <div className="bg-slate-100 px-3 py-1.5 md:px-5 md:py-2.5 rounded-xl text-xl md:text-4xl font-black border border-slate-200 min-w-[50px] md:min-w-[80px] text-center text-slate-700 shadow-inner">
+                                    {rightTeam.sets}
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Court View Area (Always centered, takes more space) */}
+                    <div className="flex-1 relative bg-slate-100/50 flex items-center justify-center overflow-hidden p-2 md:p-6">
+                    <div className="w-full h-full max-w-7xl flex items-center justify-center">
+                        <CourtView 
+                            homePositions={effectiveIsHomeLeft ? homeLineup : awayLineup}
+                            awayPositions={effectiveIsHomeLeft ? awayLineup : homeLineup}
+                            servingSide={servingTeam ? ((servingTeam === leftTeam.code) ? 'left' : 'right') : null}
+                            leftTeam={leftTeam}
+                            rightTeam={rightTeam}
+                            homeSubTracker={homeSubTracker}
+                            awaySubTracker={awaySubTracker}
+                            isHomeLeft={isHomeLeft}
+                            disableLibero={true}
+                            isReadOnly={true}
+                            hideTokens={isSetupPhase}
+                            className="max-w-none"
+                        />
                     </div>
                 </div>
             </div>
 
-            {/* 2. Court View */}
-            <div className="flex-1 relative bg-slate-900 flex items-center justify-center p-4 mt-8 overflow-hidden">
-                <div className="w-full max-w-5xl aspect-[1.8/1] relative">
-                     <CourtView 
-                        homePositions={effectiveIsHomeLeft ? homeLineup : awayLineup}
-                        awayPositions={effectiveIsHomeLeft ? awayLineup : homeLineup}
-                        servingSide={servingTeam ? ((servingTeam === leftTeam.code) ? 'left' : 'right') : null}
-                        leftTeam={leftTeam}
-                        rightTeam={rightTeam}
-                        disableLibero={true}
-                        isReadOnly={true}
-                    />
-                </div>
-            </div>
-
-            {/* 3. Set Indicator */}
-            <div className="bg-slate-800 py-2 text-center border-y border-slate-700 shrink-0">
-                <span className="text-3xl font-bold text-slate-500">SET {matchData.currentSet}</span>
-            </div>
-
-            {/* 4. Stats Table */}
-            <div className="bg-slate-900 p-4 shrink-0">
-                <div className="max-w-6xl mx-auto flex items-stretch gap-4">
+                {/* Sidebar / Bottom Bar: Adaptive based on orientation */}
+                <div className={`bg-white border-slate-200 flex flex-col shrink-0 shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)] z-10 transition-all duration-500 ${
+                    isVertical 
+                        ? 'border-t h-[42vh] md:h-[34vh]' 
+                        : 'border-l w-[320px] md:w-[400px] xl:w-[480px]'
+                }`}>
                     
-                    {/* Left Score */}
-                    <div className="flex-1 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-lg p-4 transition-colors duration-300" style={{ backgroundColor: leftTeam.color }}>
-                        <div className="text-9xl font-black text-white drop-shadow-md">{leftTeam.score}</div>
+                    {/* Set Indicator */}
+                    <div className="bg-slate-900 py-2 md:py-3 text-center shrink-0">
+                        <span className="text-lg md:text-7xl font-black text-white uppercase tracking-[0.3em]">SET-{matchData.currentSet}</span>
                     </div>
 
-                    {/* Center Stats */}
-                    <div className="w-[400px] bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg flex flex-col justify-center">
-                        {/* Row 1: VC (Challenges) */}
-                        <div className="grid grid-cols-3 border-b border-slate-700">
-                            <div className="p-3 text-center text-2xl font-bold text-blue-400">{challenges[leftTeam.code]}</div>
-                            <div className="p-3 flex items-center justify-center gap-2 bg-slate-700/30 text-slate-500 font-bold text-xs">
-                                <MonitorPlay size={16} /> VC
+                    {/* Stats & Scores Area */}
+                    <div className="flex-1 p-3 md:p-4 flex flex-col gap-2 md:gap-4 overflow-hidden bg-slate-50">
+                        
+                        {/* --- Scores Row --- */}
+                        <div className={`flex flex-row items-stretch gap-2 md:gap-4 ${isVertical ? 'h-full' : 'h-auto'}`}>
+                            
+                            {/* Left Score Card */}
+                            <div className="flex-1 rounded-2xl md:rounded-3xl border-2 border-white flex flex-col items-center justify-center shadow-md p-2 md:p-4 relative overflow-hidden transition-all" style={{ backgroundColor: leftTeam.color }}>
+                                <div className={`text-6xl md:text-8xl xl:text-9xl font-black ${getContrastClass(leftTeam.color)} drop-shadow-lg tabular-nums`}>
+                                    {leftTeam.score}
+                                </div>
                             </div>
-                            <div className="p-3 text-center text-2xl font-bold text-blue-400">{challenges[rightTeam.code]}</div>
+
+                            {/* Center Stats (Vertical Only: between scores) */}
+                            {isVertical && (
+                                <div className="flex flex-[2.5] max-w-[650px]">
+                                    <StatsTable challenges={challenges} timeouts={timeouts} substitutions={substitutions} leftTeam={leftTeam} rightTeam={rightTeam} />
+                                </div>
+                            )}
+
+                            {/* Right Score Card */}
+                            <div className="flex-1 rounded-2xl md:rounded-3xl border-2 border-white flex flex-col items-center justify-center shadow-md p-2 md:p-4 relative overflow-hidden transition-all" style={{ backgroundColor: rightTeam.color }}>
+                                <div className={`text-6xl md:text-8xl xl:text-9xl font-black ${getContrastClass(rightTeam.color)} drop-shadow-lg tabular-nums`}>
+                                    {rightTeam.score}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Row 2: TO (Timeouts) */}
-                        <div className="grid grid-cols-3 border-b border-slate-700">
-                            <div className="p-3 text-center text-2xl font-bold text-yellow-500">{timeouts[leftTeam.code]}</div>
-                            <div className="p-3 flex items-center justify-center gap-2 bg-slate-700/30 text-slate-500 font-bold text-xs">
-                                <PauseCircle size={16} /> TO
+                        {/* Center Stats (Horizontal Only: below scores) */}
+                        {!isVertical && (
+                            <div className="flex w-full overflow-hidden">
+                                <StatsTable challenges={challenges} timeouts={timeouts} substitutions={substitutions} leftTeam={leftTeam} rightTeam={rightTeam} isLandscape={true} />
                             </div>
-                            <div className="p-3 text-center text-2xl font-bold text-yellow-500">{timeouts[rightTeam.code]}</div>
-                        </div>
-
-                        {/* Row 3: SUB (Substitutions) */}
-                        <div className="grid grid-cols-3">
-                            <div className="p-3 text-center text-2xl font-bold text-green-500">{substitutions[leftTeam.code]}</div>
-                            <div className="p-3 flex items-center justify-center gap-2 bg-slate-700/30 text-slate-500 font-bold text-xs">
-                                <ArrowRightLeft size={16} /> SUB
-                            </div>
-                            <div className="p-3 text-center text-2xl font-bold text-green-500">{substitutions[rightTeam.code]}</div>
-                        </div>
-                    </div>
-
-                    {/* Right Score */}
-                    <div className="flex-1 rounded-xl border border-slate-700 flex flex-col items-center justify-center shadow-lg p-4 transition-colors duration-300" style={{ backgroundColor: rightTeam.color }}>
-                        <div className="text-9xl font-black text-white drop-shadow-md">{rightTeam.score}</div>
+                        )}
                     </div>
                 </div>
             </div>
+            
 
             {/* 5. Footer */}
-            <div className="bg-slate-950 px-6 py-3 flex justify-between items-center text-sm text-slate-500 shrink-0 border-t border-slate-800">
+            <div className="bg-slate-200 px-6 py-3 flex justify-between items-center text-sm text-slate-600 shrink-0 border-t border-slate-300">
                 <div className="flex items-center gap-2">
-                    {Date.now() - lastUpdated < 3000 ? (
-                        <div className="flex items-center gap-2 text-green-500">
+                    {isConnected ? (
+                        <div className="flex items-center gap-2 text-green-600">
                             <Wifi size={16} /> <span className="font-bold">Connected</span>
                         </div>
                     ) : (
@@ -209,31 +297,39 @@ export default function ScoreViewReferee() {
                             <WifiOff size={16} /> <span className="font-bold">Disconnected</span>
                         </div>
                     )}
-                    <span className="text-slate-600 ml-2 hidden sm:inline">Last update: {new Date(lastUpdated).toLocaleTimeString()}</span>
+                    <span className="text-slate-500 ml-2 hidden sm:inline">Last update: {new Date(lastUpdated).toLocaleTimeString()}</span>
                 </div>
 
                 <div className="flex items-center gap-4">
                     <button 
+                        onClick={() => {
+                            const newVertical = !isVertical;
+                            setIsVertical(newVertical);
+                            try {
+                                localStorage.setItem(`match_${matchId}_isVertical`, JSON.stringify(newVertical));
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
+                    >
+                        {isVertical ? <Smartphone size={16} /> : <Monitor size={16} />}
+                        {isVertical ? "Vertical Layout" : "Landscape Layout"}
+                    </button>
+                    <button 
                         onClick={() => setLocalFlip(!localFlip)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
                     >
                         <ArrowRightLeft size={16} /> Swap Sides
                     </button>
                     <button 
                         onClick={refreshData}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
                     >
                         <RefreshCw size={16} /> Refresh
                     </button>
                 </div>
             </div>
-
-            {/* Timeout Modal Overlay */}
-            <TimeoutTimerModal 
-                isOpen={showTimeoutTimer} 
-                onClose={() => {}} // Referee cannot close it manually, controlled by Scorer
-                startTime={timeoutStartTime}
-            />
         </div>
     );
 }
