@@ -83,9 +83,9 @@ module.exports = {
             let query = `
                 SELECT 
                     m.id, 
-                    -- แยกวันที่และเวลาจาก start_time (ที่เป็น Timestamp)
-                    TO_CHAR(m.start_time, 'YYYY-MM-DD') as match_date,
-                    TO_CHAR(m.start_time, 'HH24:MI') as start_time,
+                    -- แยกวันที่และเวลาจาก start_time (ที่เป็น Timestamp หรือ Text ก็ตาม)
+                    TO_CHAR(NULLIF(m.start_time::text, '')::timestamp, 'YYYY-MM-DD') as match_date,
+                    TO_CHAR(NULLIF(m.start_time::text, '')::timestamp, 'HH24:MI') as start_time,
                     
                     m.status, 
                     m.location as stadium_name, -- ใช้ location เป็นชื่อสนาม
