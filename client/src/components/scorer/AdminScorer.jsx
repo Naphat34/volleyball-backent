@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LogOut, User, Trophy, ChevronLeft, Swords, Calendar, MapPin, PlayCircle, X, CheckCircle, FileText } from 'lucide-react';
-import { api } from '../../api';
+import apiClient, { api } from '../../api';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+
+const getServerUrl = () => {
+  const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  return url.replace(/\/api$/, '').replace(/\/$/, '');
+};
 import MatchList from '../MatchList';
 
 import databaseIcon from '../../assets/img/database.png';
@@ -37,7 +42,6 @@ const AdminScorer = () => {
       } else if (view === 'matches' && compId) {
         setIsLoading(true);
         try {
-          const token = localStorage.getItem('token');
           const compsRes = await api.getOpenCompetitions();
           const allComps = compsRes.data || [];
           setCompetitions(allComps);
@@ -51,9 +55,7 @@ const AdminScorer = () => {
             );
 
             const matchPromises = matchingComps.map((c) =>
-              axios.get(`http://localhost:3000/api/competitions/${c.id}/matches?t=${Date.now()}`, {
-                headers: { Authorization: `Bearer ${token}` }
-              })
+              apiClient.get(`/competitions/${c.id}/matches?t=${Date.now()}`)
             );
 
             const responses = await Promise.all(matchPromises);
@@ -252,7 +254,7 @@ const AdminScorer = () => {
                                 <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center group-hover:border-amber-200 transition-colors">
                                   {comp.logo ? (
                             <img 
-                              src={comp.logo.startsWith('http') ? comp.logo : `http://localhost:3000/uploads/${comp.logo}`} 
+                              src={comp.logo.startsWith('http') ? comp.logo : `${getServerUrl()}/uploads/${comp.logo}`} 
                               alt={comp.competition_title} 
                               className="w-full h-full object-cover p-1"
                               onError={(e) => { e.target.src = 'https://placehold.co/100x100?text=No+Image'; }}

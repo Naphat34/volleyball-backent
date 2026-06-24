@@ -3,7 +3,11 @@ import React from 'react';
 // --- Helper Component: แสดงโลโก้ + ชื่อทีม (ฉบับสมบูรณ์: ชื่อเต็มอยู่บน, ไม่ตัดคำ) ---
 const TeamLogoDisplay = ({ logo, code, name, isRightAligned = false, textColor = '' }) => {
     // URL รูปภาพ (ปรับตาม Server ของคุณ)
-    const BASE_URL = 'http://localhost:3000';
+    const getBaseUrl = () => {
+        const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        return url.replace(/\/api$/, '').replace(/\/$/, '');
+    };
+    const BASE_URL = getBaseUrl();
 
     const imageUrl = logo ? (logo.startsWith('http') ? logo : `${BASE_URL}${logo}`) : null;
 
