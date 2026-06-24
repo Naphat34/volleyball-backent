@@ -83,10 +83,7 @@ module.exports = {
             let query = `
                 SELECT 
                     m.id, 
-                    -- แยกวันที่และเวลาจาก start_time (ที่เป็น Timestamp หรือ Text ก็ตาม)
-                    TO_CHAR(NULLIF(m.start_time::text, '')::timestamp, 'YYYY-MM-DD') as match_date,
-                    TO_CHAR(NULLIF(m.start_time::text, '')::timestamp, 'HH24:MI') as start_time,
-                    
+                    m.start_time as raw_start_time,
                     m.status, 
                     m.location as stadium_name, -- ใช้ location เป็นชื่อสนาม
                     
@@ -132,7 +129,49 @@ module.exports = {
             query += ` ORDER BY m.start_time ASC`;
 
             const result = await db.query(query, params);
-            res.json(result.rows);
+
+            const matches = result.rows.map(row => {
+                let match_date = null;
+                let start_time_str = null;
+                const rawStart = row.raw_start_time;
+
+                if (rawStart) {
+                    const dateObj = new Date(rawStart);
+                    if (!isNaN(dateObj.getTime())) {
+                        try {
+                            if (rawStart.includes('T')) {
+                                const parts = rawStart.split('T');
+                                match_date = parts[0];
+                                start_time_str = parts[1].substring(0, 5); // "HH:MM"
+                            } else {
+                                const year = dateObj.getFullYear();
+                                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                                const day = String(dateObj.getDate()).padStart(2, '0');
+                                match_date = `${year}-${month}-${day}`;
+
+                                const hours = String(dateObj.getHours()).padStart(2, '0');
+                                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                                start_time_str = `${hours}:${minutes}`;
+                            }
+                        } catch (e) {
+                            start_time_str = String(rawStart);
+                        }
+                    } else {
+                        start_time_str = String(rawStart);
+                    }
+                }
+
+                // Delete temporary raw field to keep payload clean
+                delete row.raw_start_time;
+
+                return {
+                    ...row,
+                    match_date,
+                    start_time: start_time_str
+                };
+            });
+
+            res.json(matches);
 
         } catch (err) {
             console.error("Public: Get Matches Error", err);
