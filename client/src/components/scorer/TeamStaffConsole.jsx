@@ -52,7 +52,31 @@ export default function TeamStaffConsole() {
 
     const isPlayerLibero = (p) => {
         if (!p) return false;
-        return !!(p.isLibero || p.is_libero || p.is_libero1 || p.is_libero2 || p.role === 'L1' || p.role === 'L2' || p.role === 'L1+C' || p.role === 'L2+C' || p.role === 'L');
+        const role = String(p.role || '').toUpperCase();
+        const pos = String(p.position || '').toUpperCase();
+        return !!(
+            p.isLibero ||
+            p.is_libero ||
+            p.is_libero1 ||
+            p.is_libero2 ||
+            role === 'L1' ||
+            role === 'L2' ||
+            role === 'L1+C' ||
+            role === 'L2+C' ||
+            role === 'L' ||
+            pos === 'L' ||
+            pos === 'L1' ||
+            pos === 'L2'
+        );
+    };
+
+    const getLiberoTag = (p) => {
+        if (!p) return 'L';
+        const role = String(p.role || '').toUpperCase();
+        const pos = String(p.position || '').toUpperCase();
+        if (pos === 'L1' || role === 'L1' || role === 'L1+C') return 'L1';
+        if (pos === 'L2' || role === 'L2' || role === 'L2+C') return 'L2';
+        return 'L';
     };
 
     const getCompletedSubstitutions = useCallback(() => {
@@ -1148,7 +1172,7 @@ export default function TeamStaffConsole() {
                                                         </span>
                                                     )}
                                                     <span className="absolute -bottom-1 bg-orange-500 text-white text-[8px] px-1.5 rounded font-bold uppercase border border-white">
-                                                        L
+                                                        {getLiberoTag(libero)}
                                                     </span>
                                                 </div>
                                             ))}
@@ -1217,7 +1241,7 @@ export default function TeamStaffConsole() {
                                                 >
                                                     {player.number}
                                                     <span className="absolute -bottom-1 -right-1 bg-yellow-500 text-white text-[8px] px-1 rounded font-bold uppercase border border-white">
-                                                        L
+                                                        {getLiberoTag(player)}
                                                     </span>
                                                 </div>
                                             ))
@@ -1306,7 +1330,7 @@ export default function TeamStaffConsole() {
                                                         </span>
                                                     )}
                                                     <span className="absolute -bottom-1 bg-orange-500 text-white text-[8px] px-1.5 rounded font-bold uppercase border border-white">
-                                                        L
+                                                        {getLiberoTag(libero)}
                                                     </span>
                                                 </div>
                                             ))}
@@ -1403,7 +1427,7 @@ export default function TeamStaffConsole() {
                                                     >
                                                         {player.number}
                                                         <span className="absolute -bottom-1 -right-1 bg-yellow-500 text-white text-[8px] px-1 rounded font-bold uppercase border border-white">
-                                                            L
+                                                            {getLiberoTag(player)}
                                                         </span>
                                                     </div>
                                                 ))
