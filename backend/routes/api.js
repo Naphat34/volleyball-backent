@@ -65,6 +65,8 @@ router.delete('/my-team/players/:id', teamController.deletePlayer);
 router.get('/my-team/players/stats', teamController.getMyPlayersStats);
 router.get('/my-team/staff', teamController.getMyTeamStaff);
 router.post('/my-team/staff', teamController.addStaffToMyTeam);
+router.put('/my-team/staff/:id', teamController.updateStaff);
+router.delete('/my-team/staff/:id', teamController.deleteStaff);
 router.get('/my-team/competitions', competitionsController.getMyCompetitions);
 router.post('/competitions/join', competitionsController.joinCompetition);
 router.post('/competitions/leave', competitionsController.leaveCompetition);

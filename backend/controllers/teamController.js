@@ -292,6 +292,87 @@ exports.addStaffToMyTeam = async (req, res) => {
   }
 };
 
+// ฟังก์ชันสำหรับอัปเดตข้อมูล Staff ในทีมตัวเอง
+exports.updateStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { name, first_name, last_name, role, gender } = req.body;
+
+    // 1. หา team_id ของ User
+    const userRes = await db.query('SELECT team_id FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0 || !userRes.rows[0].team_id) {
+      return res.status(400).json({ error: 'You do not belong to any team.' });
+    }
+    const teamId = userRes.rows[0].team_id;
+
+    // 2. ตรวจสอบว่า Staff คนนี้อยู่ในทีมของ User หรือไม่
+    const staffCheck = await db.query('SELECT * FROM team_staff WHERE id = $1 AND team_id = $2', [id, teamId]);
+    if (staffCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Staff member not found in your team.' });
+    }
+
+    // 3. ตรวจสอบและแปลงข้อมูลชื่อ
+    let dbFirstName = '';
+    let dbLastName = '';
+    if (first_name && last_name) {
+      dbFirstName = first_name;
+      dbLastName = last_name;
+    } else if (name) {
+      const nameParts = name.trim().split(' ');
+      dbFirstName = nameParts[0];
+      dbLastName = nameParts.slice(1).join(' ') || '-';
+    } else {
+      dbFirstName = staffCheck.rows[0].first_name;
+      dbLastName = staffCheck.rows[0].last_name;
+    }
+
+    // 4. อัปเดตข้อมูลใน DB
+    const result = await db.query(
+      `UPDATE team_staff 
+       SET first_name = $1, last_name = $2, role = $3, gender = $4
+       WHERE id = $5 AND team_id = $6 RETURNING *`,
+      [dbFirstName, dbLastName, role, gender, id, teamId]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating staff:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ฟังก์ชันสำหรับลบ Staff ในทีมตัวเอง
+exports.deleteStaff = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // 1. หา team_id ของ User
+    const userRes = await db.query('SELECT team_id FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0 || !userRes.rows[0].team_id) {
+      return res.status(400).json({ error: 'You do not belong to any team.' });
+    }
+    const teamId = userRes.rows[0].team_id;
+
+    // 2. ลบ Staff
+    const result = await db.query(
+      'DELETE FROM team_staff WHERE id = $1 AND team_id = $2 RETURNING id',
+      [id, teamId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Staff member not found in your team.' });
+    }
+
+    res.json({ message: 'Staff member deleted successfully' });
+  } catch (err) {
+    console.error("Error deleting staff:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 // ฟังก์ชันสำหรับดึงข้อมูล Players ของทีมตัวเอง
 exports.getMyPlayers = async (req, res) => {
   try {
