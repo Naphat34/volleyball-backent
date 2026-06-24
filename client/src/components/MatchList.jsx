@@ -62,7 +62,7 @@ const MatchList = ({
                                 <Calendar size={12} className="mr-1.5 shrink-0" />
                                 {m.start_time || m.match_date ? (
                                     <div className="flex items-center gap-1">
-                                        <span>{formatThaiDate(m.match_date || m.start_time, { day: 'numeric', month: 'short' })}</span>
+                                        <span>{formatThaiDate(m.start_date || m.match_date, { day: 'numeric', month: 'long' })}</span>
                                         {(m.start_time) && (
                                             <>
                                                 <span className="w-px h-3 bg-gray-300 dark:bg-gray-600 mx-0.5"></span>
