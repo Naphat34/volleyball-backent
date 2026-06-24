@@ -34,7 +34,7 @@ exports.register = async (req, res) => {
 
     // ตรวจสอบว่ามีคอลัมน์ email / phone ในตาราง users หรือไม่
     const usersColsRes = await client.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public'"
     );
     const usersCols = usersColsRes.rows.map(r => r.column_name);
 
@@ -59,7 +59,7 @@ exports.register = async (req, res) => {
     // ถ้าเป็น team_staff และมีชื่อทีมและรหัสทีมส่งเข้ามา ให้ทำการสร้างทีมและเชื่อมโยงทันที
     if (role === 'team_staff' && name && code) {
       const teamsColsRes = await client.query(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams'"
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = 'public'"
       );
       const teamsCols = teamsColsRes.rows.map(r => r.column_name);
 
@@ -201,7 +201,7 @@ exports.getPendingUsers = async (req, res) => {
   try {
     // เช็คว่ามีคอลัมน์ email ในตาราง users หรือไม่
     const usersColsRes = await db.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public'"
     );
     const usersCols = usersColsRes.rows.map(r => r.column_name);
 
