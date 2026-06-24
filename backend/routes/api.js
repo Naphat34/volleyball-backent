@@ -38,6 +38,18 @@ router.get('/debug/players', async (req, res) => {
   }
 });
 
+router.get('/debug/requests-schema', async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const cols = await db.query(
+      "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'match_requests' AND table_schema = 'public'"
+    );
+    res.json(cols.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Authentication ---
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
