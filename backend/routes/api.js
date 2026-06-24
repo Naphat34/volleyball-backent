@@ -38,18 +38,6 @@ router.get('/debug/players', async (req, res) => {
   }
 });
 
-router.get('/debug/requests-schema', async (req, res) => {
-  try {
-    const db = require('../config/db');
-    const cols = await db.query(
-      "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'match_requests' AND table_schema = 'public'"
-    );
-    res.json(cols.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- Authentication ---
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
@@ -109,6 +97,13 @@ router.get('/competitions/:competitionId/matches', matchController.getMatchesByC
 router.get('/players/:id/stats', playerController.getPlayerStats);
 router.post('/match-data/lineup', matchController.saveLineup);
 router.post('/match-data/action', matchController.saveMatchAction);
+
+// --- Staff Requests & Lineup helpers ---
+router.get('/match/:matchId/requests/pending', matchController.getPendingRequests);
+router.post('/match/:matchId/request', matchController.createRequest);
+router.put('/match/:matchId/requests/:requestId', matchController.updateRequest);
+router.get('/match/:matchId/lineup/:teamId', matchController.getTeamLineup);
+router.delete('/match/:matchId/lineup/:teamId', matchController.deleteTeamLineup);
 
 // ==================================================================
 // 3. 🛡️ ADMIN ROUTES (ต้องเป็น Admin เท่านั้น)

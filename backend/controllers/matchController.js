@@ -368,5 +368,122 @@ module.exports = {
             console.error('Error saving lineup:', error);
             res.status(500).json({ message: 'Internal server error', error: error.message });
         }
+    },
+
+    // --- [เพิ่มใหม่] ดึงข้อมูลคำขอสตาฟฟ์ที่ค้างอยู่ (Pending Requests) ---
+    async getPendingRequests(req, res) {
+        try {
+            const { matchId } = req.params;
+            const result = await db.query(
+                "SELECT * FROM match_requests WHERE match_id = $1 AND status = 'PENDING' ORDER BY id ASC",
+                [matchId]
+            );
+            res.json(result.rows);
+        } catch (err) {
+            console.error("Get Pending Requests Error:", err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    // --- [เพิ่มใหม่] สร้างคำขอสตาฟฟ์ (Timeout, Substitution, Challenge, Lineup) ---
+    async createRequest(req, res) {
+        try {
+            const { matchId } = req.params;
+            const { team_id, request_type, details } = req.body;
+            const result = await db.query(
+                `INSERT INTO match_requests (match_id, team_id, request_type, status, details, created_at)
+                 VALUES ($1, $2, $3, 'PENDING', $4, NOW())
+                 RETURNING id`,
+                [matchId, team_id, request_type, details ? JSON.stringify(details) : null]
+            );
+            res.json({ success: true, requestId: result.rows[0].id });
+        } catch (err) {
+            console.error("Create Request Error:", err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    // --- [เพิ่มใหม่] อัปเดตคำขอสตาฟฟ์ (Approve / Reject / Update Details) ---
+    async updateRequest(req, res) {
+        try {
+            const { matchId, requestId } = req.params;
+            const { status, details } = req.body;
+            
+            let query = 'UPDATE match_requests SET ';
+            const updates = [];
+            const params = [];
+            
+            if (status !== undefined) {
+                params.push(status);
+                updates.push(`status = $${params.length}`);
+            }
+            
+            if (details !== undefined) {
+                params.push(details ? JSON.stringify(details) : null);
+                updates.push(`details = $${params.length}`);
+            }
+            
+            if (updates.length === 0) {
+                return res.json({ success: true, message: "No updates provided" });
+            }
+            
+            params.push(requestId, matchId);
+            query += updates.join(', ') + ` WHERE id = $${params.length - 1} AND match_id = $${params.length} RETURNING *`;
+            
+            const result = await db.query(query, params);
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: "Request not found" });
+            }
+            res.json(result.rows[0]);
+        } catch (err) {
+            console.error("Update Request Error:", err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    // --- [เพิ่มใหม่] ดึงข้อมูล Lineup รายทีมและเซต ---
+    async getTeamLineup(req, res) {
+        try {
+            const { matchId, teamId } = req.params;
+            const setNum = req.query.set ? parseInt(req.query.set, 10) : 1;
+            const result = await db.query(
+                `SELECT player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6
+                 FROM match_lineups 
+                 WHERE match_id = $1 AND team_id = $2 AND set_number = $3`,
+                [matchId, teamId, setNum]
+            );
+            if (result.rows.length === 0) {
+                return res.json([]);
+            }
+            const row = result.rows[0];
+            res.json([
+                row.player_id_p1,
+                row.player_id_p2,
+                row.player_id_p3,
+                row.player_id_p4,
+                row.player_id_p5,
+                row.player_id_p6
+            ]);
+        } catch (err) {
+            console.error("Get Team Lineup Error:", err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    // --- [เพิ่มใหม่] ลบ Lineup รายทีมและเซต ---
+    async deleteTeamLineup(req, res) {
+        try {
+            const { matchId, teamId } = req.params;
+            const setNum = req.query.set ? parseInt(req.query.set, 10) : 1;
+            await db.query(
+                `DELETE FROM match_lineups 
+                 WHERE match_id = $1 AND team_id = $2 AND set_number = $3`,
+                [matchId, teamId, setNum]
+            );
+            res.json({ success: true, message: "Lineup deleted successfully" });
+        } catch (err) {
+            console.error("Delete Team Lineup Error:", err);
+            res.status(500).json({ error: err.message });
+        }
     }
 }; 
