@@ -383,7 +383,11 @@ module.exports = {
         try {
             const { matchId } = req.params;
             const result = await db.query(
-                "SELECT * FROM match_requests WHERE match_id = $1 AND status = 'PENDING' ORDER BY id ASC",
+                `SELECT mr.*, t.name AS team_name 
+                 FROM match_requests mr
+                 LEFT JOIN teams t ON mr.team_id = t.id
+                 WHERE mr.match_id = $1 AND mr.status = 'PENDING' 
+                 ORDER BY mr.id ASC`,
                 [matchId]
             );
             res.json(result.rows);
@@ -404,7 +408,25 @@ module.exports = {
                  RETURNING id`,
                 [matchId, team_id, request_type, details ? JSON.stringify(details) : null]
             );
-            res.json({ success: true, requestId: result.rows[0].id });
+            const requestId = result.rows[0].id;
+
+            // ดึงข้อมูลคำขอตัวเต็มที่รวมชื่อทีม (team_name) ด้วย
+            const newRequestRes = await db.query(
+                `SELECT mr.*, t.name AS team_name 
+                 FROM match_requests mr
+                 LEFT JOIN teams t ON mr.team_id = t.id
+                 WHERE mr.id = $1`,
+                [requestId]
+            );
+            const requestData = newRequestRes.rows[0];
+
+            // ส่งเหตุการณ์ผ่าน Socket.io ไปยังโต๊ะบันทึกคะแนนในแบบเรียลไทม์
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`match_${matchId}`).emit('new_staff_request', requestData);
+            }
+
+            res.json({ success: true, requestId });
         } catch (err) {
             console.error("Create Request Error:", err);
             res.status(500).json({ error: err.message });
@@ -442,7 +464,28 @@ module.exports = {
             if (result.rows.length === 0) {
                 return res.status(404).json({ error: "Request not found" });
             }
-            res.json(result.rows[0]);
+
+            // ดึงข้อมูลคำขอตัวเต็มพร้อมชื่อทีม
+            const updatedRequestRes = await db.query(
+                `SELECT mr.*, t.name AS team_name 
+                 FROM match_requests mr
+                 LEFT JOIN teams t ON mr.team_id = t.id
+                 WHERE mr.id = $1`,
+                [requestId]
+            );
+            const requestData = updatedRequestRes.rows[0];
+
+            // ส่งข้อมูลอัปเดตผ่าน Socket.io
+            const io = req.app.get('io');
+            if (io) {
+                if (status === 'APPROVED' || status === 'REJECTED') {
+                    io.to(`match_${matchId}`).emit('request_processed', { id: Number(requestId), status });
+                } else {
+                    io.to(`match_${matchId}`).emit('request_updated', requestData);
+                }
+            }
+
+            res.json(requestData);
         } catch (err) {
             console.error("Update Request Error:", err);
             res.status(500).json({ error: err.message });
