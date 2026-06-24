@@ -1,5 +1,15 @@
 const db = require('../config/db');
 
+const parseNullableInt = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  return parseInt(val, 10);
+};
+
+const parseNullableString = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  return val;
+};
+
 module.exports = {
 
     // Add Player to Team (Admin)
@@ -12,15 +22,21 @@ module.exports = {
                 gender, is_captain 
             } = req.body;
 
+            const cleanNumber = parseNullableInt(number);
+            const cleanHeight = parseNullableInt(height_cm);
+            const cleanWeight = parseNullableInt(weight);
+            const cleanBirthDate = parseNullableString(birth_date);
+            const cleanIsCaptain = is_captain === true || is_captain === 'true';
+
             const result = await db.query(
                 `INSERT INTO players 
                 (team_id, number, first_name, last_name, nickname, position, height_cm, weight, birth_date, nationality, photo, gender, is_captain)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 RETURNING *`,
                 [
-                    teamId, number, first_name, last_name, nickname, position, 
-                    height_cm || null, weight || null, birth_date, nationality, photo, 
-                    gender, is_captain || false
+                    teamId, cleanNumber, first_name, last_name, nickname, position, 
+                    cleanHeight, cleanWeight, cleanBirthDate, nationality, photo, 
+                    gender, cleanIsCaptain
                 ]
             );
             res.status(201).json(result.rows[0]);
@@ -40,6 +56,12 @@ module.exports = {
                 gender, is_captain 
             } = req.body;
 
+            const cleanNumber = parseNullableInt(number);
+            const cleanHeight = parseNullableInt(height_cm);
+            const cleanWeight = parseNullableInt(weight);
+            const cleanBirthDate = parseNullableString(birth_date);
+            const cleanIsCaptain = is_captain === true || is_captain === 'true';
+
             const result = await db.query(
                 `UPDATE players 
                 SET number=$1, first_name=$2, last_name=$3, nickname=$4, position=$5, 
@@ -48,9 +70,9 @@ module.exports = {
                 WHERE id=$13
                 RETURNING *`,
                 [
-                    number, first_name, last_name, nickname, position, 
-                    height_cm || null, weight || null, birth_date, nationality, photo, 
-                    gender, is_captain || false, id
+                    cleanNumber, first_name, last_name, nickname, position, 
+                    cleanHeight, cleanWeight, cleanBirthDate, nationality, photo, 
+                    gender, cleanIsCaptain, id
                 ]
             );
 

@@ -42,12 +42,15 @@ module.exports = {
       const { id } = req.params;
       const { name, code, address, google_map_url, capacity, number_of_courts, status } = req.body;
 
+      const cleanCapacity = (capacity === '' || capacity === null || capacity === undefined) ? 0 : parseInt(capacity, 10);
+      const cleanCourts = (number_of_courts === '' || number_of_courts === null || number_of_courts === undefined) ? 1 : parseInt(number_of_courts, 10);
+
       await client.query('BEGIN');
       const result = await client.query(
         `UPDATE stadiums SET 
          name=$1, code=$2, address=$3, google_map_url=$4, capacity=$5, number_of_courts=$6, status=$7, updated_at=NOW()
          WHERE id=$8 RETURNING *`,
-        [name, code, address, google_map_url, capacity, number_of_courts, status, id]
+        [name, code, address, google_map_url, cleanCapacity, cleanCourts, status, id]
       );
       await client.query('COMMIT');
       res.json(result.rows[0]);

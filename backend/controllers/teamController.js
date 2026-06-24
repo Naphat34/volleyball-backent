@@ -1,5 +1,15 @@
 const db = require('../config/db');
 
+const parseNullableInt = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  return parseInt(val, 10);
+};
+
+const parseNullableString = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  return val;
+};
+
 // ดึงข้อมูลทีมทั้งหมด พร้อมรายชื่อนักกีฬาและสตาฟ
 exports.getTeamDetails = async (req, res) => {
   try {
@@ -316,10 +326,16 @@ exports.addPlayerToMyTeam = async (req, res) => {
     }
     // ----------------------------------------------------------------
 
+    const cleanNumber = parseNullableInt(number);
+    const cleanHeight = parseNullableInt(height_cm);
+    const cleanWeight = parseNullableInt(weight);
+    const cleanBirthDate = parseNullableString(birth_date);
+    const cleanIsCaptain = is_captain === true || is_captain === 'true';
+
     const result = await db.query(
       `INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
-      [teamId, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain || false, gender, nickname, nationality, photo]
+      [teamId, first_name, last_name, cleanNumber, position, cleanHeight, cleanWeight, cleanBirthDate, cleanIsCaptain, gender, nickname, nationality, photo]
     );
 
     res.json(result.rows[0]);
@@ -348,11 +364,17 @@ exports.updatePlayer = async (req, res) => {
     }
     // ---------------------
 
+    const cleanNumber = parseNullableInt(number);
+    const cleanHeight = parseNullableInt(height_cm);
+    const cleanWeight = parseNullableInt(weight);
+    const cleanBirthDate = parseNullableString(birth_date);
+    const cleanIsCaptain = is_captain === true || is_captain === 'true';
+
     const result = await db.query(
       `UPDATE players 
        SET first_name=$1, last_name=$2, number=$3, position=$4, height_cm=$5, weight=$6, birth_date=$7, is_captain=$8, gender=$9, nickname=$10, nationality=$11, photo=$12
        WHERE id=$13 RETURNING *`,
-      [first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, id]
+      [first_name, last_name, cleanNumber, position, cleanHeight, cleanWeight, cleanBirthDate, cleanIsCaptain, gender, nickname, nationality, photo, id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: "Player not found" });

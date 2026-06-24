@@ -1,5 +1,15 @@
 const db = require('../config/db');
 
+const parseNullableInt = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  return parseInt(val, 10);
+};
+
+const parseNullableString = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  return val;
+};
+
 module.exports = {
 
   // ==========================================
@@ -34,6 +44,13 @@ module.exports = {
     try {
         const { title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id } = req.body;
         
+        const cleanAgeGroup = parseNullableInt(age_group_id);
+        const cleanMaxSets = parseNullableInt(max_sets);
+        const cleanMaxPlayers = parseNullableInt(max_players);
+        const cleanStadium = parseNullableInt(stadium_id);
+        const cleanStartDate = parseNullableString(start_date);
+        const cleanEndDate = parseNullableString(end_date);
+
         // 1. แปลง String "Male,Female" -> Array ["Male", "Female"]
         // ใช้ filter เพื่อตัดค่าว่างทิ้ง
         const selectedGenders = gender ? gender.split(',').filter(g => g.trim() !== '') : [];
@@ -61,14 +78,14 @@ module.exports = {
                     details, 
                     sport, 
                     g, // ✅ ใช้ค่า g ที่วนลูปได้ (Male หรือ Female)
-                    age_group_id, 
-                    start_date, 
-                    end_date, 
+                    cleanAgeGroup, 
+                    cleanStartDate, 
+                    cleanEndDate, 
                     location, 
                     status, 
-                    max_sets, 
-                    max_players, 
-                    stadium_id
+                    cleanMaxSets, 
+                    cleanMaxPlayers, 
+                    cleanStadium
                 ]
             );
             createdCount++;
@@ -98,6 +115,13 @@ module.exports = {
       // ถ้าส่งมาเป็น "Male,Female" ให้เอาแค่ตัวแรก (หรือ Frontend ควรส่งมาแค่ตัวเดียว)
       const singleGender = gender && gender.includes(',') ? gender.split(',')[0] : gender;
 
+      const cleanAgeGroup = parseNullableInt(age_group_id);
+      const cleanMaxSets = parseNullableInt(max_sets);
+      const cleanMaxPlayers = parseNullableInt(max_players);
+      const cleanStadium = parseNullableInt(stadium_id);
+      const cleanStartDate = parseNullableString(start_date);
+      const cleanEndDate = parseNullableString(end_date);
+
       const result = await db.query(
         `UPDATE competitions 
          SET title=$1, details=$2, sport=$3, gender=$4, age_group_id=$5, start_date=$6, end_date=$7, location=$8, status=$9, max_sets=$10, max_players=$11, stadium_id=$12
@@ -105,7 +129,7 @@ module.exports = {
         [
           title, details, sport, 
           singleGender, // ใช้ค่าเดียว
-          age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id,
+          cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxSets, cleanMaxPlayers, cleanStadium,
           id
         ]
       );
