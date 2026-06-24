@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Clock, RefreshCw, ArrowRightLeft, Wifi, WifiOff, MonitorPlay, PauseCircle, Smartphone, Monitor } from 'lucide-react';
+import { io } from 'socket.io-client';
+import Swal from 'sweetalert2';
 import { api } from '../../api';
 import CourtView from '../CourtView.jsx';
 import { getContrastClass } from '../../utils/colorUtils';
@@ -140,6 +142,87 @@ export default function ScoreViewReferee() {
             clearInterval(interval);
         };
     }, [matchId, refreshData]);
+
+    // --- EFFECT: REAL-TIME REQUEST NOTIFICATIONS FOR REFEREE ---
+    useEffect(() => {
+        const socketUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+        const socket = io(socketUrl);
+
+        socket.on('connect', () => {
+            socket.emit('join_match', { matchId, role: 'referee' });
+        });
+
+        if (socket.connected) {
+            socket.emit('join_match', { matchId, role: 'referee' });
+        }
+
+        let activeAlertId = null;
+
+        socket.on('new_staff_request', (request) => {
+            if (request.request_type === 'TIMEOUT' || request.request_type === 'SUBSTITUTION') {
+                activeAlertId = request.id;
+                
+                let titleText = '';
+                let textContent = '';
+                let iconType = 'info';
+
+                if (request.request_type === 'TIMEOUT') {
+                    titleText = 'Request Timeout';
+                    textContent = `ทีม ${request.team_name || 'N/A'} ขอเวลานอก (Timeout)`;
+                    iconType = 'warning';
+                } else if (request.request_type === 'SUBSTITUTION') {
+                    titleText = 'Request Substitution';
+                    const pairsText = request.details?.pairs?.map(p => {
+                        const outNum = p.outPlayer?.number || '?';
+                        const inNum = p.inPlayer?.number || '?';
+                        return `เบอร์ ${outNum} ⇄ เบอร์ ${inNum}`;
+                   }).join(', ') || '';
+                    textContent = `ทีม ${request.team_name || 'N/A'} ขอเปลี่ยนตัว: ${pairsText}`;
+                    iconType = 'info';
+                }
+
+                // Play alert sound
+                try {
+                    const audio = new Audio('/sounds/notification.mp3');
+                    audio.play().catch(() => {});
+                } catch (e) {}
+
+                Swal.fire({
+                    title: titleText,
+                    text: textContent,
+                    icon: iconType,
+                    showConfirmButton: true,
+                    confirmButtonText: 'ตกลง (OK)',
+                    confirmButtonColor: '#3085d6',
+                    allowOutsideClick: false,
+                    timer: 15000,
+                    timerProgressBar: true
+                });
+            }
+        });
+
+        socket.on('request_processed', (data) => {
+            if (activeAlertId && Number(data.id) === Number(activeAlertId)) {
+                Swal.close();
+                activeAlertId = null;
+                
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: data.status === 'APPROVED' ? 'success' : 'error',
+                    title: data.status === 'APPROVED' ? 'คำขอได้รับการอนุมัติ (Approved)' : 'คำขอถูกปฏิเสธ (Rejected)',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            }
+        });
+
+        return () => {
+            socket.off('new_staff_request');
+            socket.off('request_processed');
+            socket.disconnect();
+        };
+    }, [matchId]);
 
     // --- EFFECT: CONNECTION CHECK ---
     useEffect(() => {
