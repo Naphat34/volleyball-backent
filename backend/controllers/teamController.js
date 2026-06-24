@@ -399,7 +399,7 @@ exports.addPlayerToMyTeam = async (req, res) => {
 
     if (!teamId) return res.status(400).json({ error: "User has no team." });
 
-    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo } = req.body;
+    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2 } = req.body;
 
     // --- [เพิ่มส่วนนี้] Logic: ถ้าตั้งคนนี้เป็นกัปตัน ให้ปลดกัปตันคนเก่าออก ---
     if (is_captain === true || is_captain === 'true') {
@@ -412,11 +412,22 @@ exports.addPlayerToMyTeam = async (req, res) => {
     const cleanWeight = parseNullableInt(weight);
     const cleanBirthDate = parseNullableString(birth_date);
     const cleanIsCaptain = is_captain === true || is_captain === 'true';
+    const cleanIsLibero1 = position === 'L' && (is_libero1 === true || is_libero1 === 'true');
+    const cleanIsLibero2 = position === 'L' && (is_libero2 === true || is_libero2 === 'true');
+
+    // --- [LOGIC ลิเบอโร่] ---
+    if (cleanIsLibero1) {
+        await db.query('UPDATE players SET is_libero1 = false WHERE team_id = $1', [teamId]);
+    }
+    if (cleanIsLibero2) {
+        await db.query('UPDATE players SET is_libero2 = false WHERE team_id = $1', [teamId]);
+    }
+    // ---------------------
 
     const result = await db.query(
-      `INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
-      [teamId, first_name, last_name, cleanNumber, position, cleanHeight, cleanWeight, cleanBirthDate, cleanIsCaptain, gender, nickname, nationality, photo]
+      `INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+      [teamId, first_name, last_name, cleanNumber, position, cleanHeight, cleanWeight, cleanBirthDate, cleanIsCaptain, gender, nickname, nationality, photo, cleanIsLibero1, cleanIsLibero2]
     );
 
     res.json(result.rows[0]);
@@ -426,11 +437,13 @@ exports.addPlayerToMyTeam = async (req, res) => {
   }
 };
 
-// ฟังก์ชันสำหรับอัปเดตข้อมูล Player (รวมถึง Roles)
 exports.updatePlayer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo } = req.body;
+    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2 } = req.body;
+
+    const cleanIsLibero1 = position === 'L' && (is_libero1 === true || is_libero1 === 'true');
+    const cleanIsLibero2 = position === 'L' && (is_libero2 === true || is_libero2 === 'true');
 
     // --- [LOGIC กัปตัน] ---
     if (is_captain === true || is_captain === 'true') {
@@ -445,6 +458,21 @@ exports.updatePlayer = async (req, res) => {
     }
     // ---------------------
 
+    // --- [LOGIC ลิเบอโร่] ---
+    if (cleanIsLibero1 || cleanIsLibero2) {
+        const playerCheck = await db.query('SELECT team_id FROM players WHERE id = $1', [id]);
+        if (playerCheck.rows.length > 0) {
+            const teamId = playerCheck.rows[0].team_id;
+            if (cleanIsLibero1) {
+                await db.query('UPDATE players SET is_libero1 = false WHERE team_id = $1', [teamId]);
+            }
+            if (cleanIsLibero2) {
+                await db.query('UPDATE players SET is_libero2 = false WHERE team_id = $1', [teamId]);
+            }
+        }
+    }
+    // ---------------------
+
     const cleanNumber = parseNullableInt(number);
     const cleanHeight = parseNullableInt(height_cm);
     const cleanWeight = parseNullableInt(weight);
@@ -453,9 +481,9 @@ exports.updatePlayer = async (req, res) => {
 
     const result = await db.query(
       `UPDATE players 
-       SET first_name=$1, last_name=$2, number=$3, position=$4, height_cm=$5, weight=$6, birth_date=$7, is_captain=$8, gender=$9, nickname=$10, nationality=$11, photo=$12
-       WHERE id=$13 RETURNING *`,
-      [first_name, last_name, cleanNumber, position, cleanHeight, cleanWeight, cleanBirthDate, cleanIsCaptain, gender, nickname, nationality, photo, id]
+       SET first_name=$1, last_name=$2, number=$3, position=$4, height_cm=$5, weight=$6, birth_date=$7, is_captain=$8, gender=$9, nickname=$10, nationality=$11, photo=$12, is_libero1=$13, is_libero2=$14
+       WHERE id=$15 RETURNING *`,
+      [first_name, last_name, cleanNumber, position, cleanHeight, cleanWeight, cleanBirthDate, cleanIsCaptain, gender, nickname, nationality, photo, cleanIsLibero1, cleanIsLibero2, id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: "Player not found" });

@@ -75,8 +75,7 @@ export default function TeamRankingTab() {
             }
 
             // 1. หา max_sets ของรายการนี้เพื่อสร้างคอลัมน์ Result Details
-            const selectedComp = competitions.find(c => c.id == compId);
-            const maxSets = selectedComp?.max_sets || 5;
+            const maxSets = filteredMatches.reduce((max, m) => Math.max(max, m.max_sets || 5), 5);
             const setsToWin = Math.ceil(maxSets / 2);
 
             const cols = [];

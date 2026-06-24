@@ -145,7 +145,7 @@ export default function ScoreSheet({ matchId }) {
                         currentMatchData.title = targetComp.title;
                         currentMatchData.age_group_id = targetComp.age_group_id;
                         currentMatchData.gender = targetComp.gender;
-                        currentMatchData.maxSets = currentMatchData.max_sets || targetComp.max_sets || 5;
+                        currentMatchData.maxSets = currentMatchData.max_sets || 5;
                     }
                 }
 

@@ -8,7 +8,7 @@ export default function CompetitionsTab() {
     const [competitions, setCompetitions] = useState([]);
     const [compForm, setCompForm] = useState({
         name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-        sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 5, max_players: 14
+        sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14
     });
     const [editingCompId, setEditingCompId] = useState(null);
     const [stadiums, setStadiums] = useState([]);
@@ -76,7 +76,7 @@ export default function CompetitionsTab() {
 
             setCompForm({
                 name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 5, max_players: 14
+                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14
             });
             setEditingCompId(null);
             setShowModal(false);
@@ -97,7 +97,6 @@ export default function CompetitionsTab() {
             gender: c.gender || '',
             age_group: c.age_group_id || '',
             status: c.status || 'open',
-            max_sets: c.max_sets || 5,
             max_players: c.max_players || 14
         });
         setEditingCompId(c.id);
@@ -178,7 +177,7 @@ export default function CompetitionsTab() {
                         onClick={() => {
                             setCompForm({
                                 name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-                                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 5, max_players: 14
+                                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14
                             });
                             setEditingCompId(null);
                             setShowModal(true);
@@ -340,7 +339,7 @@ export default function CompetitionsTab() {
                                 <button type="button" onClick={() => {
                                     setShowModal(false);
                                     setEditingCompId(null);
-                                    setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 5, max_players: 14 });
+                                    setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14 });
                                 }} className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white border-gray-300 hover:bg-gray-50 font-semibold shadow-sm transition">
                                     Cancel
                                 </button>

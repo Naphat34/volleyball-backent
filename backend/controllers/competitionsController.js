@@ -42,10 +42,9 @@ module.exports = {
     const client = await db.pool.connect();
     
     try {
-        const { title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id } = req.body;
+        const { title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_players, stadium_id } = req.body;
         
         const cleanAgeGroup = parseNullableInt(age_group_id);
-        const cleanMaxSets = parseNullableInt(max_sets);
         const cleanMaxPlayers = parseNullableInt(max_players);
         const cleanStadium = parseNullableInt(stadium_id);
         const cleanStartDate = parseNullableString(start_date);
@@ -71,8 +70,8 @@ module.exports = {
 
             await client.query(
                 `INSERT INTO competitions 
-                (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_players, stadium_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                 [
                     finalTitle, 
                     details, 
@@ -83,7 +82,6 @@ module.exports = {
                     cleanEndDate, 
                     location, 
                     status, 
-                    cleanMaxSets, 
                     cleanMaxPlayers, 
                     cleanStadium
                 ]
@@ -109,14 +107,13 @@ module.exports = {
   async updateCompetition(req, res) {
     try {
       const { id } = req.params;
-      const { title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id } = req.body;
+      const { title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_players, stadium_id } = req.body;
 
       // Handle Gender: ถ้าแก้ไขรายการเดิม จะรับค่าได้แค่เพศเดียว
       // ถ้าส่งมาเป็น "Male,Female" ให้เอาแค่ตัวแรก (หรือ Frontend ควรส่งมาแค่ตัวเดียว)
       const singleGender = gender && gender.includes(',') ? gender.split(',')[0] : gender;
 
       const cleanAgeGroup = parseNullableInt(age_group_id);
-      const cleanMaxSets = parseNullableInt(max_sets);
       const cleanMaxPlayers = parseNullableInt(max_players);
       const cleanStadium = parseNullableInt(stadium_id);
       const cleanStartDate = parseNullableString(start_date);
@@ -124,12 +121,12 @@ module.exports = {
 
       const result = await db.query(
         `UPDATE competitions 
-         SET title=$1, details=$2, sport=$3, gender=$4, age_group_id=$5, start_date=$6, end_date=$7, location=$8, status=$9, max_sets=$10, max_players=$11, stadium_id=$12
-         WHERE id=$13 RETURNING *`,
+         SET title=$1, details=$2, sport=$3, gender=$4, age_group_id=$5, start_date=$6, end_date=$7, location=$8, status=$9, max_players=$10, stadium_id=$11
+         WHERE id=$12 RETURNING *`,
         [
           title, details, sport, 
           singleGender, // ใช้ค่าเดียว
-          cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxSets, cleanMaxPlayers, cleanStadium,
+          cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxPlayers, cleanStadium,
           id
         ]
       );

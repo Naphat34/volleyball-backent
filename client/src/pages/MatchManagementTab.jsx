@@ -346,8 +346,7 @@ export default function MatchManagementTab() {
     };
 
     const openScoreModal = (match) => {
-        const comp = competitions.find(c => c.id == selectedCompId);
-        const maxSets = match?.max_sets || comp?.max_sets || 5;
+        const maxSets = match?.max_sets || 5;
 
         let currentScores = Array.from({ length: maxSets }, () => "");
         if (match.set_scores) {
@@ -376,8 +375,7 @@ export default function MatchManagementTab() {
     const handleSaveScore = async () => {
         if (!scoringMatch) return;
 
-        const comp = competitions.find(c => c.id == selectedCompId);
-        const maxSets = scoringMatch?.max_sets || comp?.max_sets || 5;
+        const maxSets = scoringMatch?.max_sets || 5;
         const setsToWin = Math.ceil(maxSets / 2);
 
         const validSets = scoreForm.set_scores.filter(s => s && s.trim() !== "");

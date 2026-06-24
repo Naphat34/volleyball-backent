@@ -131,6 +131,17 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
+// Database Migrations (Run once on startup)
+const db = require('./config/db');
+db.query(`
+  ALTER TABLE matches ADD COLUMN IF NOT EXISTS max_sets INTEGER DEFAULT 5;
+  ALTER TABLE competitions DROP COLUMN IF EXISTS max_sets;
+`).then(() => {
+  console.log("✅ Database schema migration: max_sets column verified on matches table, dropped from competitions table.");
+}).catch(err => {
+  console.error("❌ Database schema migration failed:", err);
+});
+
 // Start Server
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

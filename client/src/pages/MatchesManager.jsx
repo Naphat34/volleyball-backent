@@ -5,9 +5,7 @@ import Swal from 'sweetalert2';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
 import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
 
-export default function MatchesManager({ competition, onClose }) {
-    const competitionId = competition?.id;
-    const maxSets = competition?.max_sets || 5; // รับค่า max_sets (Default 5)
+    const maxSets = 5; // Default fallback
 
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,7 +22,8 @@ export default function MatchesManager({ competition, onClose }) {
         start_time: '',
         location: '',
         gender: competition?.gender || 'Female', // Default
-        pool_name: 'A'    // Default
+        pool_name: 'A',    // Default
+        max_sets: 5
     });
 
     // Form State สำหรับกรอกคะแนน
@@ -161,7 +160,8 @@ export default function MatchesManager({ competition, onClose }) {
                 match_number: '', 
                 round_name: 'Round 1', // ตั้งค่าเริ่มต้นให้
                 pool_name: '', 
-                gender: competition?.gender || 'Male'         // ตั้งค่าเริ่มต้นให้
+                gender: competition?.gender || 'Male',         // ตั้งค่าเริ่มต้นให้
+                max_sets: 5
             });
             
             setEditingMatchId(null); // ออกจากโหมดแก้ไข
@@ -187,7 +187,8 @@ export default function MatchesManager({ competition, onClose }) {
             start_time: match.start_time ? formatForInput(match.start_time) : '', // format local input
             location: match.location || '',
             gender: match.gender || competition?.gender || 'Female',
-            pool_name: match.pool_name || 'A'
+            pool_name: match.pool_name || 'A',
+            max_sets: match.max_sets || 5
         });
         setEditingMatchId(match.id);
         setIsCreating(true); // ใช้ Modal เดียวกับ Create
@@ -389,7 +390,7 @@ export default function MatchesManager({ competition, onClose }) {
 
                         <form onSubmit={handleCreateMatch} className="p-6 space-y-5 overflow-y-auto max-h-[85vh]">
                             {/* Section 1: Match Identification */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Round (รอบแข่ง)</label>
                                     <input 
@@ -432,6 +433,18 @@ export default function MatchesManager({ competition, onClose }) {
                                         <option value="Male">Male</option>
                                         <option value="Female">Female</option>
                                         <option value="Mixed">Mixed</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Max Sets (จำนวนเซตตัดสิน)</label>
+                                    <select
+                                        className="w-full p-2 border rounded-lg text-sm bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm text-gray-900"
+                                        value={newMatchForm.max_sets}
+                                        onChange={e => setNewMatchForm({ ...newMatchForm, max_sets: parseInt(e.target.value, 10) })}
+                                        required
+                                    >
+                                        <option value={5}>Best of 5 (ชนะ 3 ใน 5)</option>
+                                        <option value={3}>Best of 3 (ชนะ 2 ใน 3)</option>
                                     </select>
                                 </div>
                             </div>

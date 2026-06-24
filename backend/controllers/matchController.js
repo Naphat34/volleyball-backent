@@ -112,7 +112,8 @@ module.exports = {
             competition_id,
             home_team_id, away_team_id,
             round_name, start_time, location,
-            match_number, pool_name, gender
+            match_number, pool_name, gender,
+            max_sets
         } = req.body;
 
         // Validation
@@ -126,6 +127,7 @@ module.exports = {
             const awayId = parseNullableInt(away_team_id);
             const mNumber = parseNullableString(match_number); // match_number บางทีเป็น Text ได้
             const sTime = parseNullableString(start_time);
+            const mSets = parseNullableInt(max_sets) || 5;
             
             const result = await db.query(
                 `INSERT INTO matches (
@@ -133,9 +135,10 @@ module.exports = {
                     home_team_id, away_team_id, 
                     round_name, start_time, location, 
                     match_number, pool_name, gender,
-                    status, home_set_score, away_set_score, set_scores
+                    status, home_set_score, away_set_score, set_scores,
+                    max_sets
                 )
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'scheduled', 0, 0, '[]') 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'scheduled', 0, 0, '[]', $10) 
                  RETURNING *`,
                 [
                     competition_id,
@@ -146,7 +149,8 @@ module.exports = {
                     location,
                     mNumber,
                     pool_name,
-                    gender
+                    gender,
+                    mSets
                 ]
             );
             res.json(result.rows[0]);
@@ -164,13 +168,15 @@ module.exports = {
         const {
             home_team_id, away_team_id,
             start_time, location, round_name, status,
-            match_number, pool_name, gender
+            match_number, pool_name, gender,
+            max_sets
         } = req.body;
 
         try {
             const homeId = parseNullableInt(home_team_id);
             const awayId = parseNullableInt(away_team_id);
             const sTime = parseNullableString(start_time);
+            const mSets = parseNullableInt(max_sets) || 5;
 
             await db.query(
                 `UPDATE matches 
@@ -182,12 +188,14 @@ module.exports = {
                      pool_name = $6,
                      gender = $7,
                      home_team_id = $8,
-                     away_team_id = $9
-                 WHERE id = $10`,
+                     away_team_id = $9,
+                     max_sets = $10
+                 WHERE id = $11`,
                 [
                     sTime, location, round_name,
                     status, match_number, pool_name,
                     gender, homeId, awayId,
+                    mSets,
                     id
                 ]
             );
