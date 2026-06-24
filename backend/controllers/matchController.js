@@ -27,7 +27,8 @@ module.exports = {
         try {
             const result = await db.query(`
                 SELECT 
-                    m.id, m.competition_id, c.name as competition_name, m.round_name, m.start_time, m.location, m.status,
+                    m.id, m.competition_id, c.name as competition_name, m.round_name, 
+                    m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
                     
@@ -47,10 +48,47 @@ module.exports = {
                     m.id DESC
             `);
 
-            const normalizedRows = result.rows.map(row => ({
-                ...row,
-                status: row.status ? row.status.toLowerCase() : row.status
-            }));
+            const normalizedRows = result.rows.map(row => {
+                let match_date = null;
+                let start_time_str = null;
+                const rawStart = row.raw_start_time;
+
+                if (rawStart) {
+                    const dateObj = new Date(rawStart);
+                    if (!isNaN(dateObj.getTime())) {
+                        try {
+                            if (rawStart.includes('T')) {
+                                const parts = rawStart.split('T');
+                                match_date = parts[0];
+                                start_time_str = parts[1].substring(0, 5);
+                            } else {
+                                const year = dateObj.getFullYear();
+                                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                                const day = String(dateObj.getDate()).padStart(2, '0');
+                                match_date = `${year}-${month}-${day}`;
+
+                                const hours = String(dateObj.getHours()).padStart(2, '0');
+                                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                                start_time_str = `${hours}:${minutes}`;
+                            }
+                        } catch (e) {
+                            start_time_str = String(rawStart);
+                        }
+                    } else {
+                        start_time_str = String(rawStart);
+                    }
+                }
+
+                // Delete temporary raw field to keep payload clean
+                delete row.raw_start_time;
+
+                return {
+                    ...row,
+                    match_date,
+                    start_time: start_time_str,
+                    status: row.status ? row.status.toLowerCase() : row.status
+                };
+            });
             res.json(normalizedRows);
         } catch (err) {
             console.error("Get All Matches Error:", err);
@@ -66,19 +104,20 @@ module.exports = {
         try {
             const result = await db.query(`
                 SELECT 
-                    m.id, m.competition_id, m.round_name, m.start_time, m.location, m.status,
+                    m.id, m.competition_id, m.round_name, 
+                    m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
                     
                     m.home_team_id,
                     t1.name as home_team, t1.code as home_team_code,
                     t1.name as team_a_name, t1.code as team_a_code,
-                    NULL as home_team_logo, -- CHANGED: Return NULL because 'logo' column is missing
+                    t1.logo_url as home_team_logo_url,
                     
                     m.away_team_id,
                     t2.name as away_team, t2.code as away_team_code,
                     t2.name as team_b_name, t2.code as team_b_code,
-                    NULL as away_team_logo  -- CHANGED: Return NULL because 'logo' column is missing
+                    t2.logo_url as away_team_logo_url
                 FROM matches m
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
@@ -92,10 +131,47 @@ module.exports = {
                     m.id ASC
             `, [competitionId]);
 
-            const normalizedRows = result.rows.map(row => ({
-                ...row,
-                status: row.status ? row.status.toLowerCase() : row.status
-            }));
+            const normalizedRows = result.rows.map(row => {
+                let match_date = null;
+                let start_time_str = null;
+                const rawStart = row.raw_start_time;
+
+                if (rawStart) {
+                    const dateObj = new Date(rawStart);
+                    if (!isNaN(dateObj.getTime())) {
+                        try {
+                            if (rawStart.includes('T')) {
+                                const parts = rawStart.split('T');
+                                match_date = parts[0];
+                                start_time_str = parts[1].substring(0, 5);
+                            } else {
+                                const year = dateObj.getFullYear();
+                                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                                const day = String(dateObj.getDate()).padStart(2, '0');
+                                match_date = `${year}-${month}-${day}`;
+
+                                const hours = String(dateObj.getHours()).padStart(2, '0');
+                                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                                start_time_str = `${hours}:${minutes}`;
+                            }
+                        } catch (e) {
+                            start_time_str = String(rawStart);
+                        }
+                    } else {
+                        start_time_str = String(rawStart);
+                    }
+                }
+
+                // Delete temporary raw field to keep payload clean
+                delete row.raw_start_time;
+
+                return {
+                    ...row,
+                    match_date,
+                    start_time: start_time_str,
+                    status: row.status ? row.status.toLowerCase() : row.status
+                };
+            });
             res.json(normalizedRows);
         } catch (err) {
             console.error("Get Matches Error:", err);
