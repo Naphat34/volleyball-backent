@@ -139,7 +139,7 @@ module.exports = {
                     const dateObj = new Date(rawStart);
                     if (!isNaN(dateObj.getTime())) {
                         try {
-                            if (rawStart.includes('T')) {
+                            if (typeof rawStart === 'string' && rawStart.includes('T')) {
                                 const parts = rawStart.split('T');
                                 match_date = parts[0];
                                 start_time_str = parts[1].substring(0, 5); // "HH:MM"

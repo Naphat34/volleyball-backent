@@ -22,7 +22,10 @@ export function removeCookie(name) {
  */
 export function formatThaiDate(date, options = null) {
   if (!date) return 'TBD';
-  const d = new Date(date);
+  let d = new Date(date);
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    d = new Date(date.replace(/-/g, '/'));
+  }
   if (isNaN(d.getTime())) return 'TBD';
   
   const year = d.getFullYear() + 543;
