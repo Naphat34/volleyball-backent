@@ -17,30 +17,98 @@ const SECRET_KEY = process.env.JWT_SECRET || 'mySuperSecretKey123';
 
 // 1. ลงทะเบียน (Register)
 exports.register = async (req, res) => {
+  const client = await db.pool.connect();
   try {
-    const { username, password, role } = req.body;
+    const { username, password, role, name, code, coach } = req.body;
 
     // ตรวจสอบว่ามี Username นี้ในระบบหรือยัง
-    const userCheck = await db.query('SELECT id FROM users WHERE username = $1', [username]);
+    const userCheck = await client.query('SELECT id FROM users WHERE username = $1', [username]);
     if (userCheck.rows.length > 0) {
       return res.status(400).json({ error: 'Username already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 8);
-
     const initialStatus = role === 'admin' ? 'approved' : 'pending';
 
-    const result = await db.query(
-      'INSERT INTO users (username, password_hash, role, status) VALUES ($1, $2, $3, $4) RETURNING id, username, role, status',
-      [username, hashedPassword, role, initialStatus]
+    await client.query('BEGIN');
+
+    // ตรวจสอบว่ามีคอลัมน์ email / phone ในตาราง users หรือไม่
+    const usersColsRes = await client.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
     );
+    const usersCols = usersColsRes.rows.map(r => r.column_name);
+
+    let userFields = ['username', 'password_hash', 'role', 'status'];
+    let userParams = [username, hashedPassword, role, initialStatus];
+    
+    if (usersCols.includes('email') && req.body.email) {
+      userFields.push('email');
+      userParams.push(req.body.email);
+    }
+    if (usersCols.includes('phone') && req.body.phone) {
+      userFields.push('phone');
+      userParams.push(req.body.phone);
+    }
+
+    const userPlaceholders = userParams.map((_, i) => `$${i + 1}`).join(', ');
+    const userInsertQuery = `INSERT INTO users (${userFields.join(', ')}) VALUES (${userPlaceholders}) RETURNING id, username, role, status`;
+    
+    const userResult = await client.query(userInsertQuery, userParams);
+    const user = userResult.rows[0];
+
+    // ถ้าเป็น team_staff และมีชื่อทีมและรหัสทีมส่งเข้ามา ให้ทำการสร้างทีมและเชื่อมโยงทันที
+    if (role === 'team_staff' && name && code) {
+      const teamsColsRes = await client.query(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams'"
+      );
+      const teamsCols = teamsColsRes.rows.map(r => r.column_name);
+
+      let teamFields = ['name', 'code', 'user_id', 'coach'];
+      let teamParams = [name, code, user.id, coach || null];
+
+      if (teamsCols.includes('phone') && req.body.phone) {
+        teamFields.push('phone');
+        teamParams.push(req.body.phone);
+      }
+      if (teamsCols.includes('email') && req.body.email) {
+        teamFields.push('email');
+        teamParams.push(req.body.email);
+      }
+      if (teamsCols.includes('province') && req.body.province) {
+        teamFields.push('province');
+        teamParams.push(req.body.province);
+      }
+      if (teamsCols.includes('category') && req.body.category) {
+        teamFields.push('category');
+        teamParams.push(req.body.category);
+      }
+      if (teamsCols.includes('manager_name') && req.body.manager_name) {
+        teamFields.push('manager_name');
+        teamParams.push(req.body.manager_name);
+      }
+
+      const teamPlaceholders = teamParams.map((_, i) => `$${i + 1}`).join(', ');
+      const teamInsertQuery = `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${teamPlaceholders}) RETURNING id`;
+      
+      const teamResult = await client.query(teamInsertQuery, teamParams);
+      const team = teamResult.rows[0];
+
+      // อัปเดต user ให้มี team_id ชี้ไปยังทีมที่สร้างใหม่
+      await client.query('UPDATE users SET team_id = $1 WHERE id = $2', [team.id, user.id]);
+      user.team_id = team.id;
+    }
+
+    await client.query('COMMIT');
 
     res.status(201).json({
       message: 'User registered successfully',
-      user: result.rows[0]
+      user: user
     });
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -122,8 +190,27 @@ exports.approveUser = async (req, res) => {
 // 4. ดึงรายชื่อคนรออนุมัติ
 exports.getPendingUsers = async (req, res) => {
   try {
-    // ดึง users ทั้งหมดที่ยังไม่ approved (หรือจะดึงทั้งหมดมาเลยก็ได้แล้วไป filter หน้าบ้าน)
-    const result = await db.query("SELECT id, username, role, status, created_at FROM users WHERE status = 'pending' AND role != 'admin' ORDER BY created_at DESC");
+    // เช็คว่ามีคอลัมน์ email ในตาราง users หรือไม่
+    const usersColsRes = await db.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+    );
+    const usersCols = usersColsRes.rows.map(r => r.column_name);
+
+    let emailSelect = '';
+    if (usersCols.includes('email')) {
+      emailSelect = ', u.email';
+    }
+
+    // ดึงรายชื่อผู้ใช้ที่รออนุมัติ พร้อมชื่อทีมและอีเมล
+    const query = `
+      SELECT u.id, u.username, u.role, u.status, u.created_at, t.name${emailSelect}
+      FROM users u
+      LEFT JOIN teams t ON u.team_id = t.id
+      WHERE u.status = 'pending' AND u.role != 'admin'
+      ORDER BY u.created_at DESC
+    `;
+    
+    const result = await db.query(query);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
