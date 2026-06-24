@@ -49,10 +49,13 @@ const AdminScorer = () => {
           const selected = allComps.find(c => String(c.id) === String(compId));
           if (selected) {
             setSelectedCompetition(selected);
-            const compTitle = selected.competition_title || selected.title;
-            const matchingComps = allComps.filter(
-              (c) => (c.competition_title || c.title) === compTitle
-            );
+            const selectedRawTitle = selected.competition_title || selected.title || '';
+            const selectedCleanTitle = selectedRawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
+            const matchingComps = allComps.filter((c) => {
+              const cRawTitle = c.competition_title || c.title || '';
+              const cCleanTitle = cRawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
+              return cCleanTitle === selectedCleanTitle;
+            });
 
             const matchPromises = matchingComps.map((c) =>
               apiClient.get(`/competitions/${c.id}/matches?t=${Date.now()}`)
@@ -108,15 +111,19 @@ const AdminScorer = () => {
     setSearchParams({ view: 'matches', compId: comp.id });
   };
 
-  // กรองรายการที่สถานะเป็น OPEN ล่วงหน้า, รองรับตัวพิมพ์เล็ก/ใหญ่ และกรองรายการซ้ำ
+  // กรองรายการที่สถานะเป็น OPEN ล่วงหน้า, รองรับตัวพิมพ์เล็ก/ใหญ่ และกรองรายการซ้ำ โดยไม่แสดงและไม่ซ้ำตามเพศ (Male/Female/ชาย/หญิง)
   const openCompetitions = [];
   const seenTitles = new Set();
   competitions.forEach((c) => {
     if (c.status?.toUpperCase() === 'OPEN') {
-      const titleKey = (c.competition_title || c.title || '').trim();
-      if (!seenTitles.has(titleKey)) {
-        seenTitles.add(titleKey);
-        openCompetitions.push(c);
+      const rawTitle = c.competition_title || c.title || '';
+      const cleanTitle = rawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
+      if (!seenTitles.has(cleanTitle)) {
+        seenTitles.add(cleanTitle);
+        openCompetitions.push({
+          ...c,
+          display_title: cleanTitle
+        });
       }
     }
   });
@@ -255,8 +262,8 @@ const AdminScorer = () => {
                                   {comp.logo ? (
                             <img 
                               src={comp.logo.startsWith('http') ? comp.logo : `${getServerUrl()}/uploads/${comp.logo}`} 
-                              alt={comp.competition_title} 
-                              className="w-full h-full object-cover p-1"
+                              alt={comp.display_title || comp.competition_title || comp.title} 
+                             className="w-full h-full object-cover p-1"
                               onError={(e) => { e.target.src = 'https://placehold.co/100x100?text=No+Image'; }}
                             />
                           ) : (
@@ -264,7 +271,7 @@ const AdminScorer = () => {
                           )}
                         </div>
                                 <div>
-                                  <p className="font-bold text-slate-800 text-lg leading-tight">{comp.competition_title || comp.title}</p>
+                                  <p className="font-bold text-slate-800 text-lg leading-tight">{comp.display_title || comp.competition_title || comp.title}</p>
                                   <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-tighter">{comp.location || 'ไม่ได้ระบุสถานที่'}</p>
                                 </div>
                               </div>
@@ -293,7 +300,7 @@ const AdminScorer = () => {
                   <ChevronLeft size={18} /> ย้อนกลับ
                 </button>
                 <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">
-                  {selectedCompetition?.competition_title || selectedCompetition?.title}
+                  {(selectedCompetition?.competition_title || selectedCompetition?.title || '').replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim()}
                 </h2>
               </div>
             </div>
