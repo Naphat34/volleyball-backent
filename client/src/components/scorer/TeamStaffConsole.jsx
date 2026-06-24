@@ -409,6 +409,10 @@ export default function TeamStaffConsole() {
             }
         });
 
+        socket.on('match_updated', () => {
+            fetchData();
+        });
+
         return () => {
             socket.off('connect');
             socket.off('disconnect');
@@ -417,6 +421,7 @@ export default function TeamStaffConsole() {
             socket.off('live_state_updated');
             socket.off('lineup_cleared');
             socket.off('roster_updated');
+            socket.off('match_updated');
             socket.disconnect();
         };
     }, [matchId, teamId, teamSide, fetchData, checkAndPromptLineup]);

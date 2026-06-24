@@ -21,6 +21,45 @@ const parseNullableString = (val) => {
     return val;
 };
 
+const parseNullableJson = (val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    if (typeof val === 'object') return JSON.stringify(val);
+    return val;
+};
+
+const parseNullableBool = (val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    return val === true || val === 'true';
+};
+
+const parseFieldValue = (field, val) => {
+    if (val === '' || val === null || val === undefined) return null;
+    
+    // Integer fields
+    if ([
+        'home_team_id', 'away_team_id', 'competition_id', 'match_number', 
+        'winner_team_id', 'stadium_id', 'team_a_score', 'team_b_score', 
+        'referee_1_id', 'referee_2_id', 'scorer_id', 'assistant_scorer_id', 
+        'line_judge_1_id', 'line_judge_2_id', 'line_judge_3_id', 'line_judge_4_id', 
+        'category', 'first_serve_team_id', 'left_side_team_id', 'max_sets'
+    ].includes(field)) {
+        return parseInt(val, 10);
+    }
+    
+    // JSON / JSONB fields
+    if (['set_scores', 'home_lineup', 'away_lineup', 'live_state', 'match_state'].includes(field)) {
+        return parseNullableJson(val);
+    }
+    
+    // Boolean fields
+    if (field === 'has_challenge') {
+        return parseNullableBool(val);
+    }
+    
+    // Text / Character fields
+    return val;
+};
+
 module.exports = {
 
     async getAllMatches(req, res) {
@@ -183,52 +222,51 @@ module.exports = {
     // 2. CREATE: สร้างแมตช์ใหม่ (Manual)
     // ==========================================
     async createMatch(req, res) {
-        // รับค่าจาก Frontend
-        const {
-            competition_id,
-            home_team_id, away_team_id,
-            round_name, start_time, location,
-            match_number, pool_name, gender,
-            max_sets
-        } = req.body;
-
         // Validation
-        if (!competition_id) {
+        if (!req.body.competition_id) {
             return res.status(400).json({ error: "Competition ID is required" });
         }
 
         try {
-            // Clean Data: แปลงค่าว่าง "" เป็น NULL ก่อนส่งเข้า DB
-            const homeId = parseNullableInt(home_team_id);
-            const awayId = parseNullableInt(away_team_id);
-            const mNumber = parseNullableString(match_number); // match_number บางทีเป็น Text ได้
-            const sTime = parseNullableString(start_time);
-            const mSets = parseNullableInt(max_sets) || 5;
-            
-            const result = await db.query(
-                `INSERT INTO matches (
-                    competition_id, 
-                    home_team_id, away_team_id, 
-                    round_name, start_time, location, 
-                    match_number, pool_name, gender,
-                    status, home_set_score, away_set_score, set_scores,
-                    max_sets
-                )
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'scheduled', 0, 0, '[]', $10) 
-                 RETURNING *`,
-                [
-                    competition_id,
-                    homeId,
-                    awayId,
-                    round_name,
-                    sTime,
-                    location,
-                    mNumber,
-                    pool_name,
-                    gender,
-                    mSets
-                ]
-            );
+            const fields = [
+                'home_team_id', 'away_team_id', 'start_time', 'location', 'status',
+                'home_set_score', 'away_set_score', 'competition_id', 'match_number',
+                'pool_name', 'round_name', 'winner_team_id', 'gender', 'set_scores',
+                'home_lineup', 'away_lineup', 'home_libero', 'away_libero', 'stadium_id',
+                'court_number', 'team_a_score', 'team_b_score', 'referee_1_id', 'referee_2_id',
+                'scorer_id', 'assistant_scorer_id', 'line_judge_1_id', 'line_judge_2_id',
+                'line_judge_3_id', 'line_judge_4_id', 'rr_name', 'rr_country', 'rr_code',
+                'rc_name', 'rc_country', 'rc_code', 'assistant_scorer_name',
+                'assistant_scorer_country', 'assistant_scorer_code', 'td_name',
+                'td_country', 'td_code', 'rd_name', 'rd_country', 'rd_code',
+                'live_state', 'city', 'match_date', 'category', 'match_state',
+                'first_serve_team_id', 'left_side_team_id', 'country', 'max_sets',
+                'scorer_name', 'scorer_country', 'scorer_code', 'has_challenge'
+            ];
+
+            const columns = [];
+            const placeholders = [];
+            const params = [];
+            let index = 1;
+
+            const bodyWithDefaults = { ...req.body };
+            if (bodyWithDefaults.status === undefined || bodyWithDefaults.status === '') bodyWithDefaults.status = 'scheduled';
+            if (bodyWithDefaults.home_set_score === undefined || bodyWithDefaults.home_set_score === '') bodyWithDefaults.home_set_score = 0;
+            if (bodyWithDefaults.away_set_score === undefined || bodyWithDefaults.away_set_score === '') bodyWithDefaults.away_set_score = 0;
+            if (bodyWithDefaults.set_scores === undefined || bodyWithDefaults.set_scores === '') bodyWithDefaults.set_scores = [];
+            if (bodyWithDefaults.max_sets === undefined || bodyWithDefaults.max_sets === '') bodyWithDefaults.max_sets = 5;
+
+            for (const field of fields) {
+                if (bodyWithDefaults[field] !== undefined) {
+                    params.push(parseFieldValue(field, bodyWithDefaults[field]));
+                    columns.push(field);
+                    placeholders.push(`$${index}`);
+                    index++;
+                }
+            }
+
+            const query = `INSERT INTO matches (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`;
+            const result = await db.query(query, params);
             res.json(result.rows[0]);
         } catch (err) {
             console.error("Create Match Error:", err);
@@ -241,40 +279,48 @@ module.exports = {
     // ==========================================
     async updateMatch(req, res) {
         const { id } = req.params;
-        const {
-            home_team_id, away_team_id,
-            start_time, location, round_name, status,
-            match_number, pool_name, gender,
-            max_sets
-        } = req.body;
 
         try {
-            const homeId = parseNullableInt(home_team_id);
-            const awayId = parseNullableInt(away_team_id);
-            const sTime = parseNullableString(start_time);
-            const mSets = parseNullableInt(max_sets) || 5;
+            const fields = [
+                'home_team_id', 'away_team_id', 'start_time', 'location', 'status',
+                'home_set_score', 'away_set_score', 'competition_id', 'match_number',
+                'pool_name', 'round_name', 'winner_team_id', 'gender', 'set_scores',
+                'home_lineup', 'away_lineup', 'home_libero', 'away_libero', 'stadium_id',
+                'court_number', 'team_a_score', 'team_b_score', 'referee_1_id', 'referee_2_id',
+                'scorer_id', 'assistant_scorer_id', 'line_judge_1_id', 'line_judge_2_id',
+                'line_judge_3_id', 'line_judge_4_id', 'rr_name', 'rr_country', 'rr_code',
+                'rc_name', 'rc_country', 'rc_code', 'assistant_scorer_name',
+                'assistant_scorer_country', 'assistant_scorer_code', 'td_name',
+                'td_country', 'td_code', 'rd_name', 'rd_country', 'rd_code',
+                'live_state', 'city', 'match_date', 'category', 'match_state',
+                'first_serve_team_id', 'left_side_team_id', 'country', 'max_sets',
+                'scorer_name', 'scorer_country', 'scorer_code', 'has_challenge'
+            ];
 
-            await db.query(
-                `UPDATE matches 
-                 SET start_time = $1,
-                     location = $2,
-                     round_name = $3,
-                     status = COALESCE($4, status),
-                     match_number = $5,
-                     pool_name = $6,
-                     gender = $7,
-                     home_team_id = $8,
-                     away_team_id = $9,
-                     max_sets = $10
-                 WHERE id = $11`,
-                [
-                    sTime, location, round_name,
-                    status, match_number, pool_name,
-                    gender, homeId, awayId,
-                    mSets,
-                    id
-                ]
-            );
+            const updates = [];
+            const params = [];
+            let index = 1;
+
+            for (const field of fields) {
+                if (req.body[field] !== undefined) {
+                    params.push(parseFieldValue(field, req.body[field]));
+                    updates.push(`${field} = $${index}`);
+                    index++;
+                }
+            }
+
+            if (updates.length > 0) {
+                params.push(id);
+                const query = `UPDATE matches SET ${updates.join(', ')} WHERE id = $${index}`;
+                await db.query(query, params);
+
+                // ส่งเหตุการณ์ผ่าน Socket.io
+                const io = req.app.get('io');
+                if (io) {
+                    io.to(`match_${id}`).emit('match_updated', { id });
+                }
+            }
+
             res.json({ message: "Match details updated" });
         } catch (err) {
             console.error("Update Match Error:", err);
@@ -380,6 +426,13 @@ module.exports = {
             }
 
             await client.query('COMMIT'); // ยืนยันข้อมูล
+
+            // ส่งเหตุการณ์ผ่าน Socket.io
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`match_${id}`).emit('match_updated', { id });
+            }
+
             res.json({ message: "Match result and sets updated successfully" });
 
         } catch (err) {
@@ -445,6 +498,12 @@ module.exports = {
                 );
             } else {
                 return res.status(400).json({ message: 'Team ID does not match participants in this match' });
+            }
+
+            // ส่งเหตุการณ์ผ่าน Socket.io
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`match_${match_id}`).emit('match_updated', { id: match_id });
             }
 
             res.json({ message: 'Lineup saved successfully' });

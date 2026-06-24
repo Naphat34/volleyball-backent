@@ -217,12 +217,17 @@ export default function ScoreViewReferee() {
             }
         });
 
+        socket.on('match_updated', () => {
+            refreshData();
+        });
+
         return () => {
             socket.off('new_staff_request');
             socket.off('request_processed');
+            socket.off('match_updated');
             socket.disconnect();
         };
-    }, [matchId]);
+    }, [matchId, refreshData]);
 
     // --- EFFECT: CONNECTION CHECK ---
     useEffect(() => {

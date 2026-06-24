@@ -110,6 +110,7 @@ export default function ScorerConsole() {
     });
     // ==========================================
     const matchDataRef = useRef(null);
+    const fetchMatchDataRef = useRef(null);
     useEffect(() => {
         matchDataRef.current = matchData;
     }, [matchData]);
@@ -431,11 +432,18 @@ export default function ScorerConsole() {
             refreshRoster();
         });
 
+        socket.on('match_updated', () => {
+            if (fetchMatchDataRef.current) {
+                fetchMatchDataRef.current();
+            }
+        });
+
         return () => {
             socket.off('new_staff_request');
             socket.off('request_updated');
             socket.off('request_processed');
             socket.off('roster_updated');
+            socket.off('match_updated');
             socket.off('connection_status_update');
             socket.disconnect();
         };
@@ -846,6 +854,7 @@ export default function ScorerConsole() {
                 setIsLoading(false);
             }
         };
+        fetchMatchDataRef.current = fetchMatchData;
         fetchMatchData();
     }, [matchId, refreshRoster]);
 
