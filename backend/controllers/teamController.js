@@ -833,4 +833,48 @@ exports.deleteMyTeam = async (req, res) => {
   } finally {
     client.release();
   }
+};
+
+// ✅ [เพิ่ม] ดึงรายการแข่งขัน (Matches) ของทีมตัวเอง
+exports.getMyMatches = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRes = await db.query('SELECT team_id FROM users WHERE id = $1', [userId]);
+    const teamId = userRes.rows[0]?.team_id;
+
+    if (!teamId) {
+      return res.json([]);
+    }
+
+    const result = await db.query(`
+        SELECT 
+            m.id, m.competition_id, c.title as competition_name, m.round_name, m.start_time, m.location, m.status,
+            m.match_number, m.pool_name, m.gender,
+            m.home_set_score, m.away_set_score, m.set_scores,
+            
+            m.home_team_id,
+            t1.name as home_team, t1.code as home_team_code,
+            t1.logo_url as home_team_logo_url,
+            
+            m.away_team_id,
+            t2.name as away_team, t2.code as away_team_code,
+            t2.logo_url as away_team_logo_url
+        FROM matches m
+        LEFT JOIN teams t1 ON m.home_team_id = t1.id
+        LEFT JOIN teams t2 ON m.away_team_id = t2.id
+        LEFT JOIN competitions c ON m.competition_id = c.id
+        WHERE m.home_team_id = $1 OR m.away_team_id = $1
+        ORDER BY m.start_time DESC NULLS LAST, m.id DESC
+    `, [teamId]);
+
+    const normalizedRows = result.rows.map(row => ({
+        ...row,
+        status: row.status ? row.status.toLowerCase() : row.status
+    }));
+
+    res.json(normalizedRows);
+  } catch (err) {
+    console.error("Get My Matches Error:", err);
+    res.status(500).json({ error: err.message });
+  }
 };
