@@ -25,6 +25,24 @@ router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
 router.post('/auth/logout', authController.logout);
 
+router.get('/debug/schema', async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const usersCols = await db.query(
+      "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public'"
+    );
+    const teamsCols = await db.query(
+      "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = 'public'"
+    );
+    res.json({
+      users: usersCols.rows,
+      teams: teamsCols.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Dropdowns / Master Data ---
 router.get('/age-groups', ageGroupController.getAllAgeGroups);
 router.get('/competitions/open', competitionsController.getOpenCompetitions);

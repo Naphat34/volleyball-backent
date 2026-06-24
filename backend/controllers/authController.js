@@ -105,10 +105,19 @@ exports.register = async (req, res) => {
       user: user
     });
   } catch (err) {
-    await client.query('ROLLBACK');
+    console.error("Register Error:", err);
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        console.error("Rollback Error:", rollbackErr);
+      }
+    }
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 };
 
