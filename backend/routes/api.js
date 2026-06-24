@@ -20,6 +20,24 @@ const scorerRoutes = require('./scorerRoutes');
 // 1. 🔓 PUBLIC ROUTES (โซนนี้เข้าได้ทุกคน ไม่ต้อง Login)
 // ==================================================================
 
+router.get('/debug/players', async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const cols = await db.query(
+      "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'players' AND table_schema = 'public'"
+    );
+    const rows = await db.query(
+      "SELECT * FROM players LIMIT 5"
+    );
+    res.json({
+      columns: cols.rows,
+      rows: rows.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Authentication ---
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
