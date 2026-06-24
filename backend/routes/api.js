@@ -25,27 +25,7 @@ router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
 router.post('/auth/logout', authController.logout);
 
-router.get('/debug/schema', async (req, res) => {
-  try {
-    const db = require('../config/db');
-    const usersCols = await db.query(
-      "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public'"
-    );
-    const teamsCols = await db.query(
-      "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = 'public'"
-    );
-    const enums = await db.query(
-      "SELECT t.typname, e.enumlabel FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = 'public'"
-    );
-    res.json({
-      users: usersCols.rows,
-      teams: teamsCols.rows,
-      enums: enums.rows
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+
 
 // --- Dropdowns / Master Data ---
 router.get('/age-groups', ageGroupController.getAllAgeGroups);
