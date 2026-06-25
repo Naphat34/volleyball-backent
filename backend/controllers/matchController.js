@@ -66,11 +66,11 @@ module.exports = {
         try {
             const result = await db.query(`
                 SELECT 
-                    m.id, m.competition_id, c.name as competition_name, m.round_name, 
+                    m.id, m.competition_id, c.title as competition_name, m.round_name, 
                     m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
-                    m.city, m.category,
+                    m.city, m.category, m.match_date,
                     
                     m.home_team_id,
                     t1.name as home_team, t1.code as home_team_code,
@@ -89,7 +89,7 @@ module.exports = {
             `);
 
             const normalizedRows = result.rows.map(row => {
-                let match_date = null;
+                let match_date = row.match_date;
                 let start_time_str = null;
                 const rawStart = row.raw_start_time;
 
@@ -148,7 +148,7 @@ module.exports = {
                     m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
-                    m.city, m.category,
+                    m.city, m.category, m.match_date,
                     
                     m.home_team_id,
                     t1.name as home_team, t1.code as home_team_code,
@@ -173,7 +173,7 @@ module.exports = {
             `, [competitionId]);
 
             const normalizedRows = result.rows.map(row => {
-                let match_date = null;
+                let match_date = row.match_date;
                 let start_time_str = null;
                 const rawStart = row.raw_start_time;
 
