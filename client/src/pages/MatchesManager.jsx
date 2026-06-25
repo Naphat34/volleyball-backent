@@ -1,15 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import api from '../api'; // Path to your api setup
-import { Trophy, Calendar, CheckCircle, Edit3, Save, X, PlusCircle, Shield } from 'lucide-react';
+import api, { api as apiHelper } from '../api'; // Path to your api setup
+import { Trophy, Calendar, CheckCircle, Edit3, Save, X, PlusCircle, Shield, Settings } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
 import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
+import PreMatchSetupModal from '../components/scorer/modals/PreMatchSetupModal';
 
+export default function MatchesManager({ competitionId, competition, onClose }) {
     const maxSets = 5; // Default fallback
 
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingMatch, setEditingMatch] = useState(null); // เก็บแมตช์ที่กำลังกรอกคะแนน
+
+    // --- [เพิ่ม] State สำหรับ Prematch Setup ---
+    const [setupMatch, setSetupMatch] = useState(null);
+    const [setupHomePlayers, setSetupHomePlayers] = useState([]);
+    const [setupAwayPlayers, setSetupAwayPlayers] = useState([]);
+    const [setupReferees, setSetupReferees] = useState(null);
 
     // --- [เพิ่ม] Form State สำหรับสร้างแมตช์ใหม่ ---
     const [teams, setTeams] = useState([]); // ดึงทีมที่ลงแข่งมาใส่ dropdown
@@ -255,6 +263,195 @@ import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
         }
     };
 
+    const handleOpenSetup = async (match) => {
+        try {
+            Swal.fire({
+                title: 'Loading...',
+                text: 'กำลังโหลดข้อมูลการตั้งค่าการแข่งขัน / Loading setup details...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // 1. ดึงรายละเอียดแมตช์รวมถึงข้อมูลกรรมการ
+            const matchDetailsRes = await apiHelper.getMatchById(match.id);
+            const m = matchDetailsRes.data;
+
+            // 2. ดึงรายชื่อนักกีฬาของทั้งสองทีม
+            const [homePlayersRes, awayPlayersRes] = await Promise.all([
+                m.home_team_id ? apiHelper.getPlayersByTeam(m.home_team_id) : Promise.resolve({ data: [] }),
+                m.away_team_id ? apiHelper.getPlayersByTeam(m.away_team_id) : Promise.resolve({ data: [] })
+            ]);
+
+            // Helper to map DB player format to components' expected format
+            const isPlayerLibero = (p) => {
+                if (!p) return false;
+                const role = String(p.role || '').toUpperCase();
+                const pos = String(p.position || '').toUpperCase();
+                return !!(
+                    p.isLibero ||
+                    p.is_libero ||
+                    p.is_libero1 ||
+                    p.is_libero2 ||
+                    role === 'L1' ||
+                    role === 'L2' ||
+                    role === 'L1+C' ||
+                    role === 'L2+C' ||
+                    role === 'L' ||
+                    pos === 'L' ||
+                    pos === 'L1' ||
+                    pos === 'L2'
+                );
+            };
+
+            const mapPlayerFields = (p) => {
+                const isCap = p.is_captain === true || p.isCaptain === true || p.role === 'C' || p.role === 'L1+C' || p.role === 'L2+C';
+                const isLib = isPlayerLibero(p);
+                let role = p.role || '';
+                if (!role) {
+                    if (p.is_libero1) role = isCap ? 'L1+C' : 'L1';
+                    else if (p.is_libero2) role = isCap ? 'L2+C' : 'L2';
+                    else if (isLib) role = isCap ? 'L1+C' : 'L1';
+                    else if (isCap) role = 'C';
+                }
+                return {
+                    ...p,
+                    isCaptain: isCap,
+                    isLibero: isLib,
+                    role: role
+                };
+            };
+
+            const mappedHome = (homePlayersRes.data || []).map(mapPlayerFields);
+            const mappedAway = (awayPlayersRes.data || []).map(mapPlayerFields);
+
+            // 3. จัดข้อมูลกรรมการเพื่อส่งให้ Modal
+            const fetchedReferees = {
+                referee_1_id: m.referee_1_id || '',
+                referee_2_id: m.referee_2_id || '',
+                scorer_id: m.scorer_id || '',
+                line_judge_1_id: m.line_judge_1_id || '',
+                line_judge_2_id: m.line_judge_2_id || '',
+                line_judge_3_id: m.line_judge_3_id || '',
+                line_judge_4_id: m.line_judge_4_id || '',
+                firstReferee: m.r1_firstname ? `${m.r1_firstname} ${m.r1_lastname}` : '',
+                firstRefereeCountry: m.r1_country || '',
+                secondReferee: m.r2_firstname ? `${m.r2_firstname} ${m.r2_lastname}` : '',
+                secondRefereeCountry: m.r2_country || '',
+                scorer: m.scorer_firstname ? `${m.scorer_firstname} ${m.scorer_lastname}` : m.scorer_name || '',
+                scorerCountry: m.scorer_country || '',
+                scorerCode: m.scorer_code || '',
+                asstScorer: m.assistant_scorer_name || '',
+                asstScorerCountry: m.assistant_scorer_country || '',
+                lineJudges: [
+                    m.lj1_firstname ? `${m.lj1_firstname} ${m.lj1_lastname}` : m.line_judge_1_name || '',
+                    m.lj2_firstname ? `${m.lj2_firstname} ${m.lj2_lastname}` : m.line_judge_2_name || '',
+                    m.lj3_firstname ? `${m.lj3_firstname} ${m.lj3_lastname}` : m.line_judge_3_name || '',
+                    m.lj4_firstname ? `${m.lj4_firstname} ${m.lj4_lastname}` : m.line_judge_4_name || ''
+                ],
+                lineJudgesCountry: [
+                    m.lj1_country || '',
+                    m.lj2_country || '',
+                    m.lj3_country || '',
+                    m.lj4_country || ''
+                ],
+                rr_name: m.rr_name || '',
+                rr_country: m.rr_country || '',
+                rr_code: m.rr_code || '',
+                rc_name: m.rc_name || '',
+                rc_country: m.rc_country || '',
+                rc_code: m.rc_code || '',
+                assistant_scorer_name: m.assistant_scorer_name || '',
+                assistant_scorer_country: m.assistant_scorer_country || '',
+                assistant_scorer_code: m.assistant_scorer_code || '',
+                td_name: m.td_name || '',
+                td_country: m.td_country || '',
+                td_code: m.td_code || '',
+                rd_name: m.rd_name || '',
+                rd_country: m.rd_country || '',
+                rd_code: m.rd_code || '',
+                setsToWin: m.max_sets ? Math.ceil(m.max_sets / 2) : 3,
+            };
+
+            setSetupHomePlayers(mappedHome);
+            setSetupAwayPlayers(mappedAway);
+            setSetupReferees(fetchedReferees);
+            setSetupMatch(m);
+
+            Swal.close();
+        } catch (err) {
+            console.error("Open Setup Error:", err);
+            Swal.fire('Error', 'Failed to load match setup data', 'error');
+        }
+    };
+
+    const handleSetupConfirm = async (data) => {
+        try {
+            Swal.fire({
+                title: 'Saving...',
+                text: 'กำลังบันทึกข้อมูลการตั้งค่า / Saving setup details...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const setsNeeded = parseInt(data.setsToWin, 10);
+            const payload = {
+                referee_1_id: data.referees.referee_1_id || null,
+                referee_2_id: data.referees.referee_2_id || null,
+                scorer_id: data.referees.scorer_id || null,
+                scorer_name: data.referees.scorer || null,
+                scorer_country: data.referees.scorerCountry || null,
+                scorer_code: data.referees.scorerCode || null,
+                line_judge_1_id: data.referees.line_judge_1_id || null,
+                line_judge_2_id: data.referees.line_judge_2_id || null,
+                line_judge_3_id: data.referees.line_judge_3_id || null,
+                line_judge_4_id: data.referees.line_judge_4_id || null,
+                rr_name: data.referees.rr_name || null,
+                rr_country: data.referees.rr_country || null,
+                rr_code: data.referees.rr_code || null,
+                rc_name: data.referees.rc_name || null,
+                rc_country: data.referees.rc_country || null,
+                rc_code: data.referees.rc_code || null,
+                assistant_scorer_name: data.referees.assistant_scorer_name || null,
+                assistant_scorer_country: data.referees.assistant_scorer_country || null,
+                assistant_scorer_code: data.referees.assistant_scorer_code || null,
+                td_name: data.referees.td_name || null,
+                td_country: data.referees.td_country || null,
+                td_code: data.referees.td_code || null,
+                rd_name: data.referees.rd_name || null,
+                rd_country: data.referees.rd_country || null,
+                rd_code: data.referees.rd_code || null,
+                match_number: data.matchDetails?.matchNo || null,
+                pool_name: data.matchDetails?.pool || null,
+                round_name: data.matchDetails?.round || null,
+                city: data.matchDetails?.city || null,
+                location: data.matchDetails?.hall || null,
+                country: data.matchDetails?.countryCode || null,
+                max_sets: setsNeeded ? setsNeeded * 2 - 1 : 5,
+                has_challenge: data.matchDetails?.hasChallenge !== undefined ? data.matchDetails.hasChallenge : null
+            };
+
+            await apiHelper.updateMatchOfficials(setupMatch.id, payload);
+
+            setSetupMatch(null);
+            fetchData();
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Saved',
+                text: 'บันทึกข้อมูลการแข่งขันเรียบร้อยแล้ว / Setup details saved successfully.',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#3085d6'
+            });
+        } catch (error) {
+            console.error("Failed to update match officials during setup:", error);
+            Swal.fire('Error', 'Failed to save match setup details', 'error');
+        }
+    };
+
     return (
         <div className="bg-white rounded-md shadow-lg p-6 w-full mx-auto mt-4 animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
@@ -324,7 +521,7 @@ import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
                                             {typeof match.set_scores === 'object' ? match.set_scores.join(', ') : match.set_scores}
                                         </div>
                                     )}
-                                    <div className="mt-1 text-xs text-blue-600 font-medium">{match.start_time ? formatThaiTime(match.start_time) : 'TBD'}</div>
+                                    <div className="mt-1 text-xs text-blue-600 font-medium">{match.start_time ? formatThaiDateTime(match.start_time) : 'TBD'}</div>
                                     <div className="text-[10px] text-gray-400">{match.location}</div>
                                 </div>
 
@@ -356,6 +553,13 @@ import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
                                     title="Update Score"
                                 >
                                     <Trophy size={18} />
+                                </button>
+                                <button
+                                    onClick={() => handleOpenSetup(match)}
+                                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition"
+                                    title="Prematch Setup"
+                                >
+                                    <Settings size={18} />
                                 </button>
                             </div>
                         </div>
@@ -662,6 +866,23 @@ import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* --- Modal ตั้งค่าก่อนการแข่งขัน (Prematch Setup) --- */}
+            {setupMatch && (
+                <PreMatchSetupModal
+                    isOpen={true}
+                    match={setupMatch}
+                    matchNo={setupMatch.matchNo || setupMatch.match_number}
+                    teamHome={teams.find(t => t.id == setupMatch.home_team_id)?.name || setupMatch.home_team || ''}
+                    teamAway={teams.find(t => t.id == setupMatch.away_team_id)?.name || setupMatch.away_team || ''}
+                    homeRoster={setupHomePlayers}
+                    awayRoster={setupAwayPlayers}
+                    referees={setupReferees}
+                    isSettingsOnly={false}
+                    onConfirm={handleSetupConfirm}
+                    onClose={() => setSetupMatch(null)}
+                />
             )}
         </div>
     );
