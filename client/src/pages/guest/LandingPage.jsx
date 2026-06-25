@@ -200,7 +200,7 @@ export default function LandingPage() {
                                         )}
                                     </div>
                                     <div className="mt-4 md:mt-0 bg-white text-[#14366A] px-4 py-1.5 rounded text-sm font-bold shadow-sm whitespace-nowrap">
-                                        {group.dateString}
+                                        {dateFormatted}
                                     </div>
                                 </div>
 

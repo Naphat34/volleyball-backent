@@ -84,6 +84,7 @@ module.exports = {
                 SELECT 
                     m.id, 
                     m.start_time as raw_start_time,
+                    m.match_date,
                     m.status, 
                     m.location as stadium_name, -- ใช้ location เป็นชื่อสนาม
                     
@@ -131,7 +132,13 @@ module.exports = {
             const result = await db.query(query, params);
 
             const matches = result.rows.map(row => {
-                let match_date = null;
+                let match_date = row.match_date;
+                if (match_date instanceof Date) {
+                    const year = match_date.getFullYear();
+                    const month = String(match_date.getMonth() + 1).padStart(2, '0');
+                    const day = String(match_date.getDate()).padStart(2, '0');
+                    match_date = `${year}-${month}-${day}`;
+                }
                 let start_time_str = null;
                 const rawStart = row.raw_start_time;
 
