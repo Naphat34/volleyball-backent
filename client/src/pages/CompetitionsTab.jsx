@@ -4,6 +4,7 @@ import { Trophy, Calendar, MapPin, Edit2, Trash2, PlusCircle, X,  Users, Shield,
 import { Toast, Input, Button, EmptyState } from './AdminShared';
 import Swal from 'sweetalert2';
 import { formatThaiDate } from '../utils';
+import MatchesManager from './MatchesManager';
 
 export default function CompetitionsTab() {
     const [competitions, setCompetitions] = useState([]);
@@ -17,6 +18,7 @@ export default function CompetitionsTab() {
     const [viewingTeamsComp, setViewingTeamsComp] = useState(null);
     const [teamsInComp, setTeamsInComp] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    const [managingMatchesComp, setManagingMatchesComp] = useState(null);
 
     // ✅ จัดกลุ่ม Competitions ตามชื่อ
     const groupedCompetitions = competitions.reduce((acc, current) => {
@@ -158,6 +160,16 @@ export default function CompetitionsTab() {
         link.click();
     };
 
+    if (managingMatchesComp) {
+        return (
+            <MatchesManager 
+                competitionId={managingMatchesComp.id} 
+                competition={managingMatchesComp} 
+                onClose={() => setManagingMatchesComp(null)} 
+            />
+        );
+    }
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Page Header */}
@@ -233,6 +245,8 @@ export default function CompetitionsTab() {
                                             </div>
 
                                             <div className="flex items-center gap-2 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100 w-full md:w-auto justify-end">
+                                                <button onClick={() => setManagingMatchesComp(c)} className="px-3 py-1.5 rounded-md text-sm font-medium transition text-emerald-600 border border-transparent hover:border-emerald-100 hover:bg-emerald-50">Manage Matches</button>
+                                                <div className="hidden md:block w-px h-5 bg-gray-200 mx-1" />
                                                 <button onClick={() => handleViewTeams(c)} className="px-3 py-1.5 rounded-md text-sm font-medium transition text-blue-600 border border-transparent hover:border-blue-100 hover:bg-blue-50">View Teams</button>
                                                 <div className="hidden md:block w-px h-5 bg-gray-200 mx-1" />
                                                 <button onClick={() => handleEditComp(c)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit2 size={16} /></button>
