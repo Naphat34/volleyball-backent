@@ -6,9 +6,9 @@ module.exports = {
     async getCompetitions(req, res) {
         try {
             const result = await db.query(`
-                SELECT id, title, gender, start_date, status 
+                SELECT id, title, gender, start_date, status, match_date
                 FROM competitions 
-                ORDER BY start_date DESC
+                ORDER BY match_date DESC
             `);
             res.json(result.rows);
         } catch (err) {
