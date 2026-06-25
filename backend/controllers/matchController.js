@@ -70,6 +70,7 @@ module.exports = {
                     m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
+                    m.city, m.category,
                     
                     m.home_team_id,
                     t1.name as home_team, t1.code as home_team_code,
@@ -147,6 +148,7 @@ module.exports = {
                     m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
+                    m.city, m.category,
                     
                     m.home_team_id,
                     t1.name as home_team, t1.code as home_team_code,

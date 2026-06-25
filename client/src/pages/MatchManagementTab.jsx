@@ -252,11 +252,25 @@ export default function MatchManagementTab() {
     const handleEditMatch = (match) => {
         let onlyTime = '';
         if (match.start_time) {
+            if (/^\d{1,2}:\d{2}/.test(match.start_time)) {
+                onlyTime = match.start_time.substring(0, 5);
+            } else {
+                const localFormatted = formatForInput(match.start_time);
+                if (localFormatted.includes('T')) {
+                    onlyTime = localFormatted.split('T')[1].substring(0, 5);
+                } else {
+                    onlyTime = localFormatted.substring(0, 5);
+                }
+            }
+        }
+
+        let onlyDate = '';
+        if (match.match_date) {
+            onlyDate = String(match.match_date).substring(0, 10);
+        } else if (match.start_time && !/^\d{1,2}:\d{2}/.test(match.start_time)) {
             const localFormatted = formatForInput(match.start_time);
             if (localFormatted.includes('T')) {
-                onlyTime = localFormatted.split('T')[1].substring(0, 5);
-            } else {
-                onlyTime = localFormatted.substring(0, 5);
+                onlyDate = localFormatted.split('T')[0];
             }
         }
 
@@ -267,7 +281,7 @@ export default function MatchManagementTab() {
             start_time: onlyTime,
             location: match.location || '',
             city: match.city || '',
-            match_date: match.match_date ? String(match.match_date).substring(0, 10) : '',
+            match_date: onlyDate,
             category: match.category || '',
             match_number: match.match_number,
             round_name: match.round_name || 'Round 1',
@@ -302,10 +316,17 @@ export default function MatchManagementTab() {
                 return Toast.fire({ icon: 'error', title: `No competition found for gender: ${matchForm.gender}` });
             }
         }
+        let combinedStartTime = null;
+        if (matchForm.match_date && matchForm.start_time) {
+            combinedStartTime = `${matchForm.match_date}T${matchForm.start_time}`;
+        } else if (matchForm.start_time) {
+            combinedStartTime = matchForm.start_time;
+        }
+
         const payload = {
             ...matchForm,
             competition_id: targetCompId,
-            start_time: matchForm.start_time || null
+            start_time: combinedStartTime
         };
 
         try {
@@ -513,7 +534,7 @@ export default function MatchManagementTab() {
                                     <th className="px-6 py-4">Teams</th>
                                     <th className="px-6 py-4 text-center">Score</th>
                                     <th className="px-6 py-4">Schedule</th>
-                                    <th className="px-6 py-4">Location</th>
+                                    <th className="px-6 py-4">Venue</th>
                                     <th className="px-6 py-4">Gender</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
