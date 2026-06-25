@@ -22,6 +22,7 @@ import StadiumsTab from './StadiumsTab';
 import TeamRankingTab from './TeamRankingTab';
 import LiveScorerTab from './LiveScorerTab';
 import OfficialsTab from './OfficialsTab';
+import MatchesManager from './MatchesManager';
 
 
 const PlaceholderTab = ({ title }) => {
@@ -295,7 +296,7 @@ export default function AdminDashboard() {
 
                         {activeTab === 'accounts' && <AccountsTab />}
                         {activeTab === 'pending_users' && <PendingUsersTab />}
-                        {activeTab === 'matches' && <MatchManagementTab />}
+                        {activeTab === 'matches' && <MatchesManager />}
                         {activeTab === 'escore' && <EScoreTab />}
                         {activeTab === 'live_scorer' && <LiveScorerTab />}
                     </div>
