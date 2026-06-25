@@ -23,6 +23,7 @@ import TeamRankingTab from './TeamRankingTab';
 import LiveScorerTab from './LiveScorerTab';
 import OfficialsTab from './OfficialsTab';
 
+
 const PlaceholderTab = ({ title }) => {
     const { language } = useLanguage();
     return (
