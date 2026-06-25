@@ -135,6 +135,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 round_name: newMatchForm.round_name || 'Round 1',
                 pool_name: newMatchForm.pool_name || '',
                 gender: newMatchForm.gender || competition?.gender || 'Male',
+                max_sets: newMatchForm.max_sets ? parseInt(newMatchForm.max_sets, 10) : 5,
 
                 // ถ้าเป็นการแก้ไข ให้คงสถานะ (Status) เดิมไว้
                 ...(editingMatchId && { status: matches.find(m => m.id === editingMatchId)?.status })
@@ -869,8 +870,9 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
             )}
 
             {/* --- Modal ตั้งค่าก่อนการแข่งขัน (Prematch Setup) --- */}
-            {setupMatch && (
+            {setupMatch && setupReferees && (
                 <PreMatchSetupModal
+                    key={setupMatch.id}
                     isOpen={true}
                     match={setupMatch}
                     matchNo={setupMatch.matchNo || setupMatch.match_number}
@@ -881,7 +883,10 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                     referees={setupReferees}
                     isSettingsOnly={false}
                     onConfirm={handleSetupConfirm}
-                    onClose={() => setSetupMatch(null)}
+                    onClose={() => {
+                        setSetupMatch(null);
+                        setSetupReferees(null);
+                    }}
                 />
             )}
         </div>

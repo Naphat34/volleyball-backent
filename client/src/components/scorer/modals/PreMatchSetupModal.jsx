@@ -137,6 +137,33 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
         fetchOfficials();
     }, []);
 
+    // Synchronize rules state when referees prop changes
+    useEffect(() => {
+        if (referees) {
+            setRules(prev => ({
+                ...prev,
+                ...referees
+            }));
+        }
+    }, [referees]);
+
+    // Synchronize match details state when match prop changes
+    useEffect(() => {
+        if (match) {
+            setMatchDetails({
+                matchNo: matchNo || match?.matchNo || match?.match_number || '',
+                round: match?.round || match?.round_name || '',
+                pool: match?.pool || match?.pool_name || '',
+                matchDate: match?.matchDate || match?.match_date || '',
+                startTime: match?.startTime || match?.start_time || '',
+                countryCode: match?.countryCode || match?.country || '',
+                city: match?.city || '',
+                hall: match?.hall || match?.location || match?.stadium_name || '',
+                hasChallenge: match?.hasChallenge !== undefined ? match.hasChallenge : (match?.has_challenge !== undefined ? match.has_challenge : false),
+            });
+        }
+    }, [match, matchNo]);
+
     const initTeam = (masterRoster, activeRoster) => {
         if (!masterRoster) return [];
         return masterRoster.map(p => {
