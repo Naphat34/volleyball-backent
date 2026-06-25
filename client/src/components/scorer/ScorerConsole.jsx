@@ -434,7 +434,7 @@ export default function ScorerConsole() {
 
         socket.on('match_updated', () => {
             if (fetchMatchDataRef.current) {
-                fetchMatchDataRef.current();
+                fetchMatchDataRef.current(true);
             }
         });
 
@@ -645,9 +645,11 @@ export default function ScorerConsole() {
 
     // --- LOAD DATA ---
     useEffect(() => {
-        const fetchMatchData = async () => {
+        const fetchMatchData = async (silent = false) => {
             try {
-                setIsLoading(true);
+                if (!silent) {
+                    setIsLoading(true);
+                }
                 let currentMatch = matchDataRef.current;
 
                 // 1. ยิง API ดึงข้อมูลแมตช์เสมอ เพื่อเอา max_sets ที่ถูกต้องชัวร์ๆ
@@ -851,7 +853,9 @@ export default function ScorerConsole() {
             } catch (error) {
                 console.error("Error fetching match data:", error);
             } finally {
-                setIsLoading(false);
+                if (!silent) {
+                    setIsLoading(false);
+                }
             }
         };
         fetchMatchDataRef.current = fetchMatchData;
