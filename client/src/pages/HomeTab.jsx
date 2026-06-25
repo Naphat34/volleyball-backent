@@ -9,13 +9,7 @@ export default function HomeTab() {
     const { language } = useLanguage();
 
     const formatDate = (date) => {
-        if (!date) return 'TBD';
-        if (language === 'THA') {
-            return formatThaiDate(date);
-        }
-        const d = new Date(date);
-        if (isNaN(d.getTime())) return 'TBD';
-        return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return formatThaiDate(date);
     };
 
     const formatTime = (timeStr) => {

@@ -46,26 +46,11 @@ export default function TeamDashboard() {
     const { language, setLanguage, t } = useLanguage();
 
     const formatDate = (date) => {
-        if (!date) return 'TBD';
-        if (language === 'THA') {
-            return formatThaiDate(date);
-        }
-        const d = new Date(date);
-        if (isNaN(d.getTime())) return 'TBD';
-        return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return formatThaiDate(date);
     };
 
     const formatDateTime = (date) => {
-        if (!date) return 'TBD';
-        if (language === 'THA') {
-            return formatThaiDateTime(date);
-        }
-        const d = new Date(date);
-        if (isNaN(d.getTime())) return 'TBD';
-        const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        return `${datePart} ${hours}:${minutes}`;
+        return formatThaiDateTime(date);
     };
 
     const translateRole = (role) => {

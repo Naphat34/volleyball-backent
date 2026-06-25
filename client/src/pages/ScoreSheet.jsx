@@ -657,7 +657,7 @@ export default function ScoreSheet({ matchId }) {
                                             <div className="flex border border-black h-[24px]">
                                                 <div className="w-12 border-r border-black flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? new Date(matchData.match_date).getDate().toString().padStart(2, '0') : ''}</div>
                                                 <div className="w-12 border-r border-black flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? (new Date(matchData.match_date).getMonth() + 1).toString().padStart(2, '0') : ''}</div>
-                                                <div className="w-12 flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? new Date(matchData.match_date).getFullYear().toString().slice(-2) : ''}</div>
+                                                <div className="w-12 flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? (new Date(matchData.match_date).getFullYear() + 543).toString().slice(-2) : ''}</div>
                                             </div>
                                             <div className="flex w-full text-[9px] text-center mt-[2px] font-bold">
                                                 <span className="flex-1">D</span><span className="flex-1">M</span><span className="flex-1">Y</span>

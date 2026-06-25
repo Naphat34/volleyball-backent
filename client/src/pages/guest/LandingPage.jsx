@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trophy, ArrowRight, LogIn, CalendarDays, Clock, MapPin, Menu, X } from 'lucide-react';
 import { api } from '../../api';
 import { useLanguage } from '../../context/LanguageContext';
+import { formatThaiDate } from '../../utils';
 
 export default function LandingPage() {
     const navigate = useNavigate();
@@ -180,7 +181,7 @@ export default function LandingPage() {
                 ) : (
                     Object.values(groupedMatches).map((group, index) => {
                         const dateFormatted = group.dateString 
-                            ? new Date(group.dateString).toLocaleDateString(language === 'THA' ? 'th-TH' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' }) 
+                            ? formatThaiDate(group.dateString) 
                             : t('landing.unknownDate');
 
                         return (

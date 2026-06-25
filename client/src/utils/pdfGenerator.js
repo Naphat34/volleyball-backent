@@ -156,7 +156,8 @@ export const generateScoresheetPDF = async (data, options = {}) => {
             const parts = datePart.split('-');
             if (parts.length === 3) {
                 const [year, month, day] = parts;
-                displayDate = `${day}/${month}/${year}`;
+                const yearBE = parseInt(year) < 2500 ? parseInt(year) + 543 : year;
+                displayDate = `${day}/${month}/${yearBE}`;
             } else {
                 displayDate = rawDate; // กันเหนียวกรณีรูปแบบผิดเพี้ยน
             }
@@ -343,7 +344,8 @@ export const generateMatchRosterPDF = async (data, options = {}) => {
             const parts = datePart.split('-');
             if (parts.length === 3) {
                 const [year, month, day] = parts;
-                displayDate = `${day}/${month}/${year}`;
+                const yearBE = parseInt(year) < 2500 ? parseInt(year) + 543 : year;
+                displayDate = `${day}/${month}/${yearBE}`;
             } else {
                 displayDate = rawDate; // กันเหนียวกรณีรูปแบบผิดเพี้ยน
             }

@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { ChevronLeft } from 'lucide-react';
+import { formatThaiDate } from '../../utils';
 
 // Helper to format age group
 const getAgeGroupName = (id) => {
@@ -510,7 +511,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                     <div className="w-[180px] flex items-center justify-center border border-black p-1 bg-white h-7 gap-1">
                         <span className="font-bold text-[10px]">DATE :</span>
                         <span className="font-bold text-[11px]">
-                            {matchData.match_date ? new Date(matchData.match_date).toLocaleDateString('en-GB') : '__/__/____'}
+                            {matchData.match_date ? formatThaiDate(matchData.match_date) : '__/__/____'}
                         </span>
                     </div>
                     <div className="w-[130px] flex items-center justify-center border border-black p-1 bg-white h-7 gap-1">

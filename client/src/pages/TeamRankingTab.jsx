@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
 import { Trophy, Filter, X, Calendar } from 'lucide-react';
 import { EmptyState } from './AdminShared';
+import { formatThaiDate } from '../utils';
 
 export default function TeamRankingTab() {
     const [competitions, setCompetitions] = useState([]);
@@ -464,7 +465,7 @@ export default function TeamRankingTab() {
                                                 return (
                                                     <tr key={m.id} className={'hover:bg-gray-50'}>
                                                         <td className="px-6 py-4">
-                                                            <div className="font-bold text-sm">{new Date(m.start_time).toLocaleDateString()}</div>
+                                                            <div className="font-bold text-sm">{formatThaiDate(m.start_time)}</div>
                                                             <div className="text-xs text-gray-500">{m.round_name}</div>
                                                         </td>
                                                         <td className="px-6 py-4 font-medium">{opponentName}</td>

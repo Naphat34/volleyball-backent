@@ -3,6 +3,7 @@ import client, { api } from '../api';
 import { Trophy, Calendar, MapPin, Edit2, Trash2, PlusCircle, X,  Users, Shield, Download } from 'lucide-react';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
 import Swal from 'sweetalert2';
+import { formatThaiDate } from '../utils';
 
 export default function CompetitionsTab() {
     const [competitions, setCompetitions] = useState([]);
@@ -225,7 +226,7 @@ export default function CompetitionsTab() {
                                                 </div>
                                                 <div className="grid grid-cols-2 md:flex md:flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
                                                     <span className="flex items-center gap-1.5 font-medium text-blue-600"><Shield size={14} /> {c.sport}</span>
-                                                    <span className="flex items-center gap-1.5"><Calendar size={14} /> {new Date(c.start_date).toLocaleDateString()}</span>
+                                                    <span className="flex items-center gap-1.5"><Calendar size={14} /> {formatThaiDate(c.start_date)}</span>
                                                     <span className="flex items-center gap-1.5"><MapPin size={14} /> {c.stadium_name || c.location}</span>
                                                     <span className="flex items-center gap-1.5"><Users size={14} /> {c.team_count || 0} Teams</span>
                                                 </div>

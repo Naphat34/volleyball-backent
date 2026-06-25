@@ -3,6 +3,7 @@ import { api } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import { Swords, Calendar, MapPin, PlayCircle, Trophy, X, Save, User, CheckCircle, Flag, FileText, Monitor } from 'lucide-react';
 import { EmptyState } from './AdminShared';
+import { formatThaiDate, formatThaiTime, formatThaiDateTime } from '../utils';
 
 export default function LiveScorerTab({ darkMode }) {
     const [competitions, setCompetitions] = useState([]);
@@ -180,9 +181,9 @@ export default function LiveScorerTab({ darkMode }) {
                 return getAgeGroupName(parseInt(catStr) || comp.age_group_id);
             })(),
             dateTime: match.match_date 
-                ? `${new Date(match.match_date).toLocaleDateString('en-GB')} ${match.start_time?.substring(0,5) || ''}`
+                ? `${formatThaiDate(match.match_date)} ${match.start_time?.substring(0,5) || ''}`
                 : (match.start_time 
-                    ? (match.start_time.includes('T') ? new Date(match.start_time).toLocaleString('en-GB', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit'}) : match.start_time.substring(0, 5)) 
+                    ? (match.start_time.includes('T') ? formatThaiDateTime(match.start_time) : match.start_time.substring(0, 5)) 
                     : '-'),
             teamHome: match.home_team || match.home_team_name,
             teamAway: match.away_team || match.away_team_name,
@@ -357,9 +358,9 @@ export default function LiveScorerTab({ darkMode }) {
                                         </div>
                                         <div className="text-base text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-6">
                                             <span className="flex items-center gap-2"><Calendar size={18} className="text-blue-600" /> 
-                                                {m.match_date ? new Date(m.match_date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year:'numeric'}) : (m.start_time && m.start_time.includes('T') ? new Date(m.start_time).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year:'numeric'}) : 'TBD')}
+                                                {m.match_date ? formatThaiDate(m.match_date) : (m.start_time && m.start_time.includes('T') ? formatThaiDate(m.start_time) : 'TBD')}
                                                 {' '}
-                                                {m.start_time ? (m.start_time.includes('T') ? new Date(m.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : m.start_time.substring(0, 5)) : ''}
+                                                {m.start_time ? (m.start_time.includes('T') ? formatThaiTime(m.start_time) : m.start_time.substring(0, 5)) : ''}
                                             </span>
                                             <span className="flex items-center gap-2"><MapPin size={18} className="text-rose-500" /> {m.city ? `${m.location || ''} ${m.city}`.trim() : (m.location || '-')}</span>
                                         </div>

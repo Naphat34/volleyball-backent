@@ -3,6 +3,7 @@ import { api } from '../api';
 import { Users, Shield, User, Eye, X, CheckCircle, Briefcase } from 'lucide-react';
 import { Toast, EmptyState, DetailItem, Input, Button } from './AdminShared';
 import Swal from 'sweetalert2';
+import { formatThaiDate } from '../utils';
 
 export default function PlayerViewTab() {
     const [competitions, setCompetitions] = useState([]);
@@ -365,7 +366,7 @@ export default function PlayerViewTab() {
                                 <div className="p-4 rounded-xl border text-center col-span-2 bg-gray-50/50 border-gray-100">
                                     <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Date of Birth</div>
                                     <div className="text-lg font-semibold text-gray-900">
-                                        {viewingPlayer.birth_date ? new Date(viewingPlayer.birth_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
+                                        {viewingPlayer.birth_date ? formatThaiDate(viewingPlayer.birth_date) : '-'}
                                     </div>
                                 </div>
                             </div>

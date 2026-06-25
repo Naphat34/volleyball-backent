@@ -45,7 +45,7 @@ const RosterVerification = () => {
             if (isNaN(date.getTime())) return p.birth_date;
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
+            const year = date.getFullYear() + 543;
             return `${day}/${month}/${year}`;
         } catch {
             return p.birth_date;

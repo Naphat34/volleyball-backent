@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { Users, User, Hash, Image as ImageIcon, Trophy, CheckCircle2, Calendar, MapPin, ChevronRight } from 'lucide-react';
+import { formatThaiDate } from '../utils';
 
 export default function CreateTeam() {
   const [formData, setFormData] = useState({
@@ -159,7 +160,7 @@ export default function CreateTeam() {
                                 <p className={`font-semibold text-sm ${selectedCompId === comp.id ? 'text-white' : 'text-gray-900'}`}>{comp.title}</p>
                                 <div className={`flex gap-3 text-[10px] mt-1 font-bold ${selectedCompId === comp.id ? 'text-indigo-100' : 'text-gray-400'}`}>
                                     <span className="flex items-center gap-1"><MapPin size={12} /> {comp.location}</span>
-                                    <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(comp.start_date).toLocaleDateString()}</span>
+                                    <span className="flex items-center gap-1"><Calendar size={12} /> {formatThaiDate(comp.start_date)}</span>
                                 </div>
                             </div>
                             {selectedCompId === comp.id && <CheckCircle2 className="text-white" size={24} />}

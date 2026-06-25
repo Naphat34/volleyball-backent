@@ -54,9 +54,7 @@ export default function PublicMatches() {
         const groups = {};
         matches.forEach(match => {
             // แปลงวันที่เป็น String สวยๆ เช่น "วันพุธที่ 17 มี.ค. 2569" หรือ "Wednesday, 17 Mar 2026"
-            const dateStr = language === 'THA'
-                ? formatThaiDate(match.match_date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-                : new Date(match.match_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const dateStr = formatThaiDate(match.match_date);
 
             if (!groups[dateStr]) groups[dateStr] = [];
             groups[dateStr].push(match);

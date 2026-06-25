@@ -165,7 +165,7 @@ const MatchDetail = () => {
             <div className="flex items-center gap-1.5">
               <span className="font-medium text-gray-700">วันที่:</span>
               {match.start_date || match.match_date
-                ? formatThaiDate(match.start_date || match.match_date, { day: 'numeric', month: 'long' })
+                ? formatThaiDate(match.start_date || match.match_date)
                 : "TBD"}
             </div>
             <div className="w-1 h-1 bg-gray-300 rounded-full"></div>

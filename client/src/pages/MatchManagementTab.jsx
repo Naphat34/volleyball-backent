@@ -584,7 +584,7 @@ export default function MatchManagementTab() {
                                             <div className="flex flex-col gap-1.5 min-w-[120px]">
                                                 <div className="flex items-center gap-2 text-xs font-bold text-gray-600">
                                                     <Calendar size={14} className="text-blue-600" />
-                                                    {match.match_date ? formatThaiDate(match.match_date, { day: 'numeric', month: 'short' }) : (match.start_time && match.start_time.includes('T') ? formatThaiDate(match.start_time, { day: 'numeric', month: 'short' }) : 'TBD')}
+                                                    {match.match_date ? formatThaiDate(match.match_date) : (match.start_time && match.start_time.includes('T') ? formatThaiDate(match.start_time) : 'TBD')}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500">
                                                     <Clock size={14} className="text-indigo-400" />

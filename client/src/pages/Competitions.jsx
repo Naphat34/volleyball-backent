@@ -12,6 +12,7 @@ import {
     Users,
     Shield
 } from 'lucide-react';
+import { formatThaiDate } from '../utils';
 
 export default function Competitions() {
     const [competitions, setCompetitions] = useState([]);
@@ -189,7 +190,7 @@ export default function Competitions() {
                                         </span>
                                     </div>
                                     <div className="text-sm text-gray-500 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                        <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(c.start_date).toLocaleDateString()}</span>
+                                        <span className="flex items-center gap-1"><Calendar size={14} /> {formatThaiDate(c.start_date)}</span>
                                         {c.location && <span className="flex items-center gap-1"><MapPin size={14} /> {c.location}</span>}
                                         <span className="flex items-center gap-1 text-indigo-600 font-medium bg-indigo-50 px-2 rounded-full"><Users size={12} /> {c.team_count || 0} Teams</span>
                                     </div>
