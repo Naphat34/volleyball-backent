@@ -27,6 +27,32 @@ apiClient.interceptors.request.use(
   }
 );
 
+api.interceptors.response.use((response) => {
+  // ฟังก์ชันสแกนหาและเปลี่ยนที่อยู่ localhost เป็นโดเมน Render
+  const replaceLocalhost = (data) => {
+    if (typeof data === 'string') {
+      return data.replace(/http:\/\/localhost:3000/g, 'https://volleyball-backent-dhtc.onrender.com');
+    }
+    if (Array.isArray(data)) {
+      return data.map(replaceLocalhost);
+    }
+    if (data !== null && typeof data === 'object') {
+      const updatedData = {};
+      for (const key in data) {
+        updatedData[key] = replaceLocalhost(data[key]);
+      }
+      return updatedData;
+    }
+    return data;
+  };
+
+  if (response.data) {
+    response.data = replaceLocalhost(response.data);
+  }
+  return response;
+}, (error) => {
+  return Promise.reject(error);
+});
 
 export const api = {
   // Auth
