@@ -21,21 +21,7 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    
-    const normalizedOrigin = origin.replace(/\/$/, "");
-    const origins = [...allowedOrigins];
-    if (process.env.FRONTEND_URL) {
-      origins.push(process.env.FRONTEND_URL.replace(/\/$/, ""));
-    }
-    
-    if (origins.includes(normalizedOrigin) || origins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
+  origin: true,
   credentials: true,
 }));
 app.use(cookieParser());
@@ -90,21 +76,7 @@ function updateAndEmitStatus(io, matchId) {
 function createSocketIo(server) {
   const io = new Server(server, {
     cors: {
-      origin: function (origin, callback) {
-        if (!origin) return callback(null, true);
-        
-        const normalizedOrigin = origin.replace(/\/$/, "");
-        const origins = [...allowedOrigins];
-        if (process.env.FRONTEND_URL) {
-          origins.push(process.env.FRONTEND_URL.replace(/\/$/, ""));
-        }
-        
-        if (origins.includes(normalizedOrigin) || origins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(null, false);
-        }
-      },
+      origin: true,
       credentials: true,
     }
   });
