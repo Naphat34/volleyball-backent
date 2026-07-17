@@ -13,6 +13,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const uploadsDir = path.join(__dirname, 'uploads');
 
+const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+const imageUrl = `${baseUrl}/uploads/${filename}`;
+
 // ==========================================
 // 1. Setup Middleware FIRST
 // ==========================================
