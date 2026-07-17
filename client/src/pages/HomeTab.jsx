@@ -63,6 +63,12 @@ export default function HomeTab() {
         } catch (err) { console.error(err); }
     }, []);
 
+
+    const getCorrectImageUrl = (url) => {
+        if (!url) return '';
+        return url.replace('http://localhost:3000', 'https://volleyball-backent-dhtc.onrender.com');
+    };
+
     const fetchMatchData = useCallback(async () => {
         if (!selectedBaseName) return;
         setLoading(true);
@@ -420,7 +426,7 @@ export default function HomeTab() {
                                                 <div key={team.id} className="p-2 bg-gray-50 border border-gray-200 rounded-md flex items-center gap-2.5 truncate hover:bg-white transition">
                                                     <div className="w-8 h-8 rounded-md bg-white flex items-center justify-center overflow-hidden border border-gray-200 shrink-0">
                                                         {team.logo_url ? (
-                                                            <img src={team.logo_url} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                                                            <img src={getCorrectImageUrl(team.image_url)} alt="Logo" className="w-full h-full object-contain p-0.5" />
                                                         ) : (
                                                             <Shield size={16} className="text-gray-300" />
                                                         )}
