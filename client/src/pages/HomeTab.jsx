@@ -502,9 +502,15 @@ export default function HomeTab() {
                                                             </div>
                                                             <div className="w-10 h-10 rounded-md bg-white flex items-center justify-center overflow-hidden border border-gray-200 order-1 md:order-2 shrink-0">
                                                                 {teams.find(t => t.id == match.home_team_id)?.logo_url ? (
-                                                                    <img src={teams.find(t => t.id == match.home_team_id).logo_url} alt="Home" className="w-full h-full object-contain p-1" />
-                                                                ) : <Shield size={20} className="text-gray-300" />}
-                                                            </div>
+                                                                    <img 
+                                                                    src={getCorrectImageUrl(teams.find(t => t.id == match.home_team_id).logo_url)} 
+                                                                    alt="Home" 
+                                                                    className="w-full h-full object-contain p-1" 
+                                                                    />
+                                                                ) : (
+                                                                    <Shield size={20} className="text-gray-300" />
+                                                                )}
+                                                                </div>
                                                         </div>
 
                                                         <div className="flex flex-col items-center shrink-0">
@@ -535,11 +541,17 @@ export default function HomeTab() {
                                                         </div>
 
                                                         <div className="flex-1 flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 w-full">
-                                                            <div className="w-10 h-10 rounded-md bg-white flex items-center justify-center overflow-hidden border border-gray-200 shrink-0">
-                                                                {teams.find(t => t.id == match.away_team_id)?.logo_url ? (
-                                                                    <img src={teams.find(t => t.id == match.away_team_id).logo_url} alt="Away" className="w-full h-full object-contain p-1" />
-                                                                ) : <Shield size={20} className="text-gray-300" />}
-                                                            </div>
+                                                            <div className="w-10 h-10 rounded-md bg-white flex items-center justify-center overflow-hidden border border-gray-200 order-1 md:order-2 shrink-0">
+                                                                {teams.find(t => t.id == match.home_team_id)?.logo_url ? (
+                                                                    <img 
+                                                                    src={getCorrectImageUrl(teams.find(t => t.id == match.home_team_id).logo_url)} 
+                                                                    alt="Home" 
+                                                                    className="w-full h-full object-contain p-1" 
+                                                                    />
+                                                                ) : (
+                                                                    <Shield size={20} className="text-gray-300" />
+                                                                )}
+                                                                </div>
                                                             <div className={`font-medium text-base leading-tight text-center md:text-left ${match.status === 'completed' && Number(match.away_set_score) > Number(match.home_set_score) ? 'text-gray-900 font-semibold' : 'text-gray-700'}`}>
                                                                 {teams.find(t => t.id == match.away_team_id)?.name || match.away_team || 'TBD'}
                                                             </div>
