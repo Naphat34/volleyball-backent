@@ -27,7 +27,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-api.interceptors.response.use((response) => {
+apiClient.interceptors.response.use((response) => {
   // ฟังก์ชันสแกนหาและเปลี่ยนที่อยู่ localhost เป็นโดเมน Render
   const replaceLocalhost = (data) => {
     if (typeof data === 'string') {
