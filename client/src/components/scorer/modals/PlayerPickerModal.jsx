@@ -1,23 +1,19 @@
 import React from 'react';
 import { X, Users } from 'lucide-react';
+import { getPlayerId, getPlayerNumber, isPlayerLibero, filterActivePlayers } from '../../../utils/playerFilters';
 
 const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos, onSelect, context }) => {
     if (!isOpen) return null;
-    const getPlayerId = (player) => {
-        if (!player) return null;
-        return player.id || player.player_id || player.playerId || null;
-    };
-
 
     // ตรวจสอบว่า context มีค่าหรือไม่ เพื่อป้องกัน error
     const safeContext = context || {};
     const isCourtPosition = typeof safeContext.posIndex === 'number';
-    
-    // ฟังก์ชันดึงเบอร์เสื้อ (เพื่อให้รองรับ key ต่างๆ เหมือนกับ LineupModal)
-    const getPlayerNumber = (player) => player.number || player.jersey_number || player.shirt_number || '?';
 
     // ตรวจสอบ liberos ว่ามีค่าหรือไม่
     const safeLiberos = liberos || { l1: null, l2: null };
+    
+    // Filter only active players (is_playing = 1 or true)
+    const activePlayers = filterActivePlayers(roster || []);
 
     return (
         <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all">
@@ -40,7 +36,7 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 gap-3 custom-scrollbar bg-white">
-                    {roster && roster.map(player => {
+                    {activePlayers && activePlayers.map(player => {
                         const alreadyInLineup = lineup && lineup.some(p => 
                             p && getPlayerId(p) === getPlayerId(player)
                         );
@@ -48,7 +44,7 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
                         const alreadyIsLibero = Object.values(safeLiberos).some(p => 
                             p && getPlayerId(p) === getPlayerId(player)
                         );
-                        const isRestrictedLibero = isCourtPosition && player.isLibero;
+                        const isRestrictedLibero = isCourtPosition && isPlayerLibero(player);
                         const isDisabled = alreadyInLineup || alreadyIsLibero || isRestrictedLibero;
 
                         return (
@@ -58,14 +54,14 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
                                 onClick={() => onSelect(player)}
                                 className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left relative group ${isDisabled ? 'bg-slate-50 border-slate-50 opacity-20 grayscale cursor-not-allowed' : 'bg-white border-slate-100 hover:border-blue-500 hover:shadow-lg hover:shadow-indigo-50 active:scale-95'}`}
                             >
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-lg transition-colors ${player.isLibero ? 'bg-rose-100 text-rose-600' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-lg transition-colors ${isPlayerLibero(player) ? 'bg-rose-100 text-rose-600' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
                                     {getPlayerNumber(player)}
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <div className={`font-semibold uppercase tracking-tight truncate text-xs ${isDisabled ? 'text-slate-400' : 'text-slate-800 group-hover:text-blue-600'}`}>{player.firstname || player.first_name || player.name}</div>
                                     <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{player.position || 'Player'}</div>
                                 </div>
-                                {player.isLibero && <span className="absolute top-2 right-2 bg-rose-500 text-[8px] px-1.5 py-0.5 rounded font-semibold text-white uppercase tracking-tighter">LIB</span>}
+                                {isPlayerLibero(player) && <span className="absolute top-2 right-2 bg-rose-500 text-[8px] px-1.5 py-0.5 rounded font-semibold text-white uppercase tracking-tighter">LIB</span>}
                                 {isRestrictedLibero && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg backdrop-blur-[1px]">
                                         <div className="bg-rose-500 text-white text-[8px] font-semibold px-2 py-0.5 rounded shadow-sm uppercase tracking-widest">Libero Only</div>

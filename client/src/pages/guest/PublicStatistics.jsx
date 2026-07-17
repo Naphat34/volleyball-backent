@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api';
 import { Trophy, Activity, HandMetal, Shield, Zap, Target, ArrowUp, User, LogIn, Menu, X } from 'lucide-react';
+import { cleanCompetitionTitle } from '../../utils';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function PublicStatistics() {
@@ -53,7 +54,7 @@ export default function PublicStatistics() {
     }, [selectedCompId]);
 
     return (
-        <div className="min-h-screen bg-gray-50 text-gray-800 pb-20">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2ff)] text-gray-800 pb-20">
             {/* Navbar */}
             <nav className="bg-white shadow-sm sticky top-0 z-50">
                 <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -156,7 +157,7 @@ export default function PublicStatistics() {
             </nav>
 
             {/* Header */}
-            <div className="bg-indigo-900 text-white py-12 px-4 shadow-lg mb-8">
+            <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 text-white py-12 px-4 shadow-lg mb-8">
                 <div className="w-full mx-auto text-center">
                     <h1 className="text-4xl font-extrabold flex items-center justify-center gap-3 mb-2">
                         <Activity className="text-yellow-400" size={40} /> {language === 'THA' ? 'สถิติการแข่งขัน' : 'Tournament Statistics'}
@@ -176,7 +177,7 @@ export default function PublicStatistics() {
                     >
                         {competitions.map((c) => (
                             <option key={c.id} value={c.id}>
-                                {c.title} ({c.gender})
+                                {cleanCompetitionTitle(c.title)}
                             </option>
                         ))}
                     </select>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isPlayerLibero } from '../../../utils/playerFilters';
 
 export default function SubstitutionModal({ 
     isOpen, onClose, teamName, roster, currentLineup, playerOut, posIndex, subTracker, disqualifiedPlayers = [], initialExceptional, onConfirm
@@ -17,7 +18,7 @@ export default function SubstitutionModal({
 
     if (subTracker && subTracker.positions) {
         const entry = Object.entries(subTracker.positions).find(
-            ([key, data]) => data.currentOnCourt == playerOutId || data.starterId == playerOutId
+            ([, data]) => data.currentOnCourt == playerOutId || data.starterId == playerOutId
         );
         if (entry) posData = entry[1];
     }
@@ -49,7 +50,7 @@ export default function SubstitutionModal({
 
     const availableBench = roster.filter(p => {
         const pId = p.id || p.player_id;
-        const isLib = p.isLibero;
+        const isLib = isPlayerLibero(p);
         
         // กฎ: ในการเปลี่ยนตัวปกติ (Substitution) จะไม่ใช้ Libero
         // Libero จะแสดงในหน้านี้เฉพาะกรณีที่เป็น Exceptional Substitution เท่านั้น

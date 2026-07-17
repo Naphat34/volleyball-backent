@@ -7,6 +7,12 @@ import { api } from '../../api';
 import CourtView from '../CourtView.jsx';
 import { getContrastClass } from '../../utils/colorUtils';
 
+const getSocketServerUrl = () => {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (!apiUrl) return `${window.location.protocol}//${window.location.hostname}:3000`;
+    return apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+};
+
 const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, isLandscape = false }) => (
     <div className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-full ${isLandscape ? 'w-full' : 'w-full'}`}>
         {/* VC (Challenges) */}
@@ -145,7 +151,7 @@ export default function ScoreViewReferee() {
 
     // --- EFFECT: REAL-TIME REQUEST NOTIFICATIONS FOR REFEREE ---
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+        const socketUrl = getSocketServerUrl();
         const socket = io(socketUrl);
 
         socket.on('connect', () => {
@@ -185,7 +191,9 @@ export default function ScoreViewReferee() {
                 try {
                     const audio = new Audio('/sounds/notification.mp3');
                     audio.play().catch(() => {});
-                } catch (e) {}
+                } catch {
+                    // Notification sound is optional.
+                }
 
                 Swal.fire({
                     title: titleText,
@@ -316,6 +324,8 @@ export default function ScoreViewReferee() {
                             disableLibero={true}
                             isReadOnly={true}
                             hideTokens={isSetupPhase}
+                            tokenNumberClass="text-5xl sm:text-6xl md:text-7xl xl:text-8xl"
+                            tokenBoxClass="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 xl:w-32 xl:h-32"
                             className="max-w-none"
                         />
                     </div>

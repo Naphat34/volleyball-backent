@@ -1,25 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-
-const isPlayerLibero = (p) => {
-    if (!p) return false;
-    const role = String(p.role || '').toUpperCase();
-    const pos = String(p.position || '').toUpperCase();
-    return !!(
-        p.isLibero ||
-        p.is_libero ||
-        p.is_libero1 ||
-        p.is_libero2 ||
-        role === 'L1' ||
-        role === 'L2' ||
-        role === 'L1+C' ||
-        role === 'L2+C' ||
-        role === 'L' ||
-        pos === 'L' ||
-        pos === 'L1' ||
-        pos === 'L2'
-    );
-};
+import { isPlayerLibero } from '../../../utils/playerFilters';
 
 export default function LiberoSwapModal({
     isOpen,

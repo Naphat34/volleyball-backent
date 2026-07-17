@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api';
+import { cleanCompetitionTitle } from '../utils';
 
 const RosterVerification = () => {
     const { matchId } = useParams();
@@ -29,7 +30,7 @@ const RosterVerification = () => {
     if (loading) return <div className="p-8 text-center text-gray-600 font-semibold">Loading Roster Verification...</div>;
     if (!matchData) return <div className="p-8 text-center text-red-500 font-bold">Match Data Not Found</div>;
 
-    const compName = matchData.competition_name || matchData.competition_title || '';
+    const compName = cleanCompetitionTitle(matchData.competition_name || matchData.competition_title || '');
     const matchNo = matchData.match_number || '';
     const city = matchData.city || matchData.stadium_city || '';
     const hall = matchData.location || matchData.stadium_name || '';

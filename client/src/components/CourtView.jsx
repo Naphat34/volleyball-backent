@@ -1,6 +1,7 @@
 import React from 'react';
 import ballIcon from '../assets/img/match-court-ball.svg';
 import matchCourt from '../assets/img/match-court.svg';
+import AngleDownIcon from '../assets/img/angle-down.svg';
 
 const getContrastColorClass = (hexColor) => {
     if (!hexColor || !hexColor.startsWith('#')) return 'text-white';
@@ -18,7 +19,6 @@ const getContrastColorClass = (hexColor) => {
 // Component ย่อย: ตัวผู้เล่นในสนาม (Declared outside of CourtView to prevent recreate-on-render issue)
 const PlayerToken = ({ 
     player, 
-    posIndex, 
     side, 
     originalPlayer, 
     colorClass, 
@@ -27,7 +27,9 @@ const PlayerToken = ({
     leftSubTracker,
     rightSubTracker,
     leftTeam,
-    rightTeam
+    rightTeam,
+    tokenNumberClass = 'text-3xl lg:text-6xl',
+    tokenBoxClass = 'w-14 h-14 lg:w-24 lg:h-24'
 }) => {
     if (hideTokens) return null;
     if (!player) return null;
@@ -42,18 +44,22 @@ const PlayerToken = ({
     const currentTracker = side === 'left' ? leftSubTracker : rightSubTracker;
     const currentRoster = side === 'left' ? leftTeam?.roster : rightTeam?.roster;
     
-    // Use posIndex as a fallback if player.originalPos is undefined
-    const originalPos = player?.originalPos !== undefined ? player.originalPos : posIndex;
-    
-    if (!isLiberoSwap && currentTracker && currentTracker.positions && originalPos !== undefined) {
-        const posData = currentTracker.positions[originalPos];
-        if (posData && !posData.returned && posData.starterId != pId) {
-            // ดึงหมายเลขจาก tracker โดยตรง (เร็วกว่าและชัวร์กว่า) หรือหาจาก roster เป็นตัวสำรอง
-            starterNumber = posData.starterNumber;
-            
-            if (!starterNumber) {
-                const starter = currentRoster?.find(r => (r.id || r.player_id) == posData.starterId);
-                if (starter) starterNumber = starter.number;
+    if (!isLiberoSwap && currentTracker && currentTracker.positions && pId != null) {
+        const trackedPair = Object.values(currentTracker.positions).find(posData => {
+            if (!posData) return false;
+            const starterId = posData.starterId;
+            const subId = posData.subId;
+            return [starterId, subId].some(id => id != null && String(id) === String(pId));
+        });
+
+        if (trackedPair) {
+            const isStarterOnCourt = String(trackedPair.starterId) === String(pId);
+            const counterpartId = isStarterOnCourt ? trackedPair.subId : trackedPair.starterId;
+            starterNumber = isStarterOnCourt ? trackedPair.subNumber : trackedPair.starterNumber;
+
+            if (!starterNumber && counterpartId != null) {
+                const counterpart = currentRoster?.find(r => String(r.id || r.player_id) === String(counterpartId));
+                if (counterpart) starterNumber = counterpart.number;
             }
         }
     }
@@ -64,6 +70,7 @@ const PlayerToken = ({
     const finalColorClass = isLibero ? 'bg-[#ffff99]' : (isHex ? '' : colorClass);
     const finalStyle = (!isLibero && isHex) ? { backgroundColor: colorClass } : {};
     const finalTextColorClass = isLibero ? 'text-black' : getContrastColorClass(colorClass);
+    const isCaptain = player?.isCaptain || player?.is_captain || player?.role === 'C' || player?.role?.includes('C');
 
     return (
         <div 
@@ -73,7 +80,7 @@ const PlayerToken = ({
             <div 
                 className={`
                     relative
-                    w-14 h-14 lg:w-24 lg:h-24 
+                    ${tokenBoxClass}
                     rounded-md lg:rounded-xl border-[2px] border-white 
                     flex flex-col items-center justify-center 
                     transition-transform transform group-hover:scale-105 hover:border-blue-500
@@ -83,9 +90,9 @@ const PlayerToken = ({
             >
                 {/* หมายเลขตรงกลาง */}
                 <span className={`
-                    text-3xl lg:text-6xl font-bold drop-shadow-sm leading-none
+                    ${tokenNumberClass} font-bold drop-shadow-sm leading-none
                     ${finalTextColorClass}
-                    ${player?.isCaptain ? 'border-b-[3px] lg:border-b-[6px] border-current pb-0.5' : ''}
+                    ${isCaptain ? 'border-b-[3px] lg:border-b-[6px] border-current pb-0.5' : ''}
                 `}>
                     {player ? player.number : ''}
                 </span>
@@ -106,8 +113,12 @@ const PlayerToken = ({
                 
                 {/* หมายเลขผู้เล่นตัวจริงที่ถูกเปลี่ยนออก (สำหรับ Substitution ปกติ) */}
                 {(!isLiberoSwap && starterNumber) && (
-                    <div className="absolute -bottom-1 -right-1 lg:-bottom-2 lg:-right-2 w-5 h-5 lg:w-7 lg:h-7 rounded-full flex items-center justify-center bg-slate-500 text-white text-[9px] lg:text-[12px] font-extrabold shadow-md border border-white leading-none">
-                        {starterNumber}
+                    <div
+                        className={"absolute bottom-1 right-1 lg:-bottom-1 lg:-right-2 w-6 h-6 lg:w-11 lg:h-7 rounded-sm flex items-center justify-center bg-white text-slate-900 text-[9px] lg:text-[12px] font-extrabold shadow-md leading-none"}
+                        style={isHex ? { borderColor: colorClass, borderWidth: '2px' } : {}}
+                    >
+                        <span className="text-rose-600 mr-1.5"><img src={AngleDownIcon} alt="Down" className="w-3 h-3"/></span>
+                        <span>{starterNumber}</span>
                     </div>
                 )}
             </div>
@@ -136,6 +147,8 @@ const CourtView = ({
     homeSubTracker,
     awaySubTracker,
     isHomeLeft,
+    tokenNumberClass,
+    tokenBoxClass,
     className = 'max-w-3xl'
 }) => {
 
@@ -154,7 +167,9 @@ const CourtView = ({
         leftSubTracker,
         rightSubTracker,
         leftTeam,
-        rightTeam
+        rightTeam,
+        tokenNumberClass,
+        tokenBoxClass
     };
 
     return (

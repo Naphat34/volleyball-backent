@@ -3,11 +3,11 @@ import api, { api as apiHelper } from '../api'; // Path to your api setup
 import { Trophy, Calendar, CheckCircle, Edit3, Save, X, PlusCircle, Shield, Settings } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
-import { formatForInput, formatThaiTime, formatThaiDateTime } from '../utils';
+import { cleanCompetitionTitle, formatForInput, formatThaiDateTime } from '../utils';
 import PreMatchSetupModal from '../components/scorer/modals/PreMatchSetupModal';
 
 export default function MatchesManager({ competitionId, competition, onClose }) {
-    const maxSets = 5; // Default fallback
+    const maxSets = Number(competition?.max_sets) || 5;
 
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -30,8 +30,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
         start_time: '',
         location: '',
         gender: competition?.gender || 'Female', // Default
-        pool_name: 'A',    // Default
-        max_sets: 5
+        pool_name: 'A'    // Default
     });
 
     // Form State สำหรับกรอกคะแนน
@@ -135,7 +134,6 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 round_name: newMatchForm.round_name || 'Round 1',
                 pool_name: newMatchForm.pool_name || '',
                 gender: newMatchForm.gender || competition?.gender || 'Male',
-                max_sets: newMatchForm.max_sets ? parseInt(newMatchForm.max_sets, 10) : 5,
 
                 // ถ้าเป็นการแก้ไข ให้คงสถานะ (Status) เดิมไว้
                 ...(editingMatchId && { status: matches.find(m => m.id === editingMatchId)?.status })
@@ -170,7 +168,6 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 round_name: 'Round 1', // ตั้งค่าเริ่มต้นให้
                 pool_name: '', 
                 gender: competition?.gender || 'Male',         // ตั้งค่าเริ่มต้นให้
-                max_sets: 5
             });
             
             setEditingMatchId(null); // ออกจากโหมดแก้ไข
@@ -398,7 +395,6 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 }
             });
 
-            const setsNeeded = parseInt(data.setsToWin, 10);
             const payload = {
                 referee_1_id: data.referees.referee_1_id || null,
                 referee_2_id: data.referees.referee_2_id || null,
@@ -431,7 +427,6 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 city: data.matchDetails?.city || null,
                 location: data.matchDetails?.hall || null,
                 country: data.matchDetails?.countryCode || null,
-                max_sets: setsNeeded ? setsNeeded * 2 - 1 : 5,
                 has_challenge: data.matchDetails?.hasChallenge !== undefined ? data.matchDetails.hasChallenge : null
             };
 
@@ -582,7 +577,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                     <h3 className="font-bold text-lg leading-tight">
                                         {editingMatchId ? 'แก้ไขข้อมูลการแข่งขัน' : 'เพิ่มแมตช์การแข่งขันใหม่'}
                                     </h3>
-                                    <p className="text-xs text-blue-100 font-medium">Tournament: {competition?.title || competition?.name}</p>
+                                    <p className="text-xs text-blue-100 font-medium">Tournament: {cleanCompetitionTitle(competition?.title || competition?.name)}</p>
                                 </div>
                             </div>
                             <button 
@@ -638,18 +633,6 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                         <option value="Male">Male</option>
                                         <option value="Female">Female</option>
                                         <option value="Mixed">Mixed</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Max Sets (จำนวนเซตตัดสิน)</label>
-                                    <select
-                                        className="w-full p-2 border rounded-lg text-sm bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm text-gray-900"
-                                        value={newMatchForm.max_sets}
-                                        onChange={e => setNewMatchForm({ ...newMatchForm, max_sets: parseInt(e.target.value, 10) })}
-                                        required
-                                    >
-                                        <option value={5}>Best of 5 (ชนะ 3 ใน 5)</option>
-                                        <option value={3}>Best of 3 (ชนะ 2 ใน 3)</option>
                                     </select>
                                 </div>
                             </div>

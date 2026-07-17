@@ -4,6 +4,42 @@ import { Trophy, Filter, X, Calendar } from 'lucide-react';
 import { EmptyState } from './AdminShared';
 import { formatThaiDate } from '../utils';
 
+const ageGroupOrder = ['U12', 'U14', 'U16', 'U18', 'OPEN'];
+
+const getCompetitionBaseName = (competition) => {
+    const rawTitle = competition?.title || competition?.name || '';
+    return rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
+};
+
+const normalizeAgeGroupName = (name) => {
+    const normalized = String(name || '').trim();
+    if (!normalized) return '';
+    if (/^(open|senior|general)$/i.test(normalized) || normalized.includes('ประชาชน')) return 'ประชาชนทั่วไป';
+    return normalized.toUpperCase();
+};
+
+const getAgeGroupKey = (competition) => String(competition?.age_group_id || competition?.entry_age_group_id || '');
+
+const getAgeGroupLabel = (competition) => normalizeAgeGroupName(
+    competition?.age_group_name || competition?.age_group || competition?.category || ''
+);
+
+const sortAgeGroups = (a, b) => {
+    const aName = normalizeAgeGroupName(a.label);
+    const bName = normalizeAgeGroupName(b.label);
+    const aOrder = ageGroupOrder.indexOf(aName === 'ประชาชนทั่วไป' ? 'OPEN' : aName);
+    const bOrder = ageGroupOrder.indexOf(bName === 'ประชาชนทั่วไป' ? 'OPEN' : bName);
+    if (aOrder !== -1 || bOrder !== -1) return (aOrder === -1 ? 999 : aOrder) - (bOrder === -1 ? 999 : bOrder);
+    return aName.localeCompare(bName, 'th');
+};
+
+const getDefaultMaxSetsByAgeGroup = (competition) => {
+    const label = getAgeGroupLabel(competition);
+    if (['U12', 'U14', 'U16'].includes(label)) return 3;
+    if (label === 'U18' || label === 'ประชาชนทั่วไป') return 5;
+    return 0;
+};
+
 export default function TeamRankingTab() {
     const [competitions, setCompetitions] = useState([]);
     const [uniqueBaseNames, setUniqueBaseNames] = useState([]);
@@ -15,6 +51,8 @@ export default function TeamRankingTab() {
     const [viewingHistoryTeam, setViewingHistoryTeam] = useState(null); // ทีมที่กำลังดูประวัติ
     const [resultCols, setResultCols] = useState([]); // เก็บชื่อคอลัมน์ผลการแข่งขัน (เช่น 3-0, 3-1)
     const [availableGenders, setAvailableGenders] = useState([]); // เก็บเพศที่มีในรายการนั้นๆ
+    const [availableAgeGroups, setAvailableAgeGroups] = useState([]);
+    const [selectedAgeGroupId, setSelectedAgeGroupId] = useState('');
     const [pools, setPools] = useState([]); // รายชื่อ Pool ทั้งหมดในรายการนี้
     const [selectedPool, setSelectedPool] = useState(''); // Pool ที่เลือกใช้งาน
 
@@ -26,9 +64,8 @@ export default function TeamRankingTab() {
             // จัดกลุ่มชื่อรายการ (ตัดวงเล็บเพศออก)
             const bases = new Set();
             res.data.forEach(c => {
-                const rawTitle = c.title || c.name || '';
-                if (rawTitle) {
-                    const base = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
+                const base = getCompetitionBaseName(c);
+                if (base) {
                     bases.add(base);
                 }
             });
@@ -43,9 +80,10 @@ export default function TeamRankingTab() {
         }
     }, []);
 
-    const calculateStandings = useCallback(async (compId) => {
+    const calculateStandings = useCallback(async (competition) => {
         setLoading(true);
         try {
+            const compId = competition?.id || competition;
             // ดึงข้อมูลแมตช์และทีมของรายการนั้นๆ
             const [matchesRes, teamsRes] = await Promise.all([
                 api.getMatchesByCompetition(compId),
@@ -54,7 +92,7 @@ export default function TeamRankingTab() {
 
             const matches = matchesRes.data;
             setAllMatches(matches); // เก็บแมตช์ดิบไว้ใช้งาน
-            let teams = teamsRes.data;
+            let teams = Array.isArray(teamsRes.data) ? teamsRes.data : [];
 
             // --- [NEW] จัดการ Pool Filtering ---
             // 1. หา Pool ทั้งหมดที่มีในรายการนี้ (จาก matches)
@@ -69,14 +107,39 @@ export default function TeamRankingTab() {
                 // กรองเฉพาะทีมที่มีแข่งใน Pool นี้
                 const teamIdsInPool = new Set();
                 filteredMatches.forEach(m => {
-                    if (m.home_team_id) teamIdsInPool.add(m.home_team_id);
-                    if (m.away_team_id) teamIdsInPool.add(m.away_team_id);
+                    if (m.home_team_id) teamIdsInPool.add(String(m.home_team_id));
+                    if (m.away_team_id) teamIdsInPool.add(String(m.away_team_id));
                 });
-                teams = teams.filter(t => teamIdsInPool.has(t.id));
+                teams = teams.filter(t => teamIdsInPool.has(String(t.id)));
             }
 
+            const teamsById = new Map();
+            teams.forEach(team => {
+                if (team?.id) teamsById.set(String(team.id), team);
+            });
+            filteredMatches.forEach(match => {
+                if (match.home_team_id && !teamsById.has(String(match.home_team_id))) {
+                    teamsById.set(String(match.home_team_id), {
+                        id: match.home_team_id,
+                        name: match.home_team || match.team_a_name || 'Home Team',
+                        code: match.home_team_code || match.team_a_code || '',
+                        logo_url: match.home_team_logo_url || ''
+                    });
+                }
+                if (match.away_team_id && !teamsById.has(String(match.away_team_id))) {
+                    teamsById.set(String(match.away_team_id), {
+                        id: match.away_team_id,
+                        name: match.away_team || match.team_b_name || 'Away Team',
+                        code: match.away_team_code || match.team_b_code || '',
+                        logo_url: match.away_team_logo_url || ''
+                    });
+                }
+            });
+            teams = Array.from(teamsById.values());
+
             // 1. หา max_sets ของรายการนี้เพื่อสร้างคอลัมน์ Result Details
-            const maxSets = filteredMatches.reduce((max, m) => Math.max(max, m.max_sets || 5), 5);
+            const competitionMaxSets = Number(competition?.max_sets || competition?.maxSets || 0) || getDefaultMaxSetsByAgeGroup(competition);
+            const maxSets = competitionMaxSets || 5;
             const setsToWin = Math.ceil(maxSets / 2);
 
             const cols = [];
@@ -87,7 +150,8 @@ export default function TeamRankingTab() {
             // เตรียม Object สำหรับเก็บสถิติ
             const stats = {};
             teams.forEach(team => {
-                stats[team.id] = {
+                const teamKey = String(team.id);
+                stats[teamKey] = {
                     id: team.id,
                     name: team.name,
                     code: team.code, // เพิ่มชื่อย่อ
@@ -103,95 +167,94 @@ export default function TeamRankingTab() {
                     // Result Details
                     results: {} // เก็บแบบ Dynamic
                 };
-                cols.forEach(k => stats[team.id].results[k] = 0);
+                cols.forEach(k => stats[teamKey].results[k] = 0);
             });
 
-            // คำนวณคะแนนจากแมตช์ที่แข่งจบแล้ว (completed)
-            filteredMatches.forEach(m => {
-                // ไม่ต้องกรองเพศซ้ำซ้อน เพราะเราเลือก Competition ID ตามเพศมาแล้ว
-                if (m.status === 'completed') {
-                    const homeId = m.home_team_id;
-                    const awayId = m.away_team_id;
-
-                    if (stats[homeId] && stats[awayId]) {
-                        stats[homeId].played++;
-                        stats[awayId].played++;
-
-                        const homeSets = parseInt(m.home_set_score) || 0;
-                        const awaySets = parseInt(m.away_set_score) || 0;
-
-                        stats[homeId].sets_won += homeSets;
-                        stats[homeId].sets_lost += awaySets;
-                        stats[awayId].sets_won += awaySets;
-                        stats[awayId].sets_lost += homeSets;
-
-                        // นับสถิติผลการแข่งขัน (Result Details)
-                        const scoreKey = `${homeSets}-${awaySets}`;
-                        const reverseScoreKey = `${awaySets}-${homeSets}`;
-                        if (stats[homeId].results[scoreKey] !== undefined) stats[homeId].results[scoreKey]++;
-                        if (stats[awayId].results[reverseScoreKey] !== undefined) stats[awayId].results[reverseScoreKey]++;
-
-                        // --- Logic การนับคะแนนและสถิติผลการแข่ง ---
-                        if (homeSets > awaySets) {
-                            // Home Wins
-                            stats[homeId].won++;
-                            stats[awayId].lost++;
-
-                            // Points & Result Details
-                            if (awaySets === 0) { // 3-0 or 2-0
-                                stats[homeId].points += 3;
-                            } else if (awaySets === 1) { // 3-1 or 2-1
-                                // ตามโจทย์: ชนะ 3-1 หรือ 2-1 ได้ 2 คะแนน ?? (ปกติ FIVB 3-1 ได้ 3 แต้ม, 2-1 ได้ 2 แต้ม)
-                                // ขอใช้มาตรฐานสากล: ถ้าชนะขาด (3-0, 3-1) ได้ 3 แต้ม, ถ้าชนะสูสี (3-2, 2-1) ได้ 2 แต้ม
-                                // แต่ถ้าจะเอาตามโจทย์เป๊ะๆ "ชนะ 3-1 หรือ 2-1 ได้ 2 คะแนน" สามารถแก้ตรงนี้ได้
-                                // *สมมติใช้มาตรฐาน FIVB สำหรับ 3-1 (3แต้ม) และ 2-1 (2แต้ม)*
-                                const points = (homeSets === 3 && awaySets === 1) ? 3 : 2;
-                                stats[homeId].points += points;
-                            } else { // 3-2
-                                stats[homeId].points += 2;
-                                stats[awayId].points += 1;
-                            }
-                        } else {
-                            // Away Wins
-                            stats[awayId].won++;
-                            stats[homeId].lost++;
-
-                            if (homeSets === 0) { // 0-3 or 0-2
-                                stats[awayId].points += 3;
-                            } else if (homeSets === 1) { // 1-3 or 1-2
-                                // ตามโจทย์: แพ้ 1-3 หรือ 1-2 ได้ 2 คะแนน ?? (ปกติได้ 0)
-                                // *สมมติใช้มาตรฐาน FIVB: 1-3 (0แต้ม), 1-2 (1แต้ม)*
-                                const points = (awaySets === 3 && homeSets === 1) ? 3 : 2;
-                                stats[awayId].points += points;
-                            } else { // 2-3
-                                stats[awayId].points += 2;
-                                stats[homeId].points += 1;
-                            }
-                        }
-
-                        // คำนวณแต้มดิบ (Small Points)
-                        if (m.set_scores) {
-                            let scores = [];
-                            try {
-                                scores = typeof m.set_scores === 'string' ? JSON.parse(m.set_scores) : m.set_scores;
-                            } catch { scores = []; }
-
-                            if (Array.isArray(scores)) {
-                                scores.forEach(setScore => {
-                                    const [h, a] = setScore.split('-').map(v => parseInt(v));
-                                    if (!isNaN(h) && !isNaN(a)) {
-                                        stats[homeId].points_won += h;
-                                        stats[homeId].points_lost += a;
-                                        stats[awayId].points_won += a;
-                                        stats[awayId].points_lost += h;
-                                    }
-                                });
-                            }
-                        }
+            const isCompletedMatch = (match) => String(match.status || '').toLowerCase() === 'completed';
+            const parseSetScores = (rawScores) => {
+                if (!rawScores) return [];
+                let scores = rawScores;
+                if (typeof scores === 'string') {
+                    try {
+                        scores = JSON.parse(scores);
+                    } catch {
+                        scores = scores.split(',').map(s => s.trim()).filter(Boolean);
                     }
                 }
-            });
+                if (!Array.isArray(scores)) return [];
 
+                return scores.map(setScore => {
+                    if (typeof setScore === 'string') {
+                        const [home, away] = setScore.split('-').map(v => Number.parseInt(v, 10));
+                        return Number.isFinite(home) && Number.isFinite(away) ? { home, away } : null;
+                    }
+                    const home = Number.parseInt(setScore?.home ?? setScore?.home_score ?? setScore?.h, 10);
+                    const away = Number.parseInt(setScore?.away ?? setScore?.away_score ?? setScore?.a, 10);
+                    return Number.isFinite(home) && Number.isFinite(away) ? { home, away } : null;
+                }).filter(Boolean);
+            };
+
+            const getSetsFromScores = (setScores) => setScores.reduce((acc, setScore) => {
+                if (setScore.home > setScore.away) acc.home += 1;
+                if (setScore.away > setScore.home) acc.away += 1;
+                return acc;
+            }, { home: 0, away: 0 });
+
+            const addRankingPoints = (winnerStats, loserStats, loserSets, matchSetsToWin) => {
+                if (loserSets === matchSetsToWin - 1) {
+                    winnerStats.points += 2;
+                    loserStats.points += 1;
+                } else {
+                    winnerStats.points += 3;
+                }
+            };
+
+            filteredMatches.forEach(m => {
+                if (!isCompletedMatch(m)) return;
+
+                const homeId = String(m.home_team_id);
+                const awayId = String(m.away_team_id);
+                if (!stats[homeId] || !stats[awayId]) return;
+
+                const setScores = parseSetScores(m.set_scores);
+                const calculatedSets = getSetsFromScores(setScores);
+                const homeSets = calculatedSets.home || (Number.parseInt(m.home_set_score, 10) || 0);
+                const awaySets = calculatedSets.away || (Number.parseInt(m.away_set_score, 10) || 0);
+
+                if (homeSets === awaySets) return;
+
+                const matchSetsToWin = Math.ceil(maxSets / 2);
+
+                stats[homeId].played++;
+                stats[awayId].played++;
+
+                stats[homeId].sets_won += homeSets;
+                stats[homeId].sets_lost += awaySets;
+                stats[awayId].sets_won += awaySets;
+                stats[awayId].sets_lost += homeSets;
+
+                const scoreKey = `${homeSets}-${awaySets}`;
+                const reverseScoreKey = `${awaySets}-${homeSets}`;
+                if (stats[homeId].results[scoreKey] !== undefined) stats[homeId].results[scoreKey]++;
+                if (stats[awayId].results[reverseScoreKey] !== undefined) stats[awayId].results[reverseScoreKey]++;
+
+                if (homeSets > awaySets) {
+                    stats[homeId].won++;
+                    stats[awayId].lost++;
+                    addRankingPoints(stats[homeId], stats[awayId], awaySets, matchSetsToWin);
+                } else {
+                    stats[awayId].won++;
+                    stats[homeId].lost++;
+                    addRankingPoints(stats[awayId], stats[homeId], homeSets, matchSetsToWin);
+                }
+
+                setScores.forEach(setScore => {
+                    stats[homeId].points_won += setScore.home;
+                    stats[homeId].points_lost += setScore.away;
+                    stats[awayId].points_won += setScore.away;
+                    stats[awayId].points_lost += setScore.home;
+                });
+            });
             // แปลงเป็น Array และคำนวณ Ratio
             const standingsArray = Object.values(stats).map(t => {
                 // ถ้ายังไม่ได้แข่ง ให้ Ratio เป็น 0
@@ -220,7 +283,7 @@ export default function TeamRankingTab() {
         } finally {
             setLoading(false);
         }
-    }, [selectedPool, competitions]);
+    }, [selectedPool]);
 
     useEffect(() => {
         fetchCompetitions();
@@ -230,27 +293,27 @@ export default function TeamRankingTab() {
         if (selectedBaseName && genderFilter) {
             // ค้นหา Competition ID ที่ตรงกับ ชื่อรายการ + เพศ
             const targetComp = competitions.find(c => {
-                const rawTitle = c.title || c.name || '';
-                const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
-                return cBase === selectedBaseName && c.gender === genderFilter;
+                const cBase = getCompetitionBaseName(c);
+                return cBase === selectedBaseName &&
+                    c.gender === genderFilter &&
+                    String(getAgeGroupKey(c)) === String(selectedAgeGroupId);
             });
 
             if (targetComp) {
-                calculateStandings(targetComp.id);
+                calculateStandings(targetComp);
             } else {
                 setStandings([]); // ไม่พบรายการสำหรับเพศนี้
             }
         } else {
             setStandings([]);
         }
-    }, [selectedBaseName, genderFilter, competitions, calculateStandings]);
+    }, [selectedBaseName, genderFilter, selectedAgeGroupId, competitions, calculateStandings]);
 
     // เมื่อเลือกรายการแข่งขัน (Base Name) ให้หาว่ามีเพศอะไรบ้าง
     useEffect(() => {
         if (selectedBaseName && competitions.length > 0) {
             const relatedComps = competitions.filter(c => {
-                const rawTitle = c.title || c.name || '';
-                const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
+                const cBase = getCompetitionBaseName(c);
                 return cBase === selectedBaseName;
             });
             const genders = [...new Set(relatedComps.map(c => c.gender))].filter(Boolean).sort();
@@ -260,8 +323,25 @@ export default function TeamRankingTab() {
             if (genders.length > 0 && !genders.includes(genderFilter)) {
                 setGenderFilter(genders[0]);
             }
+
+            const genderForAgeGroups = genders.includes(genderFilter) ? genderFilter : genders[0];
+            const ageGroups = relatedComps
+                .filter(c => !genderForAgeGroups || c.gender === genderForAgeGroups)
+                .map(c => ({
+                    id: getAgeGroupKey(c),
+                    label: getAgeGroupLabel(c) || `รุ่น ${getAgeGroupKey(c)}`
+                }))
+                .filter(group => group.id);
+            const uniqueAgeGroups = Array.from(
+                new Map(ageGroups.map(group => [group.id, group])).values()
+            ).sort(sortAgeGroups);
+            setAvailableAgeGroups(uniqueAgeGroups);
+
+            if (uniqueAgeGroups.length > 0 && !uniqueAgeGroups.some(group => String(group.id) === String(selectedAgeGroupId))) {
+                setSelectedAgeGroupId(uniqueAgeGroups[0].id);
+            }
         }
-    }, [selectedBaseName, competitions, genderFilter]);
+    }, [selectedBaseName, competitions, genderFilter, selectedAgeGroupId]);
 
     return (
         <div className="space-y-6">
@@ -304,6 +384,20 @@ export default function TeamRankingTab() {
                                     </button>
                                 ))}
                             </div>
+                        </div>
+                        <div className="w-full md:w-40">
+                            <label className={`block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2`}>
+                                Age Group
+                            </label>
+                            <select
+                                className="w-full p-2.5 text-sm font-medium rounded-lg border border-gray-200 transition-all hover:border-blue-400 focus:outline-none focus:border-blue-500 bg-white shadow-sm text-gray-700"
+                                value={selectedAgeGroupId}
+                                onChange={(e) => setSelectedAgeGroupId(e.target.value)}
+                            >
+                                {availableAgeGroups.map(group => (
+                                    <option key={group.id} value={group.id}>{group.label}</option>
+                                ))}
+                            </select>
                         </div>
                         {pools.length > 0 && (
                             <div className="w-full md:w-32">
@@ -438,8 +532,8 @@ export default function TeamRankingTab() {
                             {(() => {
                                 // กรองแมตช์ของทีมนี้
                                 const teamMatches = allMatches.filter(m =>
-                                    (m.home_team_id === viewingHistoryTeam.id || m.away_team_id === viewingHistoryTeam.id) &&
-                                    m.status === 'completed'
+                                    (String(m.home_team_id) === String(viewingHistoryTeam.id) || String(m.away_team_id) === String(viewingHistoryTeam.id)) &&
+                                    String(m.status || '').toLowerCase() === 'completed'
                                 ).sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
 
                                 if (teamMatches.length === 0) return <div className="p-12 text-center text-gray-500">No completed matches found for this team.</div>;
@@ -456,7 +550,7 @@ export default function TeamRankingTab() {
                                         </thead>
                                         <tbody className={`divide-y divide-gray-100`}>
                                             {teamMatches.map(m => {
-                                                const isHome = m.home_team_id === viewingHistoryTeam.id;
+                                                const isHome = String(m.home_team_id) === String(viewingHistoryTeam.id);
                                                 const opponentName = isHome ? (m.away_team || 'Unknown') : (m.home_team || 'Unknown');
                                                 const myScore = isHome ? m.home_set_score : m.away_set_score;
                                                 const oppScore = isHome ? m.away_set_score : m.home_set_score;

@@ -1,13 +1,89 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     PenTool, Trophy, Flag, Clock, Users, RotateCcw, AlertTriangle
 } from 'lucide-react';
-import { getContrastColorHex } from '../../../utils/colorUtils';
+
+const CompactInjuryIcon = () => (
+    <div className="relative h-11 w-11">
+        <span className="absolute inset-0 rounded-full bg-blue-100" />
+        <span className="absolute inset-[3px] rounded-full border-[3px] border-blue-500 bg-white shadow-sm" />
+        <span className="absolute left-1/2 top-1/2 h-5 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-orange-500" />
+        <span className="absolute left-1/2 top-1/2 h-2 w-5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-orange-500" />
+    </div>
+);
+
+const CompactSanctionIcon = () => (
+    <div className="relative h-10 w-11">
+        <span className="absolute right-0 top-1 h-7 w-5 rounded-[4px] bg-amber-300 shadow-sm" />
+        <span className="absolute right-2 top-0 h-8 w-5 rounded-[4px] bg-orange-500 shadow-md" />
+        <span className="absolute bottom-1 left-2 h-3 w-5 rounded-full bg-sky-100" />
+        <span className="absolute bottom-0 left-5 h-5 w-5 rounded-full border-2 border-sky-200 bg-white shadow-sm" />
+    </div>
+);
+
+const OfficialActionPill = ({ label, icon, disabled, onClick, accentClass = '' }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`relative flex h-[58px] w-[156px] overflow-hidden rounded-xl border bg-white px-3 py-2 text-left shadow-[0_8px_18px_rgba(15,23,42,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.16)] active:scale-95 disabled:pointer-events-none disabled:opacity-45 ${accentClass || 'border-slate-200'}`}
+    >
+        <span className="relative z-10 flex min-w-0 flex-1 items-center text-[14px] font-semibold leading-[1.12] text-slate-950 drop-shadow-[0_1px_0_rgba(255,255,255,0.65)]">{label}</span>
+        <span className="relative z-10 flex shrink-0 items-center justify-center">{React.createElement(icon)}</span>
+    </button>
+);
+
+const TeamChoiceModal = ({ isOpen, title, subtitle, leftTeam, rightTeam, onCancel, onSelect }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-950">{title}</h3>
+                        <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                    >
+                        <XIcon />
+                    </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    {[leftTeam, rightTeam].map((team) => (
+                        <button
+                            key={team.code}
+                            type="button"
+                            onClick={() => onSelect(team.code)}
+                            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:bg-white hover:shadow-md active:scale-95"
+                        >
+                            <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                {team.code}
+                            </span>
+                            <span className="mt-1 block truncate text-base font-bold text-slate-950">
+                                {team.name}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const XIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+);
 
 const ControlActionsPanel = ({
     workflowStep,
-    pendingSetWinner,
-    finishSet,
+    onConfirmSetEnd,
+    isEndingSet,
     startNextSet,
     handleFinishMatch,
     runCoinTossFlow,
@@ -28,17 +104,22 @@ const ControlActionsPanel = ({
     handleReplayRally,
     matchData
 }) => {
-    return (
-        <div className="h-auto min-h-[120px] py-3 lg:h-44 bg-slate-100 border-t-[4px] border-slate-300 shadow-inner p-3 flex flex-col lg:flex-row justify-between items-center gap-4 shrink-0 relative z-20 select-none">
+    const [showInjuryTeamPicker, setShowInjuryTeamPicker] = useState(false);
+    const officialActionsDisabled = workflowStep === 'RALLY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW';
+    const officialActionsVisible = ['SERVING', 'SERVER_SELECT', 'READY'].includes(workflowStep);
 
-            {workflowStep === 'SET_ENDING' ? (
+    return (
+        <div className="h-auto min-h-[120px] py-2 lg:h-44 bg-slate-100 border-t-[4px] border-slate-300 shadow-inner p-3 flex flex-col lg:flex-row justify-between items-center gap-3 shrink-0 relative z-20 select-none">
+
+            {workflowStep === 'SET_ENDING'  ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <span className="font-semibold text-rose-600 uppercase tracking-widest text-lg mb-2 animate-pulse">SET POINT REACHED</span>
                     <button
-                        onClick={() => finishSet(pendingSetWinner.winnerCode, pendingSetWinner.finalScore)}
+                        onClick={onConfirmSetEnd}
+                        disabled={isEndingSet}
                         className="px-16 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xl shadow-lg rounded-xl transition-all active:scale-95"
                     >
-                        END SET
+                        {isEndingSet ? 'ENDING...' : 'END SET'}
                     </button>
                 </div>
             ) : workflowStep === 'SET_FINISHED' ? (
@@ -64,28 +145,26 @@ const ControlActionsPanel = ({
                 </div>
             ) : workflowStep === 'RALLY' || workflowStep === 'SERVING' || workflowStep === 'SERVER_SELECT' || workflowStep === 'READY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW' ? (
                 <>
-                    {/* ---------------- LEFT TEAM CONTROLS ---------------- */}
-                    <div className="hidden lg:flex gap-2 h-full">
-                        <div className="flex flex-col gap-1 w-[130px] justify-center">
-                            <button
-                                className="bg-indigo-700 border border-indigo-900 text-white py-1.5 text-[11px] font-bold hover:bg-indigo-800 disabled:opacity-50 leading-tight rounded shadow-sm"
-                                disabled={workflowStep === 'RALLY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW'}
-                                onClick={() => handleInjury(leftTeam.code)}
-                            >
-                                Injury
-                            </button>
-                            <button
-                                onClick={() => { setSanctionTeam(leftTeam.code); setShowSanctionModal(true); }}
-                                disabled={workflowStep === 'RALLY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW'}
-                                className="bg-amber-500 border border-amber-600 text-white py-1.5 text-[11px] font-bold hover:bg-amber-600 disabled:opacity-50 rounded shadow-sm"
-                            >
-                                Sanction
-                            </button>
-                        </div>
-                    </div>
-
                     {/* ---------------- CENTER CONTROLS ---------------- */}
-                    <div className="flex-1 flex flex-col items-center justify-center h-full relative border-x border-slate-300 px-4">
+                    <div className="flex-1 grid h-full w-full grid-cols-1 items-center gap-3 px-1 lg:grid-cols-[1fr_minmax(260px,420px)_1fr]">
+                        <div className="order-2 flex justify-center lg:order-1 lg:justify-start">
+                            {officialActionsVisible && (
+                                <div className="flex flex-col items-center gap-1.5 lg:items-start">
+                                    <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                                        Injury
+                                    </div>
+                                    <OfficialActionPill
+                                        label="Exceptional sub. / Injury"
+                                        icon={CompactInjuryIcon}
+                                        disabled={officialActionsDisabled}
+                                        onClick={() => setShowInjuryTeamPicker(true)}
+                                        accentClass="border-blue-100"
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="order-1 flex min-w-0 flex-col items-center justify-center lg:order-2">
                         {/* Main Center Button Logic */}
                         {workflowStep === 'CHALLENGE_REVIEW' && currentChallengeReview ? (
                             <div className="w-full flex flex-col items-center justify-center bg-white border border-slate-200 rounded-2xl p-3 shadow-md z-30">
@@ -209,7 +288,7 @@ const ControlActionsPanel = ({
 
                         {/* Game Phase Utility Buttons (Always Visible) */}
                         {['SERVING', 'RALLY', 'READY'].includes(workflowStep) && (
-                            <div className="mt-4 flex items-center gap-6">
+                            <div className="mt-2 flex items-center gap-6">
                                 {workflowStep === 'RALLY' && (
                                     <button
                                         onClick={handleReplayRally}
@@ -221,27 +300,38 @@ const ControlActionsPanel = ({
                                 )}
                             </div>
                         )}
-                    </div>
-
-                    {/* ---------------- RIGHT TEAM CONTROLS ---------------- */}
-                    <div className="hidden lg:flex gap-2 h-full">
-                        <div className="flex flex-col gap-1 w-[130px] justify-center">
-                            <button
-                                className="bg-rose-700 border border-rose-900 text-white py-1.5 text-[11px] font-bold hover:bg-rose-800 disabled:opacity-50 leading-tight rounded shadow-sm"
-                                disabled={workflowStep === 'RALLY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW'}
-                                onClick={() => handleInjury(rightTeam.code)}
-                            >
-                                Injury
-                            </button>
-                            <button
-                                onClick={() => { setSanctionTeam(rightTeam.code); setShowSanctionModal(true); }}
-                                disabled={workflowStep === 'RALLY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW'}
-                                className="bg-amber-500 border border-amber-600 text-white py-1.5 text-[11px] font-bold hover:bg-amber-600 disabled:opacity-50 rounded shadow-sm"
-                            >
-                                Sanction
-                            </button>
                         </div>
-                    </div>
+
+                        <div className="order-3 flex justify-center lg:justify-end">
+                            {officialActionsVisible && (
+                                <div className="flex flex-col items-center gap-1.5 lg:items-end">
+                                <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                                    Sanction
+                                </div>
+                                <OfficialActionPill
+                                    label="Sanction"
+                                    icon={CompactSanctionIcon}
+                                    onClick={() => { setSanctionTeam(leftTeam.code); setShowSanctionModal(true); }}
+                                    disabled={officialActionsDisabled}
+                                    accentClass="border-rose-100"
+                                />
+                            </div>
+                            )}
+                        </div>
+
+                        <TeamChoiceModal
+                            isOpen={showInjuryTeamPicker}
+                            title="Exceptional Substitution / Injury"
+                            subtitle="Select the team before opening injury substitution."
+                            leftTeam={leftTeam}
+                            rightTeam={rightTeam}
+                            onCancel={() => setShowInjuryTeamPicker(false)}
+                            onSelect={(teamCode) => {
+                                setShowInjuryTeamPicker(false);
+                                handleInjury(teamCode);
+                            }}
+                        />
+                        </div>
                 </>
             ) : (
                 <div className="flex-1 flex justify-center items-center gap-2 text-slate-400">

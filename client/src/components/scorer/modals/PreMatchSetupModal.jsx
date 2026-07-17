@@ -52,12 +52,12 @@ const SelectField = ({ label, value, onChange, options }) => (
     </div>
 );
 
-const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awayRoster, activeHome = [], activeAway = [], onConfirm, onClose, matchNo, referees, isSettingsOnly = false }) => {
+const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awayRoster, activeHome = [], activeAway = [], onConfirm, onClose, matchNo, referees, isSettingsOnly = false, targetTeam = null }) => {
+    const singleTeamMode = !!targetTeam;
     const [step, setStep] = useState(isSettingsOnly ? 3 : 1); // 1 = Home Roster, 2 = Away Roster, 3 = Match Details & Officials
 
     // Master list of officials
     const [refereesList, setRefereesList] = useState([]);
-    const [scorersList, setScorersList] = useState([]);
     const [lineJudgesList, setLineJudgesList] = useState([]);
 
     // --- State for Match Rules & Referees ---
@@ -122,13 +122,11 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     useEffect(() => {
         const fetchOfficials = async () => {
             try {
-                const [refs, scrs, ljs] = await Promise.all([
-                    api.getAllReferees(),
-                    api.getAllScorers(),
-                    api.getAllLineJudges()
+                const [refs, ljs] = await Promise.all([
+                    api.getScorerReferees(),
+                    api.getScorerLineJudges()
                 ]);
                 setRefereesList(refs.data || []);
-                setScorersList(scrs.data || []);
                 setLineJudgesList(ljs.data || []);
             } catch (err) {
                 console.warn("Could not fetch officials inside PreMatchSetupModal", err);
@@ -150,6 +148,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     // Synchronize match details state when match prop changes
     useEffect(() => {
         if (match) {
+            const matchMaxSets = Number(match?.max_sets || match?.maxSets || 5);
             setMatchDetails({
                 matchNo: matchNo || match?.matchNo || match?.match_number || '',
                 round: match?.round || match?.round_name || '',
@@ -161,8 +160,46 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                 hall: match?.hall || match?.location || match?.stadium_name || '',
                 hasChallenge: match?.hasChallenge !== undefined ? match.hasChallenge : (match?.has_challenge !== undefined ? match.has_challenge : false),
             });
+            setRules(prev => ({
+                ...prev,
+                setsToWin: Math.ceil(matchMaxSets / 2)
+            }));
         }
     }, [match, matchNo]);
+
+    const isTruthyFlag = (value) => (
+        value === true
+        || value === 1
+        || value === '1'
+        || String(value).toLowerCase() === 'true'
+    );
+
+    const getFlag = (player = {}, entryKey, baseKey, camelKey) => (
+        player[entryKey] ?? player[baseKey] ?? player[camelKey]
+    );
+
+    const getPlayerRole = (player = {}) => {
+        const rawRole = String(player.entry_role || player.role || player.position || '').trim().toUpperCase();
+        const isCap = isTruthyFlag(getFlag(player, 'entry_is_captain', 'is_captain', 'isCaptain'))
+            || rawRole === 'C'
+            || rawRole === 'L1+C'
+            || rawRole === 'L2+C';
+        const isL1 = isTruthyFlag(getFlag(player, 'entry_is_libero1', 'is_libero1', 'isLibero1'))
+            || rawRole === 'L1'
+            || rawRole === 'L1+C'
+            || rawRole === 'L'
+            || rawRole === 'LIBERO';
+        const isL2 = isTruthyFlag(getFlag(player, 'entry_is_libero2', 'is_libero2', 'isLibero2'))
+            || rawRole === 'L2'
+            || rawRole === 'L2+C';
+
+        if (isL2 && isCap) return 'L2+C';
+        if (isL1 && isCap) return 'L1+C';
+        if (isL2) return 'L2';
+        if (isL1) return 'L1';
+        if (isCap) return 'C';
+        return ['C', 'L1', 'L2', 'L1+C', 'L2+C'].includes(rawRole) ? rawRole : '';
+    };
 
     const initTeam = (masterRoster, activeRoster) => {
         if (!masterRoster) return [];
@@ -173,19 +210,22 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
             const activePlayer = activeRoster && activeRoster.find(a => String(a.id) === String(p.id) || String(a.player_id) === String(p.id));
 
-            const isCap = activePlayer 
-                ? (activePlayer.isCaptain === true || activePlayer.is_captain === true || activePlayer.role === 'C' || activePlayer.role === 'L1+C' || activePlayer.role === 'L2+C')
-                : (p.is_captain === true || p.isCaptain === true || p.role === 'C');
+            const activeRole = getPlayerRole(activePlayer);
+            const playerRole = getPlayerRole(p);
+
+            const isCap = activePlayer
+                ? ['C', 'L1+C', 'L2+C'].includes(activeRole)
+                : ['C', 'L1+C', 'L2+C'].includes(playerRole);
 
             const isLib = activePlayer
-                ? (activePlayer.isLibero === true || activePlayer.role === 'L1' || activePlayer.role === 'L2' || activePlayer.role === 'L1+C' || activePlayer.role === 'L2+C')
-                : (p.position === 'L' || p.position === 'L1' || p.position === 'L2' || p.isLibero === true || p.role === 'L1' || p.role === 'L2');
+                ? ['L1', 'L2', 'L1+C', 'L2+C'].includes(activeRole)
+                : ['L1', 'L2', 'L1+C', 'L2+C'].includes(playerRole);
 
             const isL2 = activePlayer
-                ? (activePlayer.role === 'L2' || activePlayer.role === 'L2+C')
-                : (p.position === 'L2' || p.role === 'L2');
+                ? ['L2', 'L2+C'].includes(activeRole)
+                : ['L2', 'L2+C'].includes(playerRole);
 
-            let role = activePlayer?.role || p.role || '';
+            let role = activeRole || playerRole;
             if (!role) {
                 if (isCap && isLib) {
                     role = isL2 ? 'L2+C' : 'L1+C';
@@ -215,10 +255,16 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
     if (!isOpen) return null;
 
-    // Determine current team data based on step
-    const currentTeamData = step === 1 ? selHome : selAway;
-    const currentTeamName = step === 1 ? teamHome : teamAway;
-    const setFn = step === 1 ? setSelHome : setSelAway;
+    // Determine current team data based on step or target team
+    const currentTeamData = singleTeamMode
+        ? (targetTeam === 'home' ? selHome : selAway)
+        : (step === 1 ? selHome : selAway);
+    const currentTeamName = singleTeamMode
+        ? (targetTeam === 'home' ? teamHome : teamAway)
+        : (step === 1 ? teamHome : teamAway);
+    const setFn = singleTeamMode
+        ? (targetTeam === 'home' ? setSelHome : setSelAway)
+        : (step === 1 ? setSelHome : setSelAway);
 
     const availablePlayers = currentTeamData ? currentTeamData.filter(p => !p.selected) : [];
     const rosterPlayers = currentTeamData ? currentTeamData.filter(p => p.selected) : [];
@@ -237,14 +283,23 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
     const handleRemove = () => {
         if (rightActiveId) {
-            setFn(prev => prev.map(p => p.id === rightActiveId ? { ...p, selected: false, role: '', isLibero: false, isCaptain: false } : p));
+            setFn(prev => prev.map(p => p.id === rightActiveId ? { ...p, selected: false } : p));
             setRightActiveId(null);
         }
     };
 
     const handleReset = () => {
-        setFn(prev => prev.map(p => ({ ...p, selected: false, role: '', isLibero: false, isCaptain: false })));
+        setFn(prev => prev.map(p => ({ ...p, selected: false })));
         setRightActiveId(null);
+    };
+
+    const handleSelectionChange = (id, selected) => {
+        setFn(prev => prev.map(p => {
+            if (p.id !== id) return p;
+            return selected
+                ? { ...p, selected: true }
+                : { ...p, selected: false };
+        }));
     };
 
     const handleRoleChange = (id, newRole) => {
@@ -307,16 +362,6 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
         }));
     };
 
-    const handleScorerChange = (id) => {
-        const found = scorersList.find(s => String(s.id) === String(id));
-        setRules(prev => ({
-            ...prev,
-            scorer_id: id,
-            scorer: found ? `${found.firstname} ${found.lastname}` : '',
-            scorerCountry: found ? found.country : ''
-        }));
-    };
-
     const handleLineJudgeChange = (index, id) => {
         const found = lineJudgesList.find(l => String(l.id) === String(id));
         setRules(prev => {
@@ -336,6 +381,27 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     };
 
     const handleNext = () => {
+        if (singleTeamMode) {
+            const finalHome = selHome.filter(p => p.selected);
+            const finalAway = selAway.filter(p => p.selected);
+            const targetPlayers = targetTeam === 'home' ? finalHome : finalAway;
+
+            if (targetPlayers.length < 6) {
+                alert("กรุณาเพิ่มนักกีฬาอย่างน้อย 6 คนใน Roster ของทีมนี้");
+                return;
+            }
+            onConfirm({
+                setsToWin: rules.setsToWin,
+                referees: rules,
+                matchDetails: matchDetails,
+                confirmedHome: finalHome,
+                confirmedAway: finalAway,
+                allHome: selHome,
+                allAway: selAway
+            });
+            return;
+        }
+
         if (step === 1) {
             setStep(2);
             setLeftActiveId(null);
@@ -358,7 +424,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                 referees: rules,
                 matchDetails: matchDetails,
                 confirmedHome: finalHome,
-                confirmedAway: finalAway
+                confirmedAway: finalAway,
+                allHome: selHome,
+                allAway: selAway
             });
         }
     };
@@ -383,7 +451,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                             </div>
                             <div className="flex flex-col">
                                 <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase leading-none">
-                                    Match <span className="text-indigo-600">Setup</span>
+                                    Setup <span className="text-indigo-600">Roster</span>
                                 </h2>
                                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">
                                     {
@@ -419,7 +487,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
                     <div className="flex items-center gap-6">
                         {/* Step Indicator */}
-                        {!isSettingsOnly && (
+                        {!isSettingsOnly && !singleTeamMode && (
                             <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-full border border-slate-100">
                                 <span className={`w-2.5 h-2.5 rounded-full ${step === 1 ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.5)]' : 'bg-slate-300'}`}></span>
                                 <span className={`w-2.5 h-2.5 rounded-full ${step === 2 ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.5)]' : 'bg-slate-300'}`}></span>
@@ -437,7 +505,73 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                 </div>
 
                 <div className="flex-1 flex flex-col p-8 overflow-hidden gap-6">
-                    {step <= 2 && (
+                    {singleTeamMode && (
+                        <div className="flex-1 flex flex-col min-h-0 gap-5">
+                            <div className="flex items-end justify-between gap-4">
+                                <div className="min-w-0">
+                                    <span className="text-xs font-bold text-blue-600 uppercase">Set roster</span>
+                                    <h1 className="mt-1 text-2xl font-bold text-slate-900 truncate">{currentTeamName}</h1>
+                                </div>
+                                <div className="shrink-0 rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+                                    Selected {rosterPlayers.length}
+                                </div>
+                            </div>
+
+                            <div className="flex-1 min-h-0 overflow-auto rounded-md border border-slate-200 custom-scrollbar">
+                                <table className="w-full min-w-[720px] table-fixed text-left border-collapse">
+                                    <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-semibold text-slate-600">
+                                        <tr>
+                                            <th className="w-24 px-4 py-3 text-center border-b border-slate-200">Select</th>
+                                            <th className="w-24 px-4 py-3 text-center border-b border-slate-200">Number</th>
+                                            <th className="px-4 py-3 border-b border-slate-200">Name</th>
+                                            <th className="px-4 py-3 border-b border-slate-200">Lastname</th>
+                                            <th className="w-56 px-4 py-3 border-b border-slate-200">Role</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {currentTeamData.map(player => (
+                                            <tr key={player.id} className={player.selected ? 'bg-blue-50/40' : 'bg-white hover:bg-slate-50'}>
+                                                <td className="px-4 py-3 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(player.selected)}
+                                                        onChange={(event) => handleSelectionChange(player.id, event.target.checked)}
+                                                        aria-label={`Select ${player.first_name || player.firstname || ''} ${player.last_name || player.lastname || ''}`.trim()}
+                                                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3 text-center text-sm font-bold text-slate-800">
+                                                    {player.number || '-'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
+                                                    {player.first_name || player.firstname || '-'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-700">
+                                                    {player.last_name || player.lastname || '-'}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <select
+                                                        value={player.role || ''}
+                                                        onChange={(event) => handleRoleChange(player.id, event.target.value)}
+                                                        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                                    >
+                                                        <option value=""></option>
+                                                        <option value="C">Captain (C)</option>
+                                                        <option value="L1">Libero (L1)</option>
+                                                        <option value="L2">Libero (L2)</option>
+                                                        <option value="L1+C">Libero (L1) & Captain (C)</option>
+                                                        <option value="L2+C">Libero (L2) & Captain (C)</option>
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {step <= 2 && !singleTeamMode && (
                         <>
                             <div className="flex items-end justify-between px-2">
                                 <div className="flex flex-col gap-1">
@@ -627,14 +761,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                     />
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sets to Win</label>
-                                        <select
-                                            value={rules.setsToWin}
-                                            onChange={e => handleRulesChange('setsToWin', parseInt(e.target.value, 10))}
-                                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold hover:border-slate-350 focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer"
-                                        >
-                                            <option value={3}>3 Sets (Best of 5)</option>
-                                            <option value={2}>2 Sets (Best of 3)</option>
-                                        </select>
+                                        <div className="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold">
+                                            {rules.setsToWin === 2 ? '2 Sets (Best of 3)' : '3 Sets (Best of 5)'}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -726,6 +855,22 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                 </div>
 
                 {/* Footer Controls */}
+                {singleTeamMode ? (
+                    <div className="px-8 py-5 bg-white border-t border-slate-200 flex justify-end items-center gap-3 shrink-0">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors font-semibold text-sm"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleNext}
+                            className="px-6 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors font-semibold text-sm"
+                        >
+                            Confirm
+                        </button>
+                    </div>
+                ) : (
                 <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center shrink-0">
                     <div className="flex flex-col">
                         <div className="flex items-center gap-1.5 text-slate-400">
@@ -749,7 +894,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                         </button>
 
                         <div className="flex gap-2 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
-                            {!isSettingsOnly && (
+                            {!isSettingsOnly && !singleTeamMode && (
                                 <button
                                     onClick={handlePrev}
                                     disabled={step === 1}
@@ -764,12 +909,13 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 onClick={handleNext}
                                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 transition-all duration-200 active:scale-95"
                             >
-                                <span>{isSettingsOnly ? 'Confirm Setup' : (step === 1 ? 'Go to Away Roster' : step === 2 ? 'Go to Officials' : 'Confirm Setup')}</span>
-                                {!isSettingsOnly && <ChevronRight size={18} />}
+                                <span>{isSettingsOnly ? 'Confirm Setup' : singleTeamMode ? 'Confirm Roster' : (step === 1 ? 'Go to Away Roster' : step === 2 ? 'Go to Officials' : 'Confirm Setup')}</span>
+                                {!isSettingsOnly && !singleTeamMode && <ChevronRight size={18} />}
                             </button>
                         </div>
                     </div>
                 </div>
+                )}
 
             </div>
         </div>

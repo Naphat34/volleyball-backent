@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../api';
 import { Users, Shield, User, Eye, X, CheckCircle, Briefcase } from 'lucide-react';
 import { Toast, EmptyState, DetailItem, Input, Button } from './AdminShared';
@@ -15,10 +15,52 @@ export default function PlayerViewTab() {
     const [uniqueBaseNames, setUniqueBaseNames] = useState([]);
     const [selectedBaseName, setSelectedBaseName] = useState('');
     const [filterGender, setFilterGender] = useState('All');
+    const [filterAgeGroup, setFilterAgeGroup] = useState('All');
     const [availableGenders, setAvailableGenders] = useState([]);
 
-    const [selectedTeamId, setSelectedTeamId] = useState('');
+    const [selectedTeamKey, setSelectedTeamKey] = useState('');
     const [viewingPlayer, setViewingPlayer] = useState(null);
+
+    const getCompetitionBaseName = useCallback((competition) => {
+        const rawTitle = competition?.title || competition?.name || '';
+        return rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
+    }, []);
+
+    const getCompetitionAgeGroupId = useCallback((competition) => (
+        competition?.age_group_id !== undefined && competition?.age_group_id !== null
+            ? String(competition.age_group_id)
+            : ''
+    ), []);
+
+    const getTeamSelectionKey = useCallback((team) => (
+        `${team.id}__${team.team_entry_id || team.competition_id || team.entry_age_group_id || team.entry_gender || 'team'}`
+    ), []);
+
+    const getTeamOptionLabel = useCallback((team) => {
+        const ageGroup = team?.age_group_name || 'General';
+        const gender = team?.entry_gender || team?.competition_gender || team?.gender || '';
+        return `${team.name} (${team.code || '-'}) - ${ageGroup}${gender ? ` / ${gender}` : ''}`;
+    }, []);
+
+    const selectedTeam = useMemo(
+        () => registeredTeams.find(team => getTeamSelectionKey(team) === selectedTeamKey) || null,
+        [getTeamSelectionKey, registeredTeams, selectedTeamKey]
+    );
+
+    const availableAgeGroups = useMemo(() => {
+        const groups = new Map();
+        competitions.forEach((competition) => {
+            if (getCompetitionBaseName(competition) !== selectedBaseName) return;
+            if (filterGender !== 'All' && competition.gender !== filterGender) return;
+            const id = getCompetitionAgeGroupId(competition);
+            if (!id) return;
+            groups.set(id, {
+                id,
+                name: competition.age_group_name || competition.age_group || `Age Group ${id}`,
+            });
+        });
+        return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+    }, [competitions, filterGender, getCompetitionAgeGroupId, getCompetitionBaseName, selectedBaseName]);
 
 
 
@@ -73,21 +115,30 @@ export default function PlayerViewTab() {
         }
     }, [selectedBaseName, competitions, filterGender]);
 
+    useEffect(() => {
+        if (filterAgeGroup === 'All') return;
+        const validAgeGroupIds = new Set(availableAgeGroups.map(ag => String(ag.id)));
+        if (!validAgeGroupIds.has(String(filterAgeGroup))) {
+            setFilterAgeGroup('All');
+        }
+    }, [availableAgeGroups, filterAgeGroup]);
+
     // Load Teams when Competition or Gender filter changes
     useEffect(() => {
         const fetchTeams = async () => {
             if (!selectedBaseName) return;
 
             setRegisteredTeams([]);
-            setSelectedTeamId('');
+            setSelectedTeamKey('');
 
             try {
                 const targetComps = competitions.filter(c => {
-                    const rawTitle = c.title || c.name || '';
-                    const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
-                    if (cBase !== selectedBaseName) return false;
+                    if (getCompetitionBaseName(c) !== selectedBaseName) return false;
                     if (filterGender === 'All') return true;
-                    return c.gender && c.gender.split(',').includes(filterGender);
+                    return c.gender === filterGender;
+                }).filter(c => {
+                    if (filterAgeGroup === 'All') return true;
+                    return getCompetitionAgeGroupId(c) === String(filterAgeGroup);
                 });
 
                 if (targetComps.length === 0) return;
@@ -99,8 +150,9 @@ export default function PlayerViewTab() {
                 teamResults.forEach(res => {
                     if (res.data) {
                         res.data.forEach(team => {
-                            if (!allTeams.has(team.id)) {
-                                allTeams.set(team.id, team);
+                            const key = getTeamSelectionKey(team);
+                            if (!allTeams.has(key)) {
+                                allTeams.set(key, team);
                             }
                         });
                     }
@@ -117,7 +169,7 @@ export default function PlayerViewTab() {
             fetchTeams();
         }, 0);
         return () => clearTimeout(timeout);
-    }, [selectedBaseName, filterGender, competitions]);
+    }, [selectedBaseName, filterGender, filterAgeGroup, competitions, getCompetitionAgeGroupId, getCompetitionBaseName, getTeamSelectionKey]);
 
     const fetchTeamData = useCallback(async (teamId) => {
         try {
@@ -136,15 +188,15 @@ export default function PlayerViewTab() {
     // Load Players when Team Changes
     useEffect(() => {
         const timeout = setTimeout(() => {
-            if (selectedTeamId) {
-                fetchTeamData(selectedTeamId);
+            if (selectedTeam?.id) {
+                fetchTeamData(selectedTeam.id);
             } else {
                 setTeamPlayers([]);
                 setTeamStaff([]);
             }
         }, 0);
         return () => clearTimeout(timeout);
-    }, [selectedTeamId, fetchTeamData]);
+    }, [selectedTeam, fetchTeamData]);
 
 
 
@@ -152,7 +204,7 @@ export default function PlayerViewTab() {
         <div className="space-y-6">
             {/* Filters */}
             <div className="p-6 rounded-xl shadow-sm border bg-white border-gray-100">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* Competition Dropdown */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Competition</label>
@@ -188,17 +240,36 @@ export default function PlayerViewTab() {
                         </div>
                     </div>
 
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Age Group</label>
+                        <select
+                            value={filterAgeGroup}
+                            onChange={(e) => setFilterAgeGroup(e.target.value)}
+                            disabled={!selectedBaseName || availableAgeGroups.length === 0}
+                            className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
+                        >
+                            <option value="All">All</option>
+                            {availableAgeGroups.map(ag => (
+                                <option key={ag.id} value={ag.id}>{ag.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Team Dropdown */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Team</label>
                         <select
-                            value={selectedTeamId}
-                            onChange={(e) => setSelectedTeamId(e.target.value)}
+                            value={selectedTeamKey}
+                            onChange={(e) => setSelectedTeamKey(e.target.value)}
                             disabled={!selectedBaseName || registeredTeams.length === 0}
                             className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
                             <option value="">-- Choose Team --</option>
-                            {registeredTeams.map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+                            {registeredTeams.map(t => (
+                                <option key={getTeamSelectionKey(t)} value={getTeamSelectionKey(t)}>
+                                    {getTeamOptionLabel(t)}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -211,7 +282,7 @@ export default function PlayerViewTab() {
                     <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-indigo-700 border border-blue-100">{teamPlayers.length} Players</span>
                 </div>
 
-                {!selectedTeamId ? (
+                {!selectedTeam ? (
                     <EmptyState text="Please select a team to view roster." />
                 ) : teamPlayers.length === 0 ? (
                     <EmptyState text="No players found in this team." />
@@ -264,7 +335,7 @@ export default function PlayerViewTab() {
             </div>
 
             {/* Staff List */}
-            {selectedTeamId && (
+            {selectedTeam && (
                 <div className="rounded-xl shadow-sm border overflow-hidden bg-white border-gray-200">
                     <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/80 backdrop-blur-sm border-gray-100">
                         <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Briefcase size={18} className="text-gray-400" /> Staff List</h3>
@@ -330,7 +401,7 @@ export default function PlayerViewTab() {
                                 </h2>
                                 <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-500">
                                     <Shield size={14} className="text-blue-600" />
-                                    <span>{registeredTeams.find(t => t.id === selectedTeamId)?.name || 'Unknown Team'}</span>
+                                    <span>{selectedTeam.name || 'Unknown Team'}</span>
                                 </div>
                             </div>
 

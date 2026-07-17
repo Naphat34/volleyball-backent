@@ -1,6 +1,6 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { formatThaiDate, formatThaiTime, formatThaiDateTime } from '../utils';
+import { cleanCompetitionTitle } from '../utils';
 
 /**
  * Helper function: จัดการการส่งออกไฟล์ (ดาวน์โหลด หรือ คืนค่า Data URL)
@@ -52,7 +52,7 @@ const fetchPdfTemplate = async (url) => {
  */
 export const generateScoresheetPDF = async (data, options = {}) => {
     const { save = true, returnDataUrl = false } = options;
-    const { match, sets, lineups, homePlayers = [], awayPlayers = [] } = data;
+    const { match, homePlayers = [], awayPlayers = [] } = data;
 
     try {
         // 1. โหลดไฟล์ Template PDF เปล่า (ต้องวางไฟล์นี้ไว้ในโฟลเดอร์ public)
@@ -66,7 +66,7 @@ export const generateScoresheetPDF = async (data, options = {}) => {
 
         // 3. เข้าถึงหน้ากระดาษแผ่นแรก
         const page = pdfDoc.getPages()[0];
-        const { height, width } = page.getSize();
+        const { height } = page.getSize();
 
         // ฟังก์ชันช่วยเขียนข้อความแบบจัดการสระ/วรรณยุกต์ไทย (Typography Hack without GSUB)
         const drawText = (textStr, startX, y, size = 10) => {
@@ -130,16 +130,6 @@ export const generateScoresheetPDF = async (data, options = {}) => {
             }
         };
 
-        // ฟังก์ชันช่วยขีดฆ่า/กากบาท
-        const drawCross = (x, y, size = 10) => {
-            page.drawLine({
-                start: { x: x, y: height - y },
-                end: { x: x + size, y: height - (y - size) },
-                thickness: 1,
-                color: rgb(0, 0.1, 0.8),
-            });
-        };
-
         const poolAndRound = [match.pool_name, match.round_name].filter(Boolean).join(' / ');
 
         // ==========================================
@@ -179,7 +169,7 @@ export const generateScoresheetPDF = async (data, options = {}) => {
         // ** คุณต้องนำไฟล์ PDF ไปวัดพิกัดแกน X, Y แล้วนำตัวเลขมาใส่ตรงนี้ **
         // ==========================================
 
-        drawText(match.competition_name, 135, 35, 9);
+        drawText(cleanCompetitionTitle(match.competition_name), 135, 35, 9);
         drawText(match.city, 60, 50, 9);
         drawText(match.country || match.country_code || "THA", 285, 50, 9);
         drawText(displayDate, 350, 50, 9);
@@ -366,7 +356,7 @@ export const generateMatchRosterPDF = async (data, options = {}) => {
         // วางข้อมูลลงบนหน้า Roster
         // ** แก้ไขพิกัดให้ตรงกับไฟล์ blank_roster.pdf ของคุณ **
         // ==========================================
-        const compName = String(match.competition_title || match.competition_name || '');
+        const compName = cleanCompetitionTitle(match.competition_title || match.competition_name || '');
         const maxLength = 50; // ความยาวตัวอักษรคร่าวๆ ก่อนตัดคำ (ปรับได้ตามความกว้างช่อง)
         if (compName.length > maxLength) {
             let splitIndex = compName.lastIndexOf(' ', maxLength);

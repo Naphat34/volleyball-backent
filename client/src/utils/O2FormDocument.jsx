@@ -2,8 +2,8 @@ import React from 'react';
 import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
 
 // Import logos from assets
-import LogoCup from '../assets/img/Logo1.png';
-import LogoAVC from '../assets/img/logo.png';
+import LogoCup from '../assets/img/logo.png';
+import LogoAVC from '../assets/img/AVC_Logo.png';
 
 // ลงทะเบียน Font ภาษาไทย
 Font.register({
@@ -49,13 +49,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   logoCup: {
-    width: 42,
-    height: 42,
+    width: 90,
+    height: 50,
     objectFit: 'contain'
   },
   logoAVC: {
     width: 90,
-    height: 25,
+    height: 50,
     objectFit: 'contain'
   },
   title: {
@@ -76,11 +76,11 @@ const styles = StyleSheet.create({
     borderRadius: 2
   },
   o2bisText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 'bold'
   },
   regText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: 'bold'
   },
   metaRow: {
@@ -88,21 +88,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2
   },
-  amendedText: {
-    color: 'red',
-    fontSize: 7,
-    marginRight: 10,
-    fontWeight: 'bold'
-  },
   countryText: {
     fontSize: 9,
     fontWeight: 'bold'
-  },
-  avcSubText: {
-    fontSize: 6,
-    marginTop: 1,
-    textAlign: 'center',
-    color: '#333'
   },
 
   // Main table section
@@ -132,8 +120,8 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#aaa',
+    borderBottomWidth: 0.8,
+    borderBottomColor: '#000',
     height: 14,
     alignItems: 'center'
   },
@@ -141,8 +129,8 @@ const styles = StyleSheet.create({
     fontSize: 6.5,
     paddingHorizontal: 3,
     paddingVertical: 1,
-    borderRightWidth: 0.5,
-    borderRightColor: '#aaa',
+    borderRightWidth: 0.8,
+    borderRightColor: '#000',
     textAlign: 'center'
   },
 
@@ -188,15 +176,15 @@ const styles = StyleSheet.create({
     fontSize: 6.5,
     paddingHorizontal: 2,
     paddingVertical: 1,
-    borderRightWidth: 0.5,
-    borderRightColor: '#aaa',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#aaa',
+    borderRightWidth: 0.8,
+    borderRightColor: '#000',
+    borderBottomWidth: 0.8,
+    borderBottomColor: '#000',
     textAlign: 'center'
   },
   colorSubRow: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#aaa',
+    borderBottomWidth: 0.8,
+    borderBottomColor: '#000',
     paddingVertical: 1,
     paddingHorizontal: 3,
     height: 12,
@@ -235,10 +223,18 @@ const styles = StyleSheet.create({
 });
 
 const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
-  
-  // Stable FIVB number generator
-  const getFivbNumber = (p) => {
-    return 150000 + (p.id * 317) % 50000;
+  const valueOrBlank = (value) => {
+    if (value === null || value === undefined) return '';
+    const text = String(value).trim();
+    return text && text !== '-' && text !== '0' ? text : '';
+  };
+
+  const getFirstAvailable = (source, fields) => {
+    for (const field of fields) {
+      const value = valueOrBlank(source?.[field]);
+      if (value) return value;
+    }
+    return '';
   };
 
   // Get Player Role (C for captain, L for Libero, C L for both)
@@ -251,7 +247,7 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
 
   // Normalise positions to match standard
   const getPlayerPosition = (pos) => {
-    if (!pos) return '-';
+    if (!pos) return '';
     const upper = pos.toUpperCase();
     if (upper === 'OPP') return 'OP';
     return upper;
@@ -259,41 +255,14 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
 
   // Format English Date: DD-MMM-YYYY
   const formatEnglishDate = (dateStr) => {
-    if (!dateStr) return '-';
+    if (!dateStr) return '';
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '-';
+    if (isNaN(d.getTime())) return '';
     const day = String(d.getDate()).padStart(2, '0');
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const month = months[d.getMonth()];
     const year = d.getFullYear();
     return `${day}-${month}-${year}`;
-  };
-
-  // Generate Spike Reach dynamically if missing
-  const getSpikeReach = (p) => {
-    if (p.spike_reach) return p.spike_reach;
-    const height = p.height_cm || p.height || 185;
-    return height + 120 + (p.id * 7) % 35;
-  };
-
-  // Generate Block Reach dynamically if missing
-  const getBlockReach = (p) => {
-    if (p.block_reach) return p.block_reach;
-    const spike = getSpikeReach(p);
-    return spike - 15 - (p.id * 3) % 10;
-  };
-
-  // Stable Club Name
-  const getPlayerClub = (p) => {
-    if (p.club) return p.club;
-    const clubs = [
-      'Volley Club',
-      'Spike Academy',
-      'AVC Club',
-      'National League Club',
-      'Volleyball Club'
-    ];
-    return clubs[p.id % clubs.length];
   };
 
   // Get Staff Member by Role
@@ -326,25 +295,16 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
     return list[index] || null;
   };
 
-  // Stable Staff FIVB/ID
-  const getStaffId = (s) => {
-    if (!s || !s.id) return '......';
-    return String(100000 + (s.id * 1109) % 890000);
-  };
-
   // Staff name in Lastname Firstname format
   const getStaffName = (s) => {
-    if (!s) return '................................';
-    return `${s.last_name?.toUpperCase()} ${s.first_name}`;
+    if (!s) return '';
+    return [valueOrBlank(s.first_name), valueOrBlank(s.last_name)].filter(Boolean).join(' ');
   };
 
   // Staff country code
-  const getStaffCountry = (s, teamCode) => {
-    if (!s) return '..';
-    if (teamCode) {
-      return teamCode.substring(0, 2).toUpperCase();
-    }
-    return 'AU';
+  const getStaffCountry = (s) => {
+    if (!s) return '';
+    return getFirstAvailable(s, ['country', 'nationality']);
   };
 
   // Current UTC DateTime
@@ -358,6 +318,23 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
     const minutes = String(d.getUTCMinutes()).padStart(2, '0');
     const seconds = String(d.getUTCSeconds()).padStart(2, '0');
     return `${day}-${month}-${year} ${hours}:${minutes}:${seconds} UTC`;
+  };
+
+  const formatThailandDateTime = (date) => {
+    const d = date || new Date();
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Bangkok',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(d);
+
+    const getPart = (type) => parts.find((part) => part.type === type)?.value || '';
+    return `${getPart('day')}-${getPart('month')}-${getPart('year')} ${getPart('hour')}:${getPart('minute')}:${getPart('second')} THA`;
   };
 
   // Statistics calculation helpers
@@ -374,7 +351,7 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
   };
 
   const computeStats = (dataArr) => {
-    if (!dataArr || dataArr.length === 0) return { min: '-', avg: '-', max: '-' };
+    if (!dataArr || dataArr.length === 0) return { min: '', avg: '', max: '' };
     const sum = dataArr.reduce((a, b) => a + b, 0);
     return {
       min: Math.min(...dataArr).toFixed(0),
@@ -385,8 +362,8 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
 
   const ages = players.map(getAgeValue).filter(v => v !== null);
   const heights = players.map(p => getNumValue(p, 'height_cm') || getNumValue(p, 'height')).filter(v => v !== null);
-  const spikes = players.map(getSpikeReach).filter(v => v !== null);
-  const blocks = players.map(getBlockReach).filter(v => v !== null);
+  const spikes = players.map(p => getNumValue(p, 'spike_reach')).filter(v => v !== null);
+  const blocks = players.map(p => getNumValue(p, 'block_reach')).filter(v => v !== null);
 
   const stats = {
     age: computeStats(ages),
@@ -401,12 +378,21 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
     return (
       <View style={styles.footerTableRow}>
         <Text style={[styles.footerTableCell, { width: '28%', textAlign: 'left', fontWeight: 'bold' }]}>{label}</Text>
-        <Text style={[styles.footerTableCell, { width: '15%' }]}>{s ? getStaffId(s) : ''}</Text>
-        <Text style={[styles.footerTableCell, { width: '47%', textAlign: 'left' }]}>{s ? getStaffName(s) : ''}</Text>
-        <Text style={[styles.footerTableCell, { width: '10%', borderRightWidth: 0 }]}>{s ? getStaffCountry(s, teamInfo?.code) : ''}</Text>
+        <Text style={[styles.footerTableCell, { width: '62%', textAlign: 'left' }]}>{s ? getStaffName(s) : ''}</Text>
+        <Text style={[styles.footerTableCell, { width: '10%', borderRightWidth: 0 }]}>{s ? getStaffCountry(s) : ''}</Text>
       </View>
     );
   };
+
+  const teamCode = valueOrBlank(teamInfo?.code);
+  const teamName = valueOrBlank(teamInfo?.name);
+  const countryText = [teamCode, teamName].filter(Boolean).join(' - ');
+  const mainColor = getFirstAvailable(teamInfo, ['main_color', 'home_color']);
+  const secondColor = getFirstAvailable(teamInfo, ['second_color', 'away_color']);
+  const thirdColor = getFirstAvailable(teamInfo, ['third_color']);
+  const liberoMainColor = getFirstAvailable(teamInfo, ['libero_main_color']);
+  const liberoSecondColor = getFirstAvailable(teamInfo, ['libero_second_color']);
+  const liberoThirdColor = getFirstAvailable(teamInfo, ['libero_third_color']);
 
   return (
     <Document>
@@ -420,7 +406,7 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
           </View>
           {/* Title (Center) */}
           <View style={styles.headerCenter}>
-            <Text style={styles.title}>{teamInfo?.competition_name ? teamInfo.competition_name.toUpperCase() : '2026 AVC CUP - MEN'}</Text>
+            <Text style={styles.title}>{valueOrBlank(teamInfo?.competition_name).toUpperCase()}</Text>
             <View style={styles.subtitleRow}>
               <View style={styles.o2bisBox}>
                 <Text style={styles.o2bisText}>O-2bis</Text>
@@ -428,16 +414,14 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
               <Text style={styles.regText}>Team registration</Text>
             </View>
             <View style={styles.metaRow}>
-              <Text style={styles.amendedText}>Amended 2026</Text>
               <Text style={styles.countryText}>
-                {(teamInfo?.code || 'AUS') + ' - ' + (teamInfo?.name || 'Australia')}
+                {countryText}
               </Text>
             </View>
           </View>
           {/* Logo AVC (Right) */}
           <View style={styles.headerRight}>
             <Image src={LogoAVC} style={styles.logoAVC} />
-            <Text style={styles.avcSubText}>Asian Volleyball Confederation</Text>
           </View>
         </View>
 
@@ -445,20 +429,17 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
         <View style={styles.table}>
           {/* Header Row */}
           <View style={styles.tableHeaderRow}>
-            <Text style={[styles.columnHeader, { width: '6%' }]}>No FIVB</Text>
-            <Text style={[styles.columnHeader, { width: '3%' }]}>Eli{"\n"}g.</Text>
-            <Text style={[styles.columnHeader, { width: '3%' }]}>FoO</Text>
-            <Text style={[styles.columnHeader, { width: '3%' }]}>Shirt</Text>
-            <Text style={[styles.columnHeader, { width: '4%' }]}>Role</Text>
-            <Text style={[styles.columnHeader, { width: '10%', textAlign: 'left' }]}>Last name</Text>
-            <Text style={[styles.columnHeader, { width: '10%', textAlign: 'left' }]}>First name</Text>
-            <Text style={[styles.columnHeader, { width: '10%', textAlign: 'left' }]}>Shirt name</Text>
-            <Text style={[styles.columnHeader, { width: '3%' }]}>Pos.</Text>
-            <Text style={[styles.columnHeader, { width: '8%' }]}>Birthdate</Text>
-            <Text style={[styles.columnHeader, { width: '4%' }]}>Height{"\n"}[cm]</Text>
+            <Text style={[styles.columnHeader, { width: '4%' }]}>Shirt</Text>
+            <Text style={[styles.columnHeader, { width: '5%' }]}>Role</Text>
+            <Text style={[styles.columnHeader, { width: '13%', textAlign: 'left' }]}>First name</Text>
+            <Text style={[styles.columnHeader, { width: '13%', textAlign: 'left' }]}>Last name</Text>
+            <Text style={[styles.columnHeader, { width: '13%', textAlign: 'left' }]}>Shirt name</Text>
+            <Text style={[styles.columnHeader, { width: '4%' }]}>Pos.</Text>
+            <Text style={[styles.columnHeader, { width: '9%' }]}>Birthdate</Text>
+            <Text style={[styles.columnHeader, { width: '5%' }]}>Height{"\n"}[cm]</Text>
             
             {/* Highest Reach column group */}
-            <View style={{ width: '8%', borderRightWidth: 1, borderRightColor: '#000', flexDirection: 'column' }}>
+            <View style={{ width: '9%', borderRightWidth: 1, borderRightColor: '#000', flexDirection: 'column' }}>
               <View style={{ borderBottomWidth: 1, borderBottomColor: '#000', paddingVertical: 1, alignItems: 'center' }}>
                 <Text style={{ fontSize: 6, fontWeight: 'bold' }}>Highest reach [cm]</Text>
               </View>
@@ -472,10 +453,10 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
               </View>
             </View>
 
-            <Text style={[styles.columnHeader, { width: '16%', textAlign: 'left' }]}>Club</Text>
+            <Text style={[styles.columnHeader, { width: '17%', textAlign: 'left' }]}>Club</Text>
 
             {/* National Selections column group */}
-            <View style={{ width: '12%', flexDirection: 'column' }}>
+            <View style={{ width: '8%', flexDirection: 'column' }}>
               <View style={{ borderBottomWidth: 1, borderBottomColor: '#000', paddingVertical: 1, alignItems: 'center' }}>
                 <Text style={{ fontSize: 6, fontWeight: 'bold' }}>National selections</Text>
               </View>
@@ -499,29 +480,21 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
           {/* Player Rows */}
           {players.map((p, i) => (
             <View style={styles.tableRow} key={i}>
-              <Text style={[styles.tableCell, { width: '6%' }]}>{getFivbNumber(p)}</Text>
-              <View style={[styles.tableCell, { width: '3%', alignItems: 'center', justifyContent: 'center' }]}>
-                {/* Checked checkbox */}
-                <View style={{ width: 7, height: 7, borderWidth: 0.5, borderColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 5, fontWeight: 'bold', marginTop: -1 }}>x</Text>
-                </View>
-              </View>
-              <Text style={[styles.tableCell, { width: '3%' }]}>-</Text>
-              <Text style={[styles.tableCell, { width: '3%', fontWeight: 'bold' }]}>{p.number}</Text>
-              <Text style={[styles.tableCell, { width: '4%' }]}>{getPlayerRole(p)}</Text>
-              <Text style={[styles.tableCell, { width: '10%', textAlign: 'left' }]}>{p.last_name?.toUpperCase()}</Text>
-              <Text style={[styles.tableCell, { width: '10%', textAlign: 'left' }]}>{p.first_name}</Text>
-              <Text style={[styles.tableCell, { width: '10%', textAlign: 'left' }]}>{p.last_name?.toUpperCase()}</Text>
-              <Text style={[styles.tableCell, { width: '3%' }]}>{getPlayerPosition(p.position)}</Text>
-              <Text style={[styles.tableCell, { width: '8%' }]}>{formatEnglishDate(p.birth_date)}</Text>
-              <Text style={[styles.tableCell, { width: '4%' }]}>{p.height_cm || p.height || '-'}</Text>
-              <Text style={[styles.tableCell, { width: '4%' }]}>{getSpikeReach(p)}</Text>
-              <Text style={[styles.tableCell, { width: '4%' }]}>{getBlockReach(p)}</Text>
-              <Text style={[styles.tableCell, { width: '16%', textAlign: 'left', fontSize: 6 }]}>{getPlayerClub(p)}</Text>
-              <Text style={[styles.tableCell, { width: '3%' }]}>-</Text>
-              <Text style={[styles.tableCell, { width: '3%' }]}>-</Text>
-              <Text style={[styles.tableCell, { width: '3%' }]}>-</Text>
-              <Text style={[styles.tableCell, { width: '3%', borderRightWidth: 0 }]}>-</Text>
+              <Text style={[styles.tableCell, { width: '4%', fontWeight: 'bold' }]}>{valueOrBlank(p.number)}</Text>
+              <Text style={[styles.tableCell, { width: '5%' }]}>{getPlayerRole(p)}</Text>
+              <Text style={[styles.tableCell, { width: '13%', textAlign: 'left' }]}>{valueOrBlank(p.first_name)}</Text>
+              <Text style={[styles.tableCell, { width: '13%', textAlign: 'left' }]}>{valueOrBlank(p.last_name)}</Text>
+              <Text style={[styles.tableCell, { width: '13%', textAlign: 'left' }]}>{getFirstAvailable(p, ['shirt_name', 'nickname']).toUpperCase()}</Text>
+              <Text style={[styles.tableCell, { width: '4%' }]}>{getPlayerPosition(p.position)}</Text>
+              <Text style={[styles.tableCell, { width: '9%' }]}>{formatEnglishDate(p.birth_date)}</Text>
+              <Text style={[styles.tableCell, { width: '5%' }]}>{getFirstAvailable(p, ['height_cm', 'height'])}</Text>
+              <Text style={[styles.tableCell, { width: '4.5%' }]}>{getFirstAvailable(p, ['spike_reach'])}</Text>
+              <Text style={[styles.tableCell, { width: '4.5%' }]}>{getFirstAvailable(p, ['block_reach'])}</Text>
+              <Text style={[styles.tableCell, { width: '17%', textAlign: 'left', fontSize: 6 }]}>{getFirstAvailable(p, ['club', 'club_name'])}</Text>
+              <Text style={[styles.tableCell, { width: '2%' }]}>{getFirstAvailable(p, ['national_wc'])}</Text>
+              <Text style={[styles.tableCell, { width: '2%' }]}>{getFirstAvailable(p, ['national_og'])}</Text>
+              <Text style={[styles.tableCell, { width: '2%' }]}>{getFirstAvailable(p, ['national_other'])}</Text>
+              <Text style={[styles.tableCell, { width: '2%', borderRightWidth: 0 }]}>{getFirstAvailable(p, ['national_total'])}</Text>
             </View>
           ))}
         </View>
@@ -544,26 +517,26 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
             <Text style={styles.footerSectionHeader}>UNIFORM COLORS</Text>
             <View style={{ flexDirection: 'row', flex: 1 }}>
               {/* Left Label "Team" */}
-              <View style={{ width: '30%', borderRightWidth: 1, borderRightColor: '#000', justifyContent: 'center', alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: '#aaa' }}>
+              <View style={{ width: '30%', borderRightWidth: 1, borderRightColor: '#000', justifyContent: 'center', alignItems: 'center', borderBottomWidth: 0.8, borderBottomColor: '#000' }}>
                 <Text style={{ fontSize: 6.5, fontWeight: 'bold' }}>Team</Text>
               </View>
               {/* Right sub-rows */}
               <View style={{ width: '70%', flexDirection: 'column' }}>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: {teamInfo?.home_color || 'Green'}</Text></View>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {teamInfo?.away_color || 'Gold'}</Text></View>
-                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: White</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: {mainColor}</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {secondColor}</Text></View>
+                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: {thirdColor}</Text></View>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', flex: 1, borderTopWidth: 0.5, borderTopColor: '#000' }}>
+            <View style={{ flexDirection: 'row', flex: 1, borderTopWidth: 0.8, borderTopColor: '#000' }}>
               {/* Left Label "Liberos" */}
               <View style={{ width: '30%', borderRightWidth: 1, borderRightColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
                 <Text style={{ fontSize: 6.5, fontWeight: 'bold' }}>Liberos</Text>
               </View>
               {/* Right sub-rows */}
               <View style={{ width: '70%', flexDirection: 'column' }}>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: White</Text></View>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {teamInfo?.home_color || 'Green'}</Text></View>
-                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: {teamInfo?.away_color || 'Gold'}</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: {liberoMainColor}</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {liberoSecondColor}</Text></View>
+                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: {liberoThirdColor}</Text></View>
               </View>
             </View>
           </View>
@@ -581,7 +554,7 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
             <StatRow label="Height" data={stats.height} />
             <StatRow label="Spike" data={stats.spike} />
             <StatRow label="2-hand block:" data={stats.block} />
-            <StatRow label="National selections:" data={{ min: 2, avg: 66, max: 198 }} last />
+            <StatRow label="National selections:" data={computeStats(players.map(p => getNumValue(p, 'national_total')).filter(v => v !== null))} last />
           </View>
         </View>
 
@@ -605,11 +578,11 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
                 <Text style={{ fontSize: 6.5, fontWeight: 'bold' }}>CLUB</Text>
               </View>
               <View style={{ width: '37%' }}>
-                <Text style={{ fontSize: 6.5 }}>Signed by NF-{teamInfo?.code || 'AUS'}</Text>
-                <Text style={{ fontSize: 5.5, color: '#555', marginTop: 1 }}>{formatUTCDateTime(new Date(Date.now() - 3600000 * 24 * 9))}</Text>
+                <Text style={{ fontSize: 6.5 }}>{getFirstAvailable(teamInfo, ['signed_by'])}</Text>
+                <Text style={{ fontSize: 5.5, color: '#555', marginTop: 1 }}>{teamInfo?.signed_at ? formatUTCDateTime(new Date(teamInfo.signed_at)) : ''}</Text>
               </View>
               <View style={{ width: '25%' }}>
-                <Text style={{ fontSize: 6.5 }}>NOT SIGNED</Text>
+                <Text style={{ fontSize: 6.5 }}>{getFirstAvailable(teamInfo, ['signature_status'])}</Text>
               </View>
             </View>
           </View>
@@ -617,9 +590,9 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
 
         {/* แถวแสดง VIS, copyright และ วันเวลาพิมพ์ */}
         <View style={styles.legendRow}>
-          <Text>VIS, version 26.617.7.68, © 2009-2026 FIVB</Text>
-          <Text>{formatUTCDateTime()}</Text>
-          <Text>Page 1 of 1</Text>
+          <Text>E-scorer Version DEMO 2026.06.11 PLG Volleyball Club</Text>
+          <Text></Text>
+          <Text>Printed: {formatThailandDateTime()}</Text>
         </View>
 
       </Page>
@@ -631,9 +604,9 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
 const StatRow = ({ label, data, last = false }) => (
   <View style={styles.footerTableRow}>
     <Text style={[styles.footerTableCell, { width: '28%', textAlign: 'left', backgroundColor: '#F8F8F8', fontWeight: 'bold' }]}>{label}</Text>
-    <Text style={{ width: '24%', fontSize: 6.5, padding: 1.5, borderRightWidth: 0.5, borderRightColor: '#aaa', borderBottomWidth: last ? 0 : 0.5, borderBottomColor: '#aaa', textAlign: 'center' }}>{data.min}</Text>
-    <Text style={{ width: '24%', fontSize: 6.5, padding: 1.5, borderRightWidth: 0.5, borderRightColor: '#aaa', borderBottomWidth: last ? 0 : 0.5, borderBottomColor: '#aaa', textAlign: 'center' }}>{data.avg}</Text>
-    <Text style={{ width: '24%', fontSize: 6.5, padding: 1.5, borderBottomWidth: last ? 0 : 0.5, borderBottomColor: '#aaa', textAlign: 'center' }}>{data.max}</Text>
+    <Text style={{ width: '24%', fontSize: 6.5, padding: 1.5, borderRightWidth: 0.8, borderRightColor: '#000', borderBottomWidth: last ? 0 : 0.8, borderBottomColor: '#000', textAlign: 'center' }}>{data.min}</Text>
+    <Text style={{ width: '24%', fontSize: 6.5, padding: 1.5, borderRightWidth: 0.8, borderRightColor: '#000', borderBottomWidth: last ? 0 : 0.8, borderBottomColor: '#000', textAlign: 'center' }}>{data.avg}</Text>
+    <Text style={{ width: '24%', fontSize: 6.5, padding: 1.5, borderBottomWidth: last ? 0 : 0.8, borderBottomColor: '#000', textAlign: 'center' }}>{data.max}</Text>
   </View>
 );
 

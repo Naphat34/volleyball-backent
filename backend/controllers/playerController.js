@@ -6,31 +6,23 @@ exports.getPlayerStats = async (req, res) => {
         const { id } = req.params;
         
         // ดึงข้อมูลรายละเอียดนักกีฬา
-        const playerRes = await db.query('SELECT first_name, last_name, number, position FROM players WHERE id = $1', [id]);
+        const playerRes = await db.query('SELECT first_name, last_name, number, position FROM players WHERE id = ?', [id]);
 
-        // Query รวมยอดสถิติจาก match_actions
-        // skill: A=Attack, B=Block, S=Serve, D=Dig, R=Receive
-        // grade: #=Point/Ace/Kill, ==Error, !=Continue
         const stats = await db.query(`
             SELECT 
-                COUNT(*) FILTER (WHERE skill = 'A') as attack_attempts,
-                COUNT(*) FILTER (WHERE skill = 'A' AND grade = '#') as attack_kills,
-                COUNT(*) FILTER (WHERE skill = 'A' AND grade = '=') as attack_errors,
-                
-                COUNT(*) FILTER (WHERE skill = 'B' AND grade = '#') as block_points,
-                
-                COUNT(*) FILTER (WHERE skill = 'S') as serve_attempts,
-                COUNT(*) FILTER (WHERE skill = 'S' AND grade = '#') as serve_aces,
-                COUNT(*) FILTER (WHERE skill = 'S' AND grade = '=') as serve_errors,
-                
-                COUNT(*) FILTER (WHERE skill = 'D') as digs,
-                
-                COUNT(*) FILTER (WHERE skill = 'R') as receptions,
-                COUNT(*) FILTER (WHERE skill = 'R' AND grade = '=') as reception_errors,
-                
+                SUM(CASE WHEN skill = 'A' THEN 1 ELSE 0 END) as attack_attempts,
+                SUM(CASE WHEN skill = 'A' AND grade = '#' THEN 1 ELSE 0 END) as attack_kills,
+                SUM(CASE WHEN skill = 'A' AND grade = '=' THEN 1 ELSE 0 END) as attack_errors,
+                SUM(CASE WHEN skill = 'B' AND grade = '#' THEN 1 ELSE 0 END) as block_points,
+                SUM(CASE WHEN skill = 'S' THEN 1 ELSE 0 END) as serve_attempts,
+                SUM(CASE WHEN skill = 'S' AND grade = '#' THEN 1 ELSE 0 END) as serve_aces,
+                SUM(CASE WHEN skill = 'S' AND grade = '=' THEN 1 ELSE 0 END) as serve_errors,
+                SUM(CASE WHEN skill = 'D' THEN 1 ELSE 0 END) as digs,
+                SUM(CASE WHEN skill = 'R' THEN 1 ELSE 0 END) as receptions,
+                SUM(CASE WHEN skill = 'R' AND grade = '=' THEN 1 ELSE 0 END) as reception_errors,
                 COUNT(*) as total_actions
             FROM match_actions
-            WHERE player_id = $1
+            WHERE player_id = ?
         `, [id]);
 
         const data = stats.rows[0] || {};

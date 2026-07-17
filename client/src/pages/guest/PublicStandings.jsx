@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api';
 import { Trophy, Filter, LogIn, X, Menu } from 'lucide-react';
+import { cleanCompetitionTitle } from '../../utils';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function PublicStandings() {
@@ -33,12 +34,7 @@ export default function PublicStandings() {
     }, []);
 
     // 2. คำนวณตารางคะแนนเมื่อเลือกรายการแข่งขัน
-    useEffect(() => {
-        if (!selectedCompId) return;
-        calculateStandings(selectedCompId);
-    }, [selectedCompId]);
-
-    const calculateStandings = async (compId) => {
+    const calculateStandings = useCallback(async (compId) => {
         setLoading(true);
         try {
             // ดึงข้อมูลแมตช์และทีมแบบ Public
@@ -65,8 +61,13 @@ export default function PublicStandings() {
             });
 
             // คำนวณคะแนน
+            const selectedCompetition = competitions.find((competition) => String(competition.id) === String(compId));
+            const maxSets = Number(selectedCompetition?.max_sets) || Number(matches[0]?.max_sets) || 5;
+            const winSets = maxSets === 3 ? 2 : 3;
+
             matches.forEach(m => {
-                if (m.status === 'completed') {
+                const status = String(m.status || '').toLowerCase();
+                if (['completed', 'finished', 'match_finished'].includes(status)) {
                     const homeId = m.home_team_id;
                     const awayId = m.away_team_id;
                     
@@ -86,12 +87,12 @@ export default function PublicStandings() {
                         if (homeSets > awaySets) {
                             stats[homeId].won++;
                             stats[awayId].lost++;
-                            if (awaySets < 2) { stats[homeId].points += 3; } 
+                            if (awaySets < winSets - 1) { stats[homeId].points += 3; } 
                             else { stats[homeId].points += 2; stats[awayId].points += 1; }
                         } else {
                             stats[awayId].won++;
                             stats[homeId].lost++;
-                            if (homeSets < 2) { stats[awayId].points += 3; } 
+                            if (homeSets < winSets - 1) { stats[awayId].points += 3; } 
                             else { stats[awayId].points += 2; stats[homeId].points += 1; }
                         }
 
@@ -101,7 +102,8 @@ export default function PublicStandings() {
                              try { scores = typeof m.set_scores === 'string' ? JSON.parse(m.set_scores) : m.set_scores; } catch (_e) { scores = []; }
                              if (Array.isArray(scores)) {
                                  scores.forEach(setScore => {
-                                     const [h, a] = setScore.split('-').map(v => parseInt(v));
+                                     const h = Number(setScore.home ?? setScore.team_a ?? String(setScore).split('-')[0]);
+                                     const a = Number(setScore.away ?? setScore.team_b ?? String(setScore).split('-')[1]);
                                      if (!isNaN(h) && !isNaN(a)) {
                                          stats[homeId].points_won += h;
                                          stats[homeId].points_lost += a;
@@ -143,7 +145,12 @@ export default function PublicStandings() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [competitions]);
+
+    useEffect(() => {
+        if (!selectedCompId) return;
+        calculateStandings(selectedCompId);
+    }, [calculateStandings, selectedCompId]);
 
     const getTeamName = (id) => {
         const t = standings.find(s => s.id === id);
@@ -151,7 +158,7 @@ export default function PublicStandings() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-20">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2ff)] text-gray-800 font-sans pb-20">
             {/* Navbar */}
             <nav className="bg-white shadow-sm sticky top-0 z-50">
                 <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -166,7 +173,7 @@ export default function PublicStandings() {
                                 <button onClick={() => navigate('/teams')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.teams')}</button>
                                 <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.matches')}</button>
                                 <button onClick={() => navigate('/standings')} className="text-sm font-medium text-blue-600 transition cursor-pointer">{t('nav.standings')}</button>
-                                <button onClick={() => navigate('/statistics')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.stats')}</button>
+                                <button onClick={() => navigate('/stats')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.stats')}</button>
                             </div>
                             <div className="hidden md:flex gap-4 items-center">
                                 {/* Language Selector */}
@@ -215,7 +222,7 @@ export default function PublicStandings() {
                         <button onClick={() => { navigate('/teams'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.teams')}</button>
                         <button onClick={() => { navigate('/matches'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.matches')}</button>
                         <button onClick={() => { navigate('/standings'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-gray-50">{t('nav.standings')}</button>
-                        <button onClick={() => { navigate('/statistics'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.stats')}</button>
+                        <button onClick={() => { navigate('/stats'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.stats')}</button>
                         
                         {/* Mobile Menu Language Selector */}
                         <div className="flex justify-between items-center px-3 py-2 border-t border-gray-100 mt-2">
@@ -254,7 +261,7 @@ export default function PublicStandings() {
             </nav>
 
             {/* Header */}
-            <div className="bg-indigo-900 text-white py-12 px-4 shadow-lg mb-8">
+            <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 text-white py-12 px-4 shadow-lg mb-8">
                 <div className="w-full mx-auto text-center">
                     <h1 className="text-4xl font-extrabold flex items-center justify-center gap-3 mb-2">
                         <Trophy className="text-yellow-400" size={40} /> {language === 'THA' ? 'อันดับทีมแข่งขัน' : 'Team Standings'}
@@ -276,7 +283,7 @@ export default function PublicStandings() {
                     >
                         {competitions.map((c) => (
                             <option key={c.id} value={c.id}>
-                                {c.title} ({c.gender})
+                                {cleanCompetitionTitle(c.title)}
                             </option>
                         ))}
                     </select>
@@ -366,7 +373,7 @@ export default function PublicStandings() {
                         <p className="text-gray-400">{language === 'THA' ? 'ยังไม่มีข้อมูลการแข่งขันสำหรับรายการนี้' : 'No standings information available for this tournament yet.'}</p>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white/95 rounded-3xl shadow-xl border border-white overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">

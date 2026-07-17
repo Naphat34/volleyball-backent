@@ -29,7 +29,7 @@ const MatchList = ({
                     <div
                         key={m.id || idx}
                         onClick={() => onClick && onClick(m)}
-                        className={`p-4 rounded-md border mb-3 flex flex-col md:flex-row items-center gap-4 transition-all hover:shadow-md ${onClick ? 'cursor-pointer' : ''} ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                        className={`p-4 rounded-md border mb-3 flex flex-col md:flex-row items-center gap-4 transition-colors ${onClick ? 'cursor-pointer' : ''} ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-blue-100 hover:border-blue-300 hover:bg-blue-50/30'}`}
                     >
 
                         {/* 1. Info (Left) - ปรับปรุงใหม่: เพิ่ม Round, Pool, Gender, Time */}
@@ -37,7 +37,7 @@ const MatchList = ({
 
                             {/* บรรทัด 1: เลขแมตช์ และ เพศ */}
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                                     #{m.match_number ?? '-'}
                                 </span>
                                 {/* แสดงเพศ */}
@@ -66,7 +66,7 @@ const MatchList = ({
                                         {(m.start_time) && (
                                             <>
                                                 <span className="w-px h-3 bg-gray-300 dark:bg-gray-600 mx-0.5"></span>
-                                                <span className="font-bold text-blue-600 dark:text-indigo-400">
+                                                <span className="font-bold text-blue-600 dark:text-blue-400">
                                                     {formatThaiTime(m.start_time)}
                                                 </span>
                                             </>
@@ -154,7 +154,7 @@ const MatchList = ({
                                     <div className="flex flex-col gap-2">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}`, '_blank'); }}
-                                            className="flex items-center gap-1.5 px-2.5 py-1 mt-0.5 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
                                             title="Official Score Sheet"
                                         >
                                             <FileText size={12} />
@@ -162,7 +162,7 @@ const MatchList = ({
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}?view=result`, '_blank'); }}
-                                            className="flex items-center gap-1.5 px-2.5 py-1 mt-0.5 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
                                             title="O-4 Match Report"
                                         >
                                             <FileText size={12} />

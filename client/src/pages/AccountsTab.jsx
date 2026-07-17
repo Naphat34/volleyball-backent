@@ -124,7 +124,7 @@ const AccountsTab = () => {
                 </div>
                 <button
                     onClick={() => handleOpenModal('create')}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
                 >
                     <Plus size={18} /> Add New User
                 </button>
@@ -235,7 +235,7 @@ const AccountsTab = () => {
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={handleCloseModal} className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700">Cancel</button>
-                                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-md transition-colors"><Save size={18} /> {modalMode === 'create' ? 'Create User' : 'Save Changes'}</button>
+                                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"><Save size={18} /> {modalMode === 'create' ? 'Create User' : 'Save Changes'}</button>
                             </div>
                         </form>
                     </div>

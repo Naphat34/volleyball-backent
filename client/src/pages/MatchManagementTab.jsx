@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import client, { api } from '../api';
 import {
     Swords, PlusCircle, X, Calendar, MapPin, Edit2, Trash2,
@@ -6,19 +6,27 @@ import {
     Users
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import { Toast, Input, Button } from './AdminShared';
+import { Toast } from './AdminShared';
 import { formatThaiDate, formatThaiTime, formatForInput } from '../utils';
 import ScoreSheet from './ScoreSheet';
+
+const normalizeRoundName = (value) => {
+    if (!value) return '';
+    return String(value).includes('เธ') ? 'Classification' : value;
+};
 
 export default function MatchManagementTab() {
     // --- State Management ---
     const [competitions, setCompetitions] = useState([]);
     const [matches, setMatches] = useState([]);
+    const [modalTeams, setModalTeams] = useState([]);
+    const [loadingModalTeams, setLoadingModalTeams] = useState(false);
     const [registeredTeams, setRegisteredTeams] = useState([]); // ทีมที่สมัครในรายการนี้
     const [stadiums, setStadiums] = useState([]); // สนามแข่ง
     const [uniqueBaseNames, setUniqueBaseNames] = useState([]);
     const [selectedBaseName, setSelectedBaseName] = useState('');
     const [filterGender, setFilterGender] = useState('');
+    const [filterAgeGroup, setFilterAgeGroup] = useState('All');
     const [availableGenders, setAvailableGenders] = useState([]);
     const [selectedCompId, setSelectedCompId] = useState('');
     const [ageGroups, setAgeGroups] = useState([]);
@@ -32,6 +40,7 @@ export default function MatchManagementTab() {
     // Form Data
     const initialForm = {
         id: null,
+        competition_id: '',
         home_team_id: '',
         away_team_id: '',
         start_time: '',
@@ -39,10 +48,12 @@ export default function MatchManagementTab() {
         city: '',
         match_date: '',
         category: '',
+        age_group_id: '',
         match_number: '',
-        round_name: 'Round 1',
+        round_name: '',
         pool_name: '',
-        gender: 'Male' // Default
+        gender: 'Male', // Default
+        max_sets: 3 // Default to best-of-3 (first to 2)
     };
     const [matchForm, setMatchForm] = useState(initialForm);
 
@@ -54,6 +65,57 @@ export default function MatchManagementTab() {
         away_set_score: 0,
         set_scores: [], // e.g., ["25-20", "25-18", "25-22"]
     });
+
+    const getCompetitionBaseName = useCallback((competition) => {
+        const rawTitle = competition?.title || competition?.name || '';
+        return rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
+    }, []);
+
+    const getCompetitionAgeGroupId = useCallback((competition) => (
+        competition?.age_group_id !== undefined && competition?.age_group_id !== null
+            ? String(competition.age_group_id)
+            : ''
+    ), []);
+
+    const getRelatedCompetitions = useCallback(() => {
+        if (!selectedBaseName) return [];
+        return competitions.filter(c => getCompetitionBaseName(c) === selectedBaseName);
+    }, [competitions, getCompetitionBaseName, selectedBaseName]);
+
+    const getAgeGroupOptionsForGender = useCallback((gender) => {
+        const ageGroupIds = new Set(
+            getRelatedCompetitions()
+                .filter(c => !gender || c.gender === gender)
+                .map(getCompetitionAgeGroupId)
+                .filter(Boolean)
+        );
+
+        return ageGroups.filter(ag => ageGroupIds.has(String(ag.id)));
+    }, [ageGroups, getCompetitionAgeGroupId, getRelatedCompetitions]);
+
+    const findCompetitionForSelection = useCallback((gender, ageGroupId) => {
+        if (!gender) return null;
+        const relatedComps = getRelatedCompetitions().filter(c => c.gender === gender);
+        const requestedAgeGroupId = ageGroupId ? String(ageGroupId) : '';
+
+        if (requestedAgeGroupId) {
+            return relatedComps.find(c => getCompetitionAgeGroupId(c) === requestedAgeGroupId) || null;
+        }
+
+        if (selectedCompId) {
+            const selectedComp = relatedComps.find(c => String(c.id) === String(selectedCompId));
+            if (selectedComp) return selectedComp;
+        }
+
+        return relatedComps.length === 1 ? relatedComps[0] : null;
+    }, [getCompetitionAgeGroupId, getRelatedCompetitions, selectedCompId]);
+
+    const getTeamOptionLabel = useCallback((team) => {
+        const ageGroup = team?.age_group_name || 'General';
+        const gender = team?.entry_gender || team?.competition_gender || team?.gender || '';
+        const status = team?.status ? ` / ${team.status}` : '';
+        return `${team.name} (${team.code || '-'}) - ${ageGroup}${gender ? ` / ${gender}` : ''}${status}`;
+    }, []);
 
 
 
@@ -115,7 +177,9 @@ export default function MatchManagementTab() {
             const targetComp = competitions.find(c => {
                 const rawTitle = c.title || c.name || '';
                 const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
-                return cBase === selectedBaseName && c.gender === filterGender;
+                if (cBase !== selectedBaseName || c.gender !== filterGender) return false;
+                if (filterAgeGroup !== 'All' && getCompetitionAgeGroupId(c) !== String(filterAgeGroup)) return false;
+                return true;
             });
 
             if (targetComp) {
@@ -126,7 +190,7 @@ export default function MatchManagementTab() {
         } else {
             setSelectedCompId('');
         }
-    }, [selectedBaseName, filterGender, competitions]);
+    }, [selectedBaseName, filterGender, filterAgeGroup, competitions, getCompetitionAgeGroupId]);
 
     const fetchStadiums = useCallback(async () => {
         try {
@@ -155,21 +219,14 @@ export default function MatchManagementTab() {
 
         try {
             // 1. หา Competition IDs ที่เกี่ยวข้องตาม Filter
-            let targetComps = [];
-            if (filterGender === 'All') {
-                targetComps = competitions.filter(c => {
-                    const rawTitle = c.title || c.name || '';
-                    const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
-                    return cBase === selectedBaseName;
-                });
-            } else {
-                const targetComp = competitions.find(c => {
-                    const rawTitle = c.title || c.name || '';
-                    const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
-                    return cBase === selectedBaseName && c.gender === filterGender;
-                });
-                if (targetComp) targetComps = [targetComp];
-            }
+            let targetComps = competitions.filter(c => {
+                const rawTitle = c.title || c.name || '';
+                const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
+                if (cBase !== selectedBaseName) return false;
+                if (filterGender !== 'All' && c.gender !== filterGender) return false;
+                if (filterAgeGroup !== 'All' && getCompetitionAgeGroupId(c) !== String(filterAgeGroup)) return false;
+                return true;
+            });
 
             if (targetComps.length === 0) {
                 setLoading(false);
@@ -213,7 +270,41 @@ export default function MatchManagementTab() {
         } finally {
             setLoading(false);
         }
-    }, [selectedBaseName, filterGender, competitions]);
+    }, [selectedBaseName, filterGender, filterAgeGroup, competitions, getCompetitionAgeGroupId]);
+
+    const fetchModalTeams = useCallback(async () => {
+        if (!showModal) return;
+
+        const targetComp = findCompetitionForSelection(matchForm.gender, matchForm.age_group_id || matchForm.category);
+        if (!targetComp) {
+            setModalTeams([]);
+            setMatchForm(prev => ({ ...prev, competition_id: '', home_team_id: '', away_team_id: '' }));
+            return;
+        }
+
+        setLoadingModalTeams(true);
+        try {
+            const res = await api.getTeamsByCompetition(targetComp.id, 'approved');
+            const teams = res.data || [];
+            const teamIds = new Set(teams.map(t => String(t.id)));
+
+            setModalTeams(teams);
+            setMatchForm(prev => ({
+                ...prev,
+                competition_id: targetComp.id,
+                category: getCompetitionAgeGroupId(targetComp) || prev.category,
+                age_group_id: getCompetitionAgeGroupId(targetComp) || prev.age_group_id,
+                home_team_id: teamIds.has(String(prev.home_team_id)) ? prev.home_team_id : '',
+                away_team_id: teamIds.has(String(prev.away_team_id)) ? prev.away_team_id : ''
+            }));
+        } catch (err) {
+            console.error("Fetch modal teams error:", err);
+            setModalTeams([]);
+            Toast.fire({ icon: 'error', title: 'Failed to load teams for this competition' });
+        } finally {
+            setLoadingModalTeams(false);
+        }
+    }, [findCompetitionForSelection, getCompetitionAgeGroupId, matchForm.age_group_id, matchForm.category, matchForm.gender, showModal]);
 
     // --- 1. Load Initial Data (Competitions & Stadiums) ---
     useEffect(() => {
@@ -230,6 +321,23 @@ export default function MatchManagementTab() {
         fetchMatchData();
     }, [fetchMatchData]);
 
+    useEffect(() => {
+        fetchModalTeams();
+    }, [fetchModalTeams]);
+
+    const pageAgeGroups = useMemo(
+        () => getAgeGroupOptionsForGender(filterGender === 'All' ? '' : filterGender),
+        [filterGender, getAgeGroupOptionsForGender]
+    );
+
+    useEffect(() => {
+        if (filterAgeGroup === 'All') return;
+        const validAgeGroupIds = new Set(pageAgeGroups.map(ag => String(ag.id)));
+        if (!validAgeGroupIds.has(String(filterAgeGroup))) {
+            setFilterAgeGroup('All');
+        }
+    }, [filterAgeGroup, pageAgeGroups]);
+
     // --- Handlers ---
     const handleOpenCreate = () => {
         if (!selectedBaseName) {
@@ -240,11 +348,24 @@ export default function MatchManagementTab() {
             ? Math.max(...matches.map(m => parseInt(m.match_number) || 0)) + 1
             : 1;
 
-        // FIX: When creating a new match, default to a specific gender, not the 'All' filter.
-        // Use the first available gender for the selected competition, or 'Male' as a fallback.
-        const defaultGender = availableGenders.length > 0 ? availableGenders[0] : 'Male';
+        // Default to the selected gender when the page is filtered, otherwise use the first gender in this competition.
+        const defaultGender = filterGender && filterGender !== 'All'
+            ? filterGender
+            : (availableGenders.length > 0 ? availableGenders[0] : 'Male');
+        const genderAgeGroups = getAgeGroupOptionsForGender(defaultGender);
+        const defaultCategory = filterAgeGroup !== 'All' ? filterAgeGroup : (genderAgeGroups[0]?.id || '');
+        const defaultCompetition = findCompetitionForSelection(defaultGender, defaultCategory);
 
-        setMatchForm({ ...initialForm, match_number: nextMatchNum, gender: defaultGender });
+        setModalTeams([]);
+        setMatchForm({
+            ...initialForm,
+            competition_id: defaultCompetition?.id || '',
+            category: defaultCategory || getCompetitionAgeGroupId(defaultCompetition),
+            age_group_id: defaultCategory || getCompetitionAgeGroupId(defaultCompetition),
+            match_number: nextMatchNum,
+            gender: defaultGender,
+            max_sets: 3
+        });
         setIsEditing(false);
         setShowModal(true);
     };
@@ -274,20 +395,26 @@ export default function MatchManagementTab() {
             }
         }
 
+        const matchCompetition = competitions.find(c => String(c.id) === String(match.competition_id));
+
         setMatchForm({
             id: match.id,
+            competition_id: match.competition_id || '',
             home_team_id: match.home_team_id || '',
             away_team_id: match.away_team_id || '',
             start_time: onlyTime,
             location: match.location || '',
             city: match.city || '',
             match_date: onlyDate,
-            category: match.category || '',
+            category: match.category || getCompetitionAgeGroupId(matchCompetition),
+            age_group_id: match.age_group_id || match.category || getCompetitionAgeGroupId(matchCompetition),
             match_number: match.match_number,
-            round_name: match.round_name || 'Round 1',
+            round_name: match.round_name || '',
             pool_name: match.pool_name || '',
-            gender: match.gender || 'Male'
+            gender: match.gender || matchCompetition?.gender || 'Male',
+            max_sets: match.max_sets || 3
         });
+        setModalTeams([]);
         setIsEditing(true);
         setShowModal(true);
     };
@@ -299,22 +426,30 @@ export default function MatchManagementTab() {
         if (!matchForm.home_team_id || !matchForm.away_team_id) {
             return Toast.fire({ icon: 'warning', title: 'Please select both teams' });
         }
+        const selectedAgeGroupId = matchForm.age_group_id || matchForm.category;
+
+        if (!selectedAgeGroupId) {
+            return Toast.fire({ icon: 'warning', title: 'Please select an age group' });
+        }
+        const selectedRoundName = normalizeRoundName(matchForm.round_name);
+
+        if (!selectedRoundName) {
+            return Toast.fire({ icon: 'warning', title: 'Please select a round' });
+        }
         if (matchForm.home_team_id === matchForm.away_team_id) {
             return Toast.fire({ icon: 'warning', title: 'Teams must be different' });
         }
 
+        const modalTeamIds = new Set(modalTeams.map(t => String(t.id)));
+        if (!modalTeamIds.has(String(matchForm.home_team_id)) || !modalTeamIds.has(String(matchForm.away_team_id))) {
+            return Toast.fire({ icon: 'warning', title: 'Please select teams registered in this competition category' });
+        }
+
         // หา Competition ID ที่ถูกต้อง (กรณีเลือก All ต้องหาจาก Gender ในฟอร์ม)
-        let targetCompId = selectedCompId;
+        const foundComp = findCompetitionForSelection(matchForm.gender, selectedAgeGroupId);
+        const targetCompId = foundComp?.id || matchForm.competition_id || selectedCompId;
         if (!targetCompId) {
-            const foundComp = competitions.find(c => {
-                const rawTitle = c.title || c.name || '';
-                const cBase = rawTitle.replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim();
-                return cBase === selectedBaseName && c.gender === matchForm.gender;
-            });
-            if (foundComp) targetCompId = foundComp.id;
-            else {
-                return Toast.fire({ icon: 'error', title: `No competition found for gender: ${matchForm.gender}` });
-            }
+            return Toast.fire({ icon: 'error', title: `No competition found for gender: ${matchForm.gender}` });
         }
         let combinedStartTime = null;
         if (matchForm.match_date && matchForm.start_time) {
@@ -326,8 +461,13 @@ export default function MatchManagementTab() {
         const payload = {
             ...matchForm,
             competition_id: targetCompId,
+            age_group_id: selectedAgeGroupId,
+            category: selectedAgeGroupId,
+            round_name: selectedRoundName,
             start_time: combinedStartTime
         };
+
+        delete payload.max_sets;
 
         try {
             if (isEditing) {
@@ -432,6 +572,11 @@ export default function MatchManagementTab() {
         }
     };
 
+    const modalAgeGroups = getAgeGroupOptionsForGender(matchForm.gender);
+    const modalLabelClass = "block text-xs font-medium text-gray-600";
+    const modalInputClass = "w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50 disabled:text-gray-400";
+    const modalSectionClass = "rounded-lg border border-gray-200 bg-white p-4";
+
     // --- Render ---
     return (
         <div className="p-6 min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-800">
@@ -484,6 +629,20 @@ export default function MatchManagementTab() {
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    <div className="w-full md:w-48">
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Age Group</label>
+                        <select
+                            value={filterAgeGroup}
+                            onChange={(e) => setFilterAgeGroup(e.target.value)}
+                            className="w-full p-2.5 text-sm font-medium rounded-lg border border-gray-200 transition-all hover:border-blue-400 focus:outline-none focus:border-blue-500 bg-white shadow-sm text-gray-700"
+                        >
+                            <option value="All">All</option>
+                            {pageAgeGroups.map(ag => (
+                                <option key={ag.id} value={ag.id}>{ag.name}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
@@ -666,87 +825,90 @@ export default function MatchManagementTab() {
 
             {/* --- Create/Edit Modal --- */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm backdrop-blur-md p-4">
-                    <div className="w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border bg-white border-gray-200">
-                        <div className="p-6 border-b border-gray-100 bg-gray-50/80 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/40 p-4">
+                    <div className="w-full max-w-4xl max-h-[92vh] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
+                        <div className="px-5 py-4 border-b border-gray-200 bg-white">
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-blue-50 border border-blue-100">
-                                        {isEditing ? <Edit2 className="text-blue-600" size={20} /> : <PlusCircle className="text-blue-600" size={20} />}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900 tracking-tight">{isEditing ? 'Edit Match' : 'Create New Match'}</h3>
-                                    </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Match' : 'Create New Match'}</h3>
+                                    <p className="mt-0.5 text-xs text-gray-500">{selectedBaseName || 'Competition'} / {matchForm.gender || 'Gender'} / {modalAgeGroups.find(ag => String(ag.id) === String(matchForm.age_group_id || matchForm.category))?.name || 'Age group'}</p>
                                 </div>
-                                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">
-                                    <X size={20} />
+                                <button type="button" onClick={() => setShowModal(false)} className="p-2 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" aria-label="Close">
+                                    <X size={18} />
                                 </button>
                             </div>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                        <form onSubmit={handleSubmit} className="max-h-[calc(92vh-73px)] overflow-y-auto bg-gray-50 p-5 space-y-4">
                             {/* Row 1: Key Info */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className={`${modalSectionClass} grid grid-cols-1 md:grid-cols-4 gap-4`}>
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold uppercase text-gray-700">
-                                        <ListFilter size={16} className="text-blue-600" /> Category
+                                    <label className={modalLabelClass}>
+                                        Age Group
                                     </label>
                                     <select
-                                        value={matchForm.category || ''}
-                                        onChange={e => setMatchForm({ ...matchForm, category: e.target.value })}
-                                        className="w-full px-4 py-3 border-2 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white border-gray-300"
+                                        value={matchForm.age_group_id || matchForm.category || ''}
+                                        onChange={e => setMatchForm({
+                                            ...matchForm,
+                                            category: e.target.value,
+                                            age_group_id: e.target.value,
+                                            competition_id: '',
+                                            home_team_id: '',
+                                            away_team_id: ''
+                                        })}
+                                        className={modalInputClass}
                                     >
                                         <option value="">-- Select Category --</option>
-                                        {ageGroups.map(ag => (
+                                        {modalAgeGroups.map(ag => (
                                             <option key={ag.id} value={ag.id}>{ag.name}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold uppercase text-gray-700">
-                                        <MapPin size={16} className="text-blue-600" /> City
+                                    <label className={modalLabelClass}>
+                                        City
                                     </label>
-                                    <Input
+                                    <input
                                         value={matchForm.city || ''}
                                         onChange={e => setMatchForm({ ...matchForm, city: e.target.value })}
                                         placeholder="City Name"
-                                        className="w-full"
+                                        className={modalInputClass}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold uppercase text-gray-700">
-                                        <Calendar size={16} className="text-blue-600" /> Match Date
+                                    <label className={modalLabelClass}>
+                                        Match Date
                                     </label>
-                                    <Input
+                                    <input
                                         type="date"
                                         value={matchForm.match_date || ''}
                                         onChange={e => setMatchForm({ ...matchForm, match_date: e.target.value })}
-                                        className="w-full"
+                                        className={modalInputClass}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold uppercase text-gray-700">
-                                        <Clock size={16} className="text-blue-600" /> Start Time
+                                    <label className={modalLabelClass}>
+                                        Start Time
                                     </label>
-                                    <Input
+                                    <input
                                         type="time"
                                         value={matchForm.start_time || ''}
                                         onChange={e => setMatchForm({ ...matchForm, start_time: e.target.value })}
-                                        className="w-full"
+                                        className={modalInputClass}
                                     />
                                 </div>
                             </div>
 
                             {/* Row 2: Match Details */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className={`${modalSectionClass} grid grid-cols-1 md:grid-cols-3 gap-4`}>
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold uppercase text-gray-700">
-                                        <MapPin size={16} className="text-blue-600" /> Location (Stadium)
+                                    <label className={modalLabelClass}>
+                                        Stadium
                                     </label>
                                     <select
                                         value={matchForm.location}
                                         onChange={e => setMatchForm({ ...matchForm, location: e.target.value })}
-                                        className="w-full px-4 py-3 border-2 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white border-gray-300"
+                                        className={modalInputClass}
                                     >
                                         <option value="">-- Select Stadium --</option>
                                         {stadiums.map(s => (
@@ -754,111 +916,145 @@ export default function MatchManagementTab() {
                                         ))}
                                     </select>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className="flex items-center gap-2 text-sm font-bold uppercase text-gray-700">
-                                            <ListFilter size={16} className="text-blue-600" /> Match No.
+                                        <label className={modalLabelClass}>
+                                            Match No.
                                         </label>
-                                        <Input
+                                        <input
                                             type="number"
                                             value={matchForm.match_number}
                                             onChange={e => setMatchForm({ ...matchForm, match_number: e.target.value })}
-                                            className="w-full"
+                                            className={modalInputClass}
+                                            required
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="flex items-center gap-2 text-sm font-bold uppercase text-gray-700">
-                                            <Shield size={16} className="text-blue-600" /> Gender
+                                        <label className={modalLabelClass}>
+                                            Gender
                                         </label>
                                         <select
                                             value={matchForm.gender}
-                                            onChange={e => setMatchForm({ ...matchForm, gender: e.target.value })}
-                                            className="w-full px-4 py-3 border-2 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white border-gray-300"
+                                            onChange={e => setMatchForm({
+                                                ...matchForm,
+                                                gender: e.target.value,
+                                                category: '',
+                                                age_group_id: '',
+                                                competition_id: '',
+                                                home_team_id: '',
+                                                away_team_id: ''
+                                            })}
+                                            className={modalInputClass}
                                         >
-                                            <option value="Male">Male</option>
-                                            <option value="Female">Female</option>
-                                            <option value="Mix">Mix</option>
+                                            {availableGenders.length > 0 ? availableGenders.map(g => (
+                                                <option key={g} value={g}>{g}</option>
+                                            )) : (
+                                                <>
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                    <option value="Mix">Mix</option>
+                                                </>
+                                            )}
                                         </select>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className={`flex items-center gap-2 text-sm font-bold uppercase `}>
-                                            <Trophy size={16} className="text-blue-600" /> Round
+                                        <label className={modalLabelClass}>
+                                            Round
                                         </label>
                                         <select
                                             value={matchForm.round_name}
                                             onChange={e => setMatchForm({ ...matchForm, round_name: e.target.value })}
-                                            className={`w-full px-4 py-3 border-2 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-all `}
+                                            className={modalInputClass}
+                                            required
                                         >
-                                            <option>Round 1</option>
-                                            <option>Round 2</option>
-                                            <option>Quarter Final</option>
-                                            <option>Semi Final</option>
-                                            <option>Final</option>
+                                            
+                                            <option value="">-- Select Round --</option>
+                                            <option value="จัดอันดับ">จัดอันดับ</option>
+                                            <option value="Preliminary">Preliminary</option>
+                                            <option value="Round 2">Round 2</option>
+                                            <option value="Quarter Final">Quarter Final</option>
+                                            <option value="Semi Final">Semi Final</option>
+                                            <option value="Final">Final</option>
                                         </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={`flex items-center gap-2 text-sm font-bold uppercase `}>
-                                            <Printer size={16} className="text-blue-600" /> Pool
+                                        <label className={modalLabelClass}>
+                                            Pool
                                         </label>
-                                        <Input
+                                        <input
                                             value={matchForm.pool_name}
                                             onChange={e => setMatchForm({ ...matchForm, pool_name: e.target.value })}
                                             placeholder="e.g. A"
-                                            className="w-full"
+                                            className={modalInputClass}
                                         />
                                     </div>
                                 </div>
                             </div>
-
                             {/* Row 2: Teams */}
-                            <div className={`p-6 rounded-lg border-2 `}>
-                                <h4 className="text-lg font-bold mb-4 flex items-center gap-2 text-blue-600 dark:text-indigo-400">
-                                    <Shield size={20} /> Teams
-                                </h4>
-                                <div className="grid grid-cols-2 gap-6">
+                            <div className={modalSectionClass}>
+                                <div className="mb-4 flex items-center justify-between gap-3">
+                                    <h4 className="text-sm font-semibold text-gray-900">Teams</h4>
+                                    <span className="text-xs text-gray-500">{modalTeams.length} registered</span>
+                                </div>
+                                {!loadingModalTeams && modalTeams.length < 2 && (
+                                    <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                        Need at least 2 registered teams in this age group and gender before creating a match.
+                                    </p>
+                                )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-sm font-bold uppercase text-blue-600 dark:text-indigo-400">
+                                        <label className={modalLabelClass}>
                                             Home Team
                                         </label>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center overflow-hidden border-2 border-white shadow-lg shrink-0">
-                                                {registeredTeams.find(t => t.id == matchForm.home_team_id)?.logo_url ? (
-                                                    <img src={registeredTeams.find(t => t.id == matchForm.home_team_id).logo_url} alt="" className="w-full h-full object-contain p-1" />
-                                                ) : <Shield size={20} className="text-white" />}
+                                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center">
+                                                {modalTeams.find(t => t.id == matchForm.home_team_id)?.logo_url ? (
+                                                    <img src={modalTeams.find(t => t.id == matchForm.home_team_id).logo_url} alt="" className="h-full w-full object-contain p-1" />
+                                                ) : <Shield size={18} className="text-gray-400" />}
                                             </div>
                                             <select
                                                 value={matchForm.home_team_id}
                                                 onChange={e => setMatchForm({ ...matchForm, home_team_id: e.target.value })}
-                                                className="flex-1 px-4 py-3 border-2 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white border-gray-300"
+                                                disabled={loadingModalTeams || modalTeams.length === 0}
+                                                className={`${modalInputClass} flex-1`}
                                             >
-                                                <option value="">-- Select Home Team --</option>
-                                                {registeredTeams.map(t => (
-                                                    <option key={t.id} value={t.id}>{t.name} ({t.code})</option>
+                                                <option value="">
+                                                    {loadingModalTeams ? 'Loading teams...' : '-- Select Home Team --'}
+                                                </option>
+                                                {modalTeams
+                                                    .filter(t => String(t.id) !== String(matchForm.away_team_id))
+                                                    .map(t => (
+                                                    <option key={t.team_entry_id || t.id} value={t.id}>{getTeamOptionLabel(t)}</option>
                                                 ))}
                                             </select>
                                         </div>
                                     </div>
 
                                     <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-sm font-bold uppercase text-rose-600">
+                                        <label className={modalLabelClass}>
                                             Away Team
                                         </label>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center overflow-hidden border-2 border-white shadow-lg shrink-0">
-                                                {registeredTeams.find(t => t.id == matchForm.away_team_id)?.logo_url ? (
-                                                    <img src={registeredTeams.find(t => t.id == matchForm.away_team_id).logo_url} alt="" className="w-full h-full object-contain p-1" />
-                                                ) : <Shield size={20} className="text-white" />}
+                                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center">
+                                                {modalTeams.find(t => t.id == matchForm.away_team_id)?.logo_url ? (
+                                                    <img src={modalTeams.find(t => t.id == matchForm.away_team_id).logo_url} alt="" className="h-full w-full object-contain p-1" />
+                                                ) : <Shield size={18} className="text-gray-400" />}
                                             </div>
                                             <select
                                                 value={matchForm.away_team_id}
                                                 onChange={e => setMatchForm({ ...matchForm, away_team_id: e.target.value })}
-                                                className="flex-1 px-4 py-3 border-2 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white border-gray-300"
+                                                disabled={loadingModalTeams || modalTeams.length === 0}
+                                                className={`${modalInputClass} flex-1`}
                                             >
-                                                <option value="">-- Select Away Team --</option>
-                                                {registeredTeams.map(t => (
-                                                    <option key={t.id} value={t.id}>{t.name} ({t.code})</option>
+                                                <option value="">
+                                                    {loadingModalTeams ? 'Loading teams...' : '-- Select Away Team --'}
+                                                </option>
+                                                {modalTeams
+                                                    .filter(t => String(t.id) !== String(matchForm.home_team_id))
+                                                    .map(t => (
+                                                    <option key={t.team_entry_id || t.id} value={t.id}>{getTeamOptionLabel(t)}</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -869,19 +1065,20 @@ export default function MatchManagementTab() {
 
 
                             {/* Footer Buttons */}
-                            <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+                            <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end gap-3 border-t border-gray-200 bg-white px-5 py-4">
                                 <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
-                                    className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all font-medium text-sm"
+                                    className="rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all flex items-center gap-2"
+                                    disabled={loadingModalTeams || modalTeams.length < 2}
+                                    className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                                 >
-                                    <Save size={18} />
+                                    <Save size={16} />
                                     {isEditing ? 'Update Match' : 'Create Match'}
                                 </button>
                             </div>

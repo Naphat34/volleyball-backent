@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api';
 import { Calendar, Clock, MapPin, Trophy, Filter, Activity, LogIn, Menu, X } from 'lucide-react';
-import { formatThaiDate, formatThaiTime } from '../../utils';
+import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from '../../utils';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function PublicMatches() {
@@ -63,15 +63,23 @@ export default function PublicMatches() {
     };
 
     const groupedMatches = groupMatchesByDate();
+    const normalizeStatus = (status) => String(status || '').toLowerCase();
+    const isLive = (status) => ['live', 'set_playing', 'in_progress'].includes(normalizeStatus(status));
+    const isFinished = (status) => ['finished', 'completed', 'match_finished'].includes(normalizeStatus(status));
 
     // Helper: Badge สถานะ
     const getStatusBadge = (status) => {
         switch (status) {
             case 'Finished':
             case 'COMPLETED':
+            case 'completed':
+            case 'finished':
+            case 'MATCH_FINISHED':
                 return <span className="bg-gray-100 text-gray-650 text-xs px-2 py-1 rounded-md font-bold">{language === 'THA' ? 'จบการแข่งขัน' : 'Finished'}</span>;
-            case 'Live':
             case 'LIVE':
+            case 'live':
+            case 'SET_PLAYING':
+            case 'in_progress':
                 return <span className="bg-red-100 text-red-650 text-xs px-2 py-1 rounded-md font-bold animate-pulse">● {language === 'THA' ? 'กำลังแข่ง' : 'Live'}</span>;
             default:
                 return <span className="bg-blue-50 text-blue-650 text-xs px-2 py-1 rounded-md font-bold">{language === 'THA' ? 'ยังไม่เริ่ม' : 'Scheduled'}</span>;
@@ -79,7 +87,7 @@ export default function PublicMatches() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2ff)] pb-20 font-sans text-gray-800">
             {/* Navbar */}
             <nav className="bg-white shadow-sm sticky top-0 z-50">
                 <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -182,7 +190,7 @@ export default function PublicMatches() {
             </nav>
 
             {/* Header */}
-            <div className="bg-indigo-700 text-white py-12 px-4 shadow-lg">
+            <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 text-white py-12 px-4 shadow-lg">
                 <div className="w-full mx-auto text-center px-4">
                     <h1 className="text-3xl md:text-4xl font-extrabold mb-4 flex items-center justify-center gap-3">
                         <Calendar size={36} /> {language === 'THA' ? 'ตารางและผลการแข่งขัน' : 'Match Schedule & Results'}
@@ -203,7 +211,7 @@ export default function PublicMatches() {
                         onChange={(e) => setSelectedComp(e.target.value)}
                     >
                         {competitions.map(c => (
-                            <option key={c.id} value={c.id}>{c.title}</option>
+                            <option key={c.id} value={c.id}>{cleanCompetitionTitle(c.title)}</option>
                         ))}
                     </select>
                 </div>
@@ -233,7 +241,7 @@ export default function PublicMatches() {
                                     <div 
                                         key={m.id} 
                                         onClick={() => navigate(`/match/${m.id}`)}
-                                        className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer">
+                                        className="bg-white/95 rounded-3xl shadow-sm border border-white overflow-hidden hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
                                         {/* Card Header: Time & Stadium */}
                                         <div className="bg-gray-50 px-4 py-2 flex justify-between items-center text-sm text-gray-500 border-b border-gray-100">
                                             <div className="flex items-center gap-4">
@@ -260,7 +268,7 @@ export default function PublicMatches() {
 
                                                 {/* VS / Score */}
                                                 <div className="flex flex-col items-center justify-center w-full md:w-auto min-w-[120px]">
-                                                    {m.status === 'Finished' || m.status === 'Live' ? (
+                                                    {isFinished(m.status) || isLive(m.status) ? (
                                                         <div className="text-center">
                                                             <div className="text-3xl font-semibold text-gray-900 tracking-widest flex items-center justify-center gap-3">
                                                                 <span className={m.team_a_score > m.team_b_score ? "text-blue-600" : "text-gray-400"}>{m.team_a_score}</span>
@@ -286,7 +294,7 @@ export default function PublicMatches() {
                                             </div>
 
                                             {/* Set Scores (ถ้ามีคะแนน) */}
-                                            {(m.status === 'Finished' || m.status === 'Live') && m.set_scores && m.set_scores.length > 0 && (
+                                            {(isFinished(m.status) || isLive(m.status)) && m.set_scores && m.set_scores.length > 0 && (
                                                 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-center gap-2 text-sm text-gray-500 overflow-x-auto">
                                                     {m.set_scores.map((set) => (
                                                         <div key={set.set_number} className="px-2 py-1 bg-gray-50 rounded border border-gray-200 whitespace-nowrap min-w-[80px] text-center">
@@ -309,3 +317,4 @@ export default function PublicMatches() {
         </div>
     );
 }
+

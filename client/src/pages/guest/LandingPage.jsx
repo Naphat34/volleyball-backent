@@ -227,7 +227,7 @@ export default function LandingPage() {
                                                 
                                                 {/* Match Info Header */}
                                                 <div className="flex justify-between items-center bg-gray-50 px-4 py-3 pl-5 border-b border-gray-100">
-                                                    <span className="font-bold text-sm" style={{ color: themeColor }}>#{match.id || mIndex + 1}</span>
+                                                    <span className="font-bold text-sm" style={{ color: themeColor }}>#{match.match_number || mIndex + 1}</span>
                                                     <div className="flex items-center gap-1.5 text-gray-500 text-xs font-semibold">
                                                         <Clock size={13} className="text-gray-400" /> {match.start_time}
                                                     </div>

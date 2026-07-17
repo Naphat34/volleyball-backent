@@ -4,12 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, MapPin, Flag, UserCog,
     UserCheck, LogOut, Users, Trophy, Swords, Shield,
-    Star, BarChart2, PlayCircle, Menu, X, User, Bell
+    Star, BarChart2, PlayCircle, Menu, X, User, Bell,
+    PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useLanguage } from '../context/LanguageContext';
 
-// Import Tabs
 import CompetitionsTab from './CompetitionsTab';
 import HomeTab from './HomeTab';
 import MatchManagementTab from './MatchManagementTab';
@@ -23,13 +23,13 @@ import TeamRankingTab from './TeamRankingTab';
 import LiveScorerTab from './LiveScorerTab';
 import OfficialsTab from './OfficialsTab';
 
-
 const PlaceholderTab = ({ title }) => {
     const { language } = useLanguage();
+
     return (
-        <div className="p-6 bg-white rounded-lg shadow">
-            <h2 className="text-2xl font-bold mb-4">{title}</h2>
-            <p className="text-gray-500">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-3 text-xl font-semibold text-slate-900">{title}</h2>
+            <p className="text-sm text-slate-500">
                 {language === 'THA' ? 'หน้านี้กำลังอยู่ระหว่างการพัฒนา...' : 'This page is under development...'}
             </p>
         </div>
@@ -42,8 +42,8 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState(() => {
         return sessionStorage.getItem('adminActiveTab') || 'home';
     });
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // สำหรับ iPad/Mobile
-    const [isCollapsed, setIsCollapsed] = useState(false); // สำหรับย่อแถบเมนูใน Desktop
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [user] = useState(() => {
         const storedUser = localStorage.getItem('user');
         return storedUser ? JSON.parse(storedUser) : null;
@@ -55,7 +55,7 @@ export default function AdminDashboard() {
             const res = await api.getPendingUsers();
             if (res.data) setPendingUsersCount(res.data.length);
         } catch (error) {
-            console.error("Error fetching pending users count", error);
+            console.error('Error fetching pending users count', error);
         }
     }, []);
 
@@ -76,7 +76,7 @@ export default function AdminDashboard() {
             text: t('admin.logoutConfirmText'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#4f46e5',
+            confirmButtonColor: '#2563eb',
             cancelButtonColor: '#d33',
             confirmButtonText: t('admin.logoutConfirmBtn'),
             cancelButtonText: t('common.cancel')
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
                 sessionStorage.clear();
                 navigate('/login');
             } catch (error) {
-                console.error("Logout failed", error);
+                console.error('Logout failed', error);
                 localStorage.clear();
                 sessionStorage.clear();
                 navigate('/login');
@@ -125,85 +125,118 @@ export default function AdminDashboard() {
         return t(`admin.${key}`);
     };
 
-    return (
-        <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
+    const changeTab = (tab) => {
+        setActiveTab(tab);
+        setIsSidebarOpen(false);
+    };
 
-            {/* Overlay สำหรับมือถือ/iPad เมื่อเปิด Sidebar */}
+    const sidebarSections = [
+        {
+            label: t('admin.mainMenu'),
+            items: [
+                { key: 'home', icon: <LayoutDashboard size={19} />, label: t('admin.home') },
+                { key: 'competitions', icon: <Trophy size={19} />, label: t('admin.competitions') },
+                { key: 'clubs', icon: <Shield size={19} />, label: t('admin.teams') },
+                { key: 'stadium', icon: <MapPin size={19} />, label: t('admin.stadium') },
+                { key: 'team_ranking', icon: <BarChart2 size={19} />, label: t('admin.teamRanking') },
+            ],
+        },
+        {
+            label: t('admin.people'),
+            items: [
+                { key: 'players', icon: <Users size={19} />, label: t('admin.players') },
+                { key: 'coaches', icon: <UserCog size={19} />, label: t('admin.coaches') },
+                { key: 'officials', icon: <Flag size={19} />, label: t('admin.officials') },
+            ],
+        },
+        {
+            label: t('admin.operations'),
+            items: [
+                { key: 'matches', icon: <Swords size={19} />, label: t('admin.matches') },
+                { key: 'escore', icon: <Star size={19} />, label: t('admin.vis') },
+                { key: 'live_scorer', icon: <PlayCircle size={19} />, label: t('admin.liveScorer') },
+            ],
+        },
+        {
+            label: t('admin.system'),
+            items: [
+                { key: 'accounts', icon: <UserCheck size={19} />, label: t('admin.accounts') },
+                { key: 'pending_users', icon: <User size={19} />, label: t('admin.pendingUsers'), badge: pendingUsersCount },
+            ],
+        },
+    ];
+
+    return (
+        <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
             {isSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+                    className="fixed inset-0 bg-slate-950/40 backdrop-blur-[2px] z-30 lg:hidden"
                     onClick={() => setIsSidebarOpen(false)}
                 />
             )}
 
-            {/* ================= Sidebar (Left Menu) ================= */}
             <aside className={`
-                fixed inset-y-0 left-0 z-40 bg-white shadow-sm transition-all duration-300 transform flex flex-col overflow-x-hidden
+                fixed inset-y-0 left-0 z-40 bg-white/95 shadow-xl shadow-slate-950/5 transition-all duration-300 transform flex flex-col overflow-x-hidden ring-1 ring-slate-200/80
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                 lg:translate-x-0 lg:static lg:inset-0
-                ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
-                w-64
+                ${isCollapsed ? 'lg:w-[84px]' : 'lg:w-72'}
+                w-72
             `}>
-                <div className={`h-16 flex items-center justify-between px-6 border-b border-gray-100 ${isCollapsed ? 'lg:px-4 lg:justify-center' : ''}`}>
+                <div className={`h-[72px] flex items-center justify-between px-5 border-b border-slate-200/80 ${isCollapsed ? 'lg:px-4 lg:justify-center' : ''}`}>
                     {!isCollapsed ? (
-                        <h1 className="text-xl font-bold tracking-wider text-blue-600 truncate">
-                            {t('admin.title')}
-                        </h1>
+                        <div className="min-w-0">
+                            <h1 className="truncate text-base font-semibold tracking-tight text-slate-950">
+                                {t('admin.title')}
+                            </h1>
+                            <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                                {language === 'THA' ? 'ระบบจัดการการแข่งขัน' : 'Competition control panel'}
+                            </p>
+                        </div>
                     ) : (
-                        <h1 className="text-xl font-black text-blue-600 lg:block hidden">
+                        <h1 className="hidden h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white lg:flex">
                             VM
                         </h1>
                     )}
                     {isCollapsed && (
-                        <h1 className="text-xl font-bold tracking-wider text-blue-600 lg:hidden">
+                        <h1 className="text-base font-semibold tracking-tight text-slate-950 lg:hidden">
                             {t('admin.title')}
                         </h1>
                     )}
-                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 text-gray-500 hover:text-gray-700 cursor-pointer">
-                        <X size={24} />
+                    <button
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="lg:hidden p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+                        aria-label="Close sidebar"
+                    >
+                        <X size={20} />
                     </button>
                 </div>
 
-                <nav className="flex-1 overflow-y-auto py-6 space-y-8">
-                    {/* Group 1: Main */}
-                    <div className="px-4 space-y-1">
-                        <SectionHeader label={t('admin.mainMenu')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'home'} onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }} icon={<LayoutDashboard size={20} />} label={t('admin.home')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'competitions'} onClick={() => { setActiveTab('competitions'); setIsSidebarOpen(false); }} icon={<Trophy size={20} />} label={t('admin.competitions')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'clubs'} onClick={() => { setActiveTab('clubs'); setIsSidebarOpen(false); }} icon={<Shield size={20} />} label={t('admin.teams')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'stadium'} onClick={() => { setActiveTab('stadium'); setIsSidebarOpen(false); }} icon={<MapPin size={20} />} label={t('admin.stadium')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'team_ranking'} onClick={() => { setActiveTab('team_ranking'); setIsSidebarOpen(false); }} icon={<BarChart2 size={20} />} label={t('admin.teamRanking')} isCollapsed={isCollapsed} />
-                    </div>
-
-                    {/* Group 2: People */}
-                    <div className="px-4 space-y-1">
-                        <SectionHeader label={t('admin.people')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'players'} onClick={() => { setActiveTab('players'); setIsSidebarOpen(false); }} icon={<Users size={20} />} label={t('admin.players')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'coaches'} onClick={() => { setActiveTab('coaches'); setIsSidebarOpen(false); }} icon={<UserCog size={20} />} label={t('admin.coaches')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'officials'} onClick={() => { setActiveTab('officials'); setIsSidebarOpen(false); }} icon={<Flag size={20} />} label={t('admin.officials')} isCollapsed={isCollapsed} />
-                    </div>
-
-                    {/* Group 3: Game Operations */}
-                    <div className="px-4 space-y-1">
-                        <SectionHeader label={t('admin.operations')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'matches'} onClick={() => { setActiveTab('matches'); setIsSidebarOpen(false); }} icon={<Swords size={20} />} label={t('admin.matches')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'escore'} onClick={() => { setActiveTab('escore'); setIsSidebarOpen(false); }} icon={<Star size={20} />} label={t('admin.vis')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'live_scorer'} onClick={() => { setActiveTab('live_scorer'); setIsSidebarOpen(false); }} icon={<PlayCircle size={20} />} label={t('admin.liveScorer')} isCollapsed={isCollapsed} />
-                    </div>
-
-                    {/* Group 4: System */}
-                    <div className="px-4 space-y-1">
-                        <SectionHeader label={t('admin.system')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setIsSidebarOpen(false); }} icon={<UserCheck size={20} />} label={t('admin.accounts')} isCollapsed={isCollapsed} />
-                        <MenuButton active={activeTab === 'pending_users'} onClick={() => { setActiveTab('pending_users'); setIsSidebarOpen(false); }} icon={<User size={20} />} label={t('admin.pendingUsers')} badge={pendingUsersCount} isCollapsed={isCollapsed} />
+                <nav className="flex-1 overflow-y-auto px-3 py-5">
+                    <div className="space-y-7">
+                        {sidebarSections.map((section) => (
+                            <div key={section.label} className="space-y-1">
+                                <SectionHeader label={section.label} isCollapsed={isCollapsed} />
+                                {section.items.map((item) => (
+                                    <MenuButton
+                                        key={item.key}
+                                        active={activeTab === item.key}
+                                        onClick={() => changeTab(item.key)}
+                                        icon={item.icon}
+                                        label={item.label}
+                                        badge={item.badge}
+                                        isCollapsed={isCollapsed}
+                                    />
+                                ))}
+                            </div>
+                        ))}
                     </div>
                 </nav>
 
-                <div className="p-4 bg-gray-50 border-t border-gray-100">
-                    <button 
-                        onClick={handleLogout} 
+                <div className="border-t border-slate-200/80 bg-slate-50/80 p-4">
+                    <button
+                        onClick={handleLogout}
                         title={isCollapsed ? t('nav.logout') : undefined}
-                        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-bold text-sm transition-all shadow-sm cursor-pointer ${isCollapsed ? 'px-0' : ''}`}
+                        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 font-medium text-sm transition-colors cursor-pointer ${isCollapsed ? 'px-0' : ''}`}
                     >
                         <LogOut size={18} className="shrink-0" />
                         <span className={`transition-all duration-200 ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
@@ -213,32 +246,37 @@ export default function AdminDashboard() {
                 </div>
             </aside>
 
-            {/* ================= Main Content Area ================= */}
             <div className="flex-1 flex flex-col min-w-0">
-
-                {/* Navbar ด้านบน */}
-                <header className="h-16 bg-white flex items-center justify-between px-4 lg:px-8 sticky top-0 z-30 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <button 
-                            onClick={toggleSidebar} 
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                <header className="h-[72px] bg-white/90 backdrop-blur flex items-center justify-between px-4 lg:px-7 sticky top-0 z-30 border-b border-slate-200/80">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <button
+                            onClick={toggleSidebar}
+                            className="p-2 text-slate-500 hover:text-slate-950 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            aria-label="Toggle sidebar"
                         >
-                            <Menu size={24} />
+                            <span className="lg:hidden"><Menu size={22} /></span>
+                            <span className="hidden lg:block">
+                                {isCollapsed ? <PanelLeftOpen size={21} /> : <PanelLeftClose size={21} />}
+                            </span>
                         </button>
-                        <h2 className="hidden md:block text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                            {t('admin.dashboard')} / <span className="text-gray-900">{getTabName(activeTab)}</span>
-                        </h2>
+                        <div className="min-w-0">
+                            <p className="hidden sm:block text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                                {t('admin.dashboard')}
+                            </p>
+                            <h2 className="truncate text-lg font-semibold tracking-tight text-slate-950">
+                                {getTabName(activeTab)}
+                            </h2>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-3 lg:gap-6">
-                        {/* Language Selector */}
-                        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                    <div className="flex items-center gap-2 lg:gap-4">
+                        <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 p-1 rounded-lg">
                             <button
                                 onClick={() => setLanguage('THA')}
                                 className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
                                     language === 'THA'
-                                        ? 'bg-white text-blue-600 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-900'
+                                        ? 'bg-white text-slate-950 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
                                 TH
@@ -247,42 +285,41 @@ export default function AdminDashboard() {
                                 onClick={() => setLanguage('ENG')}
                                 className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
                                     language === 'ENG'
-                                        ? 'bg-white text-blue-600 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-900'
+                                        ? 'bg-white text-slate-950 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
                                 EN
                             </button>
                         </div>
 
-                        <button className="p-2 text-gray-400 hover:text-blue-600 transition relative">
+                        <button className="relative rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Notifications">
                             <Bell size={20} />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                            {pendingUsersCount > 0 && (
+                                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-rose-500"></span>
+                            )}
                         </button>
 
-                        <div className="h-8 w-px bg-gray-200 mx-1 hidden sm:block"></div>
+                        <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
-                        {/* ชื่อผู้ใช้งาน */}
-                        <div className="flex items-center gap-3 pl-2">
+                        <div className="flex items-center gap-3 pl-1">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-semibold text-gray-900 leading-none">
+                                <p className="text-sm font-semibold text-slate-900 leading-none">
                                     {user?.username || 'Admin User'}
                                 </p>
-                                <p className="text-xs font-medium text-gray-500 mt-1">
+                                <p className="text-xs font-medium text-slate-500 mt-1">
                                     {language === 'THA' ? 'ผู้ดูแลระบบ' : 'Administrator'}
                                 </p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-md border-2 border-blue-100">
-                                <User size={20} />
+                            <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-white shadow-sm ring-4 ring-slate-100">
+                                <User size={18} />
                             </div>
                         </div>
                     </div>
                 </header>
 
-                {/* Content Area */}
-                <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-                    <div className="w-full">
-                        {/* Render เนื้อหาตาม Tab */}
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                    <div className="mx-auto w-full max-w-[1600px]">
                         {activeTab === 'home' && <HomeTab />}
                         {activeTab === 'competitions' && <CompetitionsTab />}
                         {activeTab === 'clubs' && <ClubsTab />}
@@ -305,49 +342,48 @@ export default function AdminDashboard() {
     );
 }
 
-// Helper: Sidebar Section Header
 function SectionHeader({ label, isCollapsed }) {
     if (isCollapsed) {
         return (
             <>
-                <div className="border-b border-gray-100 my-4 lg:block hidden" />
-                <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3 lg:hidden">{label}</p>
+                <div className="my-4 hidden border-b border-slate-200 lg:block" />
+                <p className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">{label}</p>
             </>
         );
     }
-    return <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">{label}</p>;
+
+    return <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>;
 }
 
-// Helper: Sidebar Menu Button
 function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
     return (
         <button
             onClick={onClick}
             title={isCollapsed ? label : undefined}
             className={`
-                w-full flex items-center justify-between px-3 py-2.5 my-0.5 rounded-md text-sm font-medium transition-all duration-200 relative cursor-pointer
+                group w-full flex items-center justify-between px-3 py-2.5 my-0.5 rounded-lg text-sm font-medium transition-all duration-200 relative cursor-pointer
                 ${isCollapsed ? 'lg:justify-center' : 'justify-between'}
                 ${active
-                    ? 'bg-blue-50 text-blue-700 font-bold'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-slate-900 text-white font-semibold shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                 }
             `}
         >
             <div className="flex items-center gap-3 min-w-0">
-                <span className={active ? 'text-blue-600 shrink-0' : 'text-gray-400 group-hover:text-gray-500 shrink-0'}>{icon}</span>
+                <span className={active ? 'text-white shrink-0' : 'text-slate-400 group-hover:text-slate-700 shrink-0'}>{icon}</span>
                 <span className={`transition-all duration-200 truncate ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
                     {label}
                 </span>
             </div>
             {!isCollapsed && badge > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium min-w-[20px] text-center shrink-0 ${active ? 'bg-blue-100 text-blue-700' : 'bg-red-50 text-red-600'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold min-w-[20px] text-center shrink-0 ${active ? 'bg-white/15 text-white' : 'bg-rose-50 text-rose-600'}`}>
                     {badge}
                 </span>
             )}
             {isCollapsed && badge > 0 && (
                 <>
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white lg:block hidden"></span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium min-w-[20px] text-center lg:hidden ${active ? 'bg-blue-100 text-blue-700' : 'bg-red-50 text-red-600'}`}>
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border border-white lg:block hidden"></span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold min-w-[20px] text-center lg:hidden ${active ? 'bg-white/15 text-white' : 'bg-rose-50 text-rose-600'}`}>
                         {badge}
                     </span>
                 </>

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, LogOut, User, Edit3, Shield } from "lucide-react";
+import { LogOut, User, Edit3, Shield, Menu, X } from "lucide-react";
 import { api } from "../api";
-import { formatThaiDate, formatThaiTime } from "../utils";
+import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../utils";
 
 import whistleIcon from "../assets/img/whistle.png";
 import Logo from '../assets/img/logo.png';
@@ -23,6 +23,50 @@ const MatchDetail = () => {
     user = null;
   }
   const username = user?.username || user?.name || "Guest";
+
+  const normalizeDisplayText = (value) => {
+    if (value === null || value === undefined) return "";
+    const text = String(value).trim();
+    return text === "0" ? "" : text;
+  };
+
+  const getPlayerName = (player = {}) => {
+    const fullName = normalizeDisplayText(player.name || player.full_name);
+    if (fullName) return fullName;
+
+    const firstName = normalizeDisplayText(player.first_name || player.firstname);
+    const lastName = normalizeDisplayText(player.last_name || player.lastname);
+    const displayName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    return displayName || "-";
+  };
+
+  const getPlayerNumber = (player = {}) => {
+    const number = normalizeDisplayText(player.number || player.jersey_number || player.shirt_number);
+    return number || "-";
+  };
+
+  const isTruthyFlag = (value) => value === true || value === "true" || Number(value) === 1;
+
+  const isLiberoPlayer = (player = {}) => {
+    const role = String(player.role || player.position || "").trim().toUpperCase();
+    return (
+      isTruthyFlag(player.is_libero) ||
+      isTruthyFlag(player.is_libero1) ||
+      isTruthyFlag(player.is_libero2) ||
+      role === "L" ||
+      role === "LIBERO" ||
+      role === "L1" ||
+      role === "L2"
+    );
+  };
+
+  const getLiberoBadge = (player = {}) => {
+    const role = String(player.role || player.position || "").trim().toUpperCase();
+    if (isTruthyFlag(player.is_libero1) || role === "L1") return "L1";
+    if (isTruthyFlag(player.is_libero2) || role === "L2") return "L2";
+    if (isLiberoPlayer(player)) return "L";
+    return "";
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -52,33 +96,35 @@ const MatchDetail = () => {
   const { match, home, away } = data;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
       {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 w-full shadow-sm sticky top-0 z-30">
+      <nav className="bg-white border-b border-blue-100 w-full sticky top-0 z-30">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16 items-center">
                   {/* Logo Section */}
                   <div className="flex items-center gap-3">
-                    <div>
-                      <img src={Logo} alt="Logo" className="w-15 h-15" />
+                    <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden">
+                      <img src={Logo} alt="Logo" className="w-9 h-9 object-contain" />
                     </div>
-                    <span className="text-xl font-bold text-gray-900 tracking-tight uppercase">Volleyball</span>
-                    <span className="text-xl font-bold text-gray-900 tracking-tight uppercase">Scorer Console</span>
+                    <div className="leading-tight">
+                      <div className="text-base font-bold text-blue-950">Volleyball</div>
+                      <div className="text-xs font-medium text-slate-500">Scorer Console</div>
+                    </div>
                   </div>
       
                   {/* Right Section: User Info + Logout */}
-                  <div className="hidden md:flex items-center space-x-6">
-                    <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                      <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
+                  <div className="hidden md:flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-slate-700 font-medium bg-blue-50/60 px-3 py-1.5 rounded-md border border-blue-100">
+                      <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white">
                         <User size={16} />
                       </div>
                       <span className="text-sm">{username}</span>
                     </div>
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 text-gray-500 hover:text-red-600 font-bold text-sm transition-colors group"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md text-blue-700 hover:bg-blue-50 font-semibold text-sm transition-colors"
                     >
-                      <LogOut size={18} className="group-hover:translate-x-0.5 transition-transform" /> 
+                      <LogOut size={17} />
                       Logout
                     </button>
                   </div>
@@ -87,9 +133,10 @@ const MatchDetail = () => {
                   <div className="md:hidden flex items-center">
                     <button
                       onClick={() => setIsOpen(!isOpen)}
-                      className="p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
+                      className="p-2 rounded-md text-blue-700 hover:bg-blue-50 transition-colors"
+                      aria-label={isOpen ? 'Close menu' : 'Open menu'}
                     >
-                      {isOpen ? '✕' : '☰'}
+                      {isOpen ? <X size={20} /> : <Menu size={20} />}
                     </button>
                   </div>
                 </div>
@@ -97,19 +144,19 @@ const MatchDetail = () => {
       
               {/* Mobile Menu */}
               {isOpen && (
-                <div className="md:hidden bg-white border-t border-gray-50 px-4 pt-2 pb-6 space-y-3 shadow-inner">
-                  <div className="flex items-center gap-3 px-2 py-3 bg-gray-50 rounded-xl">
-                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-md">
+                <div className="md:hidden bg-white border-t border-blue-50 px-4 py-4 space-y-3">
+                  <div className="flex items-center gap-3 px-3 py-3 bg-blue-50 rounded-md border border-blue-100">
+                    <div className="w-9 h-9 rounded-md bg-blue-600 flex items-center justify-center text-white">
                       <User size={20} />
                     </div>
                     <div className="flex flex-col">
-                       <span className="text-gray-900 font-bold leading-none">{username}</span>
-                       <span className="text-xs text-gray-500 mt-1 uppercase font-semibold">Match Scorer</span>
+                       <span className="text-blue-950 font-semibold leading-none">{username}</span>
+                       <span className="text-xs text-slate-500 mt-1 font-medium">Match Scorer</span>
                     </div>
                   </div>
                   <button 
                     onClick={handleLogout} 
-                    className="w-full flex items-center justify-center gap-2 py-3 text-red-600 font-bold bg-red-50 hover:bg-red-100 rounded-xl transition-colors mt-2"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-blue-700 font-semibold bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
                   >
                     <LogOut size={20} /> Logout
                   </button>
@@ -118,7 +165,7 @@ const MatchDetail = () => {
             </nav>  
 
       {/* Main Content */}
-      <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 flex flex-col gap-6">
+      <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 flex flex-col gap-6">
         {/* Header with Back Button 
         <div className="flex items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <button 
@@ -129,12 +176,12 @@ const MatchDetail = () => {
           </button>
         </div>
           */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-          <h2 className="text-center text-2xl font-bold text-gray-800 mb-2">{match.competition_title || match.competition_name || "รายการแข่งขัน"}</h2>
-          <div className="flex items-center justify-center gap-8 my-8 flex-wrap">
+        <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-5 sm:p-7">
+          <h2 className="text-center text-xl font-bold text-blue-950 mb-2">{cleanCompetitionTitle(match.competition_title || match.competition_name) || "รายการแข่งขัน"}</h2>
+          <div className="flex items-center justify-center gap-6 my-7 flex-wrap">
             <div className="flex items-center justify-end gap-4 text-right flex-1 min-w-[200px]">
-              <span className="text-2xl font-bold text-gray-800">{match.home_team_name}</span>
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-100 shadow-sm flex-shrink-0">
+              <span className="text-xl font-bold text-slate-800">{match.home_team_name}</span>
+              <div className="w-14 h-14 bg-blue-50 rounded-md flex items-center justify-center overflow-hidden border border-blue-100 flex-shrink-0">
                 {match.home_logo_url ? (
                   <img src={match.home_logo_url} alt={match.home_team_name} className="w-full h-full object-contain p-1" />
                 ) : (
@@ -142,65 +189,65 @@ const MatchDetail = () => {
                 )}
               </div>
             </div>
-            <div className="bg-gray-100 px-6 py-2 rounded-2xl text-3xl font-black tracking-widest text-gray-800">
+            <div className="bg-blue-50 border border-blue-100 px-5 py-2 rounded-md text-2xl font-bold text-blue-950">
               {match.home_set_score || 0} - {match.away_set_score || 0}
             </div>
             <div className="flex items-center justify-start gap-4 text-left flex-1 min-w-[200px]">
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-100 shadow-sm flex-shrink-0">
+              <div className="w-14 h-14 bg-blue-50 rounded-md flex items-center justify-center overflow-hidden border border-blue-100 flex-shrink-0">
                 {match.away_logo_url ? (
                   <img src={match.away_logo_url} alt={match.away_team_name} className="w-full h-full object-contain p-1" />
                 ) : (
                   <Shield className="text-gray-300 w-8 h-8" />
                 )}
               </div>
-              <span className="text-2xl font-bold text-gray-800">{match.away_team_name}</span>
+              <span className="text-xl font-bold text-slate-800">{match.away_team_name}</span>
             </div>
           </div>
 
-          <div className="flex justify-center items-center gap-4 text-gray-500 text-sm mb-10 flex-wrap">
+          <div className="flex justify-center items-center gap-x-4 gap-y-2 text-slate-500 text-sm mb-8 flex-wrap">
             <div className="flex items-center gap-1.5">
-              <span className="font-medium text-gray-700">คู่ที่:</span>
+              <span className="font-semibold text-slate-700">คู่ที่:</span>
               {match.match_number || "-"}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-medium text-gray-700">วันที่:</span>
+              <span className="font-semibold text-slate-700">วันที่:</span>
               {match.start_date || match.match_date
                 ? formatThaiDate(match.start_date || match.match_date)
                 : "TBD"}
             </div>
             <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
             <div className="flex items-center gap-1.5">
-              <span className="font-medium text-gray-700">เวลา:</span>
+              <span className="font-semibold text-slate-700">เวลา:</span>
               {match.start_time
                 ? (match.start_time.includes('T') ? formatThaiTime(match.start_time) : match.start_time.substring(0, 5))
                 : "TBD"}
             </div>
             <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
             <div className="flex items-center gap-1.5">
-              <span className="font-medium text-gray-700">สนาม:</span>
+              <span className="font-semibold text-slate-700">สนาม:</span>
               {match.stadium_name || match.location || "-"}
             </div>
             <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
             <div className="flex items-center gap-1.5">
-              <span className="font-medium text-gray-700">รอบ:</span>
+              <span className="font-semibold text-slate-700">รอบ:</span>
               {match.round_name || "-"}
             </div>
           </div>
 
           {/* Action Panels */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Score Control Panel */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-              <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-                <h3 className="text-orange-600 font-bold text-lg">Score Control</h3>
+            <div className="bg-white rounded-lg border border-blue-100 overflow-hidden flex flex-col">
+              <div className="px-5 py-3 border-b border-blue-100 bg-blue-50/60">
+                <h3 className="text-blue-800 font-semibold">Score Control</h3>
               </div>
-              <div className="p-8 flex flex-col items-center justify-center flex-1 gap-8">
-                <div className="bg-orange-50 p-6 rounded-[2rem]">
-                   <Edit3 size={80} className="text-orange-500" />
+              <div className="p-6 flex flex-col items-center justify-center flex-1 gap-5">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                   <Edit3 size={48} className="text-blue-600" />
                 </div>
                 <button
                   onClick={() => navigate(`/scorer/${matchId}`)}
-                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-orange-200 hover:shadow-orange-300 transition-all active:scale-95 text-sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-md transition-colors text-sm"
                 >
                   Go to Scorer Console
                 </button>
@@ -208,17 +255,17 @@ const MatchDetail = () => {
             </div>
 
             {/* Referee View Panel */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-              <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-                <h3 className="text-blue-600 font-bold text-lg">Referee view</h3>
+            <div className="bg-white rounded-lg border border-blue-100 overflow-hidden flex flex-col">
+              <div className="px-5 py-3 border-b border-blue-100 bg-blue-50/60">
+                <h3 className="text-blue-800 font-semibold">Referee view</h3>
               </div>
-              <div className="p-8 flex flex-col items-center justify-center flex-1 gap-8">
+              <div className="p-6 flex flex-col items-center justify-center flex-1 gap-5">
                 <div>
-                  <img src={whistleIcon} alt="Whistle Icon" className="w-40 h-40" />
+                  <img src={whistleIcon} alt="Whistle Icon" className="w-20 h-20 object-contain" />
                 </div>
                 <button
                   onClick={() => window.open(`/match/${matchId}/referee`, '_blank')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-200 hover:shadow-blue-300 transition-all active:scale-95 text-sm"
+                  className="bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-semibold py-2.5 px-6 rounded-md transition-colors text-sm"
                 >
                   Open in a browser tab
                 </button>
@@ -228,17 +275,17 @@ const MatchDetail = () => {
         </div>
 
         {/* Rosters Section (Players Only) */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-8">
-          <h3 className="text-xl font-bold text-gray-800 mb-8 border-l-4 border-black-600 pl-4">รายชื่อนักกีฬา (Match Rosters)</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-5 sm:p-7">
+          <h3 className="text-lg font-bold text-blue-950 mb-6 border-l-4 border-blue-600 pl-3">รายชื่อนักกีฬา (Match Rosters)</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Home Players */}
             <div className="space-y-4">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-black-600">
-                <h4 className="text-lg font-bold">{match.home_team_name}</h4>
+              <div className="flex items-center gap-3 pb-2 border-b border-blue-200">
+                <h4 className="font-semibold text-blue-950">{match.home_team_name}</h4>
               </div>
-              <div className="overflow-hidden rounded-xl border border-gray-100 shadow-sm">
+              <div className="overflow-hidden rounded-md border border-blue-100">
                 <table className="w-full text-sm border-collapse">
-                  <thead className="bg-gray-50 text-black-700">
+                  <thead className="bg-blue-50/60 text-slate-600">
                     <tr>
                       <th className="text-center py-3 px-4 w-16">รูปภาพ</th>
                       <th className="text-center py-3 px-4 w-16">No.</th>
@@ -248,21 +295,21 @@ const MatchDetail = () => {
                   </thead>
                   <tbody className="bg-white">
                     {home.players && home.players.length > 0 ? home.players.map(player => (
-                      <tr key={player.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                      <tr key={player.id} className="border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors">
                         <td className="py-3 px-4 text-center">
-                          <div className="w-10 h-10 mx-auto bg-gray-50 rounded-full overflow-hidden border border-gray-200 shadow-sm flex items-center justify-center">
+                          <div className="w-10 h-10 mx-auto bg-slate-50 rounded-md overflow-hidden border border-blue-100 flex items-center justify-center">
                             {player.photo ? (
-                              <img src={player.photo} alt={player.first_name} className="w-full h-full object-cover" />
+                              <img src={player.photo} alt={getPlayerName(player)} className="w-full h-full object-cover" />
                             ) : (
                               <User size={18} className="text-gray-400" />
                             )}
                           </div>
                         </td>
-                        <td className="text-center py-3 px-4 font-bold text-gray-900">{player.number}</td>
-                        <td className="py-3 px-4 text-gray-700">
-                          {player.first_name} {player.last_name}
-                          {player.is_captain && <span className="ml-1 text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-md font-bold">(C)</span>}
-                          {player.is_libero && <span className="ml-1 text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-md font-bold">(L)</span>}
+                        <td className="text-center py-3 px-4 font-bold text-blue-950">{getPlayerNumber(player)}</td>
+                        <td className="py-3 px-4 text-slate-700">
+                          {getPlayerName(player)}
+                          {player.is_captain && <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-bold">(C)</span>}
+                          {getLiberoBadge(player) && <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-md font-bold">({getLiberoBadge(player)})</span>}
                         </td>
                         
                       </tr>
@@ -274,12 +321,12 @@ const MatchDetail = () => {
 
             {/* Away Players */}
             <div className="space-y-4">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-black-600">
-                <h4 className="text-lg font-bold">{match.away_team_name}</h4>
+              <div className="flex items-center gap-3 pb-2 border-b border-blue-200">
+                <h4 className="font-semibold text-blue-950">{match.away_team_name}</h4>
               </div>
-              <div className="overflow-hidden rounded-xl border border-gray-100 shadow-sm">
+              <div className="overflow-hidden rounded-md border border-blue-100">
                 <table className="w-full text-sm border-collapse">
-                  <thead className="bg-gray-50 text-black-700">
+                  <thead className="bg-blue-50/60 text-slate-600">
                     <tr>
                       <th className="text-center py-3 px-4 w-16">รูปภาพ</th>
                       <th className="text-center py-3 px-4 w-16">No.</th>
@@ -289,21 +336,21 @@ const MatchDetail = () => {
                   </thead>
                   <tbody className="bg-white">
                     {away.players && away.players.length > 0 ? away.players.map(player => (
-                      <tr key={player.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                      <tr key={player.id} className="border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors">
                         <td className="py-3 px-4 text-center">
-                          <div className="w-10 h-10 mx-auto bg-gray-50 rounded-full overflow-hidden border border-gray-200 shadow-sm flex items-center justify-center">
+                          <div className="w-10 h-10 mx-auto bg-slate-50 rounded-md overflow-hidden border border-blue-100 flex items-center justify-center">
                             {player.photo ? (
-                              <img src={player.photo} alt={player.first_name} className="w-full h-full object-cover" />
+                              <img src={player.photo} alt={getPlayerName(player)} className="w-full h-full object-cover" />
                             ) : (
                               <User size={18} className="text-gray-400" />
                             )}
                           </div>
                         </td>
-                        <td className="text-center py-3 px-4 font-bold text-gray-900">{player.number}</td>
-                        <td className="py-3 px-4 text-gray-700">
-                          {player.first_name} {player.last_name}
-                          {player.is_captain && <span className="ml-1 text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-md font-bold">(C)</span>}
-                          {player.is_libero && <span className="ml-1 text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-md font-bold">(L)</span>}
+                        <td className="text-center py-3 px-4 font-bold text-blue-950">{getPlayerNumber(player)}</td>
+                        <td className="py-3 px-4 text-slate-700">
+                          {getPlayerName(player)}
+                          {player.is_captain && <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-bold">(C)</span>}
+                          {getLiberoBadge(player) && <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-md font-bold">({getLiberoBadge(player)})</span>}
                         </td>
                       
                       </tr>
@@ -316,17 +363,17 @@ const MatchDetail = () => {
         </div>
 
         {/* Staff Section (Separated) */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-          <h3 className="text-xl font-bold text-gray-800 mb-8 border-l-4 border-black-500 pl-4">เจ้าหน้าที่ทีม (Team Staff)</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-5 sm:p-7">
+          <h3 className="text-lg font-bold text-blue-950 mb-6 border-l-4 border-blue-600 pl-3">เจ้าหน้าที่ทีม (Team Staff)</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Home Staff */}
             <div className="space-y-4">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-black-600">
-                <h4 className="text-lg font-bold">{match.home_team_name}</h4>
+              <div className="flex items-center gap-3 pb-2 border-b border-blue-200">
+                <h4 className="font-semibold text-blue-950">{match.home_team_name}</h4>
               </div>
-              <div className="overflow-hidden rounded-xl border border-gray-100 shadow-sm">
+              <div className="overflow-hidden rounded-md border border-blue-100">
                 <table className="w-full text-xs border-collapse">
-                  <thead className="bg-gray-50 text-gray-600">
+                  <thead className="bg-blue-50/60 text-slate-600">
                     <tr>
                       <th className="text-left py-2.5 px-4 w-32 font-semibold">ตำแหน่ง</th>
                       <th className="text-left py-2.5 px-4 font-semibold">ชื่อ - นามสกุล</th>
@@ -334,7 +381,7 @@ const MatchDetail = () => {
                   </thead>
                   <tbody className="bg-white">
                     {home.staff && home.staff.length > 0 ? home.staff.map((s, idx) => (
-                      <tr key={idx} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                      <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors">
                         <td className="py-2.5 px-4 text-gray-500">{s.role}</td>
                         <td className="py-2.5 px-4 text-gray-800 font-medium">{s.first_name} {s.last_name}</td>
                       </tr>
@@ -346,12 +393,12 @@ const MatchDetail = () => {
 
             {/* Away Staff */}
             <div className="space-y-4">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-black-600">
-                <h4 className="text-lg font-bold">{match.away_team_name}</h4>
+              <div className="flex items-center gap-3 pb-2 border-b border-blue-200">
+                <h4 className="font-semibold text-blue-950">{match.away_team_name}</h4>
               </div>
-              <div className="overflow-hidden rounded-xl border border-gray-100 shadow-sm">
+              <div className="overflow-hidden rounded-md border border-blue-100">
                 <table className="w-full text-xs border-collapse">
-                  <thead className="bg-gray-50 text-gray-600">
+                  <thead className="bg-blue-50/60 text-slate-600">
                     <tr>
                       <th className="text-left py-2.5 px-4 w-32 font-semibold">ตำแหน่ง</th>
                       <th className="text-left py-2.5 px-4 font-semibold">ชื่อ - นามสกุล</th>
@@ -359,7 +406,7 @@ const MatchDetail = () => {
                   </thead>
                   <tbody className="bg-white">
                     {away.staff && away.staff.length > 0 ? away.staff.map((s, idx) => (
-                      <tr key={idx} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                      <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors">
                         <td className="py-2.5 px-4 text-gray-500">{s.role}</td>
                         <td className="py-2.5 px-4 text-gray-800 font-medium">{s.first_name} {s.last_name}</td>
                       </tr>
@@ -373,7 +420,7 @@ const MatchDetail = () => {
       </div>
 
       {/* Fixed Footer */}
-      <footer className="bg-white border-t border-gray-200 py-4 text-center text-sm w-full fixed bottom-0 left-0 z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] text-gray-500 font-medium">
+      <footer className="bg-white border-t border-blue-100 py-3 text-center text-xs w-full fixed bottom-0 left-0 z-30 text-slate-500">
         <div className="max-w-7xl mx-auto px-4">
           &copy; {new Date().getFullYear()} Volleyball Scorer Console. All rights reserved.
         </div>

@@ -197,7 +197,7 @@ export default function EScoreTab() {
                                     </div>
                                     <button
                                         onClick={() => setActiveMatch(m)}
-                                        className={`px-6 py-3 rounded-md font-bold flex items-center gap-2 shadow-lg transition-all transform active:scale-95 ${isCompleted ? 'bg-gray-200 text-gray-600' : 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:from-rose-600 hover:to-pink-700 shadow-rose-500/30'}`}
+                                        className={`px-5 py-2.5 rounded-md font-medium flex items-center gap-2 transition-colors ${isCompleted ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                                     >
                                         <PlayCircle size={20} /> {isCompleted ? 'View Record' : 'Start Recording'}
                                     </button>

@@ -1,0 +1,244 @@
+[dotenv@17.2.3] injecting env (9) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+🚀 Server running on port 3000
+🔗 API Endpoint: http://localhost:3000/api
+Connected to MySQL
+🔌 Socket connected: uJA4bMqmq7_QRGzZAAAB
+👤 Socket uJA4bMqmq7_QRGzZAAAB joined room match_1 as scorer (N/A)
+❌ Socket disconnected: uJA4bMqmq7_QRGzZAAAB
+🔌 Socket connected: Yoy0yxcL5mZ2CXHCAAAE
+👤 Socket Yoy0yxcL5mZ2CXHCAAAE joined room match_1 as scorer (N/A)
+❌ Socket disconnected: Yoy0yxcL5mZ2CXHCAAAE
+🔌 Socket connected: vhPNhvCVn7s6ZNPsAAAH
+👤 Socket vhPNhvCVn7s6ZNPsAAAH joined room match_1 as scorer (N/A)
+🔌 Socket connected: 7BqkWE4SHchPS219AAAK
+👤 Socket 7BqkWE4SHchPS219AAAK joined room match_1 as referee (N/A)
+❌ Socket disconnected: 7BqkWE4SHchPS219AAAK
+🔌 Socket connected: yeGysyvjCx6gM12-AAAM
+👤 Socket yeGysyvjCx6gM12-AAAM joined room match_1 as referee (N/A)
+❌ Socket disconnected: yeGysyvjCx6gM12-AAAM
+🔌 Socket connected: b1w1q4ayBc3L4OqXAAAP
+👤 Socket b1w1q4ayBc3L4OqXAAAP joined room match_1 as referee (N/A)
+❌ Socket disconnected: b1w1q4ayBc3L4OqXAAAP
+🔌 Socket connected: rTVVeo991OMHMV3wAAAR
+👤 Socket rTVVeo991OMHMV3wAAAR joined room match_1 as referee (N/A)
+❌ Socket disconnected: rTVVeo991OMHMV3wAAAR
+🔌 Socket connected: cckhDIbxUW-kdY0yAAAU
+👤 Socket cckhDIbxUW-kdY0yAAAU joined room match_1 as referee (N/A)
+❌ Socket disconnected: cckhDIbxUW-kdY0yAAAU
+🔌 Socket connected: KsBsVdSvzPz0yuJtAAAW
+👤 Socket KsBsVdSvzPz0yuJtAAAW joined room match_1 as referee (N/A)
+❌ Socket disconnected: vhPNhvCVn7s6ZNPsAAAH
+🔌 Socket connected: R-G9KR1BIa4ZUuU0AAAZ
+👤 Socket R-G9KR1BIa4ZUuU0AAAZ joined room match_1 as scorer (N/A)
+❌ Socket disconnected: R-G9KR1BIa4ZUuU0AAAZ
+🔌 Socket connected: mBRGvQTLZPD_LwBXAAAc
+👤 Socket mBRGvQTLZPD_LwBXAAAc joined room match_1 as scorer (N/A)
+❌ Socket disconnected: mBRGvQTLZPD_LwBXAAAc
+🔌 Socket connected: c3WqF4syKMeaJzl9AAAf
+👤 Socket c3WqF4syKMeaJzl9AAAf joined room match_1 as scorer (N/A)
+❌ Socket disconnected: c3WqF4syKMeaJzl9AAAf
+🔌 Socket connected: yE5lKLx_5IG2v9jbAAAi
+👤 Socket yE5lKLx_5IG2v9jbAAAi joined room match_1 as scorer (N/A)
+❌ Socket disconnected: yE5lKLx_5IG2v9jbAAAi
+❌ Socket disconnected: KsBsVdSvzPz0yuJtAAAW
+🔌 Socket connected: iyB53sgrKJMz7fW3AAAl
+👤 Socket iyB53sgrKJMz7fW3AAAl joined room match_1 as scorer (N/A)
+❌ Socket disconnected: iyB53sgrKJMz7fW3AAAl
+🔌 Socket connected: Gcp3Vqoa0bKigtReAAAn
+👤 Socket Gcp3Vqoa0bKigtReAAAn joined room match_1 as scorer (N/A)
+❌ Socket disconnected: Gcp3Vqoa0bKigtReAAAn
+🔌 Socket connected: tNOp5StLA-onqIneAAAp
+👤 Socket tNOp5StLA-onqIneAAAp joined room match_1 as scorer (N/A)
+❌ Socket disconnected: tNOp5StLA-onqIneAAAp
+🔌 Socket connected: fOhuHU8wvmMVjR_0AAAr
+👤 Socket fOhuHU8wvmMVjR_0AAAr joined room match_1 as scorer (N/A)
+❌ Socket disconnected: fOhuHU8wvmMVjR_0AAAr
+🔌 Socket connected: f0cbOC3NRh0ECcwfAAAt
+👤 Socket f0cbOC3NRh0ECcwfAAAt joined room match_1 as scorer (N/A)
+❌ Socket disconnected: f0cbOC3NRh0ECcwfAAAt
+🔌 Socket connected: bDdeZyl80lzD8dBqAAAv
+👤 Socket bDdeZyl80lzD8dBqAAAv joined room match_1 as scorer (N/A)
+❌ Socket disconnected: bDdeZyl80lzD8dBqAAAv
+🔌 Socket connected: DYTcxKBVkbsyKZ0CAAAx
+👤 Socket DYTcxKBVkbsyKZ0CAAAx joined room match_1 as scorer (N/A)
+❌ Socket disconnected: DYTcxKBVkbsyKZ0CAAAx
+🔌 Socket connected: 8ncceBA7I53apq7pAAA0
+👤 Socket 8ncceBA7I53apq7pAAA0 joined room match_1 as scorer (N/A)
+❌ Socket disconnected: 8ncceBA7I53apq7pAAA0
+🔌 Socket connected: ytUfcmVmW4CtYf-zAAA3
+👤 Socket ytUfcmVmW4CtYf-zAAA3 joined room match_1 as scorer (N/A)
+❌ Socket disconnected: ytUfcmVmW4CtYf-zAAA3
+🔌 Socket connected: W_jgad9B8c6jrtiMAAA5
+👤 Socket W_jgad9B8c6jrtiMAAA5 joined room match_1 as scorer (N/A)
+❌ Socket disconnected: W_jgad9B8c6jrtiMAAA5
+🔌 Socket connected: a0fwqTfASUVwS-hoAAA7
+👤 Socket a0fwqTfASUVwS-hoAAA7 joined room match_1 as scorer (N/A)
+❌ Socket disconnected: a0fwqTfASUVwS-hoAAA7
+🔌 Socket connected: nRgL8rtwJdxtwDYxAAA9
+👤 Socket nRgL8rtwJdxtwDYxAAA9 joined room match_1 as scorer (N/A)
+❌ Socket disconnected: nRgL8rtwJdxtwDYxAAA9
+🔌 Socket connected: za3sJJxhkS_V4O4qAAA_
+👤 Socket za3sJJxhkS_V4O4qAAA_ joined room match_1 as scorer (N/A)
+❌ Socket disconnected: za3sJJxhkS_V4O4qAAA_
+🔌 Socket connected: Zx1KUj06HdDh0yd2AABB
+👤 Socket Zx1KUj06HdDh0yd2AABB joined room match_1 as scorer (N/A)
+❌ Socket disconnected: Zx1KUj06HdDh0yd2AABB
+🔌 Socket connected: eIHFTOdPaesfI0F3AABD
+👤 Socket eIHFTOdPaesfI0F3AABD joined room match_1 as scorer (N/A)
+❌ Socket disconnected: eIHFTOdPaesfI0F3AABD
+🔌 Socket connected: F4CE7N93Qjj8I5JAAABG
+👤 Socket F4CE7N93Qjj8I5JAAABG joined room match_1 as scorer (N/A)
+❌ Socket disconnected: F4CE7N93Qjj8I5JAAABG
+🔌 Socket connected: WHKiyvjTqMR93rKSAABI
+👤 Socket WHKiyvjTqMR93rKSAABI joined room match_1 as scorer (N/A)
+❌ Socket disconnected: WHKiyvjTqMR93rKSAABI
+🔌 Socket connected: 7vadAk_AZqYj8S2bAABL
+👤 Socket 7vadAk_AZqYj8S2bAABL joined room match_1 as scorer (N/A)
+❌ Socket disconnected: 7vadAk_AZqYj8S2bAABL
+🔌 Socket connected: r61IEwAqGSbr-5NbAABN
+👤 Socket r61IEwAqGSbr-5NbAABN joined room match_1 as scorer (N/A)
+❌ Socket disconnected: r61IEwAqGSbr-5NbAABN
+🔌 Socket connected: BxA8tVRAp9jyuWPQAABP
+👤 Socket BxA8tVRAp9jyuWPQAABP joined room match_1 as scorer (N/A)
+❌ Socket disconnected: BxA8tVRAp9jyuWPQAABP
+🔌 Socket connected: fEAPqzntxJ9VOqOqAABR
+👤 Socket fEAPqzntxJ9VOqOqAABR joined room match_1 as scorer (N/A)
+❌ Socket disconnected: fEAPqzntxJ9VOqOqAABR
+🔌 Socket connected: Ktm6O3J1SaBaioL2AABU
+👤 Socket Ktm6O3J1SaBaioL2AABU joined room match_1 as scorer (N/A)
+🔌 Socket connected: PSG6urUczFW1V_r7AABX
+👤 Socket PSG6urUczFW1V_r7AABX joined room match_2 as scorer (N/A)
+❌ Socket disconnected: Ktm6O3J1SaBaioL2AABU
+❌ Socket disconnected: PSG6urUczFW1V_r7AABX
+🔌 Socket connected: 3BOvUh7ZLjHYanWFAABZ
+👤 Socket 3BOvUh7ZLjHYanWFAABZ joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 3BOvUh7ZLjHYanWFAABZ
+🔌 Socket connected: 5YeiiKhSok9u0r-gAABb
+👤 Socket 5YeiiKhSok9u0r-gAABb joined room match_2 as scorer (N/A)
+🔌 Socket connected: zL0OTg_3v1W_Vz5eAABd
+👤 Socket zL0OTg_3v1W_Vz5eAABd joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 5YeiiKhSok9u0r-gAABb
+❌ Socket disconnected: zL0OTg_3v1W_Vz5eAABd
+🔌 Socket connected: hxkjtIqBxF5PgDhtAABf
+👤 Socket hxkjtIqBxF5PgDhtAABf joined room match_2 as scorer (N/A)
+❌ Socket disconnected: hxkjtIqBxF5PgDhtAABf
+🔌 Socket connected: VMhbrhG5wn-I6Og7AABi
+👤 Socket VMhbrhG5wn-I6Og7AABi joined room match_2 as scorer (N/A)
+❌ Socket disconnected: VMhbrhG5wn-I6Og7AABi
+🔌 Socket connected: 0jQWBPFGISa-N_MqAABl
+👤 Socket 0jQWBPFGISa-N_MqAABl joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 0jQWBPFGISa-N_MqAABl
+🔌 Socket connected: 5Q5LGlPekvui6oObAABo
+👤 Socket 5Q5LGlPekvui6oObAABo joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 5Q5LGlPekvui6oObAABo
+🔌 Socket connected: cs_g3AyPw9LG8uSsAABr
+👤 Socket cs_g3AyPw9LG8uSsAABr joined room match_2 as scorer (N/A)
+❌ Socket disconnected: cs_g3AyPw9LG8uSsAABr
+🔌 Socket connected: u6Ty5-p0q36tP_G-AABt
+👤 Socket u6Ty5-p0q36tP_G-AABt joined room match_2 as scorer (N/A)
+❌ Socket disconnected: u6Ty5-p0q36tP_G-AABt
+🔌 Socket connected: lsHUxPT9Y0ExK69GAABw
+👤 Socket lsHUxPT9Y0ExK69GAABw joined room match_2 as scorer (N/A)
+❌ Socket disconnected: lsHUxPT9Y0ExK69GAABw
+🔌 Socket connected: v_TAaLvNUZp2fobnAABy
+👤 Socket v_TAaLvNUZp2fobnAABy joined room match_2 as scorer (N/A)
+❌ Socket disconnected: v_TAaLvNUZp2fobnAABy
+🔌 Socket connected: IHbXiOGaLiJRHV9GAAB0
+👤 Socket IHbXiOGaLiJRHV9GAAB0 joined room match_2 as scorer (N/A)
+❌ Socket disconnected: IHbXiOGaLiJRHV9GAAB0
+🔌 Socket connected: 6KN5LAmaCTvZEefHAAB2
+👤 Socket 6KN5LAmaCTvZEefHAAB2 joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 6KN5LAmaCTvZEefHAAB2
+🔌 Socket connected: R5gOLl7T_5B6FVWOAAB4
+👤 Socket R5gOLl7T_5B6FVWOAAB4 joined room match_2 as scorer (N/A)
+❌ Socket disconnected: R5gOLl7T_5B6FVWOAAB4
+🔌 Socket connected: 4FdOFztO3nAs7bQrAAB6
+👤 Socket 4FdOFztO3nAs7bQrAAB6 joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 4FdOFztO3nAs7bQrAAB6
+🔌 Socket connected: RK0g_L34MYyKz0GuAAB8
+👤 Socket RK0g_L34MYyKz0GuAAB8 joined room match_2 as scorer (N/A)
+❌ Socket disconnected: RK0g_L34MYyKz0GuAAB8
+🔌 Socket connected: _grGNaWt1yx2PIoxAAB-
+👤 Socket _grGNaWt1yx2PIoxAAB- joined room match_2 as scorer (N/A)
+❌ Socket disconnected: _grGNaWt1yx2PIoxAAB-
+🔌 Socket connected: lkNHpNPTnGJJMOfmAACA
+👤 Socket lkNHpNPTnGJJMOfmAACA joined room match_2 as scorer (N/A)
+❌ Socket disconnected: lkNHpNPTnGJJMOfmAACA
+🔌 Socket connected: iC-feKxS1EgZw6b4AACC
+👤 Socket iC-feKxS1EgZw6b4AACC joined room match_2 as scorer (N/A)
+❌ Socket disconnected: iC-feKxS1EgZw6b4AACC
+🔌 Socket connected: bKfsOQf3_2LBFf7fAACE
+👤 Socket bKfsOQf3_2LBFf7fAACE joined room match_2 as scorer (N/A)
+❌ Socket disconnected: bKfsOQf3_2LBFf7fAACE
+🔌 Socket connected: kC4Dw3U7bxK02lvSAACG
+👤 Socket kC4Dw3U7bxK02lvSAACG joined room match_2 as scorer (N/A)
+❌ Socket disconnected: kC4Dw3U7bxK02lvSAACG
+🔌 Socket connected: MiHZycMKHwF1ZTYpAACI
+👤 Socket MiHZycMKHwF1ZTYpAACI joined room match_2 as scorer (N/A)
+❌ Socket disconnected: MiHZycMKHwF1ZTYpAACI
+🔌 Socket connected: _Jk-aUWRGZ7x5_6qAACK
+👤 Socket _Jk-aUWRGZ7x5_6qAACK joined room match_2 as scorer (N/A)
+❌ Socket disconnected: _Jk-aUWRGZ7x5_6qAACK
+🔌 Socket connected: evIHRCeQga4DVrnZAACM
+👤 Socket evIHRCeQga4DVrnZAACM joined room match_2 as scorer (N/A)
+❌ Socket disconnected: evIHRCeQga4DVrnZAACM
+🔌 Socket connected: n4tfVnymrAkO2PEIAACO
+👤 Socket n4tfVnymrAkO2PEIAACO joined room match_2 as scorer (N/A)
+❌ Socket disconnected: n4tfVnymrAkO2PEIAACO
+🔌 Socket connected: IhrFJZKezQEq2xfdAACQ
+👤 Socket IhrFJZKezQEq2xfdAACQ joined room match_2 as scorer (N/A)
+❌ Socket disconnected: IhrFJZKezQEq2xfdAACQ
+🔌 Socket connected: 2cSUVcSVXbeQog3fAACS
+👤 Socket 2cSUVcSVXbeQog3fAACS joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 2cSUVcSVXbeQog3fAACS
+🔌 Socket connected: hqKsLuYWowQUnCK8AACV
+👤 Socket hqKsLuYWowQUnCK8AACV joined room match_2 as scorer (N/A)
+❌ Socket disconnected: hqKsLuYWowQUnCK8AACV
+🔌 Socket connected: pTbGp8qupMW3c4vcAACY
+👤 Socket pTbGp8qupMW3c4vcAACY joined room match_2 as scorer (N/A)
+❌ Socket disconnected: pTbGp8qupMW3c4vcAACY
+🔌 Socket connected: c4LJSXlZNSYqc9TyAACb
+👤 Socket c4LJSXlZNSYqc9TyAACb joined room match_2 as scorer (N/A)
+❌ Socket disconnected: c4LJSXlZNSYqc9TyAACb
+🔌 Socket connected: xZpsxHQlaBK6-wZZAACd
+👤 Socket xZpsxHQlaBK6-wZZAACd joined room match_2 as scorer (N/A)
+❌ Socket disconnected: xZpsxHQlaBK6-wZZAACd
+🔌 Socket connected: LhGy5YB5k2MqX57hAACg
+👤 Socket LhGy5YB5k2MqX57hAACg joined room match_2 as scorer (N/A)
+[teamController.updatePlayer] id=1 received is_playing=undefined normalized=undefined
+[teamController.updatePlayer] id=1 updateFields=first_name=?, last_name=?, number=?, position=?, height_cm=?, weight=?, birth_date=?, is_captain=?, gender=?, nickname=?, nationality=?, photo=?, is_libero1=?, is_libero2=? updateValues=[null,null,1,"OH",null,null,null,true,"Male",null,null,null,false,false]
+[teamController.updatePlayer] id=4 received is_playing=undefined normalized=undefined
+[teamController.updatePlayer] id=4 updateFields=first_name=?, last_name=?, number=?, position=?, height_cm=?, weight=?, birth_date=?, is_captain=?, gender=?, nickname=?, nationality=?, photo=?, is_libero1=?, is_libero2=? updateValues=[null,null,4,"L",null,null,null,false,"Male",null,null,null,true,false]
+[teamController.updatePlayer] id=8 received is_playing=undefined normalized=undefined
+[teamController.updatePlayer] id=8 updateFields=first_name=?, last_name=?, number=?, position=?, height_cm=?, weight=?, birth_date=?, is_captain=?, gender=?, nickname=?, nationality=?, photo=?, is_libero1=?, is_libero2=? updateValues=[null,null,8,"L",null,null,null,false,"Male",null,null,null,false,true]
+❌ Socket disconnected: LhGy5YB5k2MqX57hAACg
+🔌 Socket connected: i3xD2_wj5z9D0Ay5AACj
+👤 Socket i3xD2_wj5z9D0Ay5AACj joined room match_2 as scorer (N/A)
+[teamController.updatePlayer] id=21 received is_playing=undefined normalized=undefined
+[teamController.updatePlayer] id=21 updateFields=first_name=?, last_name=?, number=?, position=?, height_cm=?, weight=?, birth_date=?, is_captain=?, gender=?, nickname=?, nationality=?, photo=?, is_libero1=?, is_libero2=? updateValues=[null,null,5,"OH",null,null,null,true,"Male",null,null,null,false,false]
+[teamController.updatePlayer] id=23 received is_playing=undefined normalized=undefined
+[teamController.updatePlayer] id=23 updateFields=first_name=?, last_name=?, number=?, position=?, height_cm=?, weight=?, birth_date=?, is_captain=?, gender=?, nickname=?, nationality=?, photo=?, is_libero1=?, is_libero2=? updateValues=[null,null,7,"L",null,null,null,false,"Male",null,null,null,true,false]
+[teamController.updatePlayer] id=30 received is_playing=undefined normalized=undefined
+[teamController.updatePlayer] id=30 updateFields=first_name=?, last_name=?, number=?, position=?, height_cm=?, weight=?, birth_date=?, is_captain=?, gender=?, nickname=?, nationality=?, photo=?, is_libero1=?, is_libero2=? updateValues=[null,null,14,"L",null,null,null,false,"Male",null,null,null,false,true]
+❌ Socket disconnected: i3xD2_wj5z9D0Ay5AACj
+🔌 Socket connected: xY7gg3fqadpp6p17AACm
+👤 Socket xY7gg3fqadpp6p17AACm joined room match_2 as scorer (N/A)
+❌ Socket disconnected: xY7gg3fqadpp6p17AACm
+🔌 Socket connected: Xq906VyQywuxbZKRAACp
+👤 Socket Xq906VyQywuxbZKRAACp joined room match_2 as scorer (N/A)
+❌ Socket disconnected: Xq906VyQywuxbZKRAACp
+🔌 Socket connected: 45M83ek2GXO3SE2eAACr
+👤 Socket 45M83ek2GXO3SE2eAACr joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 45M83ek2GXO3SE2eAACr
+🔌 Socket connected: 2gCdApH-mPsVAgoEAACu
+👤 Socket 2gCdApH-mPsVAgoEAACu joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 2gCdApH-mPsVAgoEAACu
+🔌 Socket connected: 5UxN_1vYZ66FQzZAAACx
+👤 Socket 5UxN_1vYZ66FQzZAAACx joined room match_2 as scorer (N/A)
+❌ Socket disconnected: 5UxN_1vYZ66FQzZAAACx
+🔌 Socket connected: wkzRQtVc23MN2QXvAAC0
+👤 Socket wkzRQtVc23MN2QXvAAC0 joined room match_2 as scorer (N/A)
+❌ Socket disconnected: wkzRQtVc23MN2QXvAAC0

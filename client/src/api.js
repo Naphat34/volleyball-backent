@@ -33,6 +33,7 @@ export const api = {
   login: (credentials) => apiClient.post('/auth/login', credentials),
   register: (data) => apiClient.post('/auth/register', data),
   logout: () => apiClient.post('/auth/logout'),
+  uploadImage: (image) => apiClient.post('/upload-image', { image }),
 
   // Admin
   getPendingUsers: () => apiClient.get('/admin/pending-users'),
@@ -43,6 +44,7 @@ export const api = {
   getMyTeam: () => apiClient.get('/my-team'),
   updateMyTeam: (data) => apiClient.put('/my-team', data),
   getMyMatches: () => apiClient.get('/my-team/matches'),
+  getMyMatchesByGender: (gender) => apiClient.get(`/my-team/matches/${gender}`),
 
   // ข้อมูลเดิม (ถ้ามี)
   getPlayers: () => apiClient.get('/players'),
@@ -70,6 +72,8 @@ export const api = {
   deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
 
   getAllTeams: () => apiClient.get('/admin/teams'),
+  getAllTeamEntries: () => apiClient.get('/admin/team-entries'),
+  updateTeamEntryStatus: (entryId, status) => apiClient.patch(`/admin/team-entries/${entryId}/status`, { status }),
   createTeam: (data) => apiClient.post('/admin/teams', data),
   updateTeam: (id, data) => apiClient.put(`/admin/teams/${id}`, data),
   deleteTeam: (id) => apiClient.delete(`/admin/teams/${id}`),
@@ -83,12 +87,23 @@ export const api = {
 
   getOpenCompetitions: () => apiClient.get('/competitions/open'),
   getMyCompetitions: () => apiClient.get('/my-team/competitions'),
+  getMyTeamEntries: () => apiClient.get('/my-team/entries'),
+  getMyTeamEntryPlayers: (entryId) => apiClient.get(`/my-team/entries/${entryId}/players`),
+  updateMyTeamEntryPlayers: (entryId, player_ids) => apiClient.put(`/my-team/entries/${entryId}/players`, { player_ids }),
   getPublicCompetitionMatches: (id) => apiClient.get(`/public/competitions/${id}/matches`),
   getPublicCompetitionTeams: (id) => apiClient.get(`/public/competitions/${id}/teams`),
   getPublicTeamsList: () => apiClient.get('/public/teams'),
   getPublicMatches: () => apiClient.get('/public/matches'),
-  joinCompetition: (competition_id) => apiClient.post('/competitions/join', { competition_id }),
-  leaveCompetition: (competition_id) => apiClient.post('/competitions/leave', { competition_id }),
+  joinCompetition: (competition) => apiClient.post(
+    '/competitions/join',
+    typeof competition === 'object' && competition !== null ? competition : { competition_id: competition }
+  ),
+  leaveCompetition: (competition) => apiClient.post(
+    '/competitions/leave',
+    typeof competition === 'object' && competition !== null
+      ? competition
+      : { competition_id: Number.parseInt(competition, 10) }
+  ),
 
   // --- Age Groups ---
   getAllAgeGroups: () => apiClient.get('/age-groups'),
@@ -105,7 +120,10 @@ export const api = {
 
   // --- Match APIs (Admin) ---
   createMatch: (data) => apiClient.post('/matches', data),
-  getTeamsByCompetition: (compId) => apiClient.get(`/admin/competitions/${compId}/teams`),
+  getTeamsByCompetition: (compId, status) => apiClient.get(
+    `/admin/competitions/${compId}/teams`,
+    status ? { params: { status } } : undefined
+  ),
   removeTeamFromCompetition: (compId, teamId) => apiClient.delete(`/admin/competitions/${compId}/teams/${teamId}`),
   getMatchesByCompetition: (competitionId) => apiClient.get(`/competitions/${competitionId}/matches`),
   getAllMatches: () => apiClient.get('/admin/matches/all'),
@@ -147,12 +165,16 @@ export const api = {
   updateLineJudge: (id, data) => apiClient.put(`/admin/line-judges/${id}`, data),
   deleteLineJudge: (id) => apiClient.delete(`/admin/line-judges/${id}`),
 
+  getScorerReferees: () => apiClient.get('/scorer/referees'),
+  getScorerLineJudges: () => apiClient.get('/scorer/line-judges'),
+
   // อัปเดตข้อมูลเจ้าหน้าที่ในแมตช์
   updateMatchOfficials: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/officials`, data),
   endSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/end-set`, data),
   startSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/start-set`, data),
   getMatchScoresheetData: (matchId) => apiClient.get(`/scorer/match/${matchId}/scoresheet`),
   getMatchRosterData: (matchId) => apiClient.get(`/scorer/match/${matchId}/roster`),
+  updateMatchRoster: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/roster`, data),
 };
 
 export default apiClient;

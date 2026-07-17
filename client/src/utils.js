@@ -14,6 +14,13 @@ export function removeCookie(name) {
   document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 }
 
+export function cleanCompetitionTitle(value) {
+  return String(value || '')
+    .replace(/\s*\((Male|Female|FAMALE|Mixed|Mix|Men|Women|ชาย|หญิง)\)\s*$/i, '')
+    .replace(/\s+(Male|Female|FAMALE|Mixed|Mix|Men|Women|ชาย|หญิง)\s*$/i, '')
+    .trim();
+}
+
 /**
  * Formats a date string or object to Thai Buddhist Era format.
  * @param {Date|string} date - The date to format.

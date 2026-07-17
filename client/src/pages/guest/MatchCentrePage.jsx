@@ -65,16 +65,48 @@ export default function MatchCentrePage() {
         );
     };
 
+    const normalizeStatus = (status) => String(status || '').toLowerCase();
+    const isCompleted = ['completed', 'finished', 'match_finished'].includes(normalizeStatus(match.status));
+    const isLive = ['live', 'set_playing', 'in_progress'].includes(normalizeStatus(match.status));
+    const toNumber = (value, fallback = 0) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+    };
+    const normalizeSetScores = (scores) => {
+        const rawScores = Array.isArray(scores) ? scores : [];
+        return rawScores.map((score, index) => {
+            if (!score) return null;
+            if (typeof score === 'string') {
+                const [teamA, teamB] = score.split('-').map((value) => toNumber(value, null));
+                return {
+                    set_number: index + 1,
+                    team_a: teamA,
+                    team_b: teamB
+                };
+            }
+
+            return {
+                set_number: toNumber(score.set_number ?? score.set ?? score.no, index + 1),
+                team_a: toNumber(score.team_a ?? score.home ?? score.home_score ?? score.score_home, null),
+                team_b: toNumber(score.team_b ?? score.away ?? score.away_score ?? score.score_away, null)
+            };
+        }).filter((score) => score && score.team_a !== null && score.team_b !== null);
+    };
+
     // Calculate Sets
-    const setScores = match.set_scores || [];
-    const maxSets = Math.max(setScores.length, 3); // minimum 3 columns for volleyball
+    const setScores = normalizeSetScores(match.set_scores);
+    const maxSets = Math.max(toNumber(match.max_sets, 3), setScores.length, 3);
     const setColumns = Array.from({ length: maxSets }, (_, i) => i + 1);
 
     const totalA = setScores.reduce((sum, s) => sum + (s.team_a || 0), 0);
     const totalB = setScores.reduce((sum, s) => sum + (s.team_b || 0), 0);
+    const teamASets = toNumber(match.team_a_score ?? match.home_set_score, 0);
+    const teamBSets = toNumber(match.team_b_score ?? match.away_set_score, 0);
+    const teamAWonMatch = teamASets > teamBSets;
+    const teamBWonMatch = teamBSets > teamASets;
 
     return (
-        <div className="min-h-screen bg-[#f1f5f9] text-gray-800 font-sans pb-24 relative">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2ff)] text-gray-800 font-sans pb-24 relative">
             
             {/* --- Navbar --- */}
             <nav className="bg-white shadow-sm sticky top-0 z-50">
@@ -181,7 +213,7 @@ export default function MatchCentrePage() {
             </nav>
 
             {/* Top Navigation (Secondary) */}
-            <div className="bg-white border-b border-gray-100">
+            <div className="bg-white/90 backdrop-blur border-b border-white/70 shadow-sm">
                 <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center justify-between">
                     <button 
                         onClick={() => navigate(-1)} 
@@ -194,13 +226,14 @@ export default function MatchCentrePage() {
                 </div>
             </div>
 
-            <div className="max-w-[1000px] mx-auto px-4 mt-8 space-y-6">
+            <div className="max-w-[1100px] mx-auto px-4 mt-8 space-y-6">
                 
                 {/* MATCH HEADER CARD */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white/95 rounded-[2rem] shadow-2xl border border-white overflow-hidden relative">
+                    <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-red-500 via-blue-600 to-red-500"></div>
                     {/* Meta Header */}
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-6 bg-white px-6 py-4 border-b border-gray-50 text-xs sm:text-sm font-semibold text-gray-500">
-                        <span className="text-[#14366A] font-bold"># {match.id ? (language === 'THA' ? `แมตช์ที่ ${match.id}` : `Match #${match.id}`) : (language === 'THA' ? "แมตช์" : "Match")}</span>
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-6 bg-slate-50/80 px-6 py-5 border-b border-gray-100 text-xs sm:text-sm font-semibold text-gray-500">
+                        <span className="text-[#14366A] font-bold"># {match.match_number ? (language === 'THA' ? `แมตช์ที่ ${match.match_number}` : `Match #${match.match_number}`) : (language === 'THA' ? "แมตช์" : "Match")}</span>
                         <div className="flex items-center gap-1.5"><CalendarDays size={16} /> {match.match_date}</div>
                         <div className="flex items-center gap-1.5"><Clock size={16} /> {match.start_time}</div>
                         <div className="flex items-center gap-1.5"><MapPin size={16} /> {match.stadium_name || (language === 'THA' ? "รอระบุสนาม" : "TBA")}</div>
@@ -220,16 +253,16 @@ export default function MatchCentrePage() {
                         {/* Center Score */}
                         <div className="flex flex-col items-center justify-center shrink-0 z-10 mx-2 md:mx-8">
                             <div className="text-4xl md:text-6xl font-black text-[#1e293b] tracking-wider font-mono whitespace-nowrap">
-                                {match.team_a_score ?? '-'} <span className="text-gray-300 font-sans mx-2">-</span> {match.team_b_score ?? '-'}
+                                <span className={teamAWonMatch ? "text-red-600" : "text-slate-800"}>{teamASets}</span> <span className="text-gray-300 font-sans mx-2">-</span> <span className={teamBWonMatch ? "text-red-600" : "text-slate-800"}>{teamBSets}</span>
                             </div>
                             <div className="mt-4">
                                 <span className={`text-[10px] md:text-xs font-bold px-3 py-1 md:py-1.5 rounded-full tracking-wider uppercase shadow-sm ${
-                                    match.status === 'COMPLETED' ? 'bg-[#3b9f56] text-white' 
-                                    : match.status === 'LIVE' ? 'bg-red-500 text-white animate-pulse'
+                                    isCompleted ? 'bg-[#3b9f56] text-white' 
+                                    : isLive ? 'bg-red-500 text-white animate-pulse'
                                     : 'bg-[#e2e8f0] text-gray-600'
                                 }`}>
-                                    {match.status === 'COMPLETED' ? (language === 'THA' ? 'จบการแข่งขัน' : 'COMPLETED')
-                                    : match.status === 'LIVE' ? (language === 'THA' ? 'กำลังแข่ง' : 'LIVE')
+                                    {isCompleted ? (language === 'THA' ? 'จบการแข่งขัน' : 'COMPLETED')
+                                    : isLive ? (language === 'THA' ? 'กำลังแข่ง' : 'LIVE')
                                     : (language === 'THA' ? 'ยังไม่เริ่ม' : 'SCHEDULED')}
                                 </span>
                             </div>
@@ -247,9 +280,9 @@ export default function MatchCentrePage() {
                 </div>
 
                 {/* SET SCORES CARD */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-2">
-                        <LayoutGrid className="text-orange-500" size={20} />
+                <div className="bg-white/95 rounded-[2rem] shadow-xl border border-white overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-2 bg-slate-50/80">
+                        <LayoutGrid className="text-red-500" size={20} />
                         <h2 className="font-bold text-[#1e293b] text-lg">{language === 'THA' ? 'คะแนนแต่ละเซต' : 'Set Scores'}</h2>
                     </div>
 
@@ -272,17 +305,17 @@ export default function MatchCentrePage() {
                                         <TeamLogo name={match.team_a_name} logoUrl={match.team_a_logo} size="sm" />
                                         {match.team_a_name || (language === 'THA' ? "รอระบุทีม" : "TBA")}
                                     </td>
-                                    <td className="py-4 text-center font-bold text-green-600">{match.team_a_score ?? 0}</td>
+                                    <td className={`py-4 text-center font-black text-xl ${teamAWonMatch ? 'text-red-600' : 'text-gray-800'}`}>{teamASets}</td>
                                     {setColumns.map(num => {
                                         const set = setScores.find(s => s.set_number === num);
                                         const isWinner = set && set.team_a > set.team_b;
                                         return (
-                                            <td key={num} className={`py-4 text-center font-bold ${isWinner ? 'text-green-600' : 'text-gray-600'}`}>
+                                            <td key={num} className={`py-4 text-center font-bold ${isWinner ? 'text-red-600 bg-red-50 rounded-lg' : 'text-gray-600'}`}>
                                                 {set?.team_a ?? '-'}
                                             </td>
                                         );
                                     })}
-                                    <td className="py-4 text-center font-bold text-gray-800">{totalA}</td>
+                                    <td className={`py-4 text-center font-bold ${totalA > totalB ? 'text-red-600' : 'text-gray-800'}`}>{totalA}</td>
                                 </tr>
 
                                 {/* Team B Row */}
@@ -291,17 +324,17 @@ export default function MatchCentrePage() {
                                         <TeamLogo name={match.team_b_name} logoUrl={match.team_b_logo} size="sm" />
                                         {match.team_b_name || (language === 'THA' ? "รอระบุทีม" : "TBA")}
                                     </td>
-                                    <td className="py-4 text-center font-bold text-gray-800">{match.team_b_score ?? 0}</td>
+                                    <td className={`py-4 text-center font-black text-xl ${teamBWonMatch ? 'text-red-600' : 'text-gray-800'}`}>{teamBSets}</td>
                                     {setColumns.map(num => {
                                         const set = setScores.find(s => s.set_number === num);
                                         const isWinner = set && set.team_b > set.team_a;
                                         return (
-                                            <td key={num} className={`py-4 text-center font-bold ${isWinner ? 'text-green-600' : 'text-gray-600'}`}>
+                                            <td key={num} className={`py-4 text-center font-bold ${isWinner ? 'text-red-600 bg-red-50 rounded-lg' : 'text-gray-600'}`}>
                                                 {set?.team_b ?? '-'}
                                             </td>
                                         );
                                     })}
-                                    <td className="py-4 text-center font-bold text-gray-800">{totalB}</td>
+                                    <td className={`py-4 text-center font-bold ${totalB > totalA ? 'text-red-600' : 'text-gray-800'}`}>{totalB}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -318,3 +351,4 @@ export default function MatchCentrePage() {
         </div>
     );
 }
+

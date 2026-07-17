@@ -3,14 +3,35 @@ import client, { api } from '../api';
 import { Trophy, Calendar, MapPin, Edit2, Trash2, PlusCircle, X,  Users, Shield, Download } from 'lucide-react';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
 import Swal from 'sweetalert2';
-import { formatThaiDate } from '../utils';
+import { cleanCompetitionTitle, formatThaiDate } from '../utils';
 import MatchesManager from './MatchesManager';
+
+const genderOrder = { Male: 1, Female: 2, Mixed: 3 };
+
+const normalizeCompetitionTitle = (competition) => {
+    const title = competition.title || competition.name || 'Untitled Competition';
+    return title.replace(/\s*\((Male|Female|Mixed|Mix|Men|Women)\)\s*$/i, '').trim();
+};
+
+const getAgeGroupLabel = (competition) => (
+    competition.age_group_name ||
+    competition.age_group ||
+    competition.category_name ||
+    'General'
+);
+
+const getGenderLabel = (gender) => {
+    const normalized = String(gender || 'Mixed').trim();
+    if (/^(male|men|m|ชาย)$/i.test(normalized)) return 'Male';
+    if (/^(female|women|f|หญิง)$/i.test(normalized)) return 'Female';
+    return normalized || 'Mixed';
+};
 
 export default function CompetitionsTab() {
     const [competitions, setCompetitions] = useState([]);
     const [compForm, setCompForm] = useState({
         name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-        sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14
+        sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14
     });
     const [editingCompId, setEditingCompId] = useState(null);
     const [stadiums, setStadiums] = useState([]);
@@ -20,15 +41,39 @@ export default function CompetitionsTab() {
     const [showModal, setShowModal] = useState(false);
     const [managingMatchesComp, setManagingMatchesComp] = useState(null);
 
-    // ✅ จัดกลุ่ม Competitions ตามชื่อ
-    const groupedCompetitions = competitions.reduce((acc, current) => {
-        const name = current.title || current.name;
-        if (!acc[name]) {
-            acc[name] = [];
+    const groupedCompetitionSections = Object.values(competitions.reduce((acc, current) => {
+        const title = normalizeCompetitionTitle(current);
+        const ageGroupLabel = getAgeGroupLabel(current);
+
+        if (!acc[title]) {
+            acc[title] = {
+                title,
+                competitions: [],
+                ageGroups: {}
+            };
         }
-        acc[name].push(current);
+
+        if (!acc[title].ageGroups[ageGroupLabel]) {
+            acc[title].ageGroups[ageGroupLabel] = [];
+        }
+
+        acc[title].competitions.push(current);
+        acc[title].ageGroups[ageGroupLabel].push(current);
         return acc;
-    }, {});
+    }, {})).map((section) => ({
+        ...section,
+        ageGroups: Object.entries(section.ageGroups)
+            .map(([ageGroupLabel, items]) => ({
+                ageGroupLabel,
+                items: [...items].sort((a, b) => {
+                    const genderA = getGenderLabel(a.gender);
+                    const genderB = getGenderLabel(b.gender);
+                    return (genderOrder[genderA] || 99) - (genderOrder[genderB] || 99)
+                        || genderA.localeCompare(genderB);
+                })
+            }))
+            .sort((a, b) => a.ageGroupLabel.localeCompare(b.ageGroupLabel))
+    })).sort((a, b) => a.title.localeCompare(b.title));
 
     const fetchCompetitions = async () => {
         try {
@@ -57,15 +102,19 @@ export default function CompetitionsTab() {
 
     const handleCompSubmit = async (e) => {
         e.preventDefault();
-        if (!compForm.name || !compForm.gender) {
-            return Toast.fire({ icon: 'warning', title: 'Please fill in Name and Gender' });
+        if (!compForm.name || !compForm.gender || !compForm.age_group) {
+            return Toast.fire({ icon: 'warning', title: 'Please fill in Name, Gender, and Age Group' });
         }
 
         try {
+            const selectedAgeGroups = compForm.age_group
+                ? String(compForm.age_group).split(',').filter(Boolean)
+                : [];
             const payload = {
                 ...compForm,
                 title: compForm.name,
-                age_group_id: compForm.age_group,
+                age_group_id: editingCompId ? compForm.age_group : selectedAgeGroups[0],
+                age_group_ids: selectedAgeGroups,
                 stadium_id: compForm.stadium_id
             };
 
@@ -79,7 +128,7 @@ export default function CompetitionsTab() {
 
             setCompForm({
                 name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14
+                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14
             });
             setEditingCompId(null);
             setShowModal(false);
@@ -100,6 +149,7 @@ export default function CompetitionsTab() {
             gender: c.gender || '',
             age_group: c.age_group_id || '',
             status: c.status || 'open',
+            max_sets: c.max_sets || 3,
             max_players: c.max_players || 14
         });
         setEditingCompId(c.id);
@@ -190,12 +240,12 @@ export default function CompetitionsTab() {
                         onClick={() => {
                             setCompForm({
                                 name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-                                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14
+                                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14
                             });
                             setEditingCompId(null);
                             setShowModal(true);
                         }}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition shadow-md active:scale-95 text-sm"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors text-sm"
                     >
                         <PlusCircle size={18} /> New Competition
                     </button>
@@ -205,52 +255,71 @@ export default function CompetitionsTab() {
             {/* List Section */}
             <div className="w-full">
                 <div className="space-y-6">
-                    {Object.keys(groupedCompetitions).length === 0 ? (
+                    {groupedCompetitionSections.length === 0 ? (
                         <EmptyState text="No competitions created." />
                     ) : (
-                        Object.entries(groupedCompetitions).map(([compName, items]) => (
-                            <div key={compName} className="rounded-lg border transition-all shadow-sm bg-white border-gray-200">
+                        groupedCompetitionSections.map((section) => (
+                            <div key={section.title} className="rounded-lg border transition-all shadow-sm bg-white border-gray-200">
                                 <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 bg-gray-50/50">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 rounded-md bg-white border border-gray-200 text-blue-600 shadow-sm">
                                             <Trophy size={18} />
                                         </div>
-                                        <h4 className="text-lg font-semibold text-gray-800">{compName}</h4>
+                                        <h4 className="text-lg font-semibold text-gray-800">{section.title}</h4>
                                     </div>
-                                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-white border border-gray-200 text-gray-600 shadow-sm">{items.length} Categories</span>
+                                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-white border border-gray-200 text-gray-600 shadow-sm">
+                                        {section.competitions.length} Categories
+                                    </span>
                                 </div>
 
-                                <div className="p-4 space-y-3">
-                                    {items.map((c) => (
-                                        <div key={c.id} className="group relative flex flex-col md:flex-row justify-between items-center p-4 rounded-md border transition-all bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm">
-                                            <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-md ${c.status === 'open' ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-
-                                            <div className="flex-1 pl-3 w-full">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <span className="text-base font-semibold text-gray-800">
-                                                        {c.gender} <span className="mx-1 text-gray-400 font-normal">•</span> {c.age_group_name || 'General'}
-                                                    </span>
-                                                    <button onClick={() => handleToggleStatus(c)}>
-                                                        <span className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium transition-colors ${c.status === 'open' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
-                                                            {c.status === 'open' ? 'Open' : 'Closed'}
-                                                        </span>
-                                                    </button>
+                                <div className="p-4 space-y-5">
+                                    {section.ageGroups.map(({ ageGroupLabel, items }) => (
+                                        <div key={`${section.title}-${ageGroupLabel}`} className="space-y-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="h-2 w-2 rounded-full bg-blue-500" />
+                                                    <h5 className="text-sm font-bold text-gray-700 uppercase tracking-wide">{ageGroupLabel}</h5>
                                                 </div>
-                                                <div className="grid grid-cols-2 md:flex md:flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
-                                                    <span className="flex items-center gap-1.5 font-medium text-blue-600"><Shield size={14} /> {c.sport}</span>
-                                                    <span className="flex items-center gap-1.5"><Calendar size={14} /> {formatThaiDate(c.start_date)}</span>
-                                                    <span className="flex items-center gap-1.5"><MapPin size={14} /> {c.stadium_name || c.location}</span>
-                                                    <span className="flex items-center gap-1.5"><Users size={14} /> {c.team_count || 0} Teams</span>
-                                                </div>
+                                                <span className="text-xs text-gray-500">{items.length} gender categories</span>
                                             </div>
 
-                                            <div className="flex items-center gap-2 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100 w-full md:w-auto justify-end">
-                                                <button onClick={() => setManagingMatchesComp(c)} className="px-3 py-1.5 rounded-md text-sm font-medium transition text-emerald-600 border border-transparent hover:border-emerald-100 hover:bg-emerald-50">Manage Matches</button>
-                                                <div className="hidden md:block w-px h-5 bg-gray-200 mx-1" />
-                                                <button onClick={() => handleViewTeams(c)} className="px-3 py-1.5 rounded-md text-sm font-medium transition text-blue-600 border border-transparent hover:border-blue-100 hover:bg-blue-50">View Teams</button>
-                                                <div className="hidden md:block w-px h-5 bg-gray-200 mx-1" />
-                                                <button onClick={() => handleEditComp(c)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit2 size={16} /></button>
-                                                <button onClick={() => handleDeleteComp(c.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16} /></button>
+                                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                                {items.map((c) => {
+                                                    const genderLabel = getGenderLabel(c.gender);
+                                                    return (
+                                                        <div key={c.id} className="group relative flex flex-col justify-between p-4 rounded-md border transition-all bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm">
+                                                            <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-md ${c.status === 'open' ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+
+                                                            <div className="flex-1 pl-3 w-full">
+                                                                <div className="flex flex-wrap items-center gap-3 mb-2">
+                                                                    <span className={`text-base font-semibold ${genderLabel === 'Male' ? 'text-blue-700' : genderLabel === 'Female' ? 'text-rose-700' : 'text-violet-700'}`}>
+                                                                        {genderLabel}
+                                                                    </span>
+                                                                    <button onClick={() => handleToggleStatus(c)}>
+                                                                        <span className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-medium transition-colors ${c.status === 'open' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
+                                                                            {c.status === 'open' ? 'Open' : 'Closed'}
+                                                                        </span>
+                                                                    </button>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-500">
+                                                                    <span className="flex items-center gap-1.5 font-medium text-blue-600"><Shield size={14} /> {c.sport}</span>
+                                                                    <span className="flex items-center gap-1.5"><Users size={14} /> {c.team_count || 0} Teams</span>
+                                                                    <span className="flex items-center gap-1.5"><Calendar size={14} /> {formatThaiDate(c.start_date)}</span>
+                                                                    <span className="flex items-center gap-1.5"><MapPin size={14} /> {c.stadium_name || c.location}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100 w-full justify-end">
+                                                                <button onClick={() => setManagingMatchesComp(c)} className="px-3 py-1.5 rounded-md text-sm font-medium transition text-emerald-600 border border-transparent hover:border-emerald-100 hover:bg-emerald-50">Manage Matches</button>
+                                                                <div className="hidden md:block w-px h-5 bg-gray-200 mx-1" />
+                                                                <button onClick={() => handleViewTeams(c)} className="px-3 py-1.5 rounded-md text-sm font-medium transition text-blue-600 border border-transparent hover:border-blue-100 hover:bg-blue-50">View Teams</button>
+                                                                <div className="hidden md:block w-px h-5 bg-gray-200 mx-1" />
+                                                                <button onClick={() => handleEditComp(c)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit2 size={16} /></button>
+                                                                <button onClick={() => handleDeleteComp(c.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16} /></button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     ))}
@@ -273,7 +342,7 @@ export default function CompetitionsTab() {
                             <button onClick={() => {
                                 setShowModal(false);
                                 setEditingCompId(null);
-                                setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 5, max_players: 14 });
+                                setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14 });
                             }} className="p-1 rounded-md hover:bg-gray-100 transition-colors">
                                 <X size={18} className="text-gray-500 hover:text-red-600" />
                             </button>
@@ -304,11 +373,39 @@ export default function CompetitionsTab() {
                             <div className="grid grid-cols-2 gap-4">
                                 <Input label="Sport" placeholder="Volleyball" value={compForm.sport} onChange={e => setCompForm({ ...compForm, sport: e.target.value })} />
                                 <div className="space-y-1.5">
-                                    <label className="block text-sm font-medium text-gray-700">Age Group</label>
-                                    <select value={compForm.age_group} onChange={e => setCompForm({ ...compForm, age_group: e.target.value })} className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
-                                        <option value="">-- Age Group --</option>
-                                        {ageGroups.map(ag => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
-                                    </select>
+                                    <label className="block text-sm font-medium text-gray-700">Age Groups</label>
+                                    {editingCompId ? (
+                                        <select required value={compForm.age_group} onChange={e => setCompForm({ ...compForm, age_group: e.target.value })} className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                            <option value="">-- Age Group --</option>
+                                            {ageGroups.map(ag => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
+                                        </select>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {ageGroups.map((ag) => {
+                                                const selectedAgeGroups = compForm.age_group ? compForm.age_group.split(',').filter(Boolean) : [];
+                                                const isSelected = selectedAgeGroups.includes(String(ag.id));
+                                                return (
+                                                    <button
+                                                        key={ag.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const nextAgeGroups = isSelected
+                                                                ? selectedAgeGroups.filter(id => id !== String(ag.id))
+                                                                : [...selectedAgeGroups, String(ag.id)];
+                                                            setCompForm({ ...compForm, age_group: nextAgeGroups.join(',') });
+                                                        }}
+                                                        className={`rounded-md border px-3 py-2 text-sm font-medium transition ${
+                                                            isSelected
+                                                                ? 'border-blue-600 bg-blue-600 text-white'
+                                                                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        {ag.name}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -348,13 +445,23 @@ export default function CompetitionsTab() {
                             </div>
 
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Match Rule</label>
+                                <select
+                                    value={compForm.max_sets || 3}
+                                    onChange={e => setCompForm({ ...compForm, max_sets: Number(e.target.value) })}
+                                    className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all mb-4"
+                                    required
+                                >
+                                    <option value={3}>Best of 3 - ชนะ 2 ใน 3 เซต</option>
+                                    <option value={5}>Best of 5 - ชนะ 3 ใน 5 เซต</option>
+                                </select>
                                 <Input label="Max Players" type="number" value={compForm.max_players} onChange={e => setCompForm({ ...compForm, max_players: parseInt(e.target.value) })} />
                             </div>
                             <div className="pt-2 flex justify-end gap-3">
                                 <button type="button" onClick={() => {
                                     setShowModal(false);
                                     setEditingCompId(null);
-                                    setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_players: 14 });
+                                    setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14 });
                                 }} className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white border-gray-300 hover:bg-gray-50 font-semibold shadow-sm transition">
                                     Cancel
                                 </button>
@@ -375,7 +482,7 @@ export default function CompetitionsTab() {
                                     <Users size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-800">{viewingTeamsComp.title || viewingTeamsComp.name}</h3>
+                                    <h3 className="text-lg font-semibold text-gray-800">{cleanCompetitionTitle(viewingTeamsComp.title || viewingTeamsComp.name)}</h3>
                                     <p className="text-sm text-gray-500">{teamsInComp.length} Teams Registered</p>
                                 </div>
                             </div>

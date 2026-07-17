@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { PenTool, XCircle, RotateCcw, CheckCircle } from 'lucide-react';
 
-const SignaturePad = ({ title, width = 500, height = 220, onSave }) => {
+const SignaturePad = ({ width = 500, height = 220, onSave }) => {
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [hasDrawn, setHasDrawn] = useState(false);

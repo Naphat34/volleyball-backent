@@ -12,7 +12,7 @@ import {
     Users,
     Shield
 } from 'lucide-react';
-import { formatThaiDate } from '../utils';
+import { cleanCompetitionTitle, formatThaiDate } from '../utils';
 
 export default function Competitions() {
     const [competitions, setCompetitions] = useState([]);
@@ -180,7 +180,7 @@ export default function Competitions() {
 
                                 <div className="flex-1 pl-2">
                                     <div className="flex items-center gap-3 mb-1">
-                                        <h3 className="font-bold text-gray-900 text-lg">{c.title || c.name}</h3>
+                                        <h3 className="font-bold text-gray-900 text-lg">{cleanCompetitionTitle(c.title || c.name)}</h3>
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
                                             c.status === 'open' 
                                             ? 'bg-green-100 text-green-700 border-green-200' 

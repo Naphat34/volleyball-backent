@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function LiberoModal({ isOpen, onClose, teamName, lineup = [], liberos = {}, tracker = {}, isServing, onConfirm }) {
+export default function LiberoModal({ isOpen, onClose, teamName, lineup = [], liberos = {}, isServing, onConfirm }) {
     const [selectedOut, setSelectedOut] = useState(null);
     const [selectedIn, setSelectedIn] = useState(null);
 

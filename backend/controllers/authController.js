@@ -1,9 +1,13 @@
 exports.getMe = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await db.query('SELECT id, username, role, status, team_id FROM users WHERE id = $1', [userId]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-    res.json(result.rows[0]);
+    const [rows] = await db.query(
+      'SELECT id, username, role, status, team_id FROM users WHERE id = ?', 
+      [userId]);
+
+      if (rows.length === 0) 
+        return res.status(404).json({ error: 'User not found' });
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -22,7 +26,7 @@ exports.register = async (req, res) => {
     const { username, password, role, name, code, coach } = req.body;
 
     // ตรวจสอบว่ามี Username นี้ในระบบหรือยัง
-    const userCheck = await client.query('SELECT id FROM users WHERE username = $1', [username]);
+    const userCheck = await client.query('SELECT id FROM users WHERE username = ?', [username]);
     if (userCheck.rows.length > 0) {
       return res.status(400).json({ error: 'Username already exists' });
     }
@@ -34,7 +38,7 @@ exports.register = async (req, res) => {
 
     // ตรวจสอบว่ามีคอลัมน์ email / phone ในตาราง users หรือไม่
     const usersColsRes = await client.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public'"
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()"
     );
     const usersCols = usersColsRes.rows.map(r => r.column_name);
 
@@ -50,16 +54,17 @@ exports.register = async (req, res) => {
       userParams.push(req.body.phone);
     }
 
-    const userPlaceholders = userParams.map((_, i) => `$${i + 1}`).join(', ');
-    const userInsertQuery = `INSERT INTO users (${userFields.join(', ')}) VALUES (${userPlaceholders}) RETURNING id, username, role, status`;
+    const userPlaceholders = userParams.map(() => '?').join(', ');
+    const userInsertQuery = `INSERT INTO users (${userFields.join(', ')}) VALUES (${userPlaceholders})`;
     
     const userResult = await client.query(userInsertQuery, userParams);
-    const user = userResult.rows[0];
+    const userRow = await client.query('SELECT id, username, role, status FROM users WHERE id = ?', [userResult.insertId]);
+    const user = userRow.rows[0];
 
     // ถ้าเป็น team_staff และมีชื่อทีมและรหัสทีมส่งเข้ามา ให้ทำการสร้างทีมและเชื่อมโยงทันที
     if (role === 'team_staff' && name && code) {
       const teamsColsRes = await client.query(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = 'public'"
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()"
       );
       const teamsCols = teamsColsRes.rows.map(r => r.column_name);
 
@@ -87,14 +92,15 @@ exports.register = async (req, res) => {
         teamParams.push(req.body.manager_name);
       }
 
-      const teamPlaceholders = teamParams.map((_, i) => `$${i + 1}`).join(', ');
-      const teamInsertQuery = `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${teamPlaceholders}) RETURNING id`;
+      const teamPlaceholders = teamParams.map(() => '?').join(', ');
+      const teamInsertQuery = `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${teamPlaceholders})`;
       
       const teamResult = await client.query(teamInsertQuery, teamParams);
-      const team = teamResult.rows[0];
+      const teamRow = await client.query('SELECT id FROM teams WHERE id = ?', [teamResult.insertId]);
+      const team = teamRow.rows[0];
 
       // อัปเดต user ให้มี team_id ชี้ไปยังทีมที่สร้างใหม่
-      await client.query('UPDATE users SET team_id = $1 WHERE id = $2', [team.id, user.id]);
+      await client.query('UPDATE users SET team_id = ? WHERE id = ?', [team.id, user.id]);
       user.team_id = team.id;
     }
 
@@ -128,7 +134,7 @@ exports.login = async (req, res) => {
 
     // ดึงข้อมูล User รวมถึงสถานะและ Team ID
     const result = await db.query(
-      'SELECT * FROM users WHERE username = $1', 
+      'SELECT * FROM users WHERE username = ?', 
       [username]
     );
 
@@ -189,7 +195,7 @@ exports.approveUser = async (req, res) => {
     // ถ้าไม่ส่ง status มา ให้ default เป็น 'approved'
     const newStatus = status || 'approved';
 
-    await db.query('UPDATE users SET status = $1 WHERE id = $2', [newStatus, targetId]);
+    await db.query('UPDATE users SET status = ? WHERE id = ?', [newStatus, targetId]);
     res.json({ message: `User ID ${targetId} is now ${newStatus}.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -201,7 +207,7 @@ exports.getPendingUsers = async (req, res) => {
   try {
     // เช็คว่ามีคอลัมน์ email ในตาราง users หรือไม่
     const usersColsRes = await db.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public'"
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()"
     );
     const usersCols = usersColsRes.rows.map(r => r.column_name);
 
@@ -247,20 +253,21 @@ exports.createUser = async (req, res) => {
     const { username, password, role, status } = req.body;
     
     // เช็คว่ามี username ซ้ำไหม
-    const check = await db.query('SELECT id FROM users WHERE username = $1', [username]);
+    const check = await db.query('SELECT id FROM users WHERE username = ?', [username]);
     if (check.rows.length > 0) {
       return res.status(400).json({ error: 'Username already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 8);
     const result = await db.query(
-      'INSERT INTO users (username, password_hash, role, status) VALUES ($1, $2, $3, $4) RETURNING id, username, role, status',
+      'INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)',
       [username, hashedPassword, role, status || 'active']
     );
+    const insertedUser = await db.query('SELECT id, username, role, status FROM users WHERE id = ?', [result.insertId]);
 
     res.status(201).json({
       message: 'User created successfully',
-      user: result.rows[0]
+      user: insertedUser.rows[0]
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -276,10 +283,10 @@ exports.deleteUser = async (req, res) => {
     await client.query('BEGIN');
 
     // 1. ปลด User ออกจากการเป็นเจ้าของทีม (ถ้ามี) เพื่อป้องกัน Error FK
-    await client.query('UPDATE teams SET user_id = NULL WHERE user_id = $1', [id]);
+    await client.query('UPDATE teams SET user_id = NULL WHERE user_id = ?', [id]);
 
     // 2. ลบ User
-    const result = await client.query('DELETE FROM users WHERE id = $1', [id]);
+    const result = await client.query('DELETE FROM users WHERE id = ?', [id]);
 
     await client.query('COMMIT');
 
@@ -303,7 +310,7 @@ exports.updateUser = async (req, res) => {
     const { username, password, role, status } = req.body;
 
     // 1. ตรวจสอบว่า User มีอยู่จริงไหม
-    const userCheck = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+    const userCheck = await db.query('SELECT * FROM users WHERE id = ?', [id]);
     if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -311,23 +318,22 @@ exports.updateUser = async (req, res) => {
     // 2. สร้าง Query แบบ Dynamic (เพราะ password อาจจะไม่แก้)
     let fields = [];
     let values = [];
-    let index = 1;
 
     if (username) {
-      fields.push(`username = $${index++}`);
+      fields.push('username = ?');
       values.push(username);
     }
     if (role) {
-      fields.push(`role = $${index++}`);
+      fields.push('role = ?');
       values.push(role);
     }
     if (status) {
-      fields.push(`status = $${index++}`);
+      fields.push('status = ?');
       values.push(status);
     }
     if (password && password.trim() !== "") {
       const hashedPassword = await bcrypt.hash(password, 8);
-      fields.push(`password_hash = $${index++}`);
+      fields.push('password_hash = ?');
       values.push(hashedPassword);
     }
 
@@ -335,15 +341,15 @@ exports.updateUser = async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
-    // เพิ่ม ID เป็น parameter สุดท้าย
     values.push(id);
-    const query = `UPDATE users SET ${fields.join(', ')} WHERE id = $${index} RETURNING id, username, role, status`;
+    const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
 
-    const result = await db.query(query, values);
+    await db.query(query, values);
+    const updatedUser = await db.query('SELECT id, username, role, status FROM users WHERE id = ?', [id]);
 
     res.json({
       message: 'User updated successfully',
-      user: result.rows[0]
+      user: updatedUser.rows[0]
     });
 
   } catch (err) {

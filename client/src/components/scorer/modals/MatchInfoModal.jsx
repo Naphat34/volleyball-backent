@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 export default function MatchInfoModal({ isOpen, matchData, onConfirm, onCancel }) {
-    if (!isOpen) return null;
-
     // จำลองฟอร์มเบื้องต้น ดึงข้อมูลชื่อทีมและรายการมาจาก matchData
-    const [formData, setFormData] = useState({
+    const formData = {
         competition: matchData?.competitionName || 'TEST Competition - TEST Championship',
         matchNo: matchData?.matchNo || '',
         date: matchData?.matchDate || '',
         teamHome: matchData?.teamHome || '<Choose a team>',
         teamAway: matchData?.teamAway || '<Choose a team>',
-    });
+    };
+
+    if (!isOpen) return null;
 
     const handleSubmit = () => {
         // เมื่อกด OK ให้ส่งข้อมูลกลับไปและเปลี่ยนไปหน้าถัดไป (Coin Toss)

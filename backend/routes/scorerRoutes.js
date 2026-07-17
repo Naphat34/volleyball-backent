@@ -1,44 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const scorerController = require('../controllers/scorerController');
+const authMiddleware = require('../middleware/authMiddleware');
 
-// --- DEBUG SECTION ---
-// ถ้า Controller โหลดไม่ติด บรรทัดนี้จะช่วยบอกว่าเราได้ object อะไรมา
-console.log("Scorer Controller Loaded:", scorerController);
-
-if (!scorerController.saveMatchEvent) {
-    console.error("❌ ERROR: saveMatchEvent function is missing in scorerController!");
-}
-if (!scorerController.updateLiveState) {
-    console.error("❌ ERROR: updateLiveState function is missing in scorerController! (Check scorerController.js export)");
-}
-// ---------------------
-
-// GET Data
+// Public read endpoints used by scoreboards, score sheets, and viewer screens.
 router.get('/match/:matchId', scorerController.getMatchDetails);
 router.get('/match/:matchId/events', scorerController.getMatchEvents);
 router.get('/match/:matchId/lineup', scorerController.getMatchLineup);
 router.get('/match/:matchId/roster', scorerController.getMatchRosterData);
 router.get('/match/:matchId/scoresheet', scorerController.getMatchScoresheetData);
-
-// POST Actions
-// เช็คให้แน่ใจว่าชื่อฟังก์ชันตรงกับใน Controller (saveMatchEvent)
-router.post('/match/:matchId/event', scorerController.saveMatchEvent);
-router.post('/match/:matchId/lineup', scorerController.saveLineup);
-
-// Live State Sync (สำหรับ Real-time Scoreboard)
-router.put('/match/:matchId/state', scorerController.updateLiveState);
 router.get('/match/:matchId/state', scorerController.getLiveState);
 
-// หมายเหตุ: URL จะเป็น /api/scorer/referees (เพราะไฟล์นี้ถูก mount ที่ /api/scorer)
-router.get('/referees', scorerController.getAllReferees);
-router.get('/scorers', scorerController.getAllScorers);
-router.get('/line-judges', scorerController.getAllLineJudges);
+// Mutating scorer endpoints require an authenticated user.
+router.post('/match/:matchId/event', authMiddleware.verifyToken, scorerController.saveMatchEvent);
+router.post('/match/:matchId/toss', authMiddleware.verifyToken, scorerController.saveCoinToss);
+router.post('/match/:matchId/lineup', authMiddleware.verifyToken, scorerController.saveLineup);
+router.post('/match/:matchId/start-set', authMiddleware.verifyToken, scorerController.startSet);
+router.post('/match/:matchId/end-set', authMiddleware.verifyToken, scorerController.endSet);
+router.put('/match/:matchId/state', authMiddleware.verifyToken, scorerController.updateLiveState);
+router.put('/match/:matchId/officials', authMiddleware.verifyToken, scorerController.updateMatchOfficials);
+router.put('/match/:matchId/roster', authMiddleware.verifyToken, scorerController.updateMatchRoster);
 
-// Update Officials
-router.put('/match/:matchId/officials', scorerController.updateMatchOfficials);
+const officialController = require('../controllers/officialController');
 
-// End Set
-router.post('/match/:matchId/end-set', scorerController.endSet);
+// Master data helpers are for logged-in scorer/admin workflows.
+router.get('/referees', authMiddleware.verifyToken, officialController.getAllReferees);
+router.get('/scorers', authMiddleware.verifyToken, officialController.getAllScorers);
+router.get('/line-judges', authMiddleware.verifyToken, officialController.getAllLineJudges);
 
 module.exports = router;

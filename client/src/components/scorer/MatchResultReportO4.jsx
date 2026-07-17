@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { formatThaiDate } from '../../utils';
+import { cleanCompetitionTitle, formatThaiDate } from '../../utils';
 
 // Helper to format age group
 const getAgeGroupName = (id) => {
@@ -60,7 +60,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
         try { liveState = JSON.parse(liveState); } catch { liveState = {}; }
     }
 
-    const compName = matchData.title || matchData.competition_title || matchData.competition_name || '';
+    const compName = cleanCompetitionTitle(matchData.title || matchData.competition_title || matchData.competition_name || '');
     const city = matchData.city || matchData.stadium_city || '';
     const time = matchData.start_time ? matchData.start_time.substring(0, 5) : '';
     const matchNumber = matchData.match_number || '';
@@ -74,13 +74,11 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
     const idB = isHomeOnLeft ? matchData.away_team_id : matchData.home_team_id;
 
     // Team Names
-    const teamA = isHomeOnLeft
-        ? (matchData?.home_team_name || matchData?.home_team_code || 'Team A')
-        : (matchData?.away_team_name || matchData?.away_team_code || 'Team A');
-
-    const teamB = !isHomeOnLeft
-        ? (matchData?.home_team_name || matchData?.home_team_code || 'Team B')
-        : (matchData?.away_team_name || matchData?.away_team_code || 'Team B');
+    const programTeamA = matchData?.home_team_name || matchData?.home_team_code || 'Team A';
+    const programTeamB = matchData?.away_team_name || matchData?.away_team_code || 'Team B';
+    const showTossLabels = !!(matchData.left_side_team_id && matchData.first_serve_team_id);
+    const resultTeamAName = showTossLabels ? (isHomeOnLeft ? programTeamA : programTeamB) : '';
+    const resultTeamBName = showTossLabels ? (isHomeOnLeft ? programTeamB : programTeamA) : '';
 
     const getPlayerId = (p) => {
         if (!p) return '';
@@ -92,12 +90,15 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
         return p.number || p.shirt_number || p.jersey_number || p.shirtNumber || '';
     };
 
+    const firstFilled = (...values) => values.find(value => value !== undefined && value !== null && String(value).trim() !== '') || '';
+
     const getPlayerName = (p) => {
         if (!p) return '';
-        const fName = p.first_name || p.firstname || '';
-        const lName = p.last_name || p.lastname || p.name || '';
+        const fullName = firstFilled(p.name, p.full_name, p.player_name, p.display_name);
+        const fName = firstFilled(p.first_name, p.firstname, p.firstName);
+        const lName = firstFilled(p.last_name, p.lastname, p.lastName);
         if (fName && lName) return `${fName} ${lName}`.trim();
-        return (lName || fName || '').trim();
+        return (fullName || lName || fName || '').trim();
     };
 
     const getFullPlayerDetails = (teamKey, p) => {
@@ -123,7 +124,17 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                        (pNo && rpNo && String(rpNo) === String(pNo));
             });
         }
-        return found ? { ...found, ...p } : p;
+        if (!found) return p;
+        return {
+            ...found,
+            ...p,
+            first_name: firstFilled(p.first_name, p.firstname, p.firstName, found.first_name, found.firstname, found.firstName),
+            firstname: firstFilled(p.firstname, p.first_name, p.firstName, found.firstname, found.first_name, found.firstName),
+            last_name: firstFilled(p.last_name, p.lastname, p.lastName, found.last_name, found.lastname, found.lastName),
+            lastname: firstFilled(p.lastname, p.last_name, p.lastName, found.lastname, found.last_name, found.lastName),
+            name: firstFilled(p.name, p.full_name, p.player_name, p.display_name, found.name, found.full_name, found.player_name, found.display_name),
+            number: firstFilled(p.number, p.shirt_number, p.jersey_number, p.shirtNumber, found.number, found.shirt_number, found.jersey_number, found.shirtNumber)
+        };
     };
 
     // Roster and player extraction (fallback to liveState)
@@ -321,26 +332,60 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
     const displayPlayersB = formatTeamPlayers(playersB, liberosB);
 
     // Staff / Coaches
-    const getStaffName = (staffArray, roles) => {
+    const normalizeStaffRole = (role) =>
+        String(role || '')
+            .toLowerCase()
+            .replace(/[._-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+    const getStaffDisplayName = (staff) =>
+        firstFilled(
+            [staff?.first_name, staff?.last_name].filter(Boolean).join(' '),
+            [staff?.firstname, staff?.lastname].filter(Boolean).join(' '),
+            staff?.name
+        );
+
+    const staffRoleMatches = (rawRole, targetRole) => {
+        const role = normalizeStaffRole(rawRole);
+        if (!role) return false;
+
+        if (targetRole === 'coach') {
+            return ['head coach', 'coach', 'c', '1st coach', 'first coach'].includes(role);
+        }
+
+        if (targetRole === 'assistantCoach1') {
+            return [
+                'assistant coach',
+                'assistant coach 1',
+                'assistant coach1',
+                'assistant',
+                'ac1',
+                '2nd coach',
+                'second coach'
+            ].includes(role);
+        }
+
+        return false;
+    };
+
+    const getStaffName = (staffArray, targetRole) => {
         if (!Array.isArray(staffArray)) return '';
-        const staff = staffArray.find(s => {
-            const r = String(s.role || '').toLowerCase().trim();
-            return roles.some(role => r.includes(role));
-        });
-        return staff ? `${staff.first_name || ''} ${staff.last_name || ''}`.trim() : '';
+        const staff = staffArray.find(s => staffRoleMatches(s.role, targetRole));
+        return getStaffDisplayName(staff);
     };
 
     const homeStaff = rosterData?.home?.staff || [];
     const awayStaff = rosterData?.away?.staff || [];
 
-    const hCoach = getStaffName(homeStaff, ['head coach', 'coach']) || scoreData?.home_coach || '';
-    const aCoach = getStaffName(awayStaff, ['head coach', 'coach']) || scoreData?.away_coach || '';
+    const hCoach = getStaffName(homeStaff, 'coach') || scoreData?.home_coach || '';
+    const aCoach = getStaffName(awayStaff, 'coach') || scoreData?.away_coach || '';
 
     const coachA = isHomeOnLeft ? hCoach : aCoach;
     const coachB = isHomeOnLeft ? aCoach : hCoach;
 
-    const hAssistant = getStaffName(homeStaff, ['assistant coach 1', 'assistant coach', 'assistant']) || scoreData?.home_assistant_coach || '';
-    const aAssistant = getStaffName(awayStaff, ['assistant coach 1', 'assistant coach', 'assistant']) || scoreData?.away_assistant_coach || '';
+    const hAssistant = getStaffName(homeStaff, 'assistantCoach1') || scoreData?.home_assistant_coach || '';
+    const aAssistant = getStaffName(awayStaff, 'assistantCoach1') || scoreData?.away_assistant_coach || '';
 
     const assistantCoachA = isHomeOnLeft ? hAssistant : aAssistant;
     const assistantCoachB = isHomeOnLeft ? aAssistant : hAssistant;
@@ -545,7 +590,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                     {/* Left Column: Team A */}
                     <div className="w-[33%] flex flex-col">
                         <div className="border-b border-black pb-1 mb-1 font-bold">
-                            TEAM A: <span className="font-black ml-1 uppercase">{teamA}</span>
+                            TEAM A: <span className="font-black ml-1 uppercase">{resultTeamAName}</span>
                         </div>
                         <table className="w-full text-[10.5px]">
                             <thead>
@@ -592,10 +637,10 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                                     <div className="flex gap-2 mt-1">
                                                         <div className={isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>A</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'A' : ''}</div>
                                                         <div className={!isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>B</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'B' : ''}</div>
                                                     </div>
                                                 </div>
                                             </th>
@@ -613,10 +658,10 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                                     <div className="flex gap-2 mt-1">
                                                         <div className={!isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>A</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'A' : ''}</div>
                                                         <div className={isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>B</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'B' : ''}</div>
                                                     </div>
                                                 </div>
                                             </th>
@@ -710,7 +755,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                     {/* Right Column: Team B */}
                     <div className="w-[33%] flex flex-col">
                         <div className="border-b border-black pb-1 mb-1 font-bold">
-                            TEAM B: <span className="font-black ml-1 uppercase">{teamB}</span>
+                            TEAM B: <span className="font-black ml-1 uppercase">{resultTeamBName}</span>
                         </div>
                         <table className="w-full text-[10.5px]">
                             <thead>

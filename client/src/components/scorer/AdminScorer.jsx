@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LogOut, User, Trophy, ChevronLeft, Swords, Calendar, MapPin, PlayCircle, X, CheckCircle, FileText } from 'lucide-react';
+import { LogOut, User, Trophy, ChevronLeft, Swords, Menu, X } from 'lucide-react';
 import apiClient, { api } from '../../api';
-import axios from 'axios';
 import Swal from 'sweetalert2';
 
 const getServerUrl = () => {
@@ -129,33 +128,35 @@ const AdminScorer = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
       {/* Navbar - Light Theme & Removed Middle Menu */}
-      <nav className="bg-white border-b border-gray-200 w-full shadow-sm sticky top-0 z-30">
+      <nav className="bg-white border-b border-blue-100 w-full sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             {/* Logo Section */}
             <div className="flex items-center gap-3">
-              <div>
-                <img src={Logo} alt="Logo" className="w-15 h-15" />
+              <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden">
+                <img src={Logo} alt="Logo" className="w-9 h-9 object-contain" />
               </div>
-              <span className="text-xl font-bold text-gray-900 tracking-tight uppercase">Volleyball</span>
-              <span className="text-xl font-bold text-gray-900 tracking-tight uppercase">Scorer Console</span>
+              <div className="leading-tight">
+                <div className="text-base font-bold text-blue-950">Volleyball</div>
+                <div className="text-xs font-medium text-slate-500">Scorer Console</div>
+              </div>
             </div>
 
             {/* Right Section: User Info + Logout */}
-            <div className="hidden md:flex items-center space-x-6">
-              <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
+            <div className="hidden md:flex items-center gap-3">
+              <div className="flex items-center gap-2 text-slate-700 font-medium bg-blue-50/60 px-3 py-1.5 rounded-md border border-blue-100">
+                <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white">
                   <User size={16} />
                 </div>
                 <span className="text-sm">{username}</span>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-gray-500 hover:text-red-600 font-bold text-sm transition-colors group"
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-blue-700 hover:bg-blue-50 font-semibold text-sm transition-colors"
               >
-                <LogOut size={18} className="group-hover:translate-x-0.5 transition-transform" /> 
+                <LogOut size={17} />
                 Logout
               </button>
             </div>
@@ -164,9 +165,10 @@ const AdminScorer = () => {
             <div className="md:hidden flex items-center">
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="p-2 rounded-md text-gray-500 hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-md text-blue-700 hover:bg-blue-50 transition-colors"
+                aria-label={isOpen ? 'Close menu' : 'Open menu'}
               >
-                {isOpen ? '✕' : '☰'}
+                {isOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
             </div>
           </div>
@@ -174,19 +176,19 @@ const AdminScorer = () => {
 
         {/* Mobile Menu */}
         {isOpen && (
-          <div className="md:hidden bg-white border-t border-gray-50 px-4 pt-2 pb-6 space-y-3 shadow-inner">
-            <div className="flex items-center gap-3 px-2 py-3 bg-gray-50 rounded-xl">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-md">
+          <div className="md:hidden bg-white border-t border-blue-50 px-4 py-4 space-y-3">
+            <div className="flex items-center gap-3 px-3 py-3 bg-blue-50 rounded-md border border-blue-100">
+              <div className="w-9 h-9 rounded-md bg-blue-600 flex items-center justify-center text-white">
                 <User size={20} />
               </div>
               <div className="flex flex-col">
-                 <span className="text-gray-900 font-bold leading-none">{username}</span>
+                 <span className="text-blue-950 font-semibold leading-none">{username}</span>
                  <span className="text-xs text-gray-500 mt-1 uppercase font-semibold">Match Scorer</span>
               </div>
             </div>
             <button 
               onClick={handleLogout} 
-              className="w-full flex items-center justify-center gap-2 py-3 text-red-600 font-bold bg-red-50 hover:bg-red-100 rounded-xl transition-colors mt-2"
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-blue-700 font-semibold bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
             >
               <LogOut size={20} /> Logout
             </button>
@@ -195,42 +197,44 @@ const AdminScorer = () => {
       </nav>
 
       {/* Main Content Area */}
-      <main className={`flex-1 p-4 lg:p-10 pb-24 ${view === 'menu' ? 'flex items-center justify-center' : ''}`}>
+      <main className={`flex-1 p-4 sm:p-6 lg:p-8 pb-24 ${view === 'menu' ? 'flex items-center justify-center' : ''}`}>
         {view === 'menu' ? (
-          <div className="max-w-3xl w-full grid grid-cols-1 sm:grid-cols-2 gap-8">
+          <div className="w-full max-w-4xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Champion Grid */}
             <div 
               onClick={handleShowChampions}
-              className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 flex flex-col items-center justify-center text-center transition-all hover:shadow-xl hover:-translate-y-1.5 cursor-pointer group"
+              className="bg-white rounded-lg border border-blue-100 p-8 flex flex-col items-center justify-center text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer group shadow-sm"
             >
-              <div className="bg-amber-50 p-8 rounded-[2rem] mb-6 group-hover:bg-amber-100 transition-all duration-500 group-hover:rotate-6">
-                 <img src={trophyIcon} alt="Trophy Icon" className="w-20 h-20" />
+              <div className="bg-blue-50 p-5 rounded-lg mb-5 border border-blue-100 group-hover:bg-blue-100 transition-colors">
+                 <img src={trophyIcon} alt="Trophy Icon" className="w-16 h-16" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tighter">CHAMPION</h2>
-              <p className="text-slate-400 font-bold text-lg leading-relaxed">
+              <h2 className="text-xl font-bold text-blue-950 mb-2">Champion</h2>
+              <p className="text-slate-500 text-sm leading-relaxed">
                 จัดการข้อมูลการแข่งขัน <br/> ผลการแข่งขัน
               </p>
             </div>
 
             {/* Match Data Grid */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-10 flex flex-col items-center justify-center text-center transition-all hover:shadow-xl hover:-translate-y-1.5 cursor-pointer group">
-              <div className="bg-blue-50 p-8 rounded-[2rem] mb-6 group-hover:bg-blue-100 transition-all duration-500 group-hover:-rotate-6">
-                 <img src={databaseIcon} alt="Database Icon" className="w-20 h-20" />
+            <div onClick={handleShowChampions} className="bg-white rounded-lg border border-blue-100 p-8 flex flex-col items-center justify-center text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer group shadow-sm">
+              <div className="bg-blue-50 p-5 rounded-lg mb-5 border border-blue-100 group-hover:bg-blue-100 transition-colors">
+                 <img src={databaseIcon} alt="Database Icon" className="w-16 h-16" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tighter">MATCH DATA</h2>
-              <p className="text-slate-400 font-bold text-lg leading-relaxed">
+              <h2 className="text-xl font-bold text-blue-950 mb-2">Match Data</h2>
+              <p className="text-slate-500 text-sm leading-relaxed">
                 ข้อมูลการแข่งขัน <br/> และจัดการผลการแข่งทั้งหมด
               </p>
+            </div>
             </div>
           </div>
         ) : view === 'champions' ? (
           <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header with Back Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-lg border border-blue-100 shadow-sm">
               <div className="flex items-center gap-4">
                 <button 
                   onClick={() => setSearchParams({ view: 'menu' })} 
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-xl transition-all font-bold text-sm border border-slate-200 shadow-sm"
+                  className="flex items-center gap-2 px-3 py-2 bg-white text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold text-sm border border-blue-200"
                 >
                   <ChevronLeft size={18} /> ย้อนกลับ
                 </button>
@@ -240,12 +244,12 @@ const AdminScorer = () => {
             {isLoading ? (
               <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">กำลังโหลดข้อมูล...</div>
             ) : (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="bg-white rounded-lg border border-blue-100 overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-slate-50/50 border-b border-gray-100">
-                        <th className="px-8 py-5 text-xl font-black text-slate-800 uppercase">รายการแข่งขัน</th>
+                      <tr className="bg-blue-50/60 border-b border-blue-100">
+                        <th className="px-6 py-4 text-base font-bold text-blue-950">รายการแข่งขัน</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -254,11 +258,11 @@ const AdminScorer = () => {
                           <tr 
                             key={comp.id} 
                             onClick={() => handleShowMatches(comp)}
-                            className="group hover:bg-slate-50/50 transition-colors cursor-pointer"
+                            className="group hover:bg-blue-50/50 transition-colors cursor-pointer"
                           >
-                            <td className="px-8 py-5">
+                            <td className="px-6 py-4">
                               <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center group-hover:border-amber-200 transition-colors">
+                                <div className="w-11 h-11 rounded-md bg-white border border-blue-100 overflow-hidden flex-shrink-0 flex items-center justify-center group-hover:border-blue-300 transition-colors">
                                   {comp.logo ? (
                             <img 
                               src={comp.logo.startsWith('http') ? comp.logo : `${getServerUrl()}/uploads/${comp.logo}`} 
@@ -271,8 +275,8 @@ const AdminScorer = () => {
                           )}
                         </div>
                                 <div>
-                                  <p className="font-bold text-slate-800 text-lg leading-tight">{comp.display_title || comp.competition_title || comp.title}</p>
-                                  <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-tighter">{comp.location || 'ไม่ได้ระบุสถานที่'}</p>
+                                  <p className="font-semibold text-slate-800 leading-tight">{comp.display_title || comp.competition_title || comp.title}</p>
+                                  <p className="text-xs text-slate-500 mt-1">{comp.location || 'ไม่ได้ระบุสถานที่'}</p>
                                 </div>
                               </div>
                             </td>
@@ -291,15 +295,15 @@ const AdminScorer = () => {
           </div>
         ) : view === 'matches' ? (
           <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-blue-100 shadow-sm">
               <div className="flex items-center gap-4">
                 <button 
                   onClick={() => setSearchParams({ view: 'champions' })} 
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-xl transition-all font-bold text-sm border border-slate-200 shadow-sm"
+                  className="flex items-center gap-2 px-3 py-2 bg-white text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold text-sm border border-blue-200"
                 >
                   <ChevronLeft size={18} /> ย้อนกลับ
                 </button>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">
+                <h2 className="text-xl font-bold text-blue-950">
                   {(selectedCompetition?.competition_title || selectedCompetition?.title || '').replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim()}
                 </h2>
               </div>
@@ -308,7 +312,7 @@ const AdminScorer = () => {
             {isLoading ? (
               <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">กำลังโหลดแมตช์...</div>
             ) : (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+              <div className="bg-white rounded-lg border border-blue-100 p-4 shadow-sm">
                 <MatchList 
                   matches={matches} 
                   isAdmin={true} 
@@ -322,9 +326,9 @@ const AdminScorer = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-4 text-center text-sm w-full fixed bottom-0 left-0 z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
-        <p className="text-gray-500 font-medium">
-          © {new Date().getFullYear()} Volley Manager. All rights reserved.
+      <footer className="bg-white border-t border-blue-100 py-3 text-center text-xs w-full fixed bottom-0 left-0 z-20">
+        <p className="text-slate-500">
+          Copyright {new Date().getFullYear()} Volley Manager. All rights reserved.
         </p>
       </footer>
     </div>

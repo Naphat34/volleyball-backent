@@ -3,12 +3,15 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { Printer, ArrowLeft } from 'lucide-react';
 import MatchResultReportO4 from '../components/scorer/MatchResultReportO4';
+import { cleanCompetitionTitle } from '../utils';
 
-
-const getAgeGroupName = (id) => {
-    const ageGroups = { 1: "Senior", 2: "Junior", 3: "Youth" };
-    return ageGroups[parseInt(id)] || "";
+const getGenderLabel = (gender) => {
+    const normalized = String(gender || '').trim();
+    if (/^(male|men|m)$/i.test(normalized)) return 'Men';
+    if (/^(female|women|f)$/i.test(normalized)) return 'Women';
+    return normalized || '';
 };
+
 const formatSetTime = (timeStr) => {
     if (!timeStr) return '';
     // กรณีเป็น Timestamp เต็มรูปแบบจาก DB
@@ -100,6 +103,8 @@ const getTeamFontSize = (name, baseSize = 12) => {
     return `text-[${baseSize}px]`;
 };
 
+const joinName = (...parts) => parts.filter(Boolean).join(' ').trim();
+
 export default function ScoreSheet({ matchId }) {
     const params = useParams();
     const effectiveMatchId = matchId || params.matchId;
@@ -108,6 +113,7 @@ export default function ScoreSheet({ matchId }) {
     const [matchData, setMatchData] = useState(null);
     const [scoreData, setScoreData] = useState(null);
     const [rosterData, setRosterData] = useState(null);
+    const [ageGroups, setAgeGroups] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [searchParams] = useSearchParams();
@@ -125,12 +131,13 @@ export default function ScoreSheet({ matchId }) {
                 setLoading(true); // ป้องกันการกระพริบของข้อมูล
 
                 // ดึงข้อมูลทั้งหมดโดยส่ง effectiveMatchId ที่มีค่าแล้วไปให้ API
-                const [matchRes, compsRes, teamsRes, scoreRes, rosterRes] = await Promise.all([
+                const [matchRes, compsRes, teamsRes, scoreRes, rosterRes, ageGroupsRes] = await Promise.all([
                     api.getMatchById(effectiveMatchId).catch(() => ({ data: {} })),
                     api.getAllCompetitions().catch(() => ({ data: [] })),
                     api.getAllTeams().catch(() => ({ data: [] })),
                     api.getMatchScoresheetData(effectiveMatchId).catch(() => ({ data: {} })),
                     api.getMatchRosterData(effectiveMatchId).catch(() => ({ data: {} })),
+                    api.getAllAgeGroups().catch(() => ({ data: [] })),
                 ]);
 
                 // ป้องกันกรณี matchRes.data เป็น null ให้สร้างเป็น Object ว่างแทน
@@ -177,6 +184,7 @@ export default function ScoreSheet({ matchId }) {
                 setMatchData(currentMatchData);
                 setScoreData(scoreRes.data);
                 setRosterData(rosterRes.data);
+                setAgeGroups(ageGroupsRes.data || []);
             } catch (error) {
                 console.error("Error fetching score sheet data:", error);
             } finally {
@@ -191,12 +199,20 @@ export default function ScoreSheet({ matchId }) {
     if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-xl">Loading FIVB Score Sheet...</div>;
     if (!matchData) return <div className="min-h-screen flex items-center justify-center font-bold text-xl text-red-500">Match data not found.</div>;
 
-    const compName = matchData.title || matchData.competition_title || matchData.competition_name || '';
+    const compName = cleanCompetitionTitle(matchData.title || matchData.competition_title || matchData.competition_name || '');
     const city = matchData.city || matchData.stadium_city || '';
     const time = matchData.start_time ? matchData.start_time.substring(0, 5) : '';
     const matchNumber = matchData.match_number || '';
-    const category = matchData.age_group_id ? getAgeGroupName(matchData.age_group_id) : (matchData.competition_category || matchData.category || '');
-    const gender = matchData.gender || matchData.competition_gender || '';
+    const category = matchData.age_group_name
+        || ageGroups.find(ag => String(ag.id) === String(matchData.age_group_id))?.name
+        || matchData.competition_category
+        || matchData.category
+        || '';
+    const gender = getGenderLabel(matchData.gender || matchData.competition_gender || '');
+    const normalizedCategory = String(category || '').trim().toUpperCase();
+    const isJuniorCategory = ['U12', 'U14'].includes(normalizedCategory);
+    const isYouthCategory = normalizedCategory === 'U16';
+    const isSeniorCategory = ['U18', 'OPEN'].includes(normalizedCategory);
 
     // --- Parse Live State from Scorer Console ---
     let liveState = matchData?.live_state || {};
@@ -212,6 +228,7 @@ export default function ScoreSheet({ matchId }) {
 
     // --- 2. เช็คว่าใครอยู่แดนซ้าย (A) หรือแดนขวา (B) ตามผล Coin Toss ---
     const hasCoinToss = !!matchData.left_side_team_id && !!matchData.first_serve_team_id;
+    const showTossLabels = hasCoinToss;
     const isHomeOnLeft = matchData.left_side_team_id ? matchData.left_side_team_id === matchData.home_team_id : true; // ถ้ายังไม่เสี่ยง ให้ Home อยู่ซ้ายไว้ก่อน
 
     // Team IDs mapped to A (Left) and B (Right)
@@ -219,6 +236,9 @@ export default function ScoreSheet({ matchId }) {
     const idB = isHomeOnLeft ? matchData.away_team_id : matchData.home_team_id;
 
     // Team Names
+    const programTeamA = matchData?.home_team_name || matchData?.home_team_code || 'Team A';
+    const programTeamB = matchData?.away_team_name || matchData?.away_team_code || 'Team B';
+
     const teamA = isHomeOnLeft
         ? (matchData?.home_team_name || matchData?.home_team_code || 'Team A')
         : (matchData?.away_team_name || matchData?.away_team_code || 'Team A');
@@ -234,8 +254,43 @@ export default function ScoreSheet({ matchId }) {
     // --- 3. ดึงข้อมูลนักกีฬาให้ตรงกับฝั่ง A และ B ---
 
     // 1. ดึงข้อมูลจาก liveState (ถ้ามี) หรือ rosterData เป็นอันดับแรก เพื่อให้ตรงกับการตั้งค่าของ scorer หน้าสนาม
-    const rawHome = (liveState.homeRoster && liveState.homeRoster.length > 0) ? liveState.homeRoster : (rosterData?.home?.players || scoreData?.homePlayers || scoreData?.home_players || []);
-    const rawAway = (liveState.awayRoster && liveState.awayRoster.length > 0) ? liveState.awayRoster : (rosterData?.away?.players || scoreData?.awayPlayers || scoreData?.away_players || []);
+    const firstFilled = (...values) => values.find(value => value !== undefined && value !== null && String(value).trim() !== '') || '';
+    const getPlayerLookupKey = (player) => {
+        if (!player) return '';
+        const id = firstFilled(player.id, player.player_id);
+        if (id) return `id:${id}`;
+        const number = firstFilled(player.number, player.shirt_number, player.jersey_number);
+        return number ? `no:${number}` : '';
+    };
+    const mergeRosterPlayers = (livePlayers = [], fallbackPlayers = []) => {
+        if (!Array.isArray(livePlayers) || livePlayers.length === 0) return Array.isArray(fallbackPlayers) ? fallbackPlayers : [];
+        const fallbackByKey = new Map();
+        (Array.isArray(fallbackPlayers) ? fallbackPlayers : []).forEach(player => {
+            const id = firstFilled(player.id, player.player_id);
+            const number = firstFilled(player.number, player.shirt_number, player.jersey_number);
+            if (id) fallbackByKey.set(`id:${id}`, player);
+            if (number) fallbackByKey.set(`no:${number}`, player);
+        });
+
+        return livePlayers.map(player => {
+            const fallback = fallbackByKey.get(getPlayerLookupKey(player)) || {};
+            return {
+                ...fallback,
+                ...player,
+                first_name: firstFilled(player.first_name, player.firstname, player.firstName, fallback.first_name, fallback.firstname, fallback.firstName),
+                firstname: firstFilled(player.firstname, player.first_name, player.firstName, fallback.firstname, fallback.first_name, fallback.firstName),
+                last_name: firstFilled(player.last_name, player.lastname, player.lastName, fallback.last_name, fallback.lastname, fallback.lastName),
+                lastname: firstFilled(player.lastname, player.last_name, player.lastName, fallback.lastname, fallback.last_name, fallback.lastName),
+                name: firstFilled(player.name, player.full_name, player.player_name, player.display_name, fallback.name, fallback.full_name, fallback.player_name, fallback.display_name),
+                number: firstFilled(player.number, player.shirt_number, player.jersey_number, fallback.number, fallback.shirt_number, fallback.jersey_number)
+            };
+        });
+    };
+
+    const fallbackHomePlayers = rosterData?.home?.players || scoreData?.homePlayers || scoreData?.home_players || [];
+    const fallbackAwayPlayers = rosterData?.away?.players || scoreData?.awayPlayers || scoreData?.away_players || [];
+    const rawHome = mergeRosterPlayers(liveState.homeRoster, fallbackHomePlayers);
+    const rawAway = mergeRosterPlayers(liveState.awayRoster, fallbackAwayPlayers);
     // ดึงข้อมูล Lineup จาก scoreData.lineups (ซึ่งมีข้อมูลทุกเซตจาก API getMatchScoresheetData)
     const actualLineups = scoreData?.lineups || scoreData?.match_lineups || [];
 
@@ -316,31 +371,79 @@ export default function ScoreSheet({ matchId }) {
     const liberosA = isHomeOnLeft ? homeLibs : awayLibs;
     const liberosB = isHomeOnLeft ? awayLibs : homeLibs;
 
+    const normalizeStaffRole = (role) =>
+        String(role || '')
+            .toLowerCase()
+            .replace(/[._-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+    const getStaffDisplayName = (staff) =>
+        joinName(staff?.first_name || staff?.firstname, staff?.last_name || staff?.lastname) || staff?.name || '';
+
+    const staffRoleMatches = (rawRole, targetRole) => {
+        const role = normalizeStaffRole(rawRole);
+        if (!role) return false;
+
+        if (targetRole === 'coach') {
+            return ['head coach', 'coach', 'c', '1st coach', 'first coach'].includes(role);
+        }
+
+        if (targetRole === 'assistantCoach1') {
+            return [
+                'assistant coach',
+                'assistant coach 1',
+                'assistant coach1',
+                'assistant',
+                'ac1',
+                '2nd coach',
+                'second coach'
+            ].includes(role);
+        }
+
+        if (targetRole === 'assistantCoach2') {
+            return [
+                'assistant coach 2',
+                'assistant coach2',
+                'assistant 2',
+                'ac2',
+                '3rd coach',
+                'third coach'
+            ].includes(role);
+        }
+
+        if (targetRole === 'teamManager') {
+            return role === 't' || role.includes('manager');
+        }
+
+        if (targetRole === 'medical') {
+            return role === 'm' || role.includes('medical') || role.includes('doctor') || role.includes('therapist') || role.includes('trainer');
+        }
+
+        return false;
+    };
+
     // ฟังก์ชันช่วยดึงชื่อเจ้าหน้าที่ (Staff) ตาม Role จากฐานข้อมูล
-    const getStaffName = (staffArray, roles) => {
+    const getStaffName = (staffArray, targetRole) => {
         if (!Array.isArray(staffArray)) return '';
-        const staff = staffArray.find(s => {
-            const r = String(s.role || '').toLowerCase().trim();
-            // แค่มีคำที่ตรงกันบางส่วน (เช่น มีคำว่า 'manager' ใน 'team manager') ก็ถือว่าใช่
-            return roles.some(role => r.includes(role));
-        });
-        return staff ? `${staff.first_name || ''} ${staff.last_name || ''}`.trim() : '';
+        const staff = staffArray.find(s => staffRoleMatches(s.role, targetRole));
+        return getStaffDisplayName(staff);
     };
 
     const homeStaff = rosterData?.home?.staff || [];
     const awayStaff = rosterData?.away?.staff || [];
 
-    const hCoach = getStaffName(homeStaff, ['head coach', 'coach']) || scoreData?.home_coach || '';
-    const hAC1 = getStaffName(homeStaff, ['assistant coach 1', 'assistant coach']);
-    const hAC2 = getStaffName(homeStaff, ['assistant coach 2']);
-    const hTeamManager = getStaffName(homeStaff, ['manager', 'team manager', 'ผู้จัดการทีม']);
-    const hMedical = getStaffName(homeStaff, ['medical', 'doctor', 'medical doctor']);
+    const hCoach = getStaffName(homeStaff, 'coach') || scoreData?.home_coach || '';
+    const hAC1 = getStaffName(homeStaff, 'assistantCoach1');
+    const hAC2 = getStaffName(homeStaff, 'assistantCoach2');
+    const hTeamManager = getStaffName(homeStaff, 'teamManager');
+    const hMedical = getStaffName(homeStaff, 'medical');
 
-    const aCoach = getStaffName(awayStaff, ['head coach', 'coach']) || scoreData?.away_coach || '';
-    const aAC1 = getStaffName(awayStaff, ['assistant coach 1', 'assistant coach']);
-    const aAC2 = getStaffName(awayStaff, ['assistant coach 2']);
-    const aTeamManager = getStaffName(awayStaff, ['manager', 'team manager', 'ผู้จัดการทีม']);
-    const aMedical = getStaffName(awayStaff, ['medical', 'doctor', 'medical doctor']);
+    const aCoach = getStaffName(awayStaff, 'coach') || scoreData?.away_coach || '';
+    const aAC1 = getStaffName(awayStaff, 'assistantCoach1');
+    const aAC2 = getStaffName(awayStaff, 'assistantCoach2');
+    const aTeamManager = getStaffName(awayStaff, 'teamManager');
+    const aMedical = getStaffName(awayStaff, 'medical');
 
     // โค้ชและเจ้าหน้าที่ Mapping ไปที่ทีม A (ซ้าย) และทีม B (ขวา) ตามผลเสี่ยงแดน
     const coachA = isHomeOnLeft ? hCoach : aCoach;
@@ -361,6 +464,8 @@ export default function ScoreSheet({ matchId }) {
     const sigCapB = isHomeOnLeft ? matchSignatures.awayCaptain : matchSignatures.homeCaptain;
     const sigCoachA = isHomeOnLeft ? matchSignatures.homeCoach : matchSignatures.awayCoach;
     const sigCoachB = isHomeOnLeft ? matchSignatures.awayCoach : matchSignatures.homeCoach;
+    const scorerName = joinName(matchData?.scorer_firstname, matchData?.scorer_lastname) || matchData?.scorer_name || '';
+    const assistantScorerName = matchData?.assistant_scorer_name || matchData?.asstScorer || '';
 
     // 4. ฟังก์ชันสำหรับ Lineup และ Score 
     const getPlayerNoById = (playerId) => {
@@ -375,11 +480,64 @@ export default function ScoreSheet({ matchId }) {
 
     const getPlayerName = (player) => {
         if (!player) return '';
-        const fName = player.first_name || player.firstname || '';
-        const lName = player.last_name || player.lastname || player.name || '';
+        const fullName = firstFilled(player.name, player.full_name, player.player_name, player.display_name);
+        const fName = firstFilled(player.first_name, player.firstname, player.firstName);
+        const lName = firstFilled(player.last_name, player.lastname, player.lastName);
         // แก้ไขให้แสดงชื่อ-นามสกุลเต็ม
         if (fName && lName) return `${fName} ${lName}`;
-        return lName || fName || '';
+        return fullName || lName || fName || '';
+    };
+
+    const parseEventDetails = (event) => {
+        if (!event?.details) return {};
+        if (typeof event.details === 'string') {
+            try {
+                return JSON.parse(event.details) || {};
+            } catch {
+                return {};
+            }
+        }
+        return event.details || {};
+    };
+
+    const getEventMetadata = (event) => {
+        const details = parseEventDetails(event);
+        return details.metadata || event?.metadata || {};
+    };
+
+    const getEventType = (event) => {
+        const metadata = getEventMetadata(event);
+        return String(event?.event_type || event?.skill || event?.type || metadata.type || '').toUpperCase();
+    };
+    const getEventSetNumber = (event) => event?.set_number ?? event?.set_id ?? event?.set ?? '';
+    const getEventTeamId = (event) => {
+        const details = parseEventDetails(event);
+        return event?.team_id ?? details.team_id ?? '';
+    };
+    const getEventScore = (event) => {
+        const details = parseEventDetails(event);
+        return {
+            home: event?.score_home ?? details.score_home ?? '',
+            away: event?.score_away ?? details.score_away ?? ''
+        };
+    };
+    const getSubOutPlayerId = (event) => {
+        const details = parseEventDetails(event);
+        return details.player_out_id
+            ?? details.out
+            ?? details.details?.player_out_id
+            ?? details.details?.out
+            ?? '';
+    };
+    const getSubInPlayerId = (event) => {
+        const details = parseEventDetails(event);
+        return event?.player_id
+            ?? details.player_id
+            ?? details.player_in_id
+            ?? details.in
+            ?? details.details?.player_in_id
+            ?? details.details?.in
+            ?? '';
     };
 
     const getLineupForSet = (setNum, teamId) => {
@@ -408,9 +566,9 @@ export default function ScoreSheet({ matchId }) {
         if (!teamId || !scoreData?.events) return Array(6).fill(null);
 
         const subEvents = scoreData.events.filter(e =>
-            String(e.set_id) === String(setNum) &&
-            String(e.team_id) === String(teamId) &&
-            e.event_type === 'SUBSTITUTION'
+            String(getEventSetNumber(e)) === String(setNum) &&
+            String(getEventTeamId(e)) === String(teamId) &&
+            getEventType(e) === 'SUBSTITUTION'
         );
 
         const lineup = actualLineups.find(l => String(l.set_number) === String(setNum) && String(l.team_id) === String(teamId));
@@ -424,26 +582,24 @@ export default function ScoreSheet({ matchId }) {
         return startingIds.map(startPlayerId => {
             // 1. หาการเปลี่ยนตัวครั้งแรก (ตัวจริงออก ตัวสำรองเข้า)
             const firstSub = subEvents.find(e => {
-                let d = {};
-                try { d = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {}); } catch { /* ignore */ }
-                return String(d.player_out_id || d.out) === String(startPlayerId);
+                return String(getSubOutPlayerId(e)) === String(startPlayerId);
             });
 
             if (!firstSub) return null;
 
-            const subPlayerId = firstSub.player_id;
+            const subPlayerId = getSubInPlayerId(firstSub);
 
             // 2. หาการเปลี่ยนตัวครั้งที่สอง (ตัวสำรองออก ตัวจริงกลับเข้าสนาม)
             const secondSub = subEvents.find(e => {
-                let d = {};
-                try { d = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {}); } catch { /* ignore */ }
-                return String(d.player_out_id || d.out) === String(subPlayerId) && String(e.player_id) === String(startPlayerId);
+                return String(getSubOutPlayerId(e)) === String(subPlayerId) && String(getSubInPlayerId(e)) === String(startPlayerId);
             });
+            const firstScore = getEventScore(firstSub);
+            const secondScore = secondSub ? getEventScore(secondSub) : null;
 
             return {
                 playerNo: getPlayerNoById(subPlayerId),
-                score1: `${firstSub.score_home}:${firstSub.score_away}`,
-                score2: secondSub ? `${secondSub.score_home}:${secondSub.score_away}` : null,
+                score1: `${firstScore.home}:${firstScore.away}`,
+                score2: secondScore ? `${secondScore.home}:${secondScore.away}` : null,
                 isCompleted: !!secondSub
             };
         });
@@ -453,23 +609,86 @@ export default function ScoreSheet({ matchId }) {
     const getTimeoutsForSet = (setNum, teamId) => {
         if (!teamId || !scoreData?.events) return [];
         const toEvents = scoreData.events.filter(e =>
-            String(e.set_id) === String(setNum) &&
-            String(e.team_id) === String(teamId) &&
-            e.event_type === 'TIMEOUT'
+            String(getEventSetNumber(e)) === String(setNum) &&
+            String(getEventTeamId(e)) === String(teamId) &&
+            getEventType(e) === 'TIMEOUT'
         );
-        return toEvents.map(e => `${e.score_home}:${e.score_away}`);
+        return toEvents.map(e => {
+            const eventScore = getEventScore(e);
+            return `${eventScore.home}:${eventScore.away}`;
+        });
     };
 
     // 7. ฟังก์ชันสำหรับดึงข้อมูลการลงโทษ (Sanctions)
+    const getSanctionPayload = (event) => {
+        const details = parseEventDetails(event);
+        const nested = details.details && typeof details.details === 'object' ? details.details : {};
+        return { ...details, ...nested };
+    };
+
+    const getSanctionType = (event) => {
+        const payload = getSanctionPayload(event);
+        return String(
+            payload.sanctionType
+            || payload.card
+            || payload.card_type
+            || payload.sanction_label
+            || ''
+        ).toUpperCase();
+    };
+
+    const isImproperRequestSanction = (event) => getSanctionType(event) === 'IMPROPER_REQUEST';
+
     const getSanctions = () => {
         if (!scoreData?.events) return [];
-        return scoreData.events.filter(e => e.event_type === 'CARD' || e.event_type === 'SANCTION');
+        return scoreData.events.filter(e =>
+            (getEventType(e) === 'CARD' || getEventType(e) === 'SANCTION')
+            && !isImproperRequestSanction(e)
+        );
+    };
+
+    const getImproperRequestMarks = () => {
+        const marks = { A: false, B: false };
+        if (!scoreData?.events) return marks;
+
+        scoreData.events
+            .filter(e => (getEventType(e) === 'CARD' || getEventType(e) === 'SANCTION') && isImproperRequestSanction(e))
+            .forEach(e => {
+                const teamId = String(getEventTeamId(e));
+                if (teamId === String(idA)) marks.A = true;
+                if (teamId === String(idB)) marks.B = true;
+            });
+
+        return marks;
+    };
+
+    const getStaffSanctionCode = (staff = {}) => {
+        const role = String(staff.role || staff.person_type || staff.type || staff.label || '').toLowerCase();
+        if (role.includes('assistant') && (role.includes('2') || role.includes('second'))) return 'AC2';
+        if (role.includes('assistant')) return 'AC1';
+        if (role.includes('manager')) return 'T';
+        if (role.includes('medical') || role.includes('doctor')) return 'M';
+        if (role.includes('coach') || role === 'c') return 'C';
+        return 'C';
+    };
+
+    const getSanctionPersonCode = (event) => {
+        const payload = getSanctionPayload(event);
+        const receiver = String(payload.receiver || '').toUpperCase();
+        const sanctionType = getSanctionType(event);
+
+        if (sanctionType === 'DELAY_WARNING' || sanctionType === 'DELAY_PENALTY' || receiver === 'TEAM') return 'D';
+        if (event.player_id || payload.player_id) return getPlayerNoById(event.player_id || payload.player_id);
+        if (payload.player?.id) return getPlayerNoById(payload.player.id) || payload.player.number || '';
+        if (payload.staff) return getStaffSanctionCode(payload.staff);
+        if (payload.person_type) return getStaffSanctionCode({ role: payload.person_type });
+        return '';
     };
 
     // 8. ฟังก์ชันสำหรับดึงข้อมูลบันทึกเพิ่มเติม (Remarks)
     const getRemarks = () => {
         if (!scoreData?.events) return [];
-        return scoreData.events.filter(e => e.event_type === 'REMARK');
+        return scoreData.events.filter(e => getEventType(e) === 'REMARK');
     };
 
     // 9. ฟังก์ชันสำหรับคำนวณคะแนนในช่อง Service Rounds
@@ -477,7 +696,7 @@ export default function ScoreSheet({ matchId }) {
         const scores = Array(36).fill('');
         if (!teamId || !scoreData?.events) return scores;
 
-        const setEvents = scoreData.events.filter(e => String(e.set_id) === String(setNum) && e.event_type === 'POINT')
+        const setEvents = scoreData.events.filter(e => String(getEventSetNumber(e)) === String(setNum) && getEventType(e) === 'POINT')
             .sort((a, b) => a.id - b.id);
 
         if (setEvents.length === 0) return scores;
@@ -485,8 +704,9 @@ export default function ScoreSheet({ matchId }) {
         let currentIdx = 0;
 
         setEvents.forEach((e, i) => {
-            const winnerId = String(e.team_id);
-            const winnerScore = winnerId === String(matchData.home_team_id) ? e.score_home : e.score_away;
+            const winnerId = String(getEventTeamId(e));
+            const eventScore = getEventScore(e);
+            const winnerScore = winnerId === String(matchData.home_team_id) ? eventScore.home : eventScore.away;
 
             // Side-out occurs when the team that just won the point was NOT the one serving
             // Actually, in volleyball, we record the score of the serving team when they LOSE the rally.
@@ -505,9 +725,10 @@ export default function ScoreSheet({ matchId }) {
 
         // Add final score if the team was serving last
         const lastEvent = setEvents[setEvents.length - 1];
-        if (lastEvent && String(lastEvent.team_id) === String(teamId)) {
+        if (lastEvent && String(getEventTeamId(lastEvent)) === String(teamId)) {
             // In volleyball, the last point of the set is also recorded in the service round
-            if (currentIdx < 36) scores[currentIdx] = (String(teamId) === String(matchData.home_team_id)) ? lastEvent.score_home : lastEvent.score_away;
+            const lastEventScore = getEventScore(lastEvent);
+            if (currentIdx < 36) scores[currentIdx] = (String(teamId) === String(matchData.home_team_id)) ? lastEventScore.home : lastEventScore.away;
         }
 
         return scores;
@@ -522,10 +743,10 @@ export default function ScoreSheet({ matchId }) {
     const totalPointsB = isHomeOnLeft ? totalAwayPoints : totalHomePoints;
     const totalWonA = isHomeOnLeft ? totalHomeWon : totalAwayWon;
     const totalWonB = isHomeOnLeft ? totalAwayWon : totalHomeWon;
-    const totalSubsA = scoreData?.events?.filter(e => String(e.team_id) === String(idA) && e.event_type === 'SUBSTITUTION').length || 0;
-    const totalSubsB = scoreData?.events?.filter(e => String(e.team_id) === String(idB) && e.event_type === 'SUBSTITUTION').length || 0;
-    const totalToA = scoreData?.events?.filter(e => String(e.team_id) === String(idA) && e.event_type === 'TIMEOUT').length || 0;
-    const totalToB = scoreData?.events?.filter(e => String(e.team_id) === String(idB) && e.event_type === 'TIMEOUT').length || 0;
+    const totalSubsA = scoreData?.events?.filter(e => String(getEventTeamId(e)) === String(idA) && getEventType(e) === 'SUBSTITUTION').length || 0;
+    const totalSubsB = scoreData?.events?.filter(e => String(getEventTeamId(e)) === String(idB) && getEventType(e) === 'SUBSTITUTION').length || 0;
+    const totalToA = scoreData?.events?.filter(e => String(getEventTeamId(e)) === String(idA) && getEventType(e) === 'TIMEOUT').length || 0;
+    const totalToB = scoreData?.events?.filter(e => String(getEventTeamId(e)) === String(idB) && getEventType(e) === 'TIMEOUT').length || 0;
 
     const totalDuration = results.reduce((sum, r, idx) => {
         const dur = getCalculatedSetDuration(r, idx === 0 ? matchData?.start_time : null);
@@ -544,9 +765,9 @@ export default function ScoreSheet({ matchId }) {
     const matchEndTime = lastSetEndTime || matchData.end_time;
 
     // --- Set 5 (Deciding Set) Coin Toss and Side configuration ---
-    const decidingSetEvents = scoreData?.events?.filter(e => String(e.set_id) === String(decidingSetNum)) || [];
-    const set5CourtSideLeftEvent = decidingSetEvents.find(e => e.event_type === 'COURT_SIDE_LEFT');
-    const set5FirstServeEvent = decidingSetEvents.find(e => e.event_type === 'FIRST_SERVE');
+    const decidingSetEvents = scoreData?.events?.filter(e => String(getEventSetNumber(e)) === String(decidingSetNum)) || [];
+    const set5CourtSideLeftEvent = decidingSetEvents.find(e => getEventType(e) === 'COURT_SIDE_LEFT');
+    const set5FirstServeEvent = decidingSetEvents.find(e => getEventType(e) === 'FIRST_SERVE');
 
     const isSet5HomeOnLeft = set5CourtSideLeftEvent
         ? (String(set5CourtSideLeftEvent.team_id) === String(matchData.home_team_id))
@@ -706,31 +927,31 @@ export default function ScoreSheet({ matchId }) {
                                             <span>Division :</span>
                                             <label className="flex items-center gap-1.5 font-normal cursor-pointer">Men
                                                 <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {gender === 'Male' || gender === 'Men' ? 'X' : ''}
+                                                    {gender === 'Men' ? 'X' : ''}
                                                 </div>
                                             </label>
                                             <label className="flex items-center gap-1.5 font-normal cursor-pointer">Women
                                                 <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {gender === 'Female' || gender === 'Women' ? 'X' : ''}
+                                                    {gender === 'Women' ? 'X' : ''}
                                                 </div>
                                             </label>
                                         </div>
                                         <div className="w-[2px] h-[20px] bg-black mx-2"></div>
                                         <div className="flex justify-between w-full gap-1">
                                             <span>Category :</span>
-                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">Senior
-                                                <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {category === 'Senior' ? 'X' : ''}
-                                                </div>
-                                            </label>
                                             <label className="flex items-center gap-1.5 font-normal cursor-pointer">Junior
                                                 <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {category === 'Junior' ? 'X' : ''}
+                                                    {isJuniorCategory ? 'X' : ''}
                                                 </div>
                                             </label>
                                             <label className="flex items-center gap-1.5 font-normal cursor-pointer">Youth
                                                 <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {category === 'Youth' ? 'X' : ''}
+                                                    {isYouthCategory ? 'X' : ''}
+                                                </div>
+                                            </label>
+                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">Senior
+                                                <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
+                                                    {isSeniorCategory ? 'X' : ''}
                                                 </div>
                                             </label>
                                         </div>
@@ -742,18 +963,20 @@ export default function ScoreSheet({ matchId }) {
                                     <div className="flex items-center gap-2">
                                         <div className="flex flex-col text-[8px] leading-[8px] text-center font-bold text-black mt-1">
                                             <span className="relative">
-                                                A
-                                                <div className="absolute inset-0 flex items-center justify-center text-[16px] font-normal leading-none -translate-y-[1.5px]">&times;</div>
+                                                {showTossLabels ? 'A' : ''}
+                                                {showTossLabels && (
+                                                    <div className="absolute inset-0 flex items-center justify-center text-[16px] font-normal leading-none -translate-y-[1.5px]">&times;</div>
+                                                )}
                                             </span>
-                                            <span>or</span>
-                                            <span>B</span>
+                                            <span>{showTossLabels ? 'or' : ''}</span>
+                                            <span>{showTossLabels ? 'B' : ''}</span>
                                         </div>
                                         <div className="w-8 h-8 rounded-full border-[1.5px] border-black flex items-center justify-center font-bold text-[16px] bg-white shrink-0">
-                                            A
+                                            {showTossLabels ? 'A' : ''}
                                         </div>
                                         {/* กล่องทีม A */}
-                                        <div className={`border border-black w-auto min-w-[80px] max-w-[120px] px-2 h-8 flex items-center justify-center font-bold bg-gray-100 print:bg-white truncate ${getTeamFontSize(displayTeamA, 14)}`}>
-                                            {displayTeamA}
+                                        <div className={`border border-black w-auto min-w-[80px] max-w-[120px] px-2 h-8 flex items-center justify-center font-bold bg-gray-100 print:bg-white truncate ${getTeamFontSize(programTeamA, 14)}`}>
+                                            {programTeamA}
                                         </div>
                                     </div>
 
@@ -763,18 +986,20 @@ export default function ScoreSheet({ matchId }) {
 
                                     <div className="flex items-center gap-2">
                                         {/* กล่องทีม B */}
-                                        <div className={`border border-black w-auto min-w-[80px] max-w-[120px] px-2 h-8 flex items-center justify-center font-bold bg-gray-100 print:bg-white truncate ${getTeamFontSize(displayTeamB, 14)}`}>
-                                            {displayTeamB}
+                                        <div className={`border border-black w-auto min-w-[80px] max-w-[120px] px-2 h-8 flex items-center justify-center font-bold bg-gray-100 print:bg-white truncate ${getTeamFontSize(programTeamB, 14)}`}>
+                                            {programTeamB}
                                         </div>
                                         <div className="w-8 h-8 rounded-full border-[1.5px] border-black flex items-center justify-center font-bold text-[16px] bg-white shrink-0">
-                                            B
+                                            {showTossLabels ? 'B' : ''}
                                         </div>
                                         <div className="flex flex-col items-center leading-[10px] text-[10px] font-bold">
-                                            <span>A</span>
-                                            <span>or</span>
+                                            <span>{showTossLabels ? 'A' : ''}</span>
+                                            <span>{showTossLabels ? 'or' : ''}</span>
                                             <span className="relative">
-                                                B
-                                                <div className="absolute inset-0 flex items-center justify-center text-[20px] font-normal leading-none -translate-y-[1px]">&times;</div>
+                                                {showTossLabels ? 'B' : ''}
+                                                {showTossLabels && (
+                                                    <div className="absolute inset-0 flex items-center justify-center text-[20px] font-normal leading-none -translate-y-[1px]">&times;</div>
+                                                )}
                                             </span>
                                         </div>
                                     </div>
@@ -875,12 +1100,23 @@ export default function ScoreSheet({ matchId }) {
                                     <div className="w-[60%] flex items-center justify-center font-bold text-[16px] tracking-wide">SANCTIONS</div>
                                     <div className="w-[40%] border-l-2 border-black flex flex-col text-[8px] font-bold">
                                         <div className="border-b border-black text-center py-[2px]">IMPROPER REQUEST</div>
-                                        <div className="flex items-center justify-center gap-1.5 py-[2px] bg-gray-50 print:bg-white">
-                                            <span>TEAM</span>
-                                            <div className="w-[12px] h-[12px] rounded-full border border-black flex items-center justify-center pb-[1px]">A</div>
-                                            <span>: TEAM</span>
-                                            <div className="w-[12px] h-[12px] rounded-full border border-black flex items-center justify-center pb-[1px]">B</div>
-                                        </div>
+                                        {(() => {
+                                            const irMarks = getImproperRequestMarks();
+                                            const TeamMark = ({ label, marked }) => (
+                                                <div className="relative w-[12px] h-[12px] rounded-full border border-black flex items-center justify-center pb-[1px]">
+                                                    <span>{label}</span>
+                                                    {marked && <span className="absolute inset-0 flex items-center justify-center text-[15px] leading-none font-black">×</span>}
+                                                </div>
+                                            );
+                                            return (
+                                                <div className="flex items-center justify-center gap-1.5 py-[2px] bg-gray-50 print:bg-white">
+                                                    <span>TEAM</span>
+                                                    <TeamMark label="A" marked={irMarks.A} />
+                                                    <span>: TEAM</span>
+                                                    <TeamMark label="B" marked={irMarks.B} />
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                                 <table className="w-full text-center divide-y border-black table-fixed flex-1">
@@ -902,29 +1138,21 @@ export default function ScoreSheet({ matchId }) {
                                                 const s = sanctions[i];
                                                 if (!s) return <tr key={i} className="divide-x border-black h-5"><td></td><td></td><td></td><td></td><td></td><td></td><td className="text-[10px]"> : </td></tr>;
 
-                                                let d = {};
-                                                try { d = typeof s.details === 'string' ? JSON.parse(s.details) : (s.details || {}); } catch { /* ignore */ }
-
-                                                const cardType = (d.card_type || d.card || '').toUpperCase();
-                                                const teamLabel = String(s.team_id) === String(idA) ? 'A' : (String(s.team_id) === String(idB) ? 'B' : '');
-
-                                                // ใครถูกทำโทษ (Player No หรือ Role)
-                                                let person = '';
-                                                if (s.player_id) {
-                                                    person = getPlayerNoById(s.player_id);
-                                                } else if (d.person_type) {
-                                                    person = d.person_type === 'COACH' ? 'C' : (d.person_type === 'AC1' ? 'AC1' : (d.person_type === 'AC2' ? 'AC2' : 'C'));
-                                                }
+                                                const cardType = getSanctionType(s);
+                                                const sanctionTeamId = String(getEventTeamId(s));
+                                                const teamLabel = sanctionTeamId === String(idA) ? 'A' : (sanctionTeamId === String(idB) ? 'B' : '');
+                                                const person = getSanctionPersonCode(s);
+                                                const eventScore = getEventScore(s);
 
                                                 return (
                                                     <tr key={i} className="divide-x border-black h-5">
-                                                        <td className="bg-white">{cardType === 'YELLOW' || cardType === 'WARNING' ? person : ''}</td>
-                                                        <td className="bg-white">{cardType === 'RED' || cardType === 'PENALTY' ? person : ''}</td>
+                                                        <td className="bg-white">{cardType === 'YELLOW' || cardType === 'WARNING' || cardType === 'DELAY_WARNING' ? person : ''}</td>
+                                                        <td className="bg-white">{cardType === 'RED' || cardType === 'PENALTY' || cardType === 'DELAY_PENALTY' ? person : ''}</td>
                                                         <td className="bg-white">{cardType === 'EXPULSION' ? person : ''}</td>
                                                         <td className="bg-white">{cardType === 'DISQUALIFICATION' ? person : ''}</td>
                                                         <td className="bg-white">{teamLabel}</td>
-                                                        <td className="bg-white">{(isBestOf3 && String(s.set_id) === '3') ? '5' : (s.set_id || '')}</td>
-                                                        <td className="bg-white text-[10px]">{s.score_home} : {s.score_away}</td>
+                                                        <td className="bg-white">{(isBestOf3 && String(getEventSetNumber(s)) === '3') ? '5' : (getEventSetNumber(s) || '')}</td>
+                                                        <td className="bg-white text-[10px]">{eventScore.home} : {eventScore.away}</td>
                                                     </tr>
                                                 );
                                             });
@@ -986,14 +1214,14 @@ export default function ScoreSheet({ matchId }) {
                                             {/* ผู้บันทึกคะแนน */}
                                             <tr className="divide-x border-black">
                                                 <td className="p-1 text-center font-normal text-[11px]">Scorer</td>
-                                                <td className="px-2 truncate uppercase">{`${matchData?.scorer_firstname || ''} ${matchData?.scorer_lastname || ''}`.trim()}</td>
+                                                <td className="px-2 truncate uppercase">{scorerName}</td>
                                                 <td className="px-2 text-center uppercase">{matchData?.scorer_country || ''}</td>
                                                 <td></td>
                                             </tr>
                                             {/* ผู้ช่วยผู้บันทึกคะแนน */}
                                             <tr className="divide-x border-black border-b border-black">
                                                 <td className="p-1 text-center leading-tight font-normal text-[10px]">Assistant<br />Scorer</td>
-                                                <td className="px-2 truncate uppercase">{matchData?.assistant_scorer_name || ''}</td>
+                                                <td className="px-2 truncate uppercase">{assistantScorerName}</td>
                                                 <td className="px-2 text-center uppercase">{matchData?.assistant_scorer_country || ''}</td>
                                                 <td></td>
                                             </tr>
@@ -1064,10 +1292,10 @@ export default function ScoreSheet({ matchId }) {
                                     <div className="w-[50%] flex justify-between px-2 items-center border-r-[1px] border-black">
                                         <span className="text-[10px]">TEAM</span>
                                         <div className={`flex-1 mx-2 border border-black h-[18px] bg-white flex items-center justify-center px-1 truncate ${getTeamFontSize(displayTeamA, 10)}`}>{displayTeamA}</div>
-                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">A</div>
+                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">{showTossLabels ? 'A' : ''}</div>
                                     </div>
                                     <div className="w-[50%] flex justify-between px-2 items-center border-l-[1px] border-black">
-                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">B</div>
+                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">{showTossLabels ? 'B' : ''}</div>
                                         <div className={`flex-1 mx-2 border border-black h-[18px] bg-white flex items-center justify-center px-1 truncate ${getTeamFontSize(displayTeamB, 10)}`}>{displayTeamB}</div>
                                         <span className="text-[10px]">TEAM</span>
                                     </div>
@@ -1094,9 +1322,9 @@ export default function ScoreSheet({ matchId }) {
                                             const getEventsCount = (teamId, type) => {
                                                 if (!isPlayed || !scoreData?.events) return '';
                                                 const count = scoreData.events.filter(e =>
-                                                    String(e.set_id) === String(setNumForDb) &&
-                                                    String(e.team_id) === String(teamId) &&
-                                                    e.event_type === type
+                                                    String(getEventSetNumber(e)) === String(setNumForDb) &&
+                                                    String(getEventTeamId(e)) === String(teamId) &&
+                                                    getEventType(e) === type
                                                 ).length;
                                                 return count > 0 ? count : (isPlayed ? '0' : '');
                                             };
@@ -1178,14 +1406,14 @@ export default function ScoreSheet({ matchId }) {
                                 <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 ml-0.5">
                                     A
                                 </div>
-                                <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 ml-0.5 ${getTeamFontSize(displayTeamA, 10)}`}>
-                                    {displayTeamA}
+                                <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 ml-0.5 ${getTeamFontSize(programTeamA, 10)}`}>
+                                    {programTeamA}
                                 </div>
                             </div>
                             <div className="text-[11px] font-bold text-center leading-[0.8] mx-1 shrink-0">TEAMS<br /><span className="text-[8px]">vs</span></div>
                             <div className="flex-1 flex justify-between items-center gap-1">
-                                <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 mr-0.5 ${getTeamFontSize(displayTeamB, 10)}`}>
-                                    {displayTeamB}
+                                <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 mr-0.5 ${getTeamFontSize(programTeamB, 10)}`}>
+                                    {programTeamB}
                                 </div>
                                 <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 mr-0.5">
                                     B

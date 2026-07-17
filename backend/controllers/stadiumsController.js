@@ -21,11 +21,13 @@ module.exports = {
       await client.query('BEGIN');
       const result = await client.query(
         `INSERT INTO stadiums (name, code, address, google_map_url, capacity, number_of_courts, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [name, code, address, google_map_url, capacity || 0, number_of_courts || 1, status || 'active']
       );
+      const insertedId = result.insertId;
+      const created = await client.query('SELECT * FROM stadiums WHERE id = ?', [insertedId]);
       await client.query('COMMIT');
-      res.json(result.rows[0]);
+      res.json(created.rows[0]);
     } catch (err) {
       await client.query('ROLLBACK');
       console.error(err);
@@ -46,12 +48,13 @@ module.exports = {
       const cleanCourts = (number_of_courts === '' || number_of_courts === null || number_of_courts === undefined) ? 1 : parseInt(number_of_courts, 10);
 
       await client.query('BEGIN');
-      const result = await client.query(
+      await client.query(
         `UPDATE stadiums SET 
-         name=$1, code=$2, address=$3, google_map_url=$4, capacity=$5, number_of_courts=$6, status=$7, updated_at=NOW()
-         WHERE id=$8 RETURNING *`,
+         name=?, code=?, address=?, google_map_url=?, capacity=?, number_of_courts=?, status=?, updated_at=NOW()
+         WHERE id=?`,
         [name, code, address, google_map_url, cleanCapacity, cleanCourts, status, id]
       );
+      const result = await client.query('SELECT * FROM stadiums WHERE id = ?', [id]);
       await client.query('COMMIT');
       res.json(result.rows[0]);
     } catch (err) {
@@ -70,7 +73,7 @@ module.exports = {
       const { id } = req.params;
       await client.query('BEGIN');
       // เช็คก่อนว่ามีการใช้งานอยู่ไหม (Optional)
-      await client.query('DELETE FROM stadiums WHERE id = $1', [id]);
+      await client.query('DELETE FROM stadiums WHERE id = ?', [id]);
       await client.query('COMMIT');
       res.json({ message: 'Deleted successfully' });
     } catch (err) {

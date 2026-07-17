@@ -19,7 +19,8 @@ export default function MobileTeamDrawer({
     onOpenChallenge,
     onActionSelect,
     onOpenSubstitution,
-    onPointScored
+    onPointScored,
+    challengeEnabled = true
 }) {
     if (!mobilePanelTeam) return null;
 
@@ -68,7 +69,7 @@ export default function MobileTeamDrawer({
                                 }}
                                 disabled={isRallyOrLineup}
                                 className="border text-[11px] font-bold py-2 rounded bg-white hover:bg-slate-50 disabled:opacity-50 animate-pulse"
-                                style={{ borderColor: activeColor, color: activeColor }}
+                                style={{ borderColor: activeColor, color: '#000' }}
                             >
                                 Libero in
                             </button>
@@ -80,12 +81,14 @@ export default function MobileTeamDrawer({
                             <div className="flex border rounded overflow-hidden bg-white" style={{ borderColor: activeColor }}>
                                 <button
                                     onClick={() => {
+                                        if (!challengeEnabled) return;
                                         onOpenChallenge(mobilePanelTeam);
                                         onClose();
                                     }}
-                                    disabled={challenges[mobilePanelTeam] <= 0 || isRallyOrLineup}
+                                    disabled={!challengeEnabled || challenges[mobilePanelTeam] <= 0 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[10px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
-                                    style={{ borderColor: activeColor, color: activeColor }}
+                                    style={{ borderColor: activeColor, color: '#000' }}
+                                    title={challengeEnabled ? 'Video challenge' : 'Challenge system is not enabled for this match'}
                                 >
                                     Video chall.
                                 </button>
@@ -106,7 +109,7 @@ export default function MobileTeamDrawer({
                                     }}
                                     disabled={timeouts[mobilePanelTeam] >= 2 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
-                                    style={{ borderColor: activeColor, color: activeColor }}
+                                    style={{ borderColor: activeColor, color: '#000' }}
                                 >
                                     Timeout
                                 </button>
@@ -127,7 +130,7 @@ export default function MobileTeamDrawer({
                                     }}
                                     disabled={isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
-                                    style={{ borderColor: activeColor, color: activeColor }}
+                                    style={{ borderColor: activeColor, color: '#000' }}
                                 >
                                     Substitution
                                 </button>

@@ -1,10 +1,10 @@
 import React from 'react';
-import { getContrastClass } from '../../../utils/colorUtils';
+import { getContrastClass, getContrastColorHex } from '../../../utils/colorUtils';
 
 export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
     if (!team) return null;
 
-    const { lineup = [], roster = [], liberos = {}, color = '#1d4ed8', code, subTracker } = team;
+    const { lineup = [], roster = [], liberos = {}, color = '#1d4ed8', subTracker } = team;
 
     // 1. ดึงข้อมูลนักกีฬาที่อยู่ในสนาม 
     const validLineup = lineup
@@ -12,7 +12,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
         .filter(Boolean);
 
     const onCourtIds = validLineup.map(p => p.id || p.player_id);
-    const sortedOnCourt = [...validLineup].sort((a, b) => parseInt(a.number) - parseInt(b.number));
+    const sortedOnCourt = [...validLineup].sort((a, b) => a.posIndex - b.posIndex);
 
     // 2. ดึงข้อมูลนักกีฬาที่อยู่ม้านั่งสำรอง
     const benchPlayers = roster.filter(p => {
@@ -27,14 +27,11 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
         <div className="flex flex-col h-full bg-white select-none border border-slate-200 rounded-sm">
             {/* Header ชื่อทีม */}
             <div
-                className="py-3 px-4 text-center font-black text-sm tracking-wide uppercase truncate bg-white flex items-center justify-center gap-2"
+                className="py-3 px-4 text-center font-black text-xl tracking-wide uppercase truncate bg-white flex items-center justify-center gap-2"
                 style={{ borderBottom: `3px solid ${color}`, color: '#000000' }}
             >
                 <span>{team.name}</span>
-                <span 
-                    className={`inline-block w-2.5 h-2.5 rounded-full border border-white shadow-sm transition-all duration-300 ${team.isStaffConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-slate-350'}`} 
-                    title={team.isStaffConnected ? 'Staff Connected (Online)' : 'Staff Disconnected (Offline)'}
-                />
+                
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -72,6 +69,9 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                                 }
                             }
 
+                            const badgeBg = color;
+                            const badgeColor = getContrastColorHex(color);
+
                             return (
                                 <div
                                     key={p.id || p.number}
@@ -80,9 +80,10 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                                 >
                                     {/* หมายเลขผู้เล่นปัจจุบัน + (หมายเลขเดิม) */}
                                     <div className="w-8 flex items-baseline justify-start gap-1 shrink-0">
-                                        <span className="font-bold text-[14px] text-slate-700">
+                                        <span className="font-bold text-[14px] text-slate-700 leading-none">
                                             {p.number}
                                         </span>
+                                        
                                         {subbedOutNum && (
                                             <span className="text-[11px] text-slate-400 font-normal tracking-tighter">
                                                 {subbedOutNum}
@@ -97,8 +98,10 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
                                     {/* Icon กัปตัน / ลิเบอโร่ */}
                                     <div className="flex items-center justify-end gap-1 shrink-0">
-                                        {p.isCaptain && (
-                                            <span className="bg-[#3b82f6] text-white font-bold text-[10px] rounded px-1.5 py-0.5 leading-none">C</span>
+                                        {(p.isCaptain || p.is_captain || p.role === 'C') && (
+                                            <span className="mt-1 text-[10px] font-bold px-1.5 rounded-sm" style={{ backgroundColor: badgeBg, color: badgeColor }}>
+                                                C
+                                            </span>
                                         )}
                                         {isLibero && (
                                             <span className="bg-[#f59e0b] text-white font-bold text-[10px] rounded px-1.5 py-0.5 leading-none">{liberoLabel}</span>
@@ -183,7 +186,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
                                     {/* Icon กัปตัน / ลิเบอโร่ */}
                                     <div className="flex items-center justify-end gap-1 shrink-0">
-                                        {p.isCaptain && (
+                                        {(p.isCaptain || p.is_captain || p.role === 'C') && (
                                             <span className="bg-[#3b82f6] text-white font-bold text-[10px] rounded px-1.5 py-0.5 leading-none">C</span>
                                         )}
                                         {isLibero && (

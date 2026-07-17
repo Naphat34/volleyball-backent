@@ -96,7 +96,7 @@ export default function Referees({ darkMode = false }) {
                 </h1>
                 <button
                     onClick={() => openModal()}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-lg transition-transform active:scale-95"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors"
                 >
                     <Plus size={20} /> Add New {activeTab === 'linejudge' ? 'Line Judge' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </button>
@@ -230,7 +230,7 @@ export default function Referees({ darkMode = false }) {
 
                         <div className="px-6 py-4 border-t flex justify-end gap-3 border-gray-100 bg-gray-50">
                             <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition">Cancel</button>
-                            <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-blue-600 text-white hover:bg-indigo-700 shadow-lg active:scale-95 transition flex items-center gap-2">
+                            <button onClick={handleSave} className="px-6 py-2 rounded-md font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2">
                                 <Save size={18} /> Save
                             </button>
                         </div>

@@ -643,6 +643,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly = false }) 
             player_id: payload.player_id,
             score_home: payload.score_home,
             score_away: payload.score_away,
+            server_player_id: server?.id || null,
             skill: payload.skill,
             grade: payload.grade,
             details: { description: payload.description }

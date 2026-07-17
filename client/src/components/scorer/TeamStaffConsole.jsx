@@ -4,6 +4,83 @@ import { io } from 'socket.io-client';
 import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X } from 'lucide-react';
 import client, { api } from '../../api';
 import Swal from 'sweetalert2';
+import { isPlayerLibero, filterActivePlayers } from '../../utils/playerFilters';
+
+// Normalize and compare gender values for roster filtering
+const normalizeGender = (g) => String(g || '').trim().toLowerCase();
+const isMaleGender = (g) => ['male', 'm', 'men', 'ชาย'].includes(normalizeGender(g));
+const isFemaleGender = (g) => ['female', 'f', 'women', 'หญิง'].includes(normalizeGender(g));
+const matchesMatchGender = (player, matchGender) => {
+    if (!matchGender) return true; // no restriction
+    const mg = normalizeGender(matchGender);
+    if (mg === 'all' || mg === 'mix' || mg === '') return true;
+    const pg = normalizeGender(player?.gender || '');
+    if (!pg) return true; // unknown player gender — keep visible
+    if (isMaleGender(mg)) return isMaleGender(pg);
+    if (isFemaleGender(mg)) return isFemaleGender(pg);
+    return true;
+};
+const filterByMatchGender = (roster, matchGender) => Array.isArray(roster) ? roster.filter(p => matchesMatchGender(p, matchGender)) : [];
+const getSocketServerUrl = () => {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (!apiUrl) return `${window.location.protocol}//${window.location.hostname}:3000`;
+    return apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+};
+
+const getLiberoTag = (p) => {
+    if (!p) return 'L';
+    const role = String(p.role || '').toUpperCase();
+    const pos = String(p.position || '').toUpperCase();
+    if (pos === 'L1' || role === 'L1' || role === 'L1+C') return 'L1';
+    if (pos === 'L2' || role === 'L2' || role === 'L2+C') return 'L2';
+    return 'L';
+};
+
+const getPlayerId = (player) => {
+    if (player === undefined || player === null) return null;
+    if (typeof player !== 'object') return player;
+    return player.id ?? player.player_id ?? player.playerId ?? null;
+};
+
+const getPlayerNumber = (player) => {
+    if (!player || typeof player !== 'object') return '';
+    return player.number ?? player.entry_number ?? player.shirt_number ?? player.jersey_number ?? '';
+};
+
+const samePlayer = (a, b) => {
+    const aId = getPlayerId(a);
+    const bId = getPlayerId(b);
+    return aId !== null && bId !== null && String(aId) === String(bId);
+};
+
+const normalizePlayerForDisplay = (player, rosterList = []) => {
+    const playerId = getPlayerId(player);
+    if (playerId === null) return player;
+    const basePlayer = rosterList.find((candidate) => String(getPlayerId(candidate)) === String(playerId));
+    const rawPlayer = typeof player === 'object' ? player : { id: playerId };
+    return {
+        ...(basePlayer || {}),
+        ...rawPlayer,
+        id: rawPlayer.id ?? rawPlayer.player_id ?? basePlayer?.id ?? playerId,
+        player_id: rawPlayer.player_id ?? rawPlayer.id ?? basePlayer?.player_id ?? basePlayer?.id ?? playerId,
+        number: getPlayerNumber(rawPlayer) || getPlayerNumber(basePlayer) || ''
+    };
+};
+
+const hydrateLineupPlayers = (lineupList = [], rosterList = []) => (
+    Array.isArray(lineupList)
+        ? lineupList.map((player) => player ? normalizePlayerForDisplay(player, rosterList) : player)
+        : []
+);
+
+const hydratePlayerMap = (playerMap = {}, rosterList = []) => (
+    Object.fromEntries(
+        Object.entries(playerMap || {}).map(([key, player]) => [
+            key,
+            player ? normalizePlayerForDisplay(player, rosterList) : player
+        ])
+    )
+);
 
 export default function TeamStaffConsole() {
     const { matchId } = useParams();
@@ -48,36 +125,9 @@ export default function TeamStaffConsole() {
 
     const teamInfoRef = useRef(null);
     const matchDataRef = useRef(null);
+    const rosterRef = useRef([]);
+    const substitutionDraftRef = useRef({ isEditing: false, pendingCount: 0 });
     const lastPromptedSetRef = useRef(0);
-
-    const isPlayerLibero = (p) => {
-        if (!p) return false;
-        const role = String(p.role || '').toUpperCase();
-        const pos = String(p.position || '').toUpperCase();
-        return !!(
-            p.isLibero ||
-            p.is_libero ||
-            p.is_libero1 ||
-            p.is_libero2 ||
-            role === 'L1' ||
-            role === 'L2' ||
-            role === 'L1+C' ||
-            role === 'L2+C' ||
-            role === 'L' ||
-            pos === 'L' ||
-            pos === 'L1' ||
-            pos === 'L2'
-        );
-    };
-
-    const getLiberoTag = (p) => {
-        if (!p) return 'L';
-        const role = String(p.role || '').toUpperCase();
-        const pos = String(p.position || '').toUpperCase();
-        if (pos === 'L1' || role === 'L1' || role === 'L1+C') return 'L1';
-        if (pos === 'L2' || role === 'L2' || role === 'L2+C') return 'L2';
-        return 'L';
-    };
 
     const getCompletedSubstitutions = useCallback(() => {
         const list = [];
@@ -124,23 +174,25 @@ export default function TeamStaffConsole() {
 
         if (step === 'LINEUP' && !isLineupSet && lastPromptedSetRef.current < currentSetNum) {
             lastPromptedSetRef.current = currentSetNum;
-            setIsSettingLineup(true);
             setTempLineup(Array(6).fill(null));
             setSelectedPlayerForLineup(null);
-
-            Swal.fire({
-                title: `เซตใหม่กำลังจะเริ่ม (เซตที่ ${currentSetNum})`,
-                text: 'กรุณาจัดตำแหน่งผู้เล่นตัวจริง 6 คนในสนาม',
-                icon: 'info',
-                confirmButtonText: 'จัดตำแหน่ง',
-                confirmButtonColor: '#2563eb'
-            });
         }
     }, []);
 
     useEffect(() => {
         matchDataRef.current = matchData;
     }, [matchData]);
+
+    useEffect(() => {
+        rosterRef.current = roster;
+    }, [roster]);
+
+    useEffect(() => {
+        substitutionDraftRef.current = {
+            isEditing: isSubstitutionMode,
+            pendingCount: pendingSubstitutions.length
+        };
+    }, [isSubstitutionMode, pendingSubstitutions.length]);
 
     const fetchData = useCallback(async () => {
         try {
@@ -153,8 +205,8 @@ export default function TeamStaffConsole() {
             const live = liveRes.data;
 
             const user = JSON.parse(localStorage.getItem('user'));
-            const isHome = m.home_team_id === user?.team_id;
-            const isAway = m.away_team_id === user?.team_id;
+            const isHome = String(m.home_team_id) === String(user?.team_id);
+            const isAway = String(m.away_team_id) === String(user?.team_id);
 
             if (!isHome && !isAway) {
                 Swal.fire('ไม่อนุญาตให้เข้าถึง', 'ทีมของคุณไม่มีส่วนเกี่ยวข้องกับการแข่งขันนี้', 'error');
@@ -162,7 +214,7 @@ export default function TeamStaffConsole() {
                 return;
             }
 
-            if (m.status === 'FINISHED') {
+            if (String(m.status || '').toLowerCase() === 'finished' || String(m.status || '').toLowerCase() === 'completed') {
                 Swal.fire('การแข่งขันจบลงแล้ว', 'ไม่สามารถใช้งาน Staff Console สำหรับแมตช์ที่จบแล้วได้', 'info');
                 navigate('/team-dashboard');
                 return;
@@ -185,19 +237,21 @@ export default function TeamStaffConsole() {
                 side: isHome ? 'home' : 'away'
             });
 
+            let currentRoster = [];
             try {
                 const rosterRes = await api.getMatchRosterData(matchId);
                 if (rosterRes.data) {
                     const r = isHome ? (rosterRes.data.home?.players || rosterRes.data.homeRoster) : (rosterRes.data.away?.players || rosterRes.data.awayRoster);
-                    setRoster((r || []).filter(p => p.is_playing !== false));
+                    currentRoster = filterByMatchGender(filterActivePlayers(r || []), mergedMatchData?.gender || m?.gender);
                 } else {
                     const teamPlayers = await api.getPlayersByTeam(user.team_id);
-                    setRoster((teamPlayers.data || []).filter(p => p.is_playing !== false));
+                    currentRoster = filterByMatchGender(filterActivePlayers(teamPlayers.data || []), mergedMatchData?.gender || m?.gender);
                 }
             } catch {
                 const teamPlayers = await api.getPlayersByTeam(user.team_id);
-                setRoster((teamPlayers.data || []).filter(p => p.is_playing !== false));
+                currentRoster = filterByMatchGender(filterActivePlayers(teamPlayers.data || []), mergedMatchData?.gender || m?.gender);
             }
+            setRoster(currentRoster);
 
             const side = isHome ? 'home' : 'away';
 
@@ -207,20 +261,20 @@ export default function TeamStaffConsole() {
 
             if (live) {
                 const mySwaps = side === 'home' ? live.homeLiberoSwaps : live.awayLiberoSwaps;
-                setLiberoSwaps(mySwaps || {});
+                setLiberoSwaps(hydratePlayerMap(mySwaps || {}, currentRoster));
                 checkAndPromptLineup(live);
             }
 
             // Sync rotated live lineup, fallback to DB starting lineup if not initialized yet
             const myLineup = side === 'home' ? live?.homeLineup : live?.awayLineup;
             if (myLineup && myLineup.length > 0) {
-                setLineup(myLineup);
+                setLineup(hydrateLineupPlayers(myLineup, currentRoster));
             } else {
                 try {
                     const lineupRes = await client.get(`/scorer/match/${matchId}/lineup`);
                     const allLineups = lineupRes.data || [];
                     const teamLineupObj = allLineups.find(l => String(l.team_id) === String(user.team_id));
-                    setLineup(teamLineupObj ? teamLineupObj.lineup : []);
+                    setLineup(teamLineupObj ? hydrateLineupPlayers(teamLineupObj.lineup, currentRoster) : []);
                 } catch (err) {
                     console.error("Failed to load starting lineup fallback:", err);
                 }
@@ -241,13 +295,25 @@ export default function TeamStaffConsole() {
                     activeRequestIdRef.current = myPendingLineup.id;
                 } else if (myPendingSub) {
                     activeRequestIdRef.current = myPendingSub.id;
-                    setPendingSubstitutions(myPendingSub.details?.pairs || []);
+                    let pendingSubDetails = myPendingSub.details || {};
+                    if (typeof pendingSubDetails === 'string') {
+                        try {
+                            pendingSubDetails = JSON.parse(pendingSubDetails || '{}');
+                        } catch {
+                            pendingSubDetails = {};
+                        }
+                    }
+                    setPendingSubstitutions(pendingSubDetails.pairs || []);
                 } else if (myPendingChallenge) {
                     activeRequestIdRef.current = myPendingChallenge.id;
                     setActiveChallengeRequestId(myPendingChallenge.id);
                 } else {
                     activeRequestIdRef.current = null;
-                    setPendingSubstitutions([]);
+                    const hasLocalSubstitutionDraft = substitutionDraftRef.current.isEditing
+                        || substitutionDraftRef.current.pendingCount > 0;
+                    if (!hasLocalSubstitutionDraft) {
+                        setPendingSubstitutions([]);
+                    }
                     setActiveChallengeRequestId(null);
                 }
             } catch {
@@ -278,7 +344,7 @@ export default function TeamStaffConsole() {
     useEffect(() => {
         if (!teamId || !teamSide) return;
 
-        const socketUrl = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+        const socketUrl = getSocketServerUrl();
         const socket = io(socketUrl);
 
         socket.on('connect', () => {
@@ -382,10 +448,10 @@ export default function TeamStaffConsole() {
                     }
                     const myLineup = side === 'home' ? live.homeLineup : live.awayLineup;
                     if (myLineup) {
-                        setLineup(myLineup);
+                        setLineup(hydrateLineupPlayers(myLineup, rosterRef.current));
                     }
                     const mySwaps = side === 'home' ? live.homeLiberoSwaps : live.awayLiberoSwaps;
-                    setLiberoSwaps(mySwaps || {});
+                    setLiberoSwaps(hydratePlayerMap(mySwaps || {}, rosterRef.current));
                     checkAndPromptLineup(live);
                 }
             }
@@ -483,22 +549,7 @@ export default function TeamStaffConsole() {
         }
     };
 
-    // Video Challenge Effects & Handlers
-    useEffect(() => {
-        let interval = null;
-        if (showChallengeModal && challengeTimer > 0) {
-            interval = setInterval(() => {
-                setChallengeTimer(prev => prev - 1);
-            }, 1000);
-        } else if (showChallengeModal && challengeTimer === 0) {
-            handleChallengeTimeout();
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [showChallengeModal, challengeTimer]);
-
-    const handleChallengeTimeout = async () => {
+    const handleChallengeTimeout = useCallback(async () => {
         setShowChallengeModal(false);
         if (activeChallengeRequestId) {
             try {
@@ -519,7 +570,22 @@ export default function TeamStaffConsole() {
             position: 'top-end',
             showConfirmButton: false
         });
-    };
+    }, [activeChallengeRequestId, matchId]);
+
+    // Video Challenge Effects & Handlers
+    useEffect(() => {
+        let interval = null;
+        if (showChallengeModal && challengeTimer > 0) {
+            interval = setInterval(() => {
+                setChallengeTimer(prev => prev - 1);
+            }, 1000);
+        } else if (showChallengeModal && challengeTimer === 0) {
+            handleChallengeTimeout();
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [showChallengeModal, challengeTimer, handleChallengeTimeout]);
 
     const handleVideoChallengeClick = async () => {
         if (stats.challenges <= 0 || workflowStep === 'RALLY') return;
@@ -650,12 +716,12 @@ export default function TeamStaffConsole() {
                 // If posData.returned is false, the current player on court is the substitute.
                 // The only person who can replace them is the starter.
                 // Let's check if the starter is in roster (bench) and not on court.
-                const starter = roster.find(p => p.id === posData.starterId);
+                const starter = roster.find(p => String(getPlayerId(p)) === String(posData.starterId));
                 if (!starter) {
                     return { eligible: false, reason: 'ไม่พบผู้เล่นตัวจริงเพื่อเปลี่ยนตัวกลับเข้าสู่สนาม' };
                 }
                 // Is starter already on court? (Should not be, but let's check)
-                const isStarterOnCourt = lineup.some(p => p && p.id === posData.starterId);
+                const isStarterOnCourt = lineup.some(p => p && String(getPlayerId(p)) === String(posData.starterId));
                 if (isStarterOnCourt) {
                     return { eligible: false, reason: 'ผู้เล่นตัวจริงอยู่ในสนามแล้ว' };
                 }
@@ -669,9 +735,9 @@ export default function TeamStaffConsole() {
 
     const getEligibleBenchPlayersForSelectedOut = () => {
         if (!selectedOutPlayer) return [];
-        let posIndex = lineup.findIndex(p => p && p.id === selectedOutPlayer.id);
+        let posIndex = lineup.findIndex(p => p && samePlayer(p, selectedOutPlayer));
         if (posIndex === -1) {
-            const swapIndexStr = Object.keys(liberoSwaps).find(k => liberoSwaps[k]?.id === selectedOutPlayer.id);
+            const swapIndexStr = Object.keys(liberoSwaps).find(k => samePlayer(liberoSwaps[k], selectedOutPlayer));
             if (swapIndexStr !== undefined) {
                 posIndex = parseInt(swapIndexStr, 10);
             }
@@ -680,21 +746,43 @@ export default function TeamStaffConsole() {
         const originalPos = selectedOutPlayer.originalPos !== undefined ? selectedOutPlayer.originalPos : posIndex;
         const posData = subTracker?.positions?.[originalPos];
         
-        const courtIds = lineup.filter(p => p).map(p => p.id);
-        const swappedIds = Object.values(liberoSwaps).filter(p => p).map(p => p.id);
+        const courtIds = lineup.filter(p => p).map(getPlayerId).filter(id => id !== null);
+        const swappedIds = Object.values(liberoSwaps).filter(p => p).map(getPlayerId).filter(id => id !== null);
         const activeIds = [...courtIds, ...swappedIds];
 
         const availableBench = roster.filter(p => {
             const isLib = isPlayerLibero(p);
-            return !isLib && !activeIds.includes(p.id) && !pendingSubstitutions.some(sub => sub.inPlayer.id === p.id);
+            const playerId = getPlayerId(p);
+            return !isLib
+                && !activeIds.some(id => String(id) === String(playerId))
+                && !pendingSubstitutions.some(sub => samePlayer(sub.inPlayer, p));
         });
         
         if (posData) {
-            return availableBench.filter(p => p.id === posData.starterId);
+            return availableBench.filter(p => String(getPlayerId(p)) === String(posData.starterId));
         } else {
             const usedIds = subTracker?.usedPlayers || [];
-            return availableBench.filter(p => !usedIds.includes(p.id));
+            return availableBench.filter(p => !usedIds.some(id => String(id) === String(getPlayerId(p))));
         }
+    };
+
+    const getBenchPlayersForSubstitution = () => {
+        const activeIds = [
+            ...lineup.filter(Boolean).map(getPlayerId),
+            ...Object.values(liberoSwaps).filter(Boolean).map(getPlayerId)
+        ].filter(id => id !== null);
+
+        const regularBenchPlayers = roster.filter(p => {
+            const playerId = getPlayerId(p);
+            return !isPlayerLibero(p)
+                && !activeIds.some(id => String(id) === String(playerId))
+                && !pendingSubstitutions.some(sub => samePlayer(sub.inPlayer, p));
+        });
+
+        if (!selectedOutPlayer) return regularBenchPlayers;
+
+        const eligibleBench = getEligibleBenchPlayersForSelectedOut();
+        return regularBenchPlayers.filter(p => eligibleBench.some(ep => samePlayer(ep, p)));
     };
 
     const handleSlotSubClick = (posIndex) => {
@@ -704,7 +792,7 @@ export default function TeamStaffConsole() {
         if (!player) return;
         
         // Disable selecting if already in pending outPlayers
-        if (pendingSubstitutions.some(sub => sub.outPlayer.id === player.id)) {
+        if (pendingSubstitutions.some(sub => samePlayer(sub.outPlayer, player))) {
             return;
         }
         
@@ -720,7 +808,7 @@ export default function TeamStaffConsole() {
             return;
         }
         
-        if (selectedOutPlayer?.id === player.id) {
+        if (samePlayer(selectedOutPlayer, player)) {
             setSelectedOutPlayer(null);
         } else {
             setSelectedOutPlayer(player);
@@ -731,7 +819,7 @@ export default function TeamStaffConsole() {
         if (!isSubstitutionMode || !selectedOutPlayer) return;
         
         // Check if bench player is already in pendingSubstitutions
-        if (pendingSubstitutions.some(sub => sub.inPlayer.id === player.id)) return;
+        if (pendingSubstitutions.some(sub => samePlayer(sub.inPlayer, player))) return;
         
         // Check if bench player is a Libero
         const isLib = isPlayerLibero(player);
@@ -747,9 +835,9 @@ export default function TeamStaffConsole() {
         }
 
         // Get the status of the selectedOutPlayer
-        let posIndex = lineup.findIndex(p => p && p.id === selectedOutPlayer.id);
+        let posIndex = lineup.findIndex(p => p && samePlayer(p, selectedOutPlayer));
         if (posIndex === -1) {
-            const swapIndexStr = Object.keys(liberoSwaps).find(k => liberoSwaps[k]?.id === selectedOutPlayer.id);
+            const swapIndexStr = Object.keys(liberoSwaps).find(k => samePlayer(liberoSwaps[k], selectedOutPlayer));
             if (swapIndexStr !== undefined) {
                 posIndex = parseInt(swapIndexStr, 10);
             }
@@ -761,7 +849,7 @@ export default function TeamStaffConsole() {
         
         if (posData) {
             // The only person who can replace the substitute is the starter
-            if (player.id !== posData.starterId) {
+            if (String(getPlayerId(player)) !== String(posData.starterId)) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'ไม่สามารถเปลี่ยนตัวได้',
@@ -775,11 +863,11 @@ export default function TeamStaffConsole() {
             // This is the first substitution for this position.
             // Rule: The bench player must NOT have been used in any other position in this set.
             const usedIds = subTracker?.usedPlayers || [];
-            if (usedIds.includes(player.id)) {
+            if (usedIds.some(id => String(id) === String(getPlayerId(player)))) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'ไม่สามารถเปลี่ยนตัวได้',
-                    text: `ตามกฎ FIVB ผู้เล่นสำรอง (หมายเลข ${player.number}) เคยลงสนามในตำแหน่งอื่นในเซตนี้ไปแล้ว`,
+                    text: `ตามกฎ FIVB ผู้เล่นสำรอง (หมายเลข ${getPlayerNumber(player)}) เคยลงสนามในตำแหน่งอื่นในเซตนี้ไปแล้ว`,
                     confirmButtonColor: '#2563eb',
                     confirmButtonText: 'ตกลง'
                 });
@@ -906,6 +994,17 @@ export default function TeamStaffConsole() {
     };
 
     const handleConfirmLineup = async () => {
+        const targetSetNumber = Number(matchData.current_set || matchData.currentSet || 1);
+
+        if (workflowStep !== 'LINEUP') {
+            Swal.fire(
+                'Wait for next set',
+                'Please wait for the scorer to press START NEXT SET. Lineup sheets can be submitted only during the lineup workflow.',
+                'info'
+            );
+            return;
+        }
+
         if (tempLineup.some(p => !p || !(p.id || p.player_id))) {
             Swal.fire('Error', 'กรุณาจัดผู้เล่นให้ครบทั้ง 6 ตำแหน่ง', 'warning');
             return;
@@ -928,7 +1027,7 @@ export default function TeamStaffConsole() {
 
             await api.saveLineup(matchId, {
                 team_id: teamInfo.id,
-                set_number: matchData.current_set || 1,
+                set_number: targetSetNumber,
                 player_positions: tempLineup,
                 players
             });
@@ -936,6 +1035,13 @@ export default function TeamStaffConsole() {
             const res = await client.post(`/match/${matchId}/request`, {
                 team_id: teamInfo.id,
                 request_type: 'LINEUP',
+                details: {
+                    setNumber: targetSetNumber,
+                    lineup: players.map(player => ({
+                        position: player.position,
+                        player_id: player.player_id
+                    }))
+                }
             });
             activeRequestIdRef.current = res.data.requestId;
             setHasPendingLineup(true);
@@ -961,52 +1067,41 @@ export default function TeamStaffConsole() {
     if (!matchData) return <div className="p-10 text-center text-red-500">ไม่พบข้อมูลการแข่งขัน</div>;
 
     const isLineupComplete = tempLineup.length === 6 && tempLineup.every(p => p && (p.id || p.player_id));
+    const hasConfirmedLineup = lineup.length === 6 && lineup.every(p => p && (p.id || p.player_id));
+    const currentSetNumber = Number(matchData?.current_set || matchData?.currentSet || 1);
+    const lineupTargetSet = currentSetNumber;
+    const shouldShowLineupCard = !hasPendingLineup && workflowStep === 'LINEUP' && !hasConfirmedLineup;
+    const shouldShowActionCards = !hasPendingLineup && !shouldShowLineupCard &&
+        ['SERVING', 'READY', 'RALLY', 'CHALLENGE_REVIEW'].includes(workflowStep);
+    const hasChallengeSystem = matchData?.has_challenge === true || matchData?.has_challenge === 'true' || matchData?.has_challenge === 1 || matchData?.has_challenge === '1' || matchData?.hasChallenge === true || matchData?.hasChallenge === 'true' || matchData?.hasChallenge === 1 || matchData?.hasChallenge === '1';
+    const mainClassName = isSettingLineup
+        ? 'flex-1 min-h-0 p-3 md:p-5 xl:p-6 grid grid-cols-1 gap-4 md:gap-5 w-full max-w-[1040px] mx-auto items-stretch overflow-y-auto'
+        : 'flex-1 min-h-0 p-3 md:p-5 xl:p-6 grid grid-cols-1 gap-4 md:gap-5 w-full max-w-[680px] mx-auto items-center overflow-y-auto';
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none">
-            <header className="bg-blue-600 text-white p-4 shadow-lg flex items-center justify-between sticky top-0 z-50">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="p-1"><ChevronLeft /></button>
+        <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none text-slate-900">
+            <header className="bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 md:px-6 shadow-sm flex items-center justify-between sticky top-0 z-50">
+                <div className="flex items-center gap-3 min-w-0">
+                    <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center active:scale-95 transition" aria-label="Back"><ChevronLeft /></button>
                     <div>
-                        <h1 className="font-bold text-lg uppercase leading-tight truncate max-w-[150px]">{teamInfo?.name}</h1>
+                        <h1 className="font-semibold text-base md:text-lg leading-tight truncate max-w-[220px] md:max-w-[360px] text-slate-950">{teamInfo?.name}</h1>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <p className="text-[10px] opacity-80 uppercase tracking-widest font-bold">Staff Console</p>
-                            <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-full border border-white/10" title="สถานะเชื่อมต่อกับเซิร์ฟเวอร์">
-                                <span className="relative flex h-1.5 w-1.5">
-                                    {!isConnected && (
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                    )}
-                                    <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isConnected ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
-                                </span>
-                                <span className={`text-[8px] font-extrabold uppercase tracking-wider ${isConnected ? 'text-emerald-300' : 'text-rose-300'}`}>
-                                    {isConnected ? 'Online' : 'Offline / Syncing'}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-full border border-white/10" title="สถานะการเชื่อมต่อกับเจ้าหน้าที่โต๊ะบันทึกสกอร์">
-                                <span className="relative flex h-1.5 w-1.5">
-                                    {isScorerConnected && (
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    )}
-                                    <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isScorerConnected ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
-                                </span>
-                                <span className={`text-[8px] font-extrabold uppercase tracking-wider ${isScorerConnected ? 'text-emerald-300' : 'text-rose-300'}`}>
-                                    Scorer: {isScorerConnected ? 'Online' : 'Offline'}
-                                </span>
-                            </div>
+                            <p className="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">Staff Console</p>
                         </div>
                     </div>
                 </div>
-                <div className="text-right">
-                    <div className="text-2xl font-bold">SET {matchData?.current_set || matchData?.currentSet || 1}</div>
-                    <div className="text-xl font-bold">
+                <div className="text-right rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 min-w-[116px]">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">SET {matchData?.current_set || matchData?.currentSet || 1}</div>
+                    <div className="text-2xl font-black tabular-nums text-slate-950 leading-tight">
                         {matchData?.score_home ?? matchData?.scoreHome ?? 0} - {matchData?.score_away ?? matchData?.scoreAway ?? 0}
                     </div>
                 </div>
             </header>
 
-            <main className="flex-1 p-4 md:p-6 flex flex-row gap-6 w-full max-w-full mx-auto items-stretch h-[calc(100vh-68px)] overflow-hidden">
+            <main className={mainClassName}>
                 {/* LEFT SIDE: Court & Lineup */}
-                <section className="bg-[#e6eaf0] rounded-l shadow-inner p-4 md:p-6 flex flex-col relative overflow-hidden justify-center flex-[1.2]">
+                {isSettingLineup && (
+                <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-5 flex flex-col relative overflow-hidden justify-center min-h-[560px] md:min-h-0">
                     <div className="flex items-center justify-between mb-6 z-10">
                         {isSettingLineup && (
                             <button onClick={handleRotate} className="flex items-center gap-2 px-4 py-2 bg-white/80 hover:bg-white text-slate-700 rounded-xl text-sm font-bold transition-colors shadow-sm active:scale-95 backdrop-blur-md">
@@ -1050,15 +1145,15 @@ export default function TeamStaffConsole() {
                                             const isLiberoOnCourt = !!liberoSwappedPlayer;
                                             const activePlayerForSub = liberoSwappedPlayer || player;
 
-                                            const isSelected = selectedOutPlayer?.id === activePlayerForSub?.id;
-                                            const isPendingOut = pendingSubstitutions.some(sub => sub.outPlayer.id === activePlayerForSub?.id);
+                                            const isSelected = samePlayer(selectedOutPlayer, activePlayerForSub);
+                                            const isPendingOut = pendingSubstitutions.some(sub => samePlayer(sub.outPlayer, activePlayerForSub));
                                             const isCaptain = activePlayerForSub && (activePlayerForSub.is_captain || activePlayerForSub.isCaptain || activePlayerForSub.role === 'C');
                                             
                                             let starterNumber = null;
                                             if (activePlayerForSub && subTracker && subTracker.positions) {
                                                 const originalPos = activePlayerForSub.originalPos !== undefined ? activePlayerForSub.originalPos : idx;
                                                 const posData = subTracker.positions[originalPos];
-                                                if (posData && !posData.returned && posData.starterId !== activePlayerForSub.id) {
+                                                if (posData && !posData.returned && String(posData.starterId) !== String(getPlayerId(activePlayerForSub))) {
                                                     starterNumber = posData.starterNumber;
                                                 }
                                             }
@@ -1074,15 +1169,15 @@ export default function TeamStaffConsole() {
                                                     `}>
                                                     {player ? (
                                                         <>
-                                                            {player.number}
+                                                            {getPlayerNumber(activePlayerForSub) || getPlayerNumber(player)}
                                                             {isCaptain && (
                                                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold border border-white shadow-sm">
                                                                     C
                                                                 </span>
                                                             )}
                                                             {(isLiberoOnCourt && !player.replacedLiberoNumber) ? (
-                                                                <span className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black border-2 border-white shadow-md" title={`ผู้เล่นจริงหมายเลข ${liberoSwappedPlayer.number}`}>
-                                                                    {liberoSwappedPlayer.number}
+                                                                <span className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black border-2 border-white shadow-md" title={`ผู้เล่นจริงหมายเลข ${getPlayerNumber(liberoSwappedPlayer)}`}>
+                                                                    {getPlayerNumber(liberoSwappedPlayer)}
                                                                 </span>
                                                             ) : starterNumber ? (
                                                                 <span className="absolute bottom-0 right-0 bg-[#2563eb] text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black border-2 border-white shadow-md" title={`เปลี่ยนตัวกับหมายเลข ${starterNumber}`}>
@@ -1107,15 +1202,15 @@ export default function TeamStaffConsole() {
                                             const isLiberoOnCourt = !!liberoSwappedPlayer;
                                             const activePlayerForSub = liberoSwappedPlayer || player;
 
-                                            const isSelected = selectedOutPlayer?.id === activePlayerForSub?.id;
-                                            const isPendingOut = pendingSubstitutions.some(sub => sub.outPlayer.id === activePlayerForSub?.id);
+                                            const isSelected = samePlayer(selectedOutPlayer, activePlayerForSub);
+                                            const isPendingOut = pendingSubstitutions.some(sub => samePlayer(sub.outPlayer, activePlayerForSub));
                                             const isCaptain = activePlayerForSub && (activePlayerForSub.is_captain || activePlayerForSub.isCaptain || activePlayerForSub.role === 'C');
                                             
                                             let starterNumber = null;
                                             if (activePlayerForSub && subTracker && subTracker.positions) {
                                                 const originalPos = activePlayerForSub.originalPos !== undefined ? activePlayerForSub.originalPos : idx;
                                                 const posData = subTracker.positions[originalPos];
-                                                if (posData && !posData.returned && posData.starterId !== activePlayerForSub.id) {
+                                                if (posData && !posData.returned && String(posData.starterId) !== String(getPlayerId(activePlayerForSub))) {
                                                     starterNumber = posData.starterNumber;
                                                 }
                                             }
@@ -1131,15 +1226,15 @@ export default function TeamStaffConsole() {
                                                     `}>
                                                     {player ? (
                                                         <>
-                                                            {player.number}
+                                                            {getPlayerNumber(activePlayerForSub) || getPlayerNumber(player)}
                                                             {isCaptain && (
                                                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold border border-white shadow-sm">
                                                                     C
                                                                 </span>
                                                             )}
                                                             {(isLiberoOnCourt && !player.replacedLiberoNumber) ? (
-                                                                <span className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black border-2 border-white shadow-md" title={`ผู้เล่นจริงหมายเลข ${liberoSwappedPlayer.number}`}>
-                                                                    {liberoSwappedPlayer.number}
+                                                                <span className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black border-2 border-white shadow-md" title={`ผู้เล่นจริงหมายเลข ${getPlayerNumber(liberoSwappedPlayer)}`}>
+                                                                    {getPlayerNumber(liberoSwappedPlayer)}
                                                                 </span>
                                                             ) : starterNumber ? (
                                                                 <span className="absolute bottom-0 right-0 bg-[#2563eb] text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black border-2 border-white shadow-md" title={`เปลี่ยนตัวกับหมายเลข ${starterNumber}`}>
@@ -1186,7 +1281,7 @@ export default function TeamStaffConsole() {
                                 })()}
                             </div>
                             
-                            {lineup.length > 0 && !hasPendingLineup && (workflowStep === 'LINEUP' || workflowStep === 'SET_FINISHED' || workflowStep === 'SET_ENDING') && (
+                            {lineup.length > 0 && !hasPendingLineup && workflowStep === 'LINEUP' && (
                                 <div className="flex gap-4 mt-6">
                                     <button onClick={handleStartLineup} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
                                         Edit Lineup
@@ -1211,19 +1306,25 @@ export default function TeamStaffConsole() {
                                             roster.filter(p => !isPlayerLibero(p)).map(player => {
                                                 const isSelected = selectedPlayerForLineup?.id === player.id;
                                                 const isPlaced = tempLineup.some(p => p && p.id === player.id);
+                                                const isCaptain = player && (player.is_captain || player.isCaptain || player.role === 'C');
                                                 
                                                 return (
                                                     <button
                                                         key={player.id}
                                                         onClick={() => handlePlayerSelect(player)}
                                                         disabled={isPlaced && !isSelected}
-                                                        className={`w-[55px] h-[55px] rounded-xl font-bold text-xl flex items-center justify-center transition-all border-2
+                                                        className={`w-[55px] h-[55px] rounded-xl font-bold text-xl flex items-center justify-center transition-all border-2 relative
                                                             ${isSelected ? 'bg-blue-600 text-white border-blue-700 scale-110 shadow-lg z-10' 
                                                             : isPlaced ? 'bg-slate-200 text-slate-400 border-slate-300 opacity-50' 
                                                             : 'bg-white text-slate-700 border-white hover:border-blue-400 shadow-sm active:scale-95'}
                                                         `}
                                                     >
-                                                        {player.number}
+                                                                {getPlayerNumber(player)}
+                                                        {isCaptain && (
+                                                            <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-bold border border-white">
+                                                                C
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 );
                                             })
@@ -1244,7 +1345,7 @@ export default function TeamStaffConsole() {
                                                     className="w-[55px] h-[55px] rounded-xl font-bold text-xl flex items-center justify-center bg-yellow-100 text-yellow-800 border-2 border-yellow-300 shadow-sm cursor-not-allowed opacity-85 relative"
                                                     title={`${player.first_name || ''} ${player.last_name || ''} (Libero - ไม่สามารถเริ่มเป็นตัวจริงได้)`}
                                                 >
-                                                    {player.number}
+                                                    {getPlayerNumber(player)}
                                                     <span className="absolute -bottom-1 -right-1 bg-yellow-500 text-white text-[8px] px-1 rounded font-bold uppercase border border-white">
                                                         {getLiberoTag(player)}
                                                     </span>
@@ -1275,7 +1376,7 @@ export default function TeamStaffConsole() {
                                                 >
                                                     {player ? (
                                                         <>
-                                                            {player.number}
+                                                            {getPlayerNumber(player)}
                                                             {isCaptain && (
                                                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold border border-white shadow-sm">
                                                                     C
@@ -1303,7 +1404,7 @@ export default function TeamStaffConsole() {
                                                 >
                                                     {player ? (
                                                         <>
-                                                            {player.number}
+                                                            {getPlayerNumber(player)}
                                                             {isCaptain && (
                                                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold border border-white shadow-sm">
                                                                     C
@@ -1371,47 +1472,111 @@ export default function TeamStaffConsole() {
                         </div>
                     )}
                 </section>
+                )}
 
                 {/* RIGHT SIDE: Action Buttons or Substitution Mode */}
-                {!isSettingLineup && lineup.length === 6 && !hasPendingLineup && 
-                 workflowStep !== 'LINEUP' && workflowStep !== 'SET_FINISHED' && workflowStep !== 'MATCH_FINISHED' && 
-                 workflowStep !== 'ROSTER_CHECK' && workflowStep !== 'COIN_TOSS' && (
-                    <section className="flex-1 md:max-w-[400px] flex flex-col gap-4 justify-center">
-                        {isSubstitutionMode ? (
+                {!isSettingLineup && (
+                    <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-5 flex flex-col gap-4 justify-center min-h-[360px] lg:min-h-0">
+                        {hasPendingLineup ? (
+                            <div className="w-full min-h-48 rounded-xl border border-amber-200 bg-amber-50/70 p-6 flex flex-col items-center justify-center text-center gap-4">
+                                <Loader2 size={44} className="animate-spin text-amber-600" />
+                                <div>
+                                    <h2 className="text-2xl md:text-3xl font-semibold text-slate-950">Waiting for scorer</h2>
+                                    <p className="mt-2 text-sm md:text-base text-slate-600">LineUp has been sent. The action cards will appear after the scorer accepts it.</p>
+                                </div>
+                                <button onClick={handleClearConfirmedLineup} className="mt-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 active:scale-95 transition">
+                                    Cancel & Clear LineUp
+                                </button>
+                            </div>
+                        ) : shouldShowLineupCard ? (
+                            <button onClick={handleStartLineup} className="w-full min-h-48 rounded-xl flex overflow-hidden border border-emerald-200 bg-white shadow-sm active:scale-[0.99] transition-all hover:shadow-md hover:-translate-y-0.5 group">
+                                <div className="flex-1 p-6 flex flex-col justify-center gap-2 border-l-4 border-emerald-500">
+                                    <span className="text-slate-950 text-3xl md:text-4xl font-semibold tracking-tight">Set LineUp</span>
+                                    <span className="text-slate-500 text-sm md:text-base">Prepare starting six for Set {lineupTargetSet}</span>
+                                </div>
+                                <div className="w-24 bg-emerald-50 p-6 flex items-center justify-center border-l border-emerald-100">
+                                    <Users size={44} className="text-emerald-700" />
+                                </div>
+                            </button>
+                        ) : !shouldShowActionCards ? (
+                            <div className="w-full min-h-48 rounded-xl border border-slate-200 bg-slate-50 p-6 flex flex-col items-center justify-center text-center gap-3">
+                                <Flag size={38} className="text-slate-400" />
+                                <h2 className="text-2xl font-semibold text-slate-950">Waiting for match workflow</h2>
+                                <p className="text-sm md:text-base text-slate-600">Current status: {workflowStep || 'READY'}</p>
+                            </div>
+                        ) : isSubstitutionMode ? (
                             <div className="flex flex-col h-full">
                                 {/* Player Selection Roster */}
                                 <div className="flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar">
-                                    {/* Regular Players */}
                                     <div>
-                                        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Regular Players (ผู้เล่นปกติ)</div>
+                                        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">On Court - Select OUT (ผู้เล่นในสนาม)</div>
+                                        <div className="bg-blue-50/60 backdrop-blur-md border border-blue-100 rounded-2xl p-4 flex flex-wrap gap-3 shadow-sm content-start">
+                                            {[3, 2, 1, 4, 5, 0].map((posIndex) => {
+                                                const activePlayer = liberoSwaps[posIndex] || lineup[posIndex];
+                                                if (!activePlayer) return null;
+
+                                                const activeNumber = getPlayerNumber(activePlayer);
+                                                const isSelectedOut = samePlayer(selectedOutPlayer, activePlayer);
+                                                const isPendingOut = pendingSubstitutions.some(sub => samePlayer(sub.outPlayer, activePlayer));
+                                                const subStatus = getPlayerSubStatus(activePlayer, posIndex);
+                                                const disabled = isPendingOut || !subStatus.eligible;
+
+                                                return (
+                                                    <button
+                                                        key={`court-${posIndex}-${getPlayerId(activePlayer) || posIndex}`}
+                                                        onClick={() => handleSlotSubClick(posIndex)}
+                                                        disabled={disabled}
+                                                        title={disabled ? subStatus.reason : `OUT #${activeNumber}`}
+                                                        className={`w-[60px] h-[60px] rounded-full font-bold text-2xl flex items-center justify-center transition-all border-4 shadow-sm active:scale-95 relative
+                                                            ${isSelectedOut ? 'bg-blue-600 text-white border-blue-700 scale-105 shadow-blue-200'
+                                                            : disabled ? 'bg-slate-100 text-slate-300 border-slate-200 opacity-50 cursor-not-allowed'
+                                                            : 'bg-white text-slate-800 border-blue-200 hover:border-blue-500 hover:scale-105'}
+                                                        `}
+                                                    >
+                                                        {activeNumber}
+                                                        <span className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-[8px] px-1 rounded font-bold border border-white">
+                                                            OUT
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                            {lineup.filter(Boolean).length === 0 && (
+                                                <div className="w-full text-center text-slate-400 py-4 text-sm font-bold italic">No on-court players</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Bench Players */}
+                                    <div>
+                                        <div className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Bench Players - Select IN</div>
                                         <div className="bg-white/80 backdrop-blur-md border border-white rounded-2xl p-4 flex flex-wrap gap-3 shadow-sm content-start">
-                                            {roster.filter(p => !isPlayerLibero(p)).length === 0 ? (
-                                                <div className="w-full text-center text-slate-400 py-6 text-base font-bold italic">ไม่พบรายชื่อผู้เล่นปกติ</div>
+                                            {getBenchPlayersForSubstitution().length === 0 ? (
+                                                <div className="w-full text-center text-slate-400 py-6 text-base font-bold italic">
+                                                    {selectedOutPlayer ? 'No eligible bench players' : 'No bench players'}
+                                                </div>
                                             ) : (
-                                                roster.filter(p => !isPlayerLibero(p)).map(player => {
-                                                    const isSelected = pendingSubstitutions.some(sub => sub.inPlayer.id === player.id);
-                                                    // Disable if already in lineup
-                                                    const isPlaced = lineup.some(p => p && p.id === player.id);
-                                                    
-                                                    // FIVB filter
-                                                    const eligibleBench = selectedOutPlayer ? getEligibleBenchPlayersForSelectedOut() : [];
-                                                    const isEligible = !selectedOutPlayer || eligibleBench.some(p => p.id === player.id);
-                                                    
+                                                getBenchPlayersForSubstitution().map(player => {
+                                                    const isSelected = pendingSubstitutions.some(sub => samePlayer(sub.inPlayer, player));
+                                                    const disabled = isSelected || !selectedOutPlayer;
+
                                                     return (
-                                                        <button
-                                                            key={player.id}
-                                                            onClick={() => handleBenchSubClick(player)}
-                                                            disabled={isPlaced || isSelected || !isEligible}
-                                                            className={`w-[60px] h-[60px] rounded-full font-bold text-2xl flex items-center justify-center transition-all border-4 shadow-sm active:scale-95
-                                                                ${isSelected ? 'bg-blue-600 text-white border-blue-700 opacity-50' 
-                                                                : isPlaced ? 'bg-slate-200 text-slate-400 border-slate-300 opacity-30' 
-                                                                : !isEligible ? 'bg-slate-100 text-slate-300 border-slate-200 opacity-40 cursor-not-allowed'
-                                                                : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400'}
-                                                            `}
-                                                        >
-                                                            {player.number}
-                                                        </button>
-                                                    );
+                                                            <button
+                                                                key={getPlayerId(player) || getPlayerNumber(player)}
+                                                                onClick={() => handleBenchSubClick(player)}
+                                                                disabled={disabled}
+                                                                className={`w-[60px] h-[60px] rounded-full font-bold text-2xl flex items-center justify-center transition-all border-4 shadow-sm active:scale-95 relative
+                                                                    ${isSelected ? 'bg-blue-600 text-white border-blue-700 opacity-50'
+                                                                    : !selectedOutPlayer ? 'bg-slate-100 text-slate-300 border-slate-200 opacity-50 cursor-not-allowed'
+                                                                    : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400'}
+                                                                `}
+                                                            >
+                                                                {getPlayerNumber(player)}
+                                                                {(player.is_captain || player.isCaptain || player.role === 'C') && (
+                                                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-bold border border-white">
+                                                                        C
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        );
                                                 })
                                             )}
                                         </div>
@@ -1430,7 +1595,7 @@ export default function TeamStaffConsole() {
                                                         className="w-[60px] h-[60px] rounded-full font-bold text-2xl flex items-center justify-center bg-yellow-100 text-yellow-800 border-4 border-yellow-300 shadow-sm cursor-not-allowed opacity-85 relative"
                                                         title={`${player.first_name || ''} ${player.last_name || ''} (Libero - ไม่สามารถเปลี่ยนตัวในโหมดปกติได้)`}
                                                     >
-                                                        {player.number}
+                                                        {getPlayerNumber(player)}
                                                         <span className="absolute -bottom-1 -right-1 bg-yellow-500 text-white text-[8px] px-1 rounded font-bold uppercase border border-white">
                                                             {getLiberoTag(player)}
                                                         </span>
@@ -1446,9 +1611,9 @@ export default function TeamStaffConsole() {
                                     <div className="bg-white rounded-xl p-3 my-4 flex gap-2 flex-wrap shadow-sm">
                                         {pendingSubstitutions.map((sub, i) => (
                                             <div key={i} className="bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg flex items-center gap-2 font-black text-blue-800 text-lg">
-                                                <span>{sub.outPlayer.number}</span>
+                                                <span>{getPlayerNumber(sub.outPlayer)}</span>
                                                 <span className="text-rose-500 font-bold px-1">&gt;&lt;</span>
-                                                <span>{sub.inPlayer.number}</span>
+                                                <span>{getPlayerNumber(sub.inPlayer)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -1474,66 +1639,69 @@ export default function TeamStaffConsole() {
                                 </div>
                             </div>
                         ) : hasPendingSubstitution ? (
-                            <button onClick={handleCancelSubstitutionRequest} className="w-full h-36 rounded-2xl flex overflow-hidden shadow-sm active:scale-95 transition-all group">
-                                <div className="flex-1 bg-rose-500 p-8 flex flex-col justify-center gap-2 relative">
+                            <button onClick={handleCancelSubstitutionRequest} className="w-full min-h-32 rounded-xl flex overflow-hidden border border-rose-200 bg-white shadow-sm active:scale-[0.99] transition-all group">
+                                <div className="flex-1 p-6 flex flex-col justify-center gap-2 relative">
                                     <div className="flex gap-2 z-10 overflow-x-auto custom-scrollbar pb-1">
                                         {pendingSubstitutions.map((sub, i) => (
                                             <div key={i} className="bg-white/90 px-2 py-1 rounded text-rose-600 text-sm font-black flex gap-1 shadow-sm whitespace-nowrap">
-                                                <span>{sub.outPlayer?.number}</span>
+                                                <span>{getPlayerNumber(sub.outPlayer)}</span>
                                                 <span className="text-rose-400 font-bold">&gt;&lt;</span>
-                                                <span>{sub.inPlayer?.number}</span>
+                                                <span>{getPlayerNumber(sub.inPlayer)}</span>
                                             </div>
                                         ))}
                                     </div>
-                                    <span className="text-white text-3xl md:text-4xl font-medium tracking-wide z-10">Substitution</span>
+                                    <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight z-10">Substitution</span>
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-30">
-                                        <Loader2 size={80} className="animate-spin" />
+                                        <Loader2 size={72} className="animate-spin text-rose-500" />
                                     </div>
                                 </div>
-                                <div className="w-28 bg-rose-600 hover:bg-rose-700 p-8 flex items-center justify-center transition-colors">
+                                <div className="w-24 bg-rose-600 hover:bg-rose-700 p-6 flex items-center justify-center transition-colors">
                                     <X size={48} className="text-white" />
                                 </div>
                             </button>
                         ) : (
                             <>
-                                <button onClick={() => setIsSubstitutionMode(true)} disabled={stats.substitutions >= 6 || workflowStep === 'RALLY'} className={`w-full h-36 rounded-2xl flex overflow-hidden shadow-sm active:scale-95 transition-all group ${stats.substitutions >= 6 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-1'}`}>
-                                    <div className="flex-1 bg-[#eeac5f] p-8 flex items-center">
-                                        <span className="text-white text-3xl md:text-4xl font-medium tracking-wide">Substitution</span>
+                                <button onClick={() => setIsSubstitutionMode(true)} disabled={stats.substitutions >= 6 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-amber-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.substitutions >= 6 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                    <div className="flex-1 p-6 flex items-center border-l-4 border-amber-500">
+                                        <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight">Substitution</span>
                                     </div>
-                                    <div className="w-28 bg-[#df9c4e] p-8 flex items-center justify-center">
-                                        <span className="text-white text-5xl md:text-6xl font-normal">{6 - (stats.substitutions || 0)}</span>
-                                    </div>
-                                </button>
-                                
-                                <button onClick={() => handleRequest('TIMEOUT')} disabled={stats.timeouts >= 2 || workflowStep === 'RALLY'} className={`w-full h-36 rounded-2xl flex overflow-hidden shadow-sm active:scale-95 transition-all group ${stats.timeouts >= 2 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-1'}`}>
-                                    <div className="flex-1 bg-[#cfbcf7] p-8 flex items-center">
-                                        <span className="text-white text-3xl md:text-4xl font-medium tracking-wide">Timeout</span>
-                                    </div>
-                                    <div className="w-28 bg-[#bfa5ed] p-8 flex items-center justify-center">
-                                        <span className="text-white text-5xl md:text-6xl font-normal">{2 - (stats.timeouts || 0)}</span>
+                                    <div className="w-24 bg-amber-50 p-6 flex flex-col items-center justify-center border-l border-amber-100">
+                                        <span className="text-amber-700 text-4xl md:text-5xl font-black leading-none">{6 - (stats.substitutions || 0)}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mt-1">left</span>
                                     </div>
                                 </button>
                                 
-                                {(matchData?.has_challenge === true || matchData?.has_challenge === 'true' || matchData?.has_challenge === 1 || matchData?.has_challenge === '1' || matchData?.hasChallenge === true || matchData?.hasChallenge === 'true' || matchData?.hasChallenge === 1 || matchData?.hasChallenge === '1') && (
+                                <button onClick={() => handleRequest('TIMEOUT')} disabled={stats.timeouts >= 2 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-violet-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.timeouts >= 2 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                    <div className="flex-1 p-6 flex items-center border-l-4 border-violet-500">
+                                        <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight">Timeout</span>
+                                    </div>
+                                    <div className="w-24 bg-violet-50 p-6 flex flex-col items-center justify-center border-l border-violet-100">
+                                        <span className="text-violet-700 text-4xl md:text-5xl font-black leading-none">{2 - (stats.timeouts || 0)}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 mt-1">left</span>
+                                    </div>
+                                </button>
+                                
+                                {hasChallengeSystem && (
                                     hasPendingChallenge ? (
-                                        <button onClick={handleCancelChallengeRequest} className="w-full h-36 rounded-2xl flex overflow-hidden shadow-sm active:scale-95 transition-all group">
-                                            <div className="flex-1 bg-rose-500 p-8 flex flex-col justify-center gap-2 relative">
-                                                <span className="text-white text-3xl md:text-4xl font-medium tracking-wide z-10">Challenge Requesting</span>
+                                        <button onClick={handleCancelChallengeRequest} className="w-full min-h-32 rounded-xl flex overflow-hidden border border-rose-200 bg-white shadow-sm active:scale-[0.99] transition-all group">
+                                            <div className="flex-1 p-6 flex flex-col justify-center gap-2 relative">
+                                                <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight z-10">Challenge Requesting</span>
                                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-30">
-                                                    <Loader2 size={80} className="animate-spin" />
+                                                    <Loader2 size={72} className="animate-spin text-rose-500" />
                                                 </div>
                                             </div>
-                                            <div className="w-28 bg-rose-600 hover:bg-rose-700 p-8 flex items-center justify-center transition-colors">
+                                            <div className="w-24 bg-rose-600 hover:bg-rose-700 p-6 flex items-center justify-center transition-colors">
                                                 <X size={48} className="text-white" />
                                             </div>
                                         </button>
                                     ) : (
-                                        <button onClick={handleVideoChallengeClick} disabled={stats.challenges <= 0 || workflowStep === 'RALLY'} className={`w-full h-36 rounded-2xl flex overflow-hidden shadow-sm active:scale-95 transition-all group ${stats.challenges <= 0 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-1'}`}>
-                                            <div className="flex-1 bg-[#479bf2] p-8 flex items-center">
-                                                <span className="text-white text-3xl md:text-4xl font-medium tracking-wide">Video challenge</span>
+                                        <button onClick={handleVideoChallengeClick} disabled={stats.challenges <= 0 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-blue-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.challenges <= 0 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                            <div className="flex-1 p-6 flex items-center border-l-4 border-blue-500">
+                                                <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight">Video challenge</span>
                                             </div>
-                                            <div className="w-28 bg-[#398be3] p-8 flex items-center justify-center">
-                                                <span className="text-white text-5xl md:text-6xl font-normal">{stats.challenges || 0}</span>
+                                            <div className="w-24 bg-blue-50 p-6 flex flex-col items-center justify-center border-l border-blue-100">
+                                                <span className="text-blue-700 text-4xl md:text-5xl font-black leading-none">{stats.challenges || 0}</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mt-1">left</span>
                                             </div>
                                         </button>
                                     )
@@ -1542,7 +1710,7 @@ export default function TeamStaffConsole() {
                         )}
 
                         {/* Completed Substitutions List (ดึงข้อมูลแสดงไว้จนกว่าจะจบเซต) */}
-                        {(() => {
+                        {shouldShowActionCards && (() => {
                             const completedSubs = getCompletedSubstitutions();
                             if (completedSubs.length === 0) return null;
                             return (
@@ -1554,9 +1722,9 @@ export default function TeamStaffConsole() {
                                         {completedSubs.map((sub, i) => (
                                             <div key={i} className="flex items-center justify-between text-sm border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
                                                 <div className="flex items-center gap-2 font-bold text-slate-700">
-                                                    <span className="text-rose-500">#{sub.outPlayer.number}</span>
+                                                    <span className="text-rose-500">#{getPlayerNumber(sub.outPlayer)}</span>
                                                     <span className="text-slate-400">➡️</span>
-                                                    <span className="text-emerald-600">#{sub.inPlayer.number}</span>
+                                                    <span className="text-emerald-600">#{getPlayerNumber(sub.inPlayer)}</span>
                                                 </div>
                                                 <span className="text-[11px] text-slate-400 font-mono">
                                                     Score: {sub.score}
@@ -1570,6 +1738,36 @@ export default function TeamStaffConsole() {
                     </section>
                 )}
             </main>
+
+            <footer className="bg-white/95 border-t border-slate-200 px-4 py-2.5 md:px-6 shadow-[0_-1px_8px_rgba(15,23,42,0.04)]">
+                <div className="mx-auto flex w-full max-w-[1040px] items-center justify-between gap-3 text-[11px] font-semibold text-slate-500">
+                    <span className="truncate">Match staff console</span>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" title="สถานะเชื่อมต่อกับเซิร์ฟเวอร์">
+                            <span className="relative flex h-1.5 w-1.5">
+                                {!isConnected && (
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
+                                )}
+                                <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
+                            </span>
+                            <span className={`uppercase tracking-wider ${isConnected ? 'text-emerald-700' : 'text-rose-600'}`}>
+                                System: {isConnected ? 'Online' : 'Syncing'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" title="สถานะการเชื่อมต่อกับเจ้าหน้าที่โต๊ะบันทึกสกอร์">
+                            <span className="relative flex h-1.5 w-1.5">
+                                {isScorerConnected && (
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                                )}
+                                <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isScorerConnected ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
+                            </span>
+                            <span className={`uppercase tracking-wider ${isScorerConnected ? 'text-emerald-700' : 'text-rose-600'}`}>
+                                Scorer: {isScorerConnected ? 'Online' : 'Offline'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </footer>
 
             {showChallengeModal && (
                 <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">

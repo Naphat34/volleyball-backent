@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ArrowRightLeft, CheckCircle, Users, Disc, Shield, X, Grid, Trophy, MapPin } from 'lucide-react';
 import CourtView from '../components/CourtView';
-import { api } from '../api';
 
 export default function ScorerConsole() {
-    const { matchId } = useParams();
     const location = useLocation();
-    const navigate = useNavigate();
-
     const matchSetupData = location.state?.matchData || {
         title: "Volleyball League 2024",
         matchNumber: "M-001",
@@ -24,9 +20,21 @@ export default function ScorerConsole() {
     const [isHomeLeft, setIsHomeLeft] = useState(true); // true = Home อยู่ซ้าย
 
     // 2. Roster Data
-    const [homeRoster, setHomeRoster] = useState([]);
-    const [awayRoster, setAwayRoster] = useState([]);
-    const [loadingRoster, setLoadingRoster] = useState(true);
+    const mockPlayers = (teamPrefix) => Array.from({ length: 14 }, (_, i) => ({
+        id: `${teamPrefix}-${i + 1}`,
+        number: i + 1,
+        name: `${teamPrefix} Player ${i + 1}`,
+        position: i === 0 ? 'S' : (i < 5 ? 'OH' : 'MB')
+    }));
+
+    const homeRoster = useMemo(
+        () => mockPlayers(matchSetupData.teamHome.substring(0, 3)),
+        [matchSetupData.teamHome]
+    );
+    const awayRoster = useMemo(
+        () => mockPlayers(matchSetupData.teamAway.substring(0, 3)),
+        [matchSetupData.teamAway]
+    );
 
     // 3. Lineup State
     const [homeLineup, setHomeLineup] = useState(Array(6).fill(null));
@@ -43,21 +51,6 @@ export default function ScorerConsole() {
         positionIndex: null, 
         currentRoster: [] 
     });
-
-    // --- EFFECT: Load Roster ---
-    useEffect(() => {
-        // Mock Data
-        const mockPlayers = (teamPrefix) => Array.from({ length: 14 }, (_, i) => ({
-            id: `${teamPrefix}-${i+1}`,
-            number: i + 1,
-            name: `${teamPrefix} Player ${i+1}`,
-            position: i === 0 ? 'S' : (i < 5 ? 'OH' : 'MB')
-        }));
-
-        setHomeRoster(mockPlayers(matchSetupData.teamHome.substring(0,3)));
-        setAwayRoster(mockPlayers(matchSetupData.teamAway.substring(0,3)));
-        setLoadingRoster(false);
-    }, [matchId]);
 
     // --- LOGIC: Player Selection ---
     const openPlayerSelection = (team, posIndex) => {

@@ -256,7 +256,7 @@ const LineupModal = ({
                         <div className="shrink-0 pt-4">
                             <div className="flex gap-2">
                                 <button 
-                                    onClick={onSetRoster} 
+                                    onClick={() => onSetRoster('home')} 
                                     className={`flex-1 py-2 text-xs font-bold ${getContrastClass(homeColor)} rounded transition-colors shadow-sm hover:opacity-90 cursor-pointer`}
                                     style={{ backgroundColor: homeColor }}
                                 >
@@ -450,7 +450,7 @@ const LineupModal = ({
                         <div className="shrink-0 pt-4">
                             <div className="flex gap-2">
                                 <button 
-                                    onClick={onSetRoster} 
+                                    onClick={() => onSetRoster('away')} 
                                     className={`flex-1 py-2 text-xs font-bold ${getContrastClass(awayColor)} rounded transition-colors shadow-sm hover:opacity-90 cursor-pointer`}
                                     style={{ backgroundColor: awayColor }}
                                 >

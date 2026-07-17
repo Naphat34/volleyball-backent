@@ -1,5 +1,28 @@
 import React from 'react';
-import { X, ArrowUpLeft, ArrowDownRight, AlarmClock, ArrowUpDown} from 'lucide-react';
+import { X, Check, ArrowUpRight, ArrowDownRight, Timer } from 'lucide-react';
+
+const PlayerJersey = ({ number, tone = 'blue' }) => {
+    const palette = tone === 'out'
+        ? 'bg-slate-700 text-white border-slate-500'
+        : 'bg-blue-900 text-white border-blue-700';
+
+    return (
+        <div className={`relative w-9 h-8 ${palette} border shadow-sm flex items-center justify-center font-black text-sm leading-none`}>
+            <div className="absolute -top-1 left-1 w-2 h-2 bg-current opacity-70 rounded-sm rotate-45"></div>
+            <div className="absolute -top-1 right-1 w-2 h-2 bg-current opacity-70 rounded-sm rotate-45"></div>
+            {number || '?'}
+        </div>
+    );
+};
+
+const ActionButton = ({ children, className = '', onClick }) => (
+    <button
+        onClick={onClick}
+        className={`px-4 py-2 rounded text-[11px] font-semibold transition-colors ${className}`}
+    >
+        {children}
+    </button>
+);
 
 export default function StaffRequestModal({
     isOpen,
@@ -7,117 +30,103 @@ export default function StaffRequestModal({
     matchData,
     teamColors,
     onAccept,
-    onReject
+    onReject,
+    onPostpone
 }) {
     if (!isOpen || !request) return null;
 
-    const requestTypeText = request.request_type === 'TIMEOUT'
-        ? 'Timeout'
-        : request.request_type === 'LINEUP'
-            ? 'Lineup'
-            : request.request_type === 'SUBSTITUTION'
-                ? 'Substitution'
-                : 'คำขอเปลี่ยนสถานะ';
-
+    const requestType = String(request.request_type || '').toUpperCase();
+    const isTimeout = requestType === 'TIMEOUT';
+    const isSubstitution = requestType === 'SUBSTITUTION';
+    const isLineup = requestType === 'LINEUP';
     const isHomeTeam = String(request.team_id) === String(matchData.teamHomeId);
-    const teamColor = isHomeTeam ? (teamColors.home || '#ef4444') : (teamColors.away || '#3b82f6');
+    const teamColor = isHomeTeam ? (teamColors.home || '#f59e0b') : (teamColors.away || '#2563eb');
+    const teamName = request.team_name || (isHomeTeam ? matchData.teamHome : matchData.teamAway) || 'Team';
+    const title = isTimeout ? 'Timeout request' : isSubstitution ? 'Substitution request' : isLineup ? 'Lineup request' : 'Staff request';
+    let requestDetails = request.details || {};
+    if (typeof requestDetails === 'string') {
+        try {
+            requestDetails = JSON.parse(requestDetails || '{}');
+        } catch {
+            requestDetails = {};
+        }
+    }
+    const pairs = Array.isArray(requestDetails.pairs) ? requestDetails.pairs : [];
+
+    const handlePostpone = () => {
+        if (onPostpone) onPostpone(request);
+    };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] flex items-center justify-center pointer-events-auto">
-            <div className="bg-white w-[500px] rounded-2xl flex flex-col justify-between shadow-2xl border border-slate-100 relative max-h-[90vh] overflow-hidden">
-                
-                {/* Header */}
-                <div className="p-3 bg-slate-50 border-b border-slate-100 flex flex-col">
-                    {/* Title */}
-                    <div className="flex justify-between items-start">
-                        <span className="text-[20px] font-bold text-black  mb-1 flex items-center gap-1.5 font-sans">
-                            {requestTypeText} Request
-                        </span>
-                        <button
-                            onClick={() => onReject(request.id)}
-                            className="p-1 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
-                            title="Reject request"
-                        >
-                            <X size={20} />
-                        </button>
-                    </div> 
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/15 pointer-events-auto">
+            <div className="w-[430px] max-w-[calc(100vw-24px)] bg-white border border-slate-300 shadow-xl rounded-sm overflow-hidden">
+                <div className="h-10 px-3 border-b border-slate-200 flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-slate-800">{title}</h2>
+                    <button
+                        onClick={handlePostpone}
+                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
+                        title="Postpone"
+                    >
+                        <X size={18} />
+                    </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 flex-1 overflow-y-auto max-h-[400px]">
-                    {request.request_type === 'SUBSTITUTION' && request.details?.pairs ? (
-                        <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-3 max-h-[280px] overflow-y-auto">
-                            <div className="text-center py-6">
-                                <div className="flex justify-center mb-2">
-                                    <ArrowUpDown  size={100} className="animate-pulse" color={teamColor} />
-                                </div>
-                                <p className="text-lg font-semibold text-slate-600 mt-8">
-                                    Team <span className="font-extrabold" style={{ color: teamColor }}>{request.team_name}</span> Request a Substitution
-                                </p>
-                            </div>  
+                <div className="px-8 pt-7 pb-5 text-center">
+                    {isTimeout && (
+                        <div className="mb-4 flex justify-center">
+                            <div className="w-24 h-24 rounded-full bg-amber-50 border border-amber-400 flex items-center justify-center text-amber-500">
+                                <Timer size={52} strokeWidth={2.3} />
+                            </div>
+                        </div>
+                    )}
 
-                            <div className="flex flex-col gap-2">
-                                {request.details.pairs.map((pair, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-2 bg-white border border-slate-200/60 rounded-lg shadow-sm">
-                                        {/* Left: Out Player */}
-                                        <div className="flex items-center gap-2 w-[42%] justify-end">
-                                            <span className="text-xs font-bold text-slate-700 text-right truncate max-w-[110px]">
-                                                {<ArrowUpLeft color="#f90101" />}
-                                            </span>
-                                            <span className="w-8 h-8 rounded bg-rose-100 text-rose-600 border border-rose-200 font-extrabold text-sm flex items-center justify-center shrink-0">
-                                                {pair.outPlayer?.number || '?'}
-                                            </span>
-                                        </div>
+                    <p className="text-xl text-slate-700 leading-snug">
+                        Team{' '}
+                        <span className="font-extrabold" style={{ color: teamColor }}>
+                            {teamName}
+                        </span>{' '}
+                        requested a{' '}
+                        <span className="font-extrabold text-slate-800">
+                            {isTimeout ? 'time out' : isSubstitution ? 'substitution' : isLineup ? 'lineup' : 'request'}
+                        </span>
+                    </p>
 
-                                        {/* Right: In Player */}
-                                        <div className="flex items-center gap-2 w-[42%] justify-start">
-                                            <span className="w-8 h-8 rounded bg-emerald-100 text-emerald-600 border border-emerald-200 font-extrabold text-sm flex items-center justify-center shrink-0">
-                                                {pair.inPlayer?.number || '?'}
-                                            </span>
-                                            <span className="text-xs font-bold text-slate-700 text-left truncate max-w-[110px]">
-                                                {<ArrowDownRight color="#22c55e" />}
-                                            </span>
-                                        </div>
+                    {isSubstitution && pairs.length > 0 && (
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                            {pairs.map((pair, idx) => (
+                                <div key={idx} className="h-11 px-2 rounded-md bg-blue-50 border border-blue-200 flex items-center gap-2">
+                                    <div className="w-4 h-4 rounded-sm bg-blue-400 text-white flex items-center justify-center">
+                                        <Check size={12} strokeWidth={3} />
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : request.request_type === 'TIMEOUT' ? (
-                        <div className="text-center py-6">
-                            <div className="flex justify-center mb-2">
-                                <AlarmClock  size={100} className="animate-pulse" color={teamColor} />
-                            </div>
-                            <p className="text-lg font-semibold text-slate-600 mt-8">
-                                Team <span className="font-extrabold" style={{ color: teamColor }}>{request.team_name}</span> Request a Timeout
-                            </p>
-                        </div>
-                    ) : request.request_type === 'LINEUP' ? (
-                        <div className="text-center py-6">
-                            <p className="text-sm font-semibold text-slate-600">
-                                Team <span className="font-extrabold" style={{ color: teamColor }}>{request.team_name}</span> Lineup
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="text-center py-6">
-                            <p className="text-sm font-medium text-slate-600">ต้องการดำเนินการตามคำขอนี้หรือไม่?</p>
+                                    <PlayerJersey number={pair.outPlayer?.number} tone="out" />
+                                    <ArrowUpRight size={16} className="text-rose-500" strokeWidth={2.6} />
+                                    <ArrowDownRight size={16} className="text-emerald-500" strokeWidth={2.6} />
+                                    <PlayerJersey number={pair.inPlayer?.number} />
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
 
-                {/* Actions Footer */}
-                <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
-                    <button
+                <div className="px-6 pb-5 flex items-center justify-center gap-3">
+                    <ActionButton
+                        onClick={handlePostpone}
+                        className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50"
+                    >
+                        Postpone
+                    </ActionButton>
+                    <ActionButton
                         onClick={() => onReject(request.id)}
-                        className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-sm transition-colors shadow-sm"
+                        className="bg-rose-500 text-white hover:bg-rose-600"
                     >
                         Reject
-                    </button>
-                    <button
+                    </ActionButton>
+                    <ActionButton
                         onClick={() => onAccept(request)}
-                        className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-colors shadow-sm"
+                        className="bg-emerald-500 text-white hover:bg-emerald-600"
                     >
                         Accept
-                    </button>
+                    </ActionButton>
                 </div>
             </div>
         </div>

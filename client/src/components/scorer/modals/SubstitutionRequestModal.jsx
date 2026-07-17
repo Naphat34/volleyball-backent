@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Check } from 'lucide-react';
 import Swal from 'sweetalert2';
 
-export default function SubstitutionRequestModal({ request, teamName, homeRoster, awayRoster, onClose, onAccept, onReject, onPostpone }) {
+export default function SubstitutionRequestModal({ request, teamName, onClose, onAccept, onReject, onPostpone }) {
     // request.details.pairs should contain { outPlayer, inPlayer }
     const pairs = request?.details?.pairs || [];
     

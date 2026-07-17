@@ -17,7 +17,6 @@ export default function LiveScorerTab({ darkMode }) {
 
     // Officials
     const [referees, setReferees] = useState([]);
-    const [scorers, setScorers] = useState([]);
     const [lineJudges, setLineJudges] = useState([]);
 
     // --- Modal State ---
@@ -112,13 +111,11 @@ export default function LiveScorerTab({ darkMode }) {
 
     const fetchMasterData = React.useCallback(async () => {
         try {
-            const [refs, scrs, ljs] = await Promise.all([
+            const [refs, ljs] = await Promise.all([
                 api.getAllReferees(),
-                api.getAllScorers(),
                 api.getAllLineJudges()
             ]);
             setReferees(refs.data || []);
-            setScorers(scrs.data || []);
             setLineJudges(ljs.data || []);
         } catch {
             console.warn("Could not fetch officials data.");

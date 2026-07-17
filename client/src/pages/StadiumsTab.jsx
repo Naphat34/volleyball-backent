@@ -79,7 +79,7 @@ export default function StadiumsTab() {
                 <h2 className="text-2xl font-bold text-gray-800">Stadiums Management</h2>
                 <button
                     onClick={() => openModal()}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-md"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
                 >
                     <Plus size={18} /> Add Stadium
                 </button>
@@ -180,7 +180,7 @@ export default function StadiumsTab() {
 
                             <div className="pt-4 flex justify-end gap-2">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
-                                <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-indigo-700">Save Stadium</button>
+                                <button type="submit" className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors">Save Stadium</button>
                             </div>
                         </form>
                     </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import client from '../../api';
 import { Users, ArrowLeft, Ruler, Weight, Calendar, Filter, Trophy, LogIn, X, BarChart2, Activity, Shield, Swords, Menu } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { cleanCompetitionTitle } from '../../utils';
 
 export default function PublicTeams() {
     const navigate = useNavigate();
@@ -38,17 +39,20 @@ export default function PublicTeams() {
                 rawData.forEach(comp => {
                     // ตัดคำต่อท้ายเช่น (Men), (Women), (Male), (Female) ออกเพื่อให้เหลือแค่ชื่อรายการ
                     // Regex นี้จะลบวงเล็บและคำระบุเพศข้างใน
-                    const baseTitle = comp.title.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
+                    const baseTitle = cleanCompetitionTitle(comp.title);
+                    const ageGroup = comp.age_group_name || comp.age_group || comp.category || '';
+                    const groupTitle = ageGroup ? `${baseTitle} - ${ageGroup}` : baseTitle;
                     
-                    if (!groups[baseTitle]) {
-                        groups[baseTitle] = {};
+                    if (!groups[groupTitle]) {
+                        groups[groupTitle] = {};
                     }
                     
                     // map gender ของ API ให้เป็น Key มาตรฐาน
+                    const genderText = String(comp.gender || '').toLowerCase();
                     let genderKey = 'Men';
-                    if (['Women', 'Female', 'หญิง'].includes(comp.gender)) genderKey = 'Women';
+                    if (['women', 'woman', 'female', 'f', 'หญิง'].includes(genderText)) genderKey = 'Women';
                     
-                    groups[baseTitle][genderKey] = comp.id;
+                    groups[groupTitle][genderKey] = comp.id;
                 });
 
                 setGroupedComps(groups);
@@ -118,7 +122,9 @@ export default function PublicTeams() {
         const fetchPlayers = async () => {
             setLoadingPlayers(true);
             try {
-                const res = await client.get(`/public/teams/${selectedTeam.id}/players`);
+                const competitionId = selectedTeam.competition_id || '';
+                const query = competitionId ? `?competitionId=${competitionId}` : '';
+                const res = await client.get(`/public/teams/${selectedTeam.id}/players${query}`);
                 setPlayers(res.data);
             } catch (err) {
                 console.error("Error fetching players:", err);
@@ -154,9 +160,22 @@ export default function PublicTeams() {
 
     // ตรวจสอบว่ารายการที่เลือก มีเพศไหนให้เลือกบ้าง (เพื่อ Disable ปุ่ม)
     const availableGenders = selectedTitle && groupedComps[selectedTitle] ? Object.keys(groupedComps[selectedTitle]) : [];
+    const normalizeText = (value) => {
+        if (value === null || value === undefined) return '';
+        const text = String(value).trim();
+        return text === '0' ? '' : text;
+    };
+    const getPlayerName = (player) => [normalizeText(player.first_name), normalizeText(player.last_name)].filter(Boolean).join(' ') || '-';
+    const getLiberoBadge = (player) => {
+        const role = String(player.role || player.position || '').trim().toUpperCase();
+        if (Number(player.is_libero1) === 1 || player.is_libero1 === true || role === 'L1') return 'L1';
+        if (Number(player.is_libero2) === 1 || player.is_libero2 === true || role === 'L2') return 'L2';
+        if (role === 'L' || role === 'LIBERO') return 'L';
+        return '';
+    };
 
     return (
-        <div className="min-h-screen bg-gray-50 text-gray-800 pb-20 font-sans">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2ff)] text-gray-800 pb-20 font-sans">
             {/* Navbar (คงเดิมไว้) */}
             <nav className="bg-white shadow-sm sticky top-0 z-50">
                 <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -262,7 +281,7 @@ export default function PublicTeams() {
             {!selectedTeam ? (
                 <>
                     {/* --- Header Section (แสดงเฉพาะตอนเลือกรายการ) --- */}
-                    <div className="bg-indigo-900 text-white py-10 px-4 shadow-lg mb-6">
+                    <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 text-white py-10 px-4 shadow-lg mb-6">
                         <div className="w-full mx-auto">
                             <h1 className="text-3xl font-extrabold flex items-center gap-3 mb-6">
                                 <Users className="text-yellow-400" size={32} /> {t('guestTeams.title')}
@@ -354,11 +373,11 @@ export default function PublicTeams() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in-up">
                                 {teams.map((team) => (
                                     <button 
-                                        key={team.id} 
+                                        key={team.team_entry_id || `${team.id}-${team.competition_id}`} 
                                         onClick={() => setSelectedTeam(team)}
-                                        className="bg-white rounded-lg shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer transition-all duration-300 border border-gray-100 overflow-hidden group flex flex-col h-full text-left"
+                                        className="bg-white/95 rounded-2xl shadow-sm hover:shadow-2xl hover:-translate-y-1 cursor-pointer transition-all duration-300 border border-white overflow-hidden group flex flex-col h-full text-left"
                                     >
-                                        <div className={`h-2 w-full transition-colors ${selectedGender === 'Men' ? 'bg-blue-500' : 'bg-pink-500'}`}></div>
+                                        <div className={`h-2 w-full transition-colors ${selectedGender === 'Men' ? 'bg-blue-500' : selectedGender === 'Women' ? 'bg-pink-500' : 'bg-gradient-to-r from-blue-500 to-pink-500'}`}></div>
                                         <div className="p-6 flex flex-col items-center text-center flex-1">
                                             <div className="w-24 h-24 mb-4 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-md group-hover:scale-110 transition-transform">
                                                 {team.logo_url ? (
@@ -373,6 +392,7 @@ export default function PublicTeams() {
                                             <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-md font-mono mb-2">
                                                 {team.code || '-'}
                                             </span>
+                                            <span className="text-xs font-bold text-slate-500">{t('guestTeams.totalPlayers').replace('{count}', team.player_count ?? 0)}</span>
                                         </div>
                                         <div className="py-3 bg-gray-50 border-t border-gray-100 text-center text-sm font-bold text-blue-600 group-hover:bg-blue-50 transition-colors">
                                             {t('guestTeams.viewPlayers')}
@@ -394,8 +414,8 @@ export default function PublicTeams() {
                     </button>
 
                     {/* Team Header */}
-                    <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8 mb-8 relative overflow-hidden">
-                        <div className={`absolute top-0 right-0 w-64 h-64 rounded-full -mr-16 -mt-16 blur-3xl opacity-20 ${selectedGender === 'Men' ? 'bg-blue-500' : 'bg-pink-500'}`}></div>
+                    <div className="bg-white/95 rounded-3xl shadow-xl border border-white p-8 mb-8 relative overflow-hidden">
+                        <div className={`absolute top-0 right-0 w-64 h-64 rounded-full -mr-16 -mt-16 blur-3xl opacity-20 ${selectedGender === 'Men' ? 'bg-blue-500' : selectedGender === 'Women' ? 'bg-pink-500' : 'bg-indigo-500'}`}></div>
                         
                         <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                             <div className="w-32 h-32 md:w-48 md:h-48 bg-white rounded-full border-4 border-indigo-50 shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -421,7 +441,7 @@ export default function PublicTeams() {
                     </div>
 
                     {/* Player Table (คงเดิม) */}
-                    <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+                    <div className="bg-white/95 rounded-3xl shadow-xl border border-white overflow-hidden">
                         <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-5 border-b border-gray-200 flex items-center gap-3">
                             <div className="bg-blue-600 text-white p-2 rounded-lg shadow-sm">
                                 <Users size={20} />
@@ -465,7 +485,7 @@ export default function PublicTeams() {
                                                 <td className="px-6 py-3 text-center">
                                                     <div className="w-12 h-12 mx-auto bg-gray-200 rounded-full overflow-hidden border-2 border-white shadow-sm group-hover:border-blue-200 transition">
                                                         {p.photo ? (
-                                                            <img src={p.photo} alt={p.first_name} className="w-full h-full object-cover" />
+                                                            <img src={p.photo} alt={getPlayerName(p)} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <Users size={20} className="w-full h-full p-2.5 text-gray-400" />
                                                         )}
@@ -473,11 +493,15 @@ export default function PublicTeams() {
                                                 </td>
                                                 <td className="px-6 py-3 text-center">
                                                     <span className="text-xl font-semibold text-indigo-900 bg-blue-50 w-10 h-10 flex items-center justify-center rounded-lg mx-auto">
-                                                        {p.number}
+                                                        {normalizeText(p.number) || '-'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-3">
-                                                    <div className="font-bold text-gray-800">{p.first_name} {p.last_name}</div>
+                                                    <div className="font-bold text-gray-800 flex flex-wrap items-center gap-2">
+                                                        {getPlayerName(p)}
+                                                        {Number(p.is_captain) === 1 || p.is_captain === true ? <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">C</span> : null}
+                                                        {getLiberoBadge(p) ? <span className="text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">{getLiberoBadge(p)}</span> : null}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-3">
                                                     <span className="inline-block px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide bg-gray-100 text-gray-600 border border-gray-200">

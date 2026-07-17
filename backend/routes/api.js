@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 
 // --- Imports Middleware ---
 const authMiddleware = require('../middleware/authMiddleware');
@@ -15,6 +18,19 @@ const playerController = require('../controllers/playerController');
 const stadiumsController = require('../controllers/stadiumsController');
 const officialRoutes = require('./officialRoutes');
 const scorerRoutes = require('./scorerRoutes');
+
+const uploadDir = path.join(__dirname, '..', 'uploads');
+const imageExtensions = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+};
+
+const buildUploadUrl = (req, filename) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  return `${baseUrl}/uploads/${filename}`;
+};
 
 // ==================================================================
 // 1. 🔓 PUBLIC ROUTES (โซนนี้เข้าได้ทุกคน ไม่ต้อง Login)
@@ -59,6 +75,7 @@ router.get('/public/competitions/:competitionId/teams', publicController.getComp
 router.get('/public/teams/:teamId/players', publicController.getTeamPlayers);
 router.get('/public/matches', publicController.getMatches);
 router.get('/public/teams/:teamId/staff', publicController.getTeamStaff);
+router.get('/public/statistics/:competitionId', publicController.getStatistics);
 
 // ==================================================================
 // 🚧 MIDDLEWARE BARRIER (หลังจากบรรทัดนี้ ต้อง Login เท่านั้น)
@@ -74,11 +91,42 @@ router.use('/scorer', scorerRoutes);
 // ==================================================================
 
 // --- User / My Team ---
+router.post('/upload-image', async (req, res) => {
+  try {
+    const { image } = req.body;
+    const match = typeof image === 'string'
+      ? image.match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/)
+      : null;
+
+    if (!match) {
+      return res.status(400).json({ error: 'Invalid image data' });
+    }
+
+    const [, mimeType, base64Data] = match;
+    const buffer = Buffer.from(base64Data, 'base64');
+    if (buffer.length > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image file must be 2MB or smaller' });
+    }
+
+    await fs.mkdir(uploadDir, { recursive: true });
+    const filename = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${imageExtensions[mimeType]}`;
+    await fs.writeFile(path.join(uploadDir, filename), buffer);
+
+    res.json({ url: buildUploadUrl(req, filename) });
+  } catch (err) {
+    console.error('Image upload failed:', err);
+    res.status(500).json({ error: 'Image upload failed' });
+  }
+});
+
 router.get('/my-team', teamController.getMyTeam);
+router.get('/my-teams', teamController.getMyTeams);
 router.post('/my-team/create', teamController.createMyTeam);
+router.post('/my-team/:id/switch', teamController.switchMyTeam);
 router.put('/my-team', teamController.updateMyTeam);
 router.delete('/my-team', teamController.deleteMyTeam);
 router.get('/my-team/matches', teamController.getMyMatches);
+router.get('/my-team/matches/:gender', teamController.getMyMatchesByGender);
 router.get('/my-team/players', teamController.getMyPlayers);
 router.post('/my-team/players', teamController.addPlayerToMyTeam);
 router.put('/my-team/players/:id', teamController.updatePlayer);
@@ -89,6 +137,9 @@ router.post('/my-team/staff', teamController.addStaffToMyTeam);
 router.put('/my-team/staff/:id', teamController.updateStaff);
 router.delete('/my-team/staff/:id', teamController.deleteStaff);
 router.get('/my-team/competitions', competitionsController.getMyCompetitions);
+router.get('/my-team/entries', competitionsController.getMyTeamEntries);
+router.get('/my-team/entries/:entryId/players', competitionsController.getMyTeamEntryPlayers);
+router.put('/my-team/entries/:entryId/players', competitionsController.updateMyTeamEntryPlayers);
 router.post('/competitions/join', competitionsController.joinCompetition);
 router.post('/competitions/leave', competitionsController.leaveCompetition);
 
@@ -127,6 +178,8 @@ router.put('/admin/users/:id', authMiddleware.isAdmin, authController.updateUser
 
 // --- Admin: Teams ---
 router.get('/admin/teams', authMiddleware.isAdmin, teamController.getAllTeams);
+router.get('/admin/team-entries', authMiddleware.isAdmin, teamController.getAllTeamEntries);
+router.patch('/admin/team-entries/:entryId/status', authMiddleware.isAdmin, teamController.updateTeamEntryStatus);
 router.post('/admin/teams', authMiddleware.isAdmin, teamController.createTeam);
 router.put('/admin/teams/:id', authMiddleware.isAdmin, teamController.updateTeam);
 router.delete('/admin/teams/:id', authMiddleware.isAdmin, teamController.deleteTeam);
