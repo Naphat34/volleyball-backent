@@ -28,23 +28,27 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use((response) => {
-  // ฟังก์ชันสแกนหาและเปลี่ยนที่อยู่ localhost เป็นโดเมน Render
+
   const replaceLocalhost = (data) => {
-    if (typeof data === 'string') {
-      return data.replace(/http:\/\/localhost:3000/g, 'https://volleyball-backent-dhtc.onrender.com');
+  if (typeof data === 'string') {
+    return data
+      // 1. แปลง localhost ไปที่ Render
+      .replace(/http:\/\/localhost:3000/g, 'https://volleyball-backent-dhtc.onrender.com')
+      // 2. ป้องกัน Mixed Content โดยบังคับเปลี่ยน http:// ของ Render ให้เป็น https:// ทั้งหมด
+      .replace(/http:\/\/volleyball-backent-dhtc\.onrender\.com/g, 'https://volleyball-backent-dhtc.onrender.com');
+  }
+  if (Array.isArray(data)) {
+    return data.map(replaceLocalhost);
+  }
+  if (data !== null && typeof data === 'object') {
+    const updatedData = {};
+    for (const key in data) {
+      updatedData[key] = replaceLocalhost(data[key]);
     }
-    if (Array.isArray(data)) {
-      return data.map(replaceLocalhost);
-    }
-    if (data !== null && typeof data === 'object') {
-      const updatedData = {};
-      for (const key in data) {
-        updatedData[key] = replaceLocalhost(data[key]);
-      }
-      return updatedData;
-    }
-    return data;
-  };
+    return updatedData;
+  }
+  return data;
+};
 
   if (response.data) {
     response.data = replaceLocalhost(response.data);
