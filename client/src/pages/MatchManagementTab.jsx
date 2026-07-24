@@ -117,7 +117,14 @@ export default function MatchManagementTab() {
         return `${team.name} (${team.code || '-'}) - ${ageGroup}${gender ? ` / ${gender}` : ''}${status}`;
     }, []);
 
-
+    const getImageUrl = (url) => {
+        if (!url) return '/shield-placeholder.png'; // คืนค่ารูปดีฟอลต์ถ้าไม่มี URL
+        
+        // แปลง localhost หรือ http ของ Render ให้เป็น https ทั้งหมด
+        return url
+            .replace(/http:\/\/localhost:3000/g, 'https://volleyball-backent-dhtc.onrender.com')
+            .replace(/http:\/\/volleyball-backent-dhtc\.onrender\.com/g, 'https://volleyball-backent-dhtc.onrender.com');
+    };
 
 
 

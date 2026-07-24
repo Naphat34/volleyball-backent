@@ -8,8 +8,14 @@
 }
 
 @layer base {
+  html {
+    min-height: 100%;
+    background: #f4f7f6 url('./assets/img/bg.png') center / cover fixed no-repeat;
+  }
+
   body {
-    @apply font-sans;
+    @apply min-h-screen font-sans;
+    background: transparent;
   }
 }
 @media print {
