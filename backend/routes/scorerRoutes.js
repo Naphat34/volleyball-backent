@@ -11,15 +11,18 @@ router.get('/match/:matchId/roster', scorerController.getMatchRosterData);
 router.get('/match/:matchId/scoresheet', scorerController.getMatchScoresheetData);
 router.get('/match/:matchId/state', scorerController.getLiveState);
 
-// Mutating scorer endpoints require an authenticated user.
-router.post('/match/:matchId/event', authMiddleware.verifyToken, scorerController.saveMatchEvent);
-router.post('/match/:matchId/toss', authMiddleware.verifyToken, scorerController.saveCoinToss);
-router.post('/match/:matchId/lineup', authMiddleware.verifyToken, scorerController.saveLineup);
-router.post('/match/:matchId/start-set', authMiddleware.verifyToken, scorerController.startSet);
-router.post('/match/:matchId/end-set', authMiddleware.verifyToken, scorerController.endSet);
-router.put('/match/:matchId/state', authMiddleware.verifyToken, scorerController.updateLiveState);
-router.put('/match/:matchId/officials', authMiddleware.verifyToken, scorerController.updateMatchOfficials);
-router.put('/match/:matchId/roster', authMiddleware.verifyToken, scorerController.updateMatchRoster);
+// Mutating scorer endpoints are available to admins and scorer-console users.
+const scorerWriteAccess = [authMiddleware.verifyToken, authMiddleware.isScorerOrAdmin];
+router.post('/match/:matchId/event', scorerWriteAccess, scorerController.saveMatchEvent);
+router.post('/match/:matchId/toss', scorerWriteAccess, scorerController.saveCoinToss);
+router.post('/match/:matchId/lineup', scorerWriteAccess, scorerController.saveLineup);
+router.post('/match/:matchId/start-set', scorerWriteAccess, scorerController.startSet);
+router.post('/match/:matchId/end-set', scorerWriteAccess, scorerController.endSet);
+router.put('/match/:matchId/state', scorerWriteAccess, scorerController.updateLiveState);
+router.put('/match/:matchId/officials', scorerWriteAccess, scorerController.updateMatchOfficials);
+router.put('/match/:matchId/roster', scorerWriteAccess, scorerController.updateMatchRoster);
+router.post('/match/:matchId/teams/:teamId/players', scorerWriteAccess, scorerController.createMatchTeamPlayer);
+router.put('/match/:matchId/teams/:teamId/players/:playerId', scorerWriteAccess, scorerController.updateMatchTeamPlayer);
 
 const officialController = require('../controllers/officialController');
 

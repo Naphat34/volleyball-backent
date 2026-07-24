@@ -24,6 +24,11 @@ const parseNullableString = (value) => {
     return text || null;
 };
 
+const parseNullablePlayerName = (value) => {
+    const text = parseNullableString(value);
+    return text === '0' || text === '-0' || /^\d+$/.test(text || '') ? null : text;
+};
+
 const isTruthyFlag = (value) => (
     value === true
     || value === 1
@@ -114,7 +119,136 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
     `, [teamId]);
 };
 
-module.exports = { 
+module.exports = {
+    async createMatchTeamPlayer(req, res) {
+        try {
+            const { matchId, teamId } = req.params;
+            const firstName = parseNullablePlayerName(req.body.first_name);
+            const lastName = parseNullablePlayerName(req.body.last_name);
+            const number = parseNullableInt(req.body.number);
+
+            if (!firstName || !lastName || !number || number < 1) {
+                return res.status(400).json({ error: 'Player first name, last name, and a valid number are required' });
+            }
+
+            const matchRes = await db.query(
+                'SELECT home_team_id, away_team_id, gender FROM matches WHERE id = ?',
+                [matchId]
+            );
+            const match = matchRes.rows[0];
+            if (!match) return res.status(404).json({ error: 'Match not found' });
+            if (![match.home_team_id, match.away_team_id].some((id) => String(id) === String(teamId))) {
+                return res.status(400).json({ error: 'Team does not belong to this match' });
+            }
+
+            const duplicate = await db.query(
+                'SELECT id FROM players WHERE team_id = ? AND number = ? LIMIT 1',
+                [teamId, number]
+            );
+            if (duplicate.rows.length) {
+                return res.status(400).json({ error: `Player number ${number} is already assigned to this team` });
+            }
+
+            const result = await db.query(
+                `INSERT INTO players (team_id, first_name, last_name, number, gender)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [teamId, firstName, lastName, number, parseNullableString(req.body.gender) || match.gender || null]
+            );
+            const player = await db.query('SELECT * FROM players WHERE id = ?', [result.insertId]);
+            res.status(201).json(player.rows[0]);
+        } catch (err) {
+            console.error('Create Match Team Player Error', err);
+            res.status(500).json({ error: 'Database error' });
+        }
+    },
+
+    async updateMatchTeamPlayer(req, res) {
+        try {
+            const { matchId, teamId, playerId } = req.params;
+            const firstName = parseNullablePlayerName(req.body.first_name);
+            const lastName = parseNullablePlayerName(req.body.last_name);
+            const number = parseNullableInt(req.body.number);
+
+            if (!firstName || !lastName || !number || number < 1) {
+                return res.status(400).json({ error: 'Player first name, last name, and a valid number are required' });
+            }
+
+            const matchRes = await db.query(
+                'SELECT home_team_id, away_team_id, competition_id FROM matches WHERE id = ?',
+                [matchId]
+            );
+            const match = matchRes.rows[0];
+            if (!match) return res.status(404).json({ error: 'Match not found' });
+            if (![match.home_team_id, match.away_team_id].some((id) => String(id) === String(teamId))) {
+                return res.status(400).json({ error: 'Team does not belong to this match' });
+            }
+
+            const playerRes = await db.query(
+                `SELECT p.id, p.team_id
+                 FROM players p
+                 WHERE p.id = ?
+                   AND (
+                     p.team_id = ?
+                     OR EXISTS (
+                       SELECT 1
+                       FROM team_entry_players tep
+                       JOIN team_entries te ON te.id = tep.team_entry_id
+                       WHERE tep.player_id = p.id
+                         AND te.competition_id = ?
+                         AND te.team_id = ?
+                     )
+                   )`,
+                [playerId, teamId, match.competition_id, teamId]
+            );
+            if (!playerRes.rows.length) return res.status(404).json({ error: 'Player not found in this team' });
+
+            const duplicate = match.competition_id
+                ? await db.query(
+                    `SELECT p.id
+                     FROM team_entry_players tep
+                     JOIN team_entries te ON te.id = tep.team_entry_id
+                     JOIN players p ON p.id = tep.player_id
+                     WHERE te.competition_id = ?
+                       AND te.team_id = ?
+                       AND COALESCE(tep.number, p.number) = ?
+                       AND p.id <> ?
+                     LIMIT 1`,
+                    [match.competition_id, teamId, number, playerId]
+                )
+                : await db.query(
+                    'SELECT id FROM players WHERE team_id = ? AND number = ? AND id <> ? LIMIT 1',
+                    [teamId, number, playerId]
+                );
+            if (duplicate.rows.length) {
+                return res.status(400).json({ error: `Player number ${number} is already assigned to this team` });
+            }
+
+            const playerBelongsToBaseTeam = String(playerRes.rows[0].team_id) === String(teamId);
+            await db.query(
+                playerBelongsToBaseTeam
+                    ? 'UPDATE players SET first_name = ?, last_name = ?, number = ? WHERE id = ?'
+                    : 'UPDATE players SET first_name = ?, last_name = ? WHERE id = ?',
+                playerBelongsToBaseTeam
+                    ? [firstName, lastName, number, playerId]
+                    : [firstName, lastName, playerId]
+            );
+            if (match.competition_id) {
+                await db.query(
+                    `UPDATE team_entry_players tep
+                     JOIN team_entries te ON te.id = tep.team_entry_id
+                     SET tep.number = ?
+                     WHERE tep.player_id = ? AND te.competition_id = ? AND te.team_id = ?`,
+                    [number, playerId, match.competition_id, teamId]
+                );
+            }
+
+            const player = await db.query('SELECT * FROM players WHERE id = ?', [playerId]);
+            res.json(player.rows[0]);
+        } catch (err) {
+            console.error('Update Match Team Player Error', err);
+            res.status(500).json({ error: 'Database error' });
+        }
+    },
 
     // 1. ดึงเหตุการณ์ทั้งหมด (ปรับให้ตรงกับ match_events)
     async getMatchEvents(req, res) {
@@ -145,6 +279,8 @@ module.exports = {
                     m.*, 
                     t1.name as home_team_name, 
                     t2.name as away_team_name,
+                    t1.logo_url as home_logo_url,
+                    t2.logo_url as away_logo_url,
                     t1.main_color as home_main_color,
                     t1.second_color as home_second_color,
                     t1.third_color as home_third_color,
@@ -352,9 +488,9 @@ module.exports = {
                     playersMap[p.id] = {
                         id: p.id,
                         number: p.number,
-                        name: `${p.first_name.charAt(0)}.${p.last_name}`,
-                        firstname: p.first_name,
-                        lastname: p.last_name,
+                        name: [parseNullablePlayerName(p.first_name), parseNullablePlayerName(p.last_name)].filter(Boolean).join(' '),
+                        firstname: parseNullablePlayerName(p.first_name) || '',
+                        lastname: parseNullablePlayerName(p.last_name) || '',
                         position: p.position
                     };
                 });
@@ -759,8 +895,21 @@ module.exports = {
                 const playerIds = normalizedPlayers.map((player) => player.id);
                 const placeholders = playerIds.map(() => '?').join(',');
                 const existingPlayers = await client.query(
-                    `SELECT id FROM players WHERE team_id = ? AND id IN (${placeholders})`,
-                    [teamRoster.teamId, ...playerIds]
+                    `SELECT p.id
+                     FROM players p
+                     WHERE p.id IN (${placeholders})
+                       AND (
+                         p.team_id = ?
+                         OR EXISTS (
+                           SELECT 1
+                           FROM team_entry_players tep
+                           JOIN team_entries te ON te.id = tep.team_entry_id
+                           WHERE tep.player_id = p.id
+                             AND te.competition_id = ?
+                             AND te.team_id = ?
+                         )
+                       )`,
+                    [...playerIds, teamRoster.teamId, match.competition_id, teamRoster.teamId]
                 );
                 const validPlayerIds = new Set(existingPlayers.rows.map((player) => Number(player.id)));
 
@@ -1107,6 +1256,7 @@ module.exports = {
             const playerLibero2Expr = playerColumnNames.has('is_libero2') ? 'p.is_libero2' : '0';
             const playerSelectFields = [
                 'p.id',
+                'p.team_id',
                 'p.first_name',
                 'p.last_name',
                 `COALESCE(${entryNumberExpr}, p.number) as number`,
@@ -1118,6 +1268,7 @@ module.exports = {
             ];
             const fallbackSelectFields = [
                 'p.id',
+                'p.team_id',
                 'p.first_name',
                 'p.last_name',
                 'p.number',

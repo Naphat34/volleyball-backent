@@ -2,6 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, PenTool, RotateCcw } from 'lucide-react';
 import { getContrastClass } from '../../../utils/colorUtils';
 
+const SHIRT_COLOR_OPTIONS = [
+    '#1e3a8a', '#2563eb', '#0f766e', '#16a34a', '#65a30d',
+    '#eab308', '#f97316', '#dc2626', '#be123c', '#9333ea',
+    '#334155', '#111827', '#f8fafc'
+];
+
 const SignaturePad = ({ width = 500, height = 220, onSave, defaultValue }) => {
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -121,6 +127,8 @@ const LineupModal = ({
     onClose,
     teamHome, 
     teamAway, 
+    homeLogoUrl,
+    awayLogoUrl,
     homeLineup, 
     awayLineup, 
     onSlotClick, 
@@ -135,6 +143,7 @@ const LineupModal = ({
     onSignaturesChange
 }) => {
     const [activeField, setActiveField] = useState(null);
+    const [activeColorPicker, setActiveColorPicker] = useState(null);
     const tempSignatureRef = useRef(null);
 
     const handleButtonClick = (field) => {
@@ -152,19 +161,16 @@ const LineupModal = ({
         }
     };
 
-    const homeColorInputRef = useRef(null);
-    const awayColorInputRef = useRef(null);
-
     if (!isOpen) return null;
 
-    // Helper to format name as Lastname F.
+    // Display player names consistently as First name Last name.
     const formatPlayerName = (player) => {
         const lastName = (player.last_name || player.lastname || '').trim();
         const firstName = (player.first_name || player.firstname || '').trim();
-        if (!lastName && !firstName) return 'Unknown';
+        if (!lastName && !firstName) return '';
         if (!firstName) return lastName;
         if (!lastName) return firstName;
-        return `${lastName} ${firstName.charAt(0)}.`;
+        return `${firstName} ${lastName}`;
     };
 
     // Helper to get role badge (C, L1, L2)
@@ -207,6 +213,51 @@ const LineupModal = ({
     const safeHomeRoster = homeRoster || [];
     const safeAwayRoster = awayRoster || [];
 
+    const selectShirtColor = (side, color) => {
+        onColorChange(side, color);
+        setActiveColorPicker(null);
+    };
+
+    const renderShirtColorPicker = (side, currentColor) => (
+        <div className="relative flex-1">
+            <button
+                type="button"
+                onClick={() => setActiveColorPicker((active) => active === side ? null : side)}
+                className="w-full py-2 border border-slate-200 rounded text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                aria-expanded={activeColorPicker === side}
+            >
+                <span className="w-4 h-4 rounded-full border border-slate-300 shadow-inner" style={{ backgroundColor: currentColor }} />
+                Shirt color
+            </button>
+            {activeColorPicker === side && (
+                <div className={`absolute bottom-full z-30 mb-2 w-full min-w-[184px] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ${side === 'away' ? 'right-0' : 'left-0'}`}>
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Select shirt color</div>
+                    <div className="grid grid-cols-7 gap-2">
+                        {SHIRT_COLOR_OPTIONS.map((color) => (
+                            <button
+                                key={color}
+                                type="button"
+                                onClick={() => selectShirtColor(side, color)}
+                                className={`h-6 w-6 rounded-full border-2 shadow-inner transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-400 ${currentColor.toLowerCase() === color ? 'border-slate-900 ring-2 ring-slate-200' : 'border-white'}`}
+                                style={{ backgroundColor: color }}
+                                aria-label={`Select ${color} shirt color`}
+                            />
+                        ))}
+                        <label className="relative h-6 w-6 cursor-pointer overflow-hidden rounded-full border-2 border-slate-200 bg-[conic-gradient(#ef4444,#eab308,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444)] shadow-inner" title="Custom color">
+                            <input
+                                type="color"
+                                value={currentColor}
+                                onChange={(e) => selectShirtColor(side, e.target.value)}
+                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                aria-label="Choose custom shirt color"
+                            />
+                        </label>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all font-sans select-none">
             <div className="bg-white w-full max-w-[1100px] rounded-2xl border border-slate-200 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in duration-300">
@@ -223,8 +274,9 @@ const LineupModal = ({
                     
                     {/* Column 1: Home Team (Left) */}
                     <div className="w-[32%] flex flex-col p-6 min-h-0 border-r border-slate-100">
-                        <h3 className="text-center font-bold text-slate-700 pb-2 text-sm uppercase tracking-wider">
-                            {teamHome}
+                        <h3 className="flex min-w-0 items-center justify-center gap-2 pb-2 text-center text-sm font-bold uppercase tracking-wider text-slate-700">
+                            {homeLogoUrl && <img src={homeLogoUrl} alt="" className="h-6 w-6 shrink-0 rounded-full object-contain" />}
+                            <span className="truncate" title={teamHome}>{teamHome}</span>
                         </h3>
                         <div className="border-b border-slate-100 w-full mb-3" />
                         
@@ -262,20 +314,7 @@ const LineupModal = ({
                                 >
                                     Set roster
                                 </button>
-                                <button 
-                                    onClick={() => homeColorInputRef.current.click()} 
-                                    className="flex-1 py-2 border border-slate-200 rounded text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-                                >
-                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-200 shadow-inner" style={{ backgroundColor: homeColor }} />
-                                    Shirt Color
-                                </button>
-                                <input 
-                                    type="color" 
-                                    ref={homeColorInputRef} 
-                                    value={homeColor} 
-                                    onChange={(e) => onColorChange('home', e.target.value)} 
-                                    className="hidden" 
-                                />
+                                {renderShirtColorPicker('home', homeColor)}
                             </div>
                             
                             <div className="text-[11px] font-bold text-slate-500 mt-4 mb-2 uppercase tracking-wide">Approvals - Roster</div>
@@ -310,8 +349,9 @@ const LineupModal = ({
                     <div className="w-[36%] flex flex-col p-6 bg-white border-r border-slate-100 overflow-y-auto justify-center gap-8">
                         {/* Home Court */}
                         <div className="w-[230px] flex flex-col self-start shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-lg overflow-hidden border border-slate-100">
-                            <div className="bg-slate-100/90 py-2 px-4 text-center font-bold text-xs uppercase text-slate-700 border-b-[3px]" style={{ borderBottomColor: homeColor }}>
-                                {teamHome}
+                            <div className="flex min-w-0 items-center justify-center gap-2 border-b-[3px] bg-slate-100/90 px-4 py-2 text-center text-xs font-bold uppercase text-slate-700" style={{ borderBottomColor: homeColor }}>
+                                {homeLogoUrl && <img src={homeLogoUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-contain" />}
+                                <span className="truncate" title={teamHome}>{teamHome}</span>
                             </div>
                             {/* Blue court margin background */}
                             <div className="bg-[#1b4fc6] p-2.5 pb-4 pt-0 relative aspect-[4/3] flex flex-col justify-between">
@@ -363,8 +403,9 @@ const LineupModal = ({
                         
                         {/* Away Court */}
                         <div className="w-[230px] flex flex-col self-end shadow-[0_8px_30px_rgb(0,0,0,0.06)] rounded-lg overflow-hidden border border-slate-100">
-                            <div className="bg-slate-100/90 py-2 px-4 text-center font-bold text-xs uppercase text-slate-700 border-b-[3px]" style={{ borderBottomColor: awayColor }}>
-                                {teamAway}
+                            <div className="flex min-w-0 items-center justify-center gap-2 border-b-[3px] bg-slate-100/90 px-4 py-2 text-center text-xs font-bold uppercase text-slate-700" style={{ borderBottomColor: awayColor }}>
+                                {awayLogoUrl && <img src={awayLogoUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-contain" />}
+                                <span className="truncate" title={teamAway}>{teamAway}</span>
                             </div>
                             {/* Blue court margin background */}
                             <div className="bg-[#1b4fc6] p-2.5 pb-4 pt-0 relative aspect-[4/3] flex flex-col justify-between">
@@ -417,8 +458,9 @@ const LineupModal = ({
                     
                     {/* Column 3: Away Team (Right) */}
                     <div className="w-[32%] flex flex-col p-6 min-h-0">
-                        <h3 className="text-center font-bold text-slate-700 pb-2 text-sm uppercase tracking-wider">
-                            {teamAway}
+                        <h3 className="flex min-w-0 items-center justify-center gap-2 pb-2 text-center text-sm font-bold uppercase tracking-wider text-slate-700">
+                            {awayLogoUrl && <img src={awayLogoUrl} alt="" className="h-6 w-6 shrink-0 rounded-full object-contain" />}
+                            <span className="truncate" title={teamAway}>{teamAway}</span>
                         </h3>
                         <div className="border-b border-slate-100 w-full mb-3" />
                         
@@ -456,20 +498,7 @@ const LineupModal = ({
                                 >
                                     Set roster
                                 </button>
-                                <button 
-                                    onClick={() => awayColorInputRef.current.click()} 
-                                    className="flex-1 py-2 border border-slate-200 rounded text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-                                >
-                                    <span className="w-3.5 h-3.5 rounded-full border border-slate-200 shadow-inner" style={{ backgroundColor: awayColor }} />
-                                    Shirt color
-                                </button>
-                                <input 
-                                    type="color" 
-                                    ref={awayColorInputRef} 
-                                    value={awayColor} 
-                                    onChange={(e) => onColorChange('away', e.target.value)} 
-                                    className="hidden" 
-                                />
+                                {renderShirtColorPicker('away', awayColor)}
                             </div>
                             
                             <div className="text-[11px] font-bold text-slate-500 mt-4 mb-2 uppercase tracking-wide">Approvals - Roster</div>

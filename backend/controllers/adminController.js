@@ -10,6 +10,12 @@ const parseNullableString = (val) => {
   return val;
 };
 
+const parseNullablePersonName = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  const text = String(val).trim();
+  return !text || text === '0' || text === '-0' || /^\d+$/.test(text) ? null : text;
+};
+
 module.exports = {
 
     // Add Player to Team (Admin)
@@ -28,7 +34,9 @@ module.exports = {
             }
 
             // ✅ Validation: at least first_name or last_name must be provided
-            if ((!first_name || first_name === '') && (!last_name || last_name === '')) {
+            const cleanFirstName = parseNullablePersonName(first_name);
+            const cleanLastName = parseNullablePersonName(last_name);
+            if (!cleanFirstName && !cleanLastName) {
                 return res.status(400).json({ error: 'At least first name or last name must be provided' });
             }
 
@@ -58,7 +66,7 @@ module.exports = {
                 (team_id, number, first_name, last_name, nickname, position, height_cm, weight, birth_date, nationality, photo, gender, is_captain, is_libero1, is_libero2)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    teamId, cleanNumber, first_name, last_name, nickname, position, 
+                    teamId, cleanNumber, cleanFirstName, cleanLastName, nickname, position,
                     cleanHeight, cleanWeight, cleanBirthDate, nationality, photo, 
                     gender, cleanIsCaptain, cleanIsLibero1, cleanIsLibero2
                 ]
@@ -92,6 +100,8 @@ module.exports = {
                 return res.status(400).json({ error: 'At least first name or last name must be provided' });
             }
 
+            const cleanFirstName = first_name !== undefined ? parseNullablePersonName(first_name) : undefined;
+            const cleanLastName = last_name !== undefined ? parseNullablePersonName(last_name) : undefined;
             const cleanNumber = parseNullableInt(number);
             const cleanHeight = parseNullableInt(height_cm);
             const cleanWeight = parseNullableInt(weight);
@@ -99,6 +109,16 @@ module.exports = {
             const cleanIsCaptain = is_captain !== undefined ? (is_captain === true || is_captain === 'true') : undefined;
             const cleanIsLibero1 = position === 'L' && (is_libero1 === true || is_libero1 === 'true');
             const cleanIsLibero2 = position === 'L' && (is_libero2 === true || is_libero2 === 'true');
+
+            if (first_name !== undefined || last_name !== undefined) {
+                const currentPlayer = await db.query('SELECT first_name, last_name FROM players WHERE id = ?', [id]);
+                if (!currentPlayer.rows.length) return res.status(404).json({ error: 'Player not found' });
+                const finalFirstName = first_name !== undefined ? cleanFirstName : parseNullablePersonName(currentPlayer.rows[0].first_name);
+                const finalLastName = last_name !== undefined ? cleanLastName : parseNullablePersonName(currentPlayer.rows[0].last_name);
+                if (!finalFirstName && !finalLastName) {
+                    return res.status(400).json({ error: 'At least first name or last name must be provided' });
+                }
+            }
 
             // --- [LOGIC กัปตัน] --- Only run if is_captain is being updated
             if (is_captain !== undefined && cleanIsCaptain) {
@@ -128,8 +148,8 @@ module.exports = {
             const updateValues = [];
             
             if (number !== undefined) { updateFields.push('number=?'); updateValues.push(cleanNumber); }
-            if (first_name !== undefined) { updateFields.push('first_name=?'); updateValues.push(first_name); }
-            if (last_name !== undefined) { updateFields.push('last_name=?'); updateValues.push(last_name); }
+            if (first_name !== undefined) { updateFields.push('first_name=?'); updateValues.push(cleanFirstName); }
+            if (last_name !== undefined) { updateFields.push('last_name=?'); updateValues.push(cleanLastName); }
             if (nickname !== undefined) { updateFields.push('nickname=?'); updateValues.push(nickname); }
             if (position !== undefined) { updateFields.push('position=?'); updateValues.push(position); }
             if (height_cm !== undefined) { updateFields.push('height_cm=?'); updateValues.push(cleanHeight); }

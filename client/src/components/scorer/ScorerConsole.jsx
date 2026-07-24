@@ -181,6 +181,8 @@ export default function ScorerConsole() {
         return {
             teamHome: stateData.teamHome || saved.teamHome || "HOME",
             teamAway: stateData.teamAway || saved.teamAway || "AWAY",
+            homeLogoUrl: stateData.homeLogoUrl || saved.homeLogoUrl || null,
+            awayLogoUrl: stateData.awayLogoUrl || saved.awayLogoUrl || null,
             teamHomeId: stateData.teamHomeId || saved.teamHomeId || null,
             teamAwayId: stateData.teamAwayId || saved.teamAwayId || null,
             currentSet: stateData.currentSet || saved.currentSet || 1,
@@ -441,8 +443,17 @@ export default function ScorerConsole() {
                 const role = derivePlayerRole(p);
                 const isCap = role === 'C' || role === 'L1+C' || role === 'L2+C';
                 const isLib = role === 'L1' || role === 'L2' || role === 'L1+C' || role === 'L2+C' || isPlayerLibero({ ...p, role });
+                const cleanNameValue = (value) => {
+                    const text = String(value ?? '').trim();
+                    return text === '0' || text === '-0' ? '' : text;
+                };
                 return {
                     ...p,
+                    first_name: cleanNameValue(p.first_name ?? p.firstname),
+                    last_name: cleanNameValue(p.last_name ?? p.lastname),
+                    firstname: cleanNameValue(p.firstname ?? p.first_name),
+                    lastname: cleanNameValue(p.lastname ?? p.last_name),
+                    name: cleanNameValue(p.name),
                     isCaptain: isCap,
                     isLibero: isLib,
                     role: role
@@ -954,6 +965,8 @@ export default function ScorerConsole() {
                     ...matchDataRef.current,
                     teamHome: m.home_team_name || m.home_team || matchDataRef.current?.teamHome,
                     teamAway: m.away_team_name || m.away_team || matchDataRef.current?.teamAway,
+                    homeLogoUrl: m.home_logo_url || matchDataRef.current?.homeLogoUrl || null,
+                    awayLogoUrl: m.away_logo_url || matchDataRef.current?.awayLogoUrl || null,
                     teamHomeCode: m.home_team_code || matchDataRef.current?.teamHomeCode || null,
                     teamAwayCode: m.away_team_code || matchDataRef.current?.teamAwayCode || null,
                     teamHomeId: m.home_team_id || matchDataRef.current?.teamHomeId,
@@ -3741,7 +3754,10 @@ export default function ScorerConsole() {
                                 <span className="text-6xl font-black tabular-nums tracking-tighter select-none transition-all duration-300">
                                     {leftTeam.score}
                                 </span>
-                                <div className="mt-2 text-[16px] font-bold uppercase tracking-wider  max-w-[400px] text-center" >
+                                <div
+                                    className="mt-2 w-full max-w-[400px] truncate px-4 text-center text-[16px] font-bold uppercase tracking-wider"
+                                    title={leftTeam.name}
+                                >
                                     {leftTeam.name}
                                 </div>
                                 {/* Team color accent bar */}
@@ -3776,7 +3792,10 @@ export default function ScorerConsole() {
                                 <span className="text-6xl font-black tabular-nums tracking-tighter select-none transition-all duration-300">
                                     {rightTeam.score}
                                 </span>
-                                <div className="mt-2 text-[16px] font-bold uppercase tracking-wider  max-w-[400px] text-center">
+                                <div
+                                    className="mt-2 w-full max-w-[400px] truncate px-4 text-center text-[16px] font-bold uppercase tracking-wider"
+                                    title={rightTeam.name}
+                                >
                                     {rightTeam.name}
                                 </div>
                                 {/* Team color accent bar */}
@@ -3993,6 +4012,8 @@ export default function ScorerConsole() {
                 onClose={() => setShowLineupModal(false)}
                 teamHome={matchData.teamHome}
                 teamAway={matchData.teamAway}
+                homeLogoUrl={matchData.homeLogoUrl}
+                awayLogoUrl={matchData.awayLogoUrl}
                 homeLineup={homeLineup}
                 awayLineup={awayLineup}
                 homeLiberos={homeLiberos}

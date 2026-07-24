@@ -6,37 +6,50 @@ import {
     ChevronsRight,
     RotateCcw,
     AlertCircle,
-    Users,
     Info,
     Calendar,
+    FileText,
     MapPin,
-    User
+    User,
+    Plus,
+    Pencil,
+    Save,
+    LoaderCircle,
+    Swords,
+    CheckCircle
 } from 'lucide-react';
 import { api } from '../../../api';
 
 // Helper Component for Inputs
-const InputField = ({ label, value, onChange, placeholder }) => (
+const InputField = ({ label, value, onChange, placeholder, readOnly = false, icon }) => (
     <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">{label}</label>
-        <input
-            type="text"
-            value={value || ''}
-            onChange={onChange}
-            placeholder={placeholder}
-            className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold hover:border-slate-350 focus:border-indigo-500 focus:bg-white transition-all"
-        />
+        <label className={`text-xs font-bold uppercase tracking-wider ${readOnly ? 'text-slate-400' : 'text-slate-600'}`}>{label}</label>
+        <div className="relative">
+            {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{icon}</div>}
+            <input
+                type="text"
+                value={value || ''}
+                onChange={onChange}
+                placeholder={placeholder}
+                readOnly={readOnly}
+                className={`w-full rounded-md border px-4 py-3 text-base font-medium outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${icon ? 'pl-10' : ''} ${readOnly
+                    ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed'
+                    : 'bg-white text-slate-900 border-slate-300 hover:border-slate-400'
+                }`}
+            />
+        </div>
     </div>
 );
 
 // Helper Component for Selects
 const SelectField = ({ label, value, onChange, options }) => (
     <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">{label}</label>
+        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{label}</label>
         <div className="relative">
             <select
                 value={value || ''}
                 onChange={onChange}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold hover:border-slate-350 focus:border-indigo-500 focus:bg-white transition-all appearance-none cursor-pointer"
+                className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-medium text-slate-900 outline-none transition-all appearance-none cursor-pointer hover:border-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
                 <option value="" className="text-slate-500">-- เลือกเจ้าหน้าที่ / Select --</option>
                 {options.map(opt => (
@@ -45,8 +58,8 @@ const SelectField = ({ label, value, onChange, options }) => (
                     </option>
                 ))}
             </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </div>
         </div>
     </div>
@@ -252,6 +265,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     // สถานะสำหรับการทำ Highlight
     const [leftActiveId, setLeftActiveId] = useState(null);
     const [rightActiveId, setRightActiveId] = useState(null);
+    const [playerEditor, setPlayerEditor] = useState(null);
+    const [isSavingPlayer, setIsSavingPlayer] = useState(false);
+    const [playerEditorError, setPlayerEditorError] = useState('');
 
     if (!isOpen) return null;
 
@@ -265,6 +281,14 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     const setFn = singleTeamMode
         ? (targetTeam === 'home' ? setSelHome : setSelAway)
         : (step === 1 ? setSelHome : setSelAway);
+    const homeTeamId = match?.teamHomeId ?? match?.home_team_id ?? match?.homeTeamId ?? match?.homeTeam?.id ?? match?.team_home_id;
+    const awayTeamId = match?.teamAwayId ?? match?.away_team_id ?? match?.awayTeamId ?? match?.awayTeam?.id ?? match?.team_away_id;
+    const currentRosterTeamId = currentTeamData?.find(player => player.team_id || player.teamId)?.team_id
+        ?? currentTeamData?.find(player => player.team_id || player.teamId)?.teamId;
+    const currentTeamId = (singleTeamMode
+        ? (targetTeam === 'home' ? homeTeamId : awayTeamId)
+        : (step === 1 ? homeTeamId : awayTeamId))
+        ?? currentRosterTeamId;
 
     const availablePlayers = currentTeamData ? currentTeamData.filter(p => !p.selected) : [];
     const rosterPlayers = currentTeamData ? currentTeamData.filter(p => p.selected) : [];
@@ -336,6 +360,66 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
             }
             return p;
         }));
+    };
+
+    const openPlayerEditor = (player = null) => {
+        setPlayerEditorError('');
+        setPlayerEditor(player ? {
+            id: player.id,
+            first_name: player.first_name || player.firstname || '',
+            last_name: player.last_name || player.lastname || '',
+            number: player.number || '',
+            team_id: player.team_id || player.teamId || '',
+        } : {
+            first_name: '',
+            last_name: '',
+            number: '',
+            team_id: currentTeamId || '',
+        });
+    };
+
+    const handleSavePlayer = async (event) => {
+        event.preventDefault();
+        const currentMatchId = match?.id ?? match?.matchId ?? match?.match_id;
+        const targetTeamId = currentTeamId || playerEditor?.team_id;
+        if (!playerEditor || !targetTeamId || !currentMatchId) {
+            setPlayerEditorError('Unable to determine the match or team.');
+            return;
+        }
+
+        const payload = {
+            first_name: playerEditor.first_name,
+            last_name: playerEditor.last_name,
+            number: playerEditor.number,
+            gender: match.gender,
+        };
+
+        setIsSavingPlayer(true);
+        setPlayerEditorError('');
+        try {
+            const response = playerEditor.id
+                ? await api.updateMatchTeamPlayer(currentMatchId, targetTeamId, playerEditor.id, payload)
+                : await api.createMatchTeamPlayer(currentMatchId, targetTeamId, payload);
+            const savedPlayer = response.data;
+
+            setFn((previous) => playerEditor.id
+                ? previous.map((player) => player.id === playerEditor.id
+                    ? { ...player, ...savedPlayer }
+                    : player)
+                : [...previous, { ...savedPlayer, selected: true, role: '', isLibero: false, isCaptain: false }]
+            );
+            setPlayerEditor(null);
+        } catch (error) {
+            const status = error.response?.status;
+            const serverMessage = error.response?.data?.error;
+            setPlayerEditorError(
+                status === 404
+                    ? (serverMessage || 'Player update endpoint was not found. Please deploy the latest backend, then try again.')
+                    : (serverMessage || 'Unable to save player details.')
+            );
+        } finally {
+            setIsSavingPlayer(false);
+        }
     };
 
     const handleRulesChange = (field, value) => {
@@ -439,33 +523,44 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
         }
     };
 
+    const competitionTitle =
+        match?.competition?.title ||
+        match?.competitionName ||
+        match?.competition_title ||
+        match?.competition_name ||
+        match?.title ||
+        'Volleyball Competition';
+    const categoryLabel =
+        match?.category ||
+        match?.category_name ||
+        match?.age_group ||
+        match?.division_name ||
+        match?.division ||
+        'Unspecified';
+    const genderLabel = match?.gender || match?.division || '';
+    const dateLabel = matchDetails.matchDate ? String(matchDetails.matchDate).split('T')[0] : '';
+    const timeLabel = matchDetails.startTime ? String(matchDetails.startTime).slice(0, 5) : '';
+
     return (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[200] select-none font-sans p-4">
-            <div className="bg-white rounded-2xl w-full max-w-[1100px] h-[800px] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-white rounded-xl w-full max-w-5xl h-[850px] max-h-[calc(100vh-32px)] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
 
-                <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <div className="px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-gray-50/80 shrink-0">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600">
-                                <Users size={24} />
+                            <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 text-blue-600">
+                                <Swords size={20} />
                             </div>
                             <div className="flex flex-col">
-                                <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase leading-none">
-                                    Setup <span className="text-indigo-600">Roster</span>
+                                <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-none">
+                                    Match Officials & Setup
                                 </h2>
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">
-                                    {
-                                        match?.competition?.title ||
-                                        match?.competitionName ||
-                                        match?.competition_title ||
-                                        match?.competition_name ||
-                                        match?.title ||
-                                        'Volleyball Competition'
-                                    }
+                                <p className="text-sm text-slate-500 mt-1">
+                                    {competitionTitle}{genderLabel ? ` (${genderLabel})` : ''}
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-2 ml-12">
+                        <div className={`${isSettingsOnly || step === 3 ? 'hidden' : 'flex'} items-center gap-2 mt-2 ml-12`}>
                             {match?.gender && (
                                 <span className={`text-xs font-black px-1.5 py-0.5 rounded uppercase ${match.gender === 'Female' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
                                     {match.gender === 'Female' ? 'หญิง / Female' : 'ชาย / Male'}
@@ -505,6 +600,25 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                 </div>
 
                 <div className="flex-1 flex flex-col p-8 overflow-hidden gap-6">
+                    {(singleTeamMode || step <= 2) && playerEditor && (
+                        <form onSubmit={handleSavePlayer} className="grid grid-cols-1 items-end gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 md:grid-cols-[1fr_1fr_120px_auto]">
+                            <div className="md:col-span-4 flex items-center justify-between gap-3">
+                                <p className="text-sm font-bold text-indigo-900">
+                                    {playerEditor.id ? 'Edit player details' : `Add player to ${currentTeamName}`}
+                                </p>
+                                <button type="button" onClick={() => setPlayerEditor(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Cancel</button>
+                            </div>
+                            <InputField label="First name" value={playerEditor.first_name} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, first_name: event.target.value }))} />
+                            <InputField label="Last name" value={playerEditor.last_name} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, last_name: event.target.value }))} />
+                            <InputField label="Number" value={playerEditor.number} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, number: event.target.value.replace(/\D/g, '') }))} />
+                            <button type="submit" disabled={isSavingPlayer} className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+                                {isSavingPlayer ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
+                                Save
+                            </button>
+                            {playerEditorError && <p className="text-xs font-medium text-rose-600 md:col-span-4">{playerEditorError}</p>}
+                        </form>
+                    )}
+
                     {singleTeamMode && (
                         <div className="flex-1 flex flex-col min-h-0 gap-5">
                             <div className="flex items-end justify-between gap-4">
@@ -512,8 +626,13 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                     <span className="text-xs font-bold text-blue-600 uppercase">Set roster</span>
                                     <h1 className="mt-1 text-2xl font-bold text-slate-900 truncate">{currentTeamName}</h1>
                                 </div>
-                                <div className="shrink-0 rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
-                                    Selected {rosterPlayers.length}
+                                <div className="flex items-center gap-3">
+                                    <div className="shrink-0 rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+                                        Selected {rosterPlayers.length}
+                                    </div>
+                                    <button type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
+                                        <Plus size={16} /> Add player
+                                    </button>
                                 </div>
                             </div>
 
@@ -526,6 +645,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                             <th className="px-4 py-3 border-b border-slate-200">Name</th>
                                             <th className="px-4 py-3 border-b border-slate-200">Lastname</th>
                                             <th className="w-56 px-4 py-3 border-b border-slate-200">Role</th>
+                                            <th className="w-20 px-4 py-3 text-center border-b border-slate-200">Edit</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -563,6 +683,11 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                         <option value="L2+C">Libero (L2) & Captain (C)</option>
                                                     </select>
                                                 </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <button type="button" onClick={() => openPlayerEditor(player)} className="rounded-md p-2 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700" aria-label={`Edit ${player.first_name || player.firstname || ''} ${player.last_name || player.lastname || ''}`.trim()}>
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -580,7 +705,11 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 </div>
 
                                 {/* Summary Stats */}
-                                <div className="flex items-center gap-4 bg-indigo-50/50 px-5 py-3 rounded-2xl border border-indigo-100">
+                                <div className="flex items-center gap-4">
+                                    <button type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700">
+                                        <Plus size={16} /> Add player
+                                    </button>
+                                    <div className="flex items-center gap-4 bg-indigo-50/50 px-5 py-3 rounded-2xl border border-indigo-100">
                                     <div className="flex flex-col items-center px-1">
                                         <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Total</span>
                                         <span className="text-xl font-black text-indigo-600 leading-none">{rosterPlayers.length}</span>
@@ -599,6 +728,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                 {rosterPlayers.filter(p => p.isLibero).map(p => p.number).join(', ') || '-'}
                                             </span>
                                         </div>
+                                    </div>
                                     </div>
                                 </div>
                             </div>
@@ -694,6 +824,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                         <th className="p-3 border-b border-slate-100">Family Name</th>
                                                         <th className="p-3 border-b border-slate-100">Name</th>
                                                         <th className="p-3 w-24 text-center border-b border-slate-100">Role</th>
+                                                        <th className="p-3 w-14 text-center border-b border-slate-100">Edit</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -725,6 +856,11 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                                     <option value="L2+C">Libero (L2) & Captain (C)</option>
                                                                 </select>
                                                             </td>
+                                                            <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
+                                                                <button type="button" onClick={() => openPlayerEditor(p)} className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700" aria-label={`Edit ${p.first_name || p.firstname || ''} ${p.last_name || p.lastname || ''}`.trim()}>
+                                                                    <Pencil size={15} />
+                                                                </button>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -737,13 +873,26 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                     )}
 
                     {step === 3 && (
-                        <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
+                        <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-8">
                             {/* Section 1: General Match Info & Location */}
-                            <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
-                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-indigo-600 mb-4 border-b border-slate-200/60 pb-2">
+                            <div>
+                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 border-b border-gray-100 pb-2">
+                                    <FileText size={16} /> General Match Info
+                                </h4>
+                                <h4 className="hidden">
                                     <MapPin size={16} /> ข้อมูลการแข่งขันและสถานที่ / Match Info & Location
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <InputField
+                                        label="Category"
+                                        value={categoryLabel}
+                                        readOnly
+                                    />
+                                    <InputField
+                                        label="Gender"
+                                        value={genderLabel}
+                                        readOnly
+                                    />
                                     <InputField
                                         label="Match No."
                                         value={matchDetails.matchNo}
@@ -754,6 +903,33 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                         value={matchDetails.round}
                                         onChange={e => setMatchDetails(prev => ({ ...prev, round: e.target.value }))}
                                     />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                                    <InputField
+                                        label="Date"
+                                        value={dateLabel}
+                                        readOnly
+                                        icon={<Calendar size={16} />}
+                                    />
+                                    <InputField
+                                        label="Time"
+                                        value={timeLabel}
+                                        readOnly
+                                    />
+                                    <InputField
+                                        label="Home Team"
+                                        value={teamHome}
+                                        readOnly
+                                    />
+                                    <InputField
+                                        label="Away Team"
+                                        value={teamAway}
+                                        readOnly
+                                    />
+                                </div>
+
+                                <div className="hidden">
                                     <InputField
                                         label="Pool"
                                         value={matchDetails.pool}
@@ -767,6 +943,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                     </div>
                                 </div>
 
+                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-rose-600 mt-8 mb-4 border-b border-gray-100 pb-2">
+                                    <MapPin size={16} /> Location
+                                </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                                     <InputField
                                         label="Country"
@@ -798,16 +977,21 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                             </div>
 
                             {/* Section 2: Match Officials */}
-                            <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
-                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600 mb-4 border-b border-slate-200/60 pb-2">
+                            <div>
+                                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600 mb-4 border-b border-gray-100 pb-2">
+                                    <User size={16} /> Match Officials
+                                </h4>
+                                <h4 className="hidden">
                                     <User size={16} /> ผู้ตัดสินและเจ้าหน้าที่ประจำแมตช์ / Match Officials
                                 </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                                     <SelectField label="1st Referee" value={rules.referee_1_id} onChange={e => handleReferee1Change(e.target.value)} options={refereesList} />
+                                    <InputField label="Scorer Name" value={rules.scorer} onChange={e => handleRulesChange('scorer', e.target.value)} />
                                     <SelectField label="2nd Referee" value={rules.referee_2_id} onChange={e => handleReferee2Change(e.target.value)} options={refereesList} />
+                                    <InputField label="Scorer Country Code" value={rules.scorerCountry} onChange={e => handleRulesChange('scorerCountry', e.target.value)} />
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                                <div className="hidden">
                                     <InputField label="Scorer Name" value={rules.scorer} onChange={e => handleRulesChange('scorer', e.target.value)} />
                                     <InputField label="Scorer Country Code" value={rules.scorerCountry} onChange={e => handleRulesChange('scorerCountry', e.target.value)} />
                                 </div>
@@ -871,8 +1055,8 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                         </button>
                     </div>
                 ) : (
-                <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center shrink-0">
-                    <div className="flex flex-col">
+                <div className="px-6 py-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center shrink-0">
+                    <div className={`${step === 3 ? 'invisible' : 'flex'} flex-col`}>
                         <div className="flex items-center gap-1.5 text-slate-400">
                             <Info size={14} className="text-indigo-400" />
                             <span className="text-[11px] font-bold uppercase tracking-wider">Quick Instructions</span>
@@ -888,12 +1072,12 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                     <div className="flex items-center gap-4">
                         <button
                             onClick={onClose}
-                            className="px-6 py-2.5 rounded-xl text-slate-500 hover:text-slate-900 border border-transparent hover:bg-white hover:border-slate-200 transition-all duration-200 font-bold text-sm"
+                            className="px-5 py-2.5 rounded-lg text-slate-500 hover:text-slate-900 border border-transparent hover:bg-white hover:border-slate-200 transition-all duration-200 font-semibold text-sm"
                         >
                             Cancel
                         </button>
 
-                        <div className="flex gap-2 bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className={`${step === 3 ? 'bg-transparent border-transparent shadow-none p-0' : 'bg-white p-1 rounded-2xl border border-slate-200 shadow-sm'} flex gap-2`}>
                             {!isSettingsOnly && !singleTeamMode && (
                                 <button
                                     onClick={handlePrev}
@@ -907,8 +1091,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
                             <button
                                 onClick={handleNext}
-                                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 transition-all duration-200 active:scale-95"
+                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all duration-200 active:scale-95"
                             >
+                                {step === 3 && <CheckCircle size={18} />}
                                 <span>{isSettingsOnly ? 'Confirm Setup' : singleTeamMode ? 'Confirm Roster' : (step === 1 ? 'Go to Away Roster' : step === 2 ? 'Go to Officials' : 'Confirm Setup')}</span>
                                 {!isSettingsOnly && !singleTeamMode && <ChevronRight size={18} />}
                             </button>

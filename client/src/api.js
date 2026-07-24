@@ -205,6 +205,8 @@ export const api = {
   getMatchScoresheetData: (matchId) => apiClient.get(`/scorer/match/${matchId}/scoresheet`),
   getMatchRosterData: (matchId) => apiClient.get(`/scorer/match/${matchId}/roster`),
   updateMatchRoster: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/roster`, data),
+  createMatchTeamPlayer: (matchId, teamId, data) => apiClient.post(`/scorer/match/${matchId}/teams/${teamId}/players`, data),
+  updateMatchTeamPlayer: (matchId, teamId, playerId, data) => apiClient.put(`/scorer/match/${matchId}/teams/${teamId}/players/${playerId}`, data),
 };
 
 export default apiClient;

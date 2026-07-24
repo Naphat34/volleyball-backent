@@ -196,17 +196,25 @@ const MatchHistorySidebar = ({
 
             {/* Team Tabs */}
             <div className="flex bg-white shrink-0">
-                <div className="flex-1 text-center py-2.5 text-xs truncate font-bold border-b-2" style={{
+                <div
+                    className="min-w-0 flex-1 overflow-hidden px-1 text-center text-xs font-bold border-b-2"
+                    title={isHomeLeft ? matchData.teamHome : matchData.teamAway}
+                    style={{
                     borderColor: isHomeLeft ? teamColors.home : teamColors.away,
                     backgroundColor: `${isHomeLeft ? teamColors.home : teamColors.away}1A`
-                }}>
-                    {isHomeLeft ? matchData.teamHome : matchData.teamAway}
+                    }}
+                >
+                    <span className="block truncate">{isHomeLeft ? matchData.teamHome : matchData.teamAway}</span>
                 </div>
-                <div className="flex-1 text-center py-2.5 text-xs font-bold border-b-2" style={{
+                <div
+                    className="min-w-0 flex-1 overflow-hidden px-1 text-center text-xs font-bold border-b-2"
+                    title={isHomeLeft ? matchData.teamAway : matchData.teamHome}
+                    style={{
                     borderColor: isHomeLeft ? teamColors.away : teamColors.home,
                     backgroundColor: `${isHomeLeft ? teamColors.away : teamColors.home}1A`
-                }}>
-                    {isHomeLeft ? matchData.teamAway : matchData.teamHome}
+                    }}
+                >
+                    <span className="block truncate">{isHomeLeft ? matchData.teamAway : matchData.teamHome}</span>
                 </div>
             </div>
 

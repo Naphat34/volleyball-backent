@@ -26,7 +26,7 @@ const RosterList = ({ list, team, toggleSelect, setRole }) => {
                     const fName = p.first_name || p.firstname || '';
                     const lName = p.last_name || p.lastname || '';
                     const nickname = p.nickname ? `(${p.nickname})` : '';
-                    const displayName = (fName || lName) ? `${fName} ${lName} ${nickname}`.trim() : (p.name || 'Unknown Player');
+                    const displayName = (fName || lName) ? `${fName} ${lName} ${nickname}`.trim() : (p.name || '');
 
                     return (
                         <div key={p.id} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-lg border transition-all duration-200 ${p.selected ? 'bg-slate-700 border-slate-600 shadow-md' : 'bg-slate-800/30 border-slate-800 opacity-60 hover:opacity-80' }`}>

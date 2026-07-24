@@ -28,8 +28,8 @@ const PlayerToken = ({
     rightSubTracker,
     leftTeam,
     rightTeam,
-    tokenNumberClass = 'text-3xl lg:text-6xl',
-    tokenBoxClass = 'w-14 h-14 lg:w-24 lg:h-24'
+    tokenNumberClass = 'text-[28.5px] lg:text-[57px]',
+    tokenBoxClass = 'w-[53px] h-[53px] lg:w-[91px] lg:h-[91px]'
 }) => {
     if (hideTokens) return null;
     if (!player) return null;

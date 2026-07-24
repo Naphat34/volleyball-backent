@@ -34,7 +34,10 @@ export default function MobileTeamDrawer({
             <div className="bg-white w-full max-w-sm h-full flex flex-col shadow-2xl relative overflow-hidden">
                 {/* Drawer Header */}
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 className="font-extrabold text-slate-800 text-base uppercase">
+                    <h3
+                        className="min-w-0 flex-1 truncate pr-3 text-base font-extrabold uppercase text-slate-800"
+                        title={mobilePanelTeam === 'home' ? matchData.teamHome : matchData.teamAway}
+                    >
                         {mobilePanelTeam === 'home' ? matchData.teamHome : matchData.teamAway}
                     </h3>
                     <button

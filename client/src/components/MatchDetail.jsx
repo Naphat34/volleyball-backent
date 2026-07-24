@@ -6,6 +6,7 @@ import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../utils"
 
 import whistleIcon from "../assets/img/whistle.png";
 import Logo from '../assets/img/logo.png';
+import backgroundImage from '../assets/img/bg.png';
 
 const MatchDetail = () => {
   const { matchId } = useParams();
@@ -96,7 +97,10 @@ const MatchDetail = () => {
   const { match, home, away } = data;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
+    <div
+      className="min-h-screen flex flex-col font-sans text-slate-800 bg-cover bg-center bg-fixed"
+      style={{ backgroundImage: `url(${backgroundImage})` }}
+    >
       {/* Navbar */}
       <nav className="bg-white border-b border-blue-100 w-full sticky top-0 z-30">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

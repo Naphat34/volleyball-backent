@@ -28,3 +28,13 @@ exports.isAdmin = (req, res, next) => {
   }
   next();
 };
+
+exports.hasAnyRole = (allowedRoles = []) => (req, res, next) => {
+  const role = req.user?.role;
+  if (!allowedRoles.includes(role)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+  next();
+};
+
+exports.isScorerOrAdmin = exports.hasAnyRole(['admin', 'score', 'scorer']);

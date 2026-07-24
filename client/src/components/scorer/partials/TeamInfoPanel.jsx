@@ -27,10 +27,10 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
         <div className="flex flex-col h-full bg-white select-none border border-slate-200 rounded-sm">
             {/* Header ชื่อทีม */}
             <div
-                className="py-3 px-4 text-center font-black text-xl tracking-wide uppercase truncate bg-white flex items-center justify-center gap-2"
+                className="flex items-center justify-center gap-2 bg-white px-4 py-3 text-center text-xl font-black uppercase tracking-wide"
                 style={{ borderBottom: `3px solid ${color}`, color: '#000000' }}
             >
-                <span>{team.name}</span>
+                <span className="w-full truncate" title={team.name}>{team.name}</span>
                 
             </div>
 

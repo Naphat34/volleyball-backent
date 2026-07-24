@@ -8,7 +8,7 @@ const PlayerListItem = ({ player, label, align, isActive, isLibero, isSwappedLib
         if (p.name) return p.name;
         if (p.firstname) return p.firstname + ' ' + (p.lastname || '');
         if (p.first_name) return p.first_name + ' ' + (p.last_name || '');
-        return 'Unknown';
+        return '';
     };
 
     // New light theme tokens
