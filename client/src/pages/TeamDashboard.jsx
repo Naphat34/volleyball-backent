@@ -301,9 +301,16 @@ export default function TeamDashboard() {
 
     const getPlayerNickname = (player = {}) => cleanPersonText(player.nickname);
 
+    const isTruthyFlag = (value) => (
+        value === true
+        || value === 1
+        || value === '1'
+        || String(value).toLowerCase() === 'true'
+    );
+
     const getLiberoBadge = (player = {}) => {
-        if (player.is_libero1) return 'L1';
-        if (player.is_libero2) return 'L2';
+        if (isTruthyFlag(player.is_libero1)) return 'L1';
+        if (isTruthyFlag(player.is_libero2)) return 'L2';
         return '';
     };
 
@@ -579,9 +586,9 @@ export default function TeamDashboard() {
             nickname: cleanPersonText(p.nickname), position: p.position ?? 'OH', height_cm: cleanPositiveNumberText(p.height_cm),
             weight: cleanPositiveNumberText(p.weight), birth_date: p.birth_date ? p.birth_date.split('T')[0] : '',
             nationality: p.nationality ?? '', photo: p.photo ?? '', gender: p.gender ?? 'Male',
-            is_captain: p.is_captain ?? false,
-            is_libero1: p.is_libero1 ?? false,
-            is_libero2: p.is_libero2 ?? false
+            is_captain: isTruthyFlag(p.is_captain),
+            is_libero1: isTruthyFlag(p.is_libero1),
+            is_libero2: isTruthyFlag(p.is_libero2)
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -1377,6 +1384,8 @@ export default function TeamDashboard() {
                                                 <tbody className="divide-y divide-gray-100 bg-white">
                                                     {filteredPlayers.map((p) => {
                                                         const age = calculateAge(p.birth_date);
+                                                        const isCaptain = isTruthyFlag(p.is_captain);
+                                                        const liberoBadge = getLiberoBadge(p);
                                                         return (
                                                             <tr key={p.id} className="hover:bg-gray-50 transition group">
                                                                 <td className="px-4 py-4 text-center">
@@ -1399,8 +1408,8 @@ export default function TeamDashboard() {
                                                                     <div>
                                                                         <div className="font-semibold text-slate-950 flex items-center gap-2 text-base">
                                                                             {getPlayerDisplayName(p) && <span>{getPlayerDisplayName(p)}</span>}
-                                                                            {p.is_captain && <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 tracking-wide" title="Team Captain">CAP</span>}
-                                                                            {getLiberoBadge(p) && <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 tracking-wide" title={`Libero ${getLiberoBadge(p)}`}>{getLiberoBadge(p)}</span>}
+                                                                            {isCaptain ? <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 tracking-wide" title="Team Captain">CAP</span> : null}
+                                                                            {liberoBadge ? <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 tracking-wide" title={`Libero ${liberoBadge}`}>{liberoBadge}</span> : null}
                                                                         </div>
                                                                         {getPlayerNickname(p) && <div className="text-xs text-slate-400 font-medium mt-0.5">"{getPlayerNickname(p)}"</div>}
                                                                     </div>

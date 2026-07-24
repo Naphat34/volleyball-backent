@@ -6,6 +6,12 @@ const PlayerPicker = ({ isOpen, onClose, teamName, roster, lineup, liberos, onSe
 
     const safeContext = context || {};
     const isCourtPosition = typeof safeContext.posIndex === 'number';
+    const isTruthyFlag = (value) => (
+        value === true
+        || value === 1
+        || value === '1'
+        || String(value).toLowerCase() === 'true'
+    );
 
     // Helper to get player number
     const getPlayerNumber = (p) => p.number || p.jersey_number || p.shirt_number || '?';
@@ -28,7 +34,8 @@ const PlayerPicker = ({ isOpen, onClose, teamName, roster, lineup, liberos, onSe
                         const alreadyInLineup = lineup && lineup.some(p => p?.id === player.id);
                         const safeLiberos = liberos || {};
                         const alreadyIsLibero = Object.values(safeLiberos).some(p => p?.id === player.id);
-                        const isRestrictedLibero = isCourtPosition && player.isLibero;
+                        const isPlayerLibero = isTruthyFlag(player.isLibero);
+                        const isRestrictedLibero = isCourtPosition && isPlayerLibero;
                         const isDisabled = alreadyInLineup || alreadyIsLibero || isRestrictedLibero;
 
                         return (
@@ -38,14 +45,14 @@ const PlayerPicker = ({ isOpen, onClose, teamName, roster, lineup, liberos, onSe
                                 onClick={() => onSelect(player)}
                                 className={`flex items-center gap-3 p-3 rounded-md border-2 transition-all text-left relative ${isDisabled ? 'bg-slate-900/50 border-slate-800 opacity-40 cursor-not-allowed' : 'bg-slate-700 border-slate-600 hover:border-blue-500 hover:bg-slate-600 active:scale-95'}`}
                             >
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${player.isLibero ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${isPlayerLibero ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
                                     {getPlayerNumber(player)}
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <div className="text-white font-bold truncate text-sm">{player.firstname || player.first_name || player.name}</div>
                                     <div className="text-xs text-slate-400 truncate">{player.lastname || player.last_name || ''}</div>
                                 </div>
-                                {player.isLibero && <span className="absolute top-1 right-1 bg-blue-500 text-[10px] px-1 rounded font-semibold text-white">L</span>}
+                                {isPlayerLibero ? <span className="absolute top-1 right-1 bg-blue-500 text-[10px] px-1 rounded font-semibold text-white">L</span> : null}
                                 {isRestrictedLibero && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-md">
                                         <span className="text-[10px] font-bold text-red-400">LIBERO ONLY</span>

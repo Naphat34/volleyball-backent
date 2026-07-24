@@ -312,8 +312,8 @@ const MatchDetail = () => {
                         <td className="text-center py-3 px-4 font-bold text-blue-950">{getPlayerNumber(player)}</td>
                         <td className="py-3 px-4 text-slate-700">
                           {getPlayerName(player)}
-                          {player.is_captain && <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-bold">(C)</span>}
-                          {getLiberoBadge(player) && <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-md font-bold">({getLiberoBadge(player)})</span>}
+                          {isTruthyFlag(player.is_captain) ? <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-bold">(C)</span> : null}
+                          {getLiberoBadge(player) ? <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-md font-bold">({getLiberoBadge(player)})</span> : null}
                         </td>
                         
                       </tr>
@@ -353,8 +353,8 @@ const MatchDetail = () => {
                         <td className="text-center py-3 px-4 font-bold text-blue-950">{getPlayerNumber(player)}</td>
                         <td className="py-3 px-4 text-slate-700">
                           {getPlayerName(player)}
-                          {player.is_captain && <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-bold">(C)</span>}
-                          {getLiberoBadge(player) && <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-md font-bold">({getLiberoBadge(player)})</span>}
+                          {isTruthyFlag(player.is_captain) ? <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-bold">(C)</span> : null}
+                          {getLiberoBadge(player) ? <span className="ml-1 text-xs bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-md font-bold">({getLiberoBadge(player)})</span> : null}
                         </td>
                       
                       </tr>

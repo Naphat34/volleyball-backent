@@ -42,6 +42,13 @@ export default function PlayerViewTab() {
         return `${team.name} (${team.code || '-'}) - ${ageGroup}${gender ? ` / ${gender}` : ''}`;
     }, []);
 
+    const isTruthyFlag = (value) => (
+        value === true
+        || value === 1
+        || value === '1'
+        || String(value).toLowerCase() === 'true'
+    );
+
     const selectedTeam = useMemo(
         () => registeredTeams.find(team => getTeamSelectionKey(team) === selectedTeamKey) || null,
         [getTeamSelectionKey, registeredTeams, selectedTeamKey]
@@ -308,7 +315,7 @@ export default function PlayerViewTab() {
                                                 </div>
                                                 <div className="font-medium text-gray-900">
                                                     {p.first_name} {p.last_name}
-                                                    {p.is_captain && <span className="ml-2 text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-full font-bold" title="Captain">C</span>}
+                                                    {isTruthyFlag(p.is_captain) ? <span className="ml-2 text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-full font-bold" title="Captain">C</span> : null}
                                                 </div>
                                             </div>
                                         </td>
@@ -413,11 +420,11 @@ export default function PlayerViewTab() {
                                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200 font-mono">
                                     #{viewingPlayer.number}
                                 </span>
-                                {viewingPlayer.is_captain && (
+                                {isTruthyFlag(viewingPlayer.is_captain) ? (
                                     <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 flex items-center gap-1">
                                         <CheckCircle size={12} /> Captain
                                     </span>
-                                )}
+                                ) : null}
                             </div>
 
                             {/* Stats Grid */}
