@@ -184,26 +184,75 @@ export default function HomeTab() {
     // Filtered lists for the dashboard tab
     const upcomingMatches = matches.filter(m => m.status !== 'completed').slice(0, 3);
     const recentMatches = matches.filter(m => m.status === 'completed').slice(-3).reverse();
-    const panelClass = "rounded-lg border border-gray-200 bg-white";
-    const cardClass = "rounded-lg border border-gray-200 bg-white p-4";
-    const labelClass = "block text-xs font-medium text-gray-500 mb-1.5";
-    const selectClass = "w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
-    const tabClass = "rounded-md px-3 py-2 text-sm font-medium transition";
-    const activeTabClass = "bg-blue-600 text-white";
-    const inactiveTabClass = "text-blue-700 hover:bg-blue-50";
-    const metricIconClass = "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-gray-500";
-    const sectionTitleClass = "flex items-center gap-2 border-b border-gray-200 pb-3 text-sm font-semibold text-gray-900";
+    const completionRate = matches.length > 0 ? Math.round((completedCount / matches.length) * 100) : 0;
+    const panelClass = "rounded-lg border border-white/70 bg-white/88 shadow-sm shadow-slate-900/5 backdrop-blur";
+    const cardClass = "rounded-lg border border-white/70 bg-white/90 p-4 shadow-sm shadow-slate-900/5 backdrop-blur";
+    const selectClass = "w-full rounded-md border border-slate-200 bg-white/95 px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+    const tabClass = "rounded-md px-3 py-2 text-sm font-semibold transition";
+    const activeTabClass = "bg-blue-700 text-white shadow-sm shadow-blue-900/20";
+    const inactiveTabClass = "text-slate-600 hover:bg-blue-50 hover:text-blue-700";
+    const sectionTitleClass = "flex items-center gap-2 border-b border-slate-200/80 pb-3 text-sm font-semibold text-slate-950";
+    const metricCards = [
+        {
+            key: 'tournament',
+            icon: Trophy,
+            tone: 'from-blue-600 to-sky-500',
+            ring: 'bg-blue-50 text-blue-700 border-blue-100',
+            label: language === 'THA' ? 'รายการแข่งขัน' : 'Tournament',
+            value: selectedBaseName,
+            valueClass: 'text-sm line-clamp-1',
+            detail: filterGender === 'All'
+                ? (language === 'THA' ? 'ทุกประเภท' : 'All Categories')
+                : (language === 'THA' ? `ประเภท ${filterGender === 'Male' ? 'ชาย' : 'หญิง'}` : `Category ${filterGender}`)
+        },
+        {
+            key: 'teams',
+            icon: Users,
+            tone: 'from-emerald-600 to-teal-500',
+            ring: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+            label: language === 'THA' ? 'ทีมทั้งหมด' : 'Total Teams',
+            value: teams.length,
+            suffix: language === 'THA' ? 'ทีม' : 'Teams',
+            detail: language === 'THA' ? 'ทีมสโมสรทั้งหมดที่เข้าร่วม' : 'Total participating club teams'
+        },
+        {
+            key: 'matches',
+            icon: Calendar,
+            tone: 'from-violet-600 to-fuchsia-500',
+            ring: 'bg-violet-50 text-violet-700 border-violet-100',
+            label: language === 'THA' ? 'แมตช์ทั้งหมด' : 'Total Matches',
+            value: matches.length,
+            suffix: language === 'THA' ? 'แมตช์' : 'Matches',
+            detail: language === 'THA' ? 'โปรแกรมแข่งขันทั้งหมด' : 'All scheduled matches'
+        },
+        {
+            key: 'completed',
+            icon: CheckCircle2,
+            tone: 'from-amber-500 to-orange-500',
+            ring: 'bg-amber-50 text-amber-700 border-amber-100',
+            label: language === 'THA' ? 'เสร็จสิ้นแล้ว' : 'Completed',
+            value: completedCount,
+            suffix: `/ ${matches.length} ${language === 'THA' ? 'แมตช์' : 'Matches'}`,
+            detail: `${completionRate}% ${language === 'THA' ? 'ของโปรแกรมแข่งขัน' : 'of schedule complete'}`,
+            progress: completionRate
+        }
+    ];
 
     return (
-        <div className="space-y-5 font-sans text-gray-900">
+        <div className="space-y-5 font-sans text-slate-900">
             {/* Header section with Tournament selection */}
-            <div className={`${panelClass} p-5`}>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className={`${panelClass} overflow-hidden`}>
+                <div className="border-b border-white/60 bg-gradient-to-r from-slate-950 via-blue-900 to-blue-700 px-5 py-5 text-white">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
-                        <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900">
-                            <LayoutDashboard className="h-5 w-5 text-gray-500" /> {language === 'THA' ? 'แดชบอร์ดสรุปข้อมูลการแข่งขัน' : 'Competition Summary Dashboard'}
+                        <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">
+                            <LayoutDashboard className="h-3.5 w-3.5" />
+                            {language === 'THA' ? 'ศูนย์ควบคุมการแข่งขัน' : 'Competition Control'}
+                        </div>
+                        <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-white">
+                            {language === 'THA' ? 'แดชบอร์ดสรุปข้อมูลการแข่งขัน' : 'Competition Summary Dashboard'}
                         </h2>
-                        <p className="mt-1 text-sm text-gray-500">
+                        <p className="mt-1 max-w-2xl text-sm text-blue-100">
                             {language === 'THA' ? 'สรุปรายละเอียด สถิติ และสถานะภาพรวมของการแข่งขันแต่ละประเภท' : 'Summary of details, statistics, and overall status for each category.'}
                         </p>
                     </div>
@@ -211,7 +260,7 @@ export default function HomeTab() {
                     <div className="flex flex-col sm:flex-row gap-4 shrink-0">
                         {/* Select Tournament */}
                         <div className="w-full sm:w-64">
-                            <label className={labelClass}>{language === 'THA' ? 'รายการแข่งขัน' : 'Tournament'}</label>
+                            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-blue-100"><Filter size={13} />{language === 'THA' ? 'รายการแข่งขัน' : 'Tournament'}</label>
                             <select
                                 className={selectClass}
                                 value={selectedBaseName}
@@ -225,11 +274,11 @@ export default function HomeTab() {
 
                         {/* Select Gender */}
                         <div>
-                            <label className={labelClass}>{language === 'THA' ? 'ประเภทการแข่งขัน' : 'Category'}</label>
-                            <div className="flex rounded-md border border-gray-200 bg-gray-50 p-1">
+                            <label className="mb-1.5 block text-xs font-semibold text-blue-100">{language === 'THA' ? 'ประเภทการแข่งขัน' : 'Category'}</label>
+                            <div className="flex rounded-md border border-white/20 bg-white/10 p-1 backdrop-blur">
                                 <button
                                     onClick={() => setFilterGender('All')}
-                                    className={`rounded px-3 py-1.5 text-xs font-medium transition ${filterGender === 'All' ? 'bg-blue-600 text-white' : 'text-blue-700 hover:bg-blue-100'}`}
+                                    className={`rounded px-3 py-1.5 text-xs font-semibold transition ${filterGender === 'All' ? 'bg-white text-blue-800 shadow-sm' : 'text-blue-50 hover:bg-white/10'}`}
                                 >
                                     {language === 'THA' ? 'ทั้งหมด' : 'All'}
                                 </button>
@@ -237,7 +286,7 @@ export default function HomeTab() {
                                     <button
                                         key={g}
                                         onClick={() => setFilterGender(g)}
-                                        className={`rounded px-3 py-1.5 text-xs font-medium transition ${filterGender === g ? 'bg-blue-600 text-white' : 'text-blue-700 hover:bg-blue-100'}`}
+                                        className={`rounded px-3 py-1.5 text-xs font-semibold transition ${filterGender === g ? 'bg-white text-blue-800 shadow-sm' : 'text-blue-50 hover:bg-white/10'}`}
                                     >
                                         {g === 'Male' ? (language === 'THA' ? 'ชาย' : 'Men') : g === 'Female' ? (language === 'THA' ? 'หญิง' : 'Women') : g}
                                     </button>
@@ -245,10 +294,11 @@ export default function HomeTab() {
                             </div>
                         </div>
                     </div>
+                    </div>
                 </div>
 
                 {/* Sub tabs navigation */}
-                <div className="mt-5 flex gap-2 border-t border-gray-200 pt-4">
+                <div className="flex gap-2 px-5 py-4">
                     <button
                         onClick={() => setCurrentSubTab('overview')}
                         className={`${tabClass} ${currentSubTab === 'overview' ? activeTabClass : inactiveTabClass}`}
@@ -275,60 +325,34 @@ export default function HomeTab() {
                         
                         {/* Stats Dashboard metrics cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {/* Card 1: Tournament Info */}
-                            <div className={`${cardClass} flex items-center gap-3`}>
-                                <div className={metricIconClass}>
-                                    <Trophy className="h-5 w-5" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-xs font-medium text-gray-500">{language === 'THA' ? 'รายการแข่งขัน' : 'Tournament'}</p>
-                                    <h4 className="text-sm font-semibold text-gray-900 line-clamp-1">{selectedBaseName}</h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">{filterGender === 'All' ? (language === 'THA' ? 'ทุกประเภท' : 'All Categories') : (language === 'THA' ? `ประเภท ${filterGender === 'Male' ? 'ชาย' : 'หญิง'}` : `Category ${filterGender}`)}</p>
-                                </div>
-                            </div>
-
-                            {/* Card 2: Total Teams */}
-                            <div className={`${cardClass} flex items-center gap-3`}>
-                                <div className={metricIconClass}>
-                                    <Users className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-gray-500">{language === 'THA' ? 'ทีมทั้งหมด' : 'Total Teams'}</p>
-                                    <h4 className="text-xl font-semibold text-gray-900">{teams.length} <span className="text-sm font-normal text-gray-500">{language === 'THA' ? 'ทีม' : 'Teams'}</span></h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">{language === 'THA' ? 'ทีมสโมสรทั้งหมดที่เข้าร่วม' : 'Total participating club teams'}</p>
-                                </div>
-                            </div>
-
-                            {/* Card 3: Total Matches */}
-                            <div className={`${cardClass} flex items-center gap-3`}>
-                                <div className={metricIconClass}>
-                                    <Calendar className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="text-xs font-medium text-gray-500">{language === 'THA' ? 'แมตช์ทั้งหมด' : 'Total Matches'}</p>
-                                    <h4 className="text-xl font-semibold text-gray-900">{matches.length} <span className="text-sm font-normal text-gray-500">{language === 'THA' ? 'แมตช์' : 'Matches'}</span></h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">{language === 'THA' ? 'โปรแกรมแข่งขันทั้งหมด' : 'All scheduled matches'}</p>
-                                </div>
-                            </div>
-
-                            {/* Card 4: Match Progress */}
-                            <div className={`${cardClass} flex items-center gap-3`}>
-                                <div className={metricIconClass}>
-                                    <CheckCircle2 className="h-5 w-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-gray-500">{language === 'THA' ? 'เสร็จสิ้นแล้ว' : 'Completed'}</p>
-                                    <h4 className="text-xl font-semibold text-gray-900">
-                                        {completedCount} <span className="text-xs font-normal text-gray-500">/ {matches.length} {language === 'THA' ? 'แมตช์' : 'Matches'}</span>
-                                    </h4>
-                                    <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                                        <div 
-                                            className="bg-gray-700 h-1.5 rounded-full transition-all duration-500"
-                                            style={{ width: `${matches.length > 0 ? (completedCount / matches.length) * 100 : 0}%` }}
-                                        />
+                            {metricCards.map((metric) => {
+                                const Icon = metric.icon;
+                                return (
+                                    <div key={metric.key} className={`${cardClass} relative overflow-hidden`}>
+                                        <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${metric.tone}`} />
+                                        <div className="flex items-start gap-3">
+                                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${metric.ring}`}>
+                                                <Icon className="h-5 w-5" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-semibold text-slate-500">{metric.label}</p>
+                                                <h4 className={`mt-0.5 font-semibold text-slate-950 ${metric.valueClass || 'text-2xl'}`}>
+                                                    {metric.value} {metric.suffix && <span className="text-xs font-medium text-slate-500">{metric.suffix}</span>}
+                                                </h4>
+                                                <p className="mt-0.5 text-xs text-slate-500">{metric.detail}</p>
+                                                {metric.progress !== undefined && (
+                                                    <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100">
+                                                        <div
+                                                            className={`h-1.5 rounded-full bg-gradient-to-r ${metric.tone} transition-all duration-500`}
+                                                            style={{ width: `${metric.progress}%` }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                );
+                            })}
                         </div>
 
                         {/* Rendering content based on selected SubTab */}
@@ -337,32 +361,32 @@ export default function HomeTab() {
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 
                                 {/* Column 1: Upcoming Matches */}
-                                <div className={`${panelClass} p-4 space-y-4`}>
+                                <div className={`${panelClass} overflow-hidden p-4 space-y-4`}>
                                     <h3 className={sectionTitleClass}>
-                                        <Clock className="h-4 w-4 text-gray-500" /> {language === 'THA' ? 'แมตช์ถัดไป' : 'Upcoming Matches'}
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-700"><Clock className="h-4 w-4" /></span> {language === 'THA' ? 'แมตช์ถัดไป' : 'Upcoming Matches'}
                                     </h3>
                                     {upcomingMatches.length > 0 ? (
                                         <div className="space-y-3">
                                             {upcomingMatches.map(match => (
-                                                <div key={match.id} className="rounded-md border border-gray-200 bg-gray-50 p-3 transition hover:bg-white">
+                                                <div key={match.id} className="rounded-md border border-blue-100 bg-blue-50/50 p-3 transition hover:border-blue-200 hover:bg-white">
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">Match #{match.match_number}</span>
-                                                        <span className="text-xs text-gray-500">{match.round_name}</span>
+                                                        <span className="rounded border border-blue-100 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">Match #{match.match_number}</span>
+                                                        <span className="text-xs font-medium text-slate-500">{match.round_name}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between my-2 text-sm">
                                                         <div className="flex-1 font-medium text-gray-800 truncate text-left">
                                                             {teams.find(t => t.id == match.home_team_id)?.name || match.home_team || 'TBD'}
                                                         </div>
-                                                        <span className="text-xs text-gray-400 font-medium px-2 shrink-0">VS</span>
+                                                        <span className="rounded bg-white px-2 py-0.5 text-[10px] font-semibold text-blue-500 shadow-sm shrink-0">VS</span>
                                                         <div className="flex-1 font-medium text-gray-800 truncate text-right">
                                                             {teams.find(t => t.id == match.away_team_id)?.name || match.away_team || 'TBD'}
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100/60 text-xs text-gray-500">
-                                                        <Calendar size={12} className="text-gray-400" />
+                                                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-blue-100/70 text-xs text-slate-500">
+                                                        <Calendar size={12} className="text-blue-400" />
                                                         <span>{match.match_date ? formatDate(match.match_date) : (language === 'THA' ? 'ยังไม่กำหนดวันที่' : 'Date TBD')}</span>
-                                                        <span className="text-gray-300">|</span>
-                                                        <Clock size={12} className="text-gray-400" />
+                                                        <span className="text-blue-200">|</span>
+                                                        <Clock size={12} className="text-blue-400" />
                                                         <span>{match.start_time ? formatTime(match.start_time) : (language === 'THA' ? 'ยังไม่กำหนดเวลา' : 'Time TBD')}</span>
                                                     </div>
                                                 </div>
@@ -374,23 +398,23 @@ export default function HomeTab() {
                                 </div>
 
                                 {/* Column 2: Recent Results */}
-                                <div className={`${panelClass} p-4 space-y-4`}>
+                                <div className={`${panelClass} overflow-hidden p-4 space-y-4`}>
                                     <h3 className={sectionTitleClass}>
-                                        <Trophy className="h-4 w-4 text-gray-500" /> {language === 'THA' ? 'ผลการแข่งขันล่าสุด' : 'Recent Results'}
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 text-amber-700"><Trophy className="h-4 w-4" /></span> {language === 'THA' ? 'ผลการแข่งขันล่าสุด' : 'Recent Results'}
                                     </h3>
                                     {recentMatches.length > 0 ? (
                                         <div className="space-y-3">
                                             {recentMatches.map(match => (
-                                                <div key={match.id} className="rounded-md border border-gray-200 bg-gray-50 p-3 transition hover:bg-white">
+                                                <div key={match.id} className="rounded-md border border-amber-100 bg-amber-50/45 p-3 transition hover:border-amber-200 hover:bg-white">
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">Match #{match.match_number}</span>
-                                                        <span className="rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-600">{language === 'THA' ? 'จบเกม' : 'Completed'}</span>
+                                                        <span className="rounded border border-amber-100 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">Match #{match.match_number}</span>
+                                                        <span className="rounded border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">{language === 'THA' ? 'จบเกม' : 'Completed'}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between my-2 text-sm">
                                                         <div className={`flex-1 font-medium truncate text-left ${Number(match.home_set_score) > Number(match.away_set_score) ? 'text-gray-900' : 'text-gray-600'}`}>
                                                             {teams.find(t => t.id == match.home_team_id)?.name || match.home_team || 'TBD'}
                                                         </div>
-                                                        <div className="px-3 py-0.5 bg-gray-900 text-white rounded font-mono font-semibold text-xs shrink-0 mx-2">
+                                                        <div className="px-3 py-0.5 bg-slate-950 text-white rounded font-mono font-semibold text-xs shadow-sm shrink-0 mx-2">
                                                             {match.home_set_score} - {match.away_set_score}
                                                         </div>
                                                         <div className={`flex-1 font-medium truncate text-right ${Number(match.away_set_score) > Number(match.home_set_score) ? 'text-gray-900' : 'text-gray-600'}`}>
@@ -416,19 +440,19 @@ export default function HomeTab() {
                                 </div>
 
                                 {/* Column 3: Participating Teams */}
-                                <div className={`${panelClass} p-4 space-y-4`}>
+                                <div className={`${panelClass} overflow-hidden p-4 space-y-4`}>
                                     <h3 className={sectionTitleClass}>
-                                        <Users className="h-4 w-4 text-gray-500" /> {language === 'THA' ? `ทีมที่เข้าร่วมการแข่งขัน (${teams.length})` : `Participating Teams (${teams.length})`}
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 text-emerald-700"><Users className="h-4 w-4" /></span> {language === 'THA' ? `ทีมที่เข้าร่วมการแข่งขัน (${teams.length})` : `Participating Teams (${teams.length})`}
                                     </h3>
                                     {teams.length > 0 ? (
                                         <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1">
                                             {teams.map(team => (
-                                                <div key={team.id} className="p-2 bg-gray-50 border border-gray-200 rounded-md flex items-center gap-2.5 truncate hover:bg-white transition">
-                                                    <div className="w-8 h-8 rounded-md bg-white flex items-center justify-center overflow-hidden border border-gray-200 shrink-0">
+                                                <div key={team.id} className="p-2 bg-emerald-50/35 border border-emerald-100 rounded-md flex items-center gap-2.5 truncate hover:bg-white transition">
+                                                    <div className="w-8 h-8 rounded-md bg-white flex items-center justify-center overflow-hidden border border-emerald-100 shrink-0">
                                                         {team.logo_url ? (
-                                                            <img src={getCorrectImageUrl(team.image_url)} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                                                            <img src={getCorrectImageUrl(team.logo_url)} alt="Logo" className="w-full h-full object-contain p-0.5" />
                                                         ) : (
-                                                            <Shield size={16} className="text-gray-300" />
+                                                            <Shield size={16} className="text-emerald-300" />
                                                         )}
                                                     </div>
                                                     <div className="min-w-0">

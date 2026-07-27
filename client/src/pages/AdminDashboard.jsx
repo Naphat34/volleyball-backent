@@ -22,6 +22,7 @@ import StadiumsTab from './StadiumsTab';
 import TeamRankingTab from './TeamRankingTab';
 import LiveScorerTab from './LiveScorerTab';
 import OfficialsTab from './OfficialsTab';
+import adminBackgroundImage from '../assets/img/bg.png';
 
 const PlaceholderTab = ({ title }) => {
     const { language } = useLanguage();
@@ -34,6 +35,14 @@ const PlaceholderTab = ({ title }) => {
             </p>
         </div>
     );
+};
+
+const adminBackgroundStyle = {
+    backgroundImage: `linear-gradient(135deg, rgba(248, 250, 252, 0.72), rgba(239, 246, 255, 0.84)), url(${adminBackgroundImage})`,
+    backgroundSize: '100% 100%',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'fixed'
 };
 
 export default function AdminDashboard() {
@@ -167,7 +176,7 @@ export default function AdminDashboard() {
     ];
 
     return (
-        <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
+        <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans" style={adminBackgroundStyle}>
             {isSidebarOpen && (
                 <div
                     className="fixed inset-0 bg-slate-950/40 backdrop-blur-[2px] z-30 lg:hidden"
@@ -246,7 +255,7 @@ export default function AdminDashboard() {
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 bg-transparent">
                 <header className="h-[72px] bg-white/90 backdrop-blur flex items-center justify-between px-4 lg:px-7 sticky top-0 z-30 border-b border-slate-200/80">
                     <div className="flex items-center gap-3 min-w-0">
                         <button
@@ -318,7 +327,7 @@ export default function AdminDashboard() {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-transparent">
                     <div className="mx-auto w-full max-w-[1600px]">
                         {activeTab === 'home' && <HomeTab />}
                         {activeTab === 'competitions' && <CompetitionsTab />}

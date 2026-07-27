@@ -18,6 +18,58 @@
     background: transparent;
   }
 }
+
+@layer components {
+  .official-page {
+    background:
+      linear-gradient(135deg, rgba(15, 76, 129, 0.08), rgba(22, 163, 74, 0.05) 44%, rgba(245, 158, 11, 0.07)),
+      #f5f7fb;
+    color: #111827;
+  }
+
+  .official-header {
+    background: linear-gradient(135deg, #0f4c81, #2563eb 56%, #14b8a6);
+    color: #ffffff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 16px 40px rgba(15, 76, 129, 0.16);
+  }
+
+  .official-panel {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  }
+
+  .official-panel-header {
+    background: linear-gradient(90deg, rgba(15, 76, 129, 0.08), rgba(20, 184, 166, 0.07));
+    border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+  }
+
+  .official-icon-box {
+    background: linear-gradient(135deg, #eff6ff, #ecfdf5);
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    color: #0f4c81;
+  }
+
+  .official-table-head {
+    background: linear-gradient(90deg, #f8fafc, #eef6ff);
+    color: #475569;
+  }
+
+  .official-primary-button {
+    background: linear-gradient(135deg, #0f4c81, #2563eb);
+    color: #ffffff;
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+  }
+
+  .official-primary-button:hover {
+    background: linear-gradient(135deg, #0b3a62, #1d4ed8);
+  }
+
+  .official-accent-bar {
+    background: linear-gradient(90deg, #0f4c81, #14b8a6, #f59e0b);
+  }
+}
 @media print {
   /* ซ่อนทุกอย่างยกเว้น ID #o2-form */
   body * {

@@ -33,7 +33,7 @@ export function Input({ label, type = "text", value, onChange, required, placeho
 
 export function Button({ type, label, icon, full }) {
     return (
-        <button type={type} className={`bg-blue-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 ${full ? 'w-full' : ''}`}>
+        <button type={type} className={`official-primary-button text-white font-bold py-2.5 px-4 rounded-md transition flex items-center justify-center gap-2 ${full ? 'w-full' : ''}`}>
             {icon} {label}
         </button>
     );

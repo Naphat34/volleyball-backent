@@ -74,12 +74,15 @@ export default function StadiumsTab() {
     };
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Stadiums Management</h2>
+        <div className="official-page min-h-screen p-6">
+            <div className="official-header rounded-md px-6 py-5 mb-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Venue Operations</p>
+                    <h2 className="text-2xl font-bold tracking-tight">Stadiums Management</h2>
+                </div>
                 <button
                     onClick={() => openModal()}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-white/95 text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold shadow-sm"
                 >
                     <Plus size={18} /> Add Stadium
                 </button>
@@ -87,12 +90,12 @@ export default function StadiumsTab() {
 
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`}>
                 {stadiums.map((stadium) => (
-                    <div key={stadium.id} className="rounded-md shadow-sm border overflow-hidden relative group bg-white border-gray-100">
-                        <div className={`h-2 bg-gradient-to-r ${stadium.status === 'active' ? 'from-green-400 to-green-600' : 'from-gray-400 to-gray-600'}`} />
+                    <div key={stadium.id} className="official-panel rounded-md overflow-hidden relative group">
+                        <div className={`h-2 ${stadium.status === 'active' ? 'official-accent-bar' : 'bg-gradient-to-r from-slate-400 to-slate-600'}`} />
                         <div className="p-5">
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="font-bold text-lg text-gray-800">{stadium.name}</h3>
-                                <span className="text-xs font-mono px-2 py-1 rounded bg-gray-100 text-gray-600">
+                                <span className="text-xs font-mono px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100">
                                     {stadium.code || 'N/A'}
                                 </span>
                             </div>
@@ -103,8 +106,8 @@ export default function StadiumsTab() {
                                     <span className="line-clamp-2">{stadium.address || 'No address provided'}</span>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-gray-500">
-                                    <div className="flex items-center gap-1"><Users size={16} /> Cap: {stadium.capacity}</div>
-                                    <div className="flex items-center gap-1"><Building size={16} /> Courts: {stadium.number_of_courts}</div>
+                                    <div className="flex items-center gap-1 text-emerald-700"><Users size={16} /> Cap: {stadium.capacity}</div>
+                                    <div className="flex items-center gap-1 text-amber-700"><Building size={16} /> Courts: {stadium.number_of_courts}</div>
                                 </div>
                             </div>
 
@@ -125,7 +128,7 @@ export default function StadiumsTab() {
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="w-full max-w-lg rounded-lg shadow-2xl overflow-hidden bg-white text-gray-900">
-                        <div className="px-6 py-4 border-b flex justify-between items-center">
+                        <div className="official-panel-header px-6 py-4 flex justify-between items-center">
                             <h3 className="text-lg font-bold">{isEditing ? 'Edit Stadium' : 'Add New Stadium'}</h3>
                             <button onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
@@ -133,44 +136,44 @@ export default function StadiumsTab() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold uppercase mb-1 block">Name</label>
-                                    <input required className="w-full p-2 rounded border bg-transparent"
+                                    <input required className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
                                         value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold uppercase mb-1 block">Code</label>
-                                    <input className="w-full p-2 rounded border bg-transparent"
+                                    <input className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
                                         value={formData.code} onChange={e => setFormData({ ...formData, code: e.target.value })} placeholder="e.g. GYM-01" />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="text-xs font-bold uppercase mb-1 block">Address</label>
-                                <textarea className="w-full p-2 rounded border bg-transparent" rows="2"
+                                <textarea className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none" rows="2"
                                     value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold uppercase mb-1 block">Capacity</label>
-                                    <input type="number" className="w-full p-2 rounded border bg-transparent"
+                                    <input type="number" className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
                                         value={formData.capacity} onChange={e => setFormData({ ...formData, capacity: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold uppercase mb-1 block">Number of Courts</label>
-                                    <input type="number" className="w-full p-2 rounded border bg-transparent"
+                                    <input type="number" className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
                                         value={formData.number_of_courts} onChange={e => setFormData({ ...formData, number_of_courts: e.target.value })} />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="text-xs font-bold uppercase mb-1 block">Google Map URL</label>
-                                <input className="w-full p-2 rounded border bg-transparent text-sm"
+                                <input className="w-full p-2 rounded border border-gray-300 bg-white text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
                                     value={formData.google_map_url} onChange={e => setFormData({ ...formData, google_map_url: e.target.value })} placeholder="https://maps.google.com/..." />
                             </div>
 
                             <div>
                                 <label className="text-xs font-bold uppercase mb-1 block">Status</label>
-                                <select className="w-full p-2 rounded border bg-transparent"
+                                <select className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
                                     value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
                                     <option value="active" className="text-black">Active</option>
                                     <option value="maintenance" className="text-black">Maintenance</option>
@@ -180,7 +183,7 @@ export default function StadiumsTab() {
 
                             <div className="pt-4 flex justify-end gap-2">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
-                                <button type="submit" className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors">Save Stadium</button>
+                                <button type="submit" className="official-primary-button px-4 py-2 rounded-md transition-colors">Save Stadium</button>
                             </div>
                         </form>
                     </div>

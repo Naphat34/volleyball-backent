@@ -132,7 +132,7 @@ module.exports = {
             }
 
             const matchRes = await db.query(
-                'SELECT home_team_id, away_team_id, gender FROM matches WHERE id = ?',
+                'SELECT home_team_id, away_team_id, competition_id, gender FROM matches WHERE id = ?',
                 [matchId]
             );
             const match = matchRes.rows[0];
@@ -141,10 +141,22 @@ module.exports = {
                 return res.status(400).json({ error: 'Team does not belong to this match' });
             }
 
-            const duplicate = await db.query(
-                'SELECT id FROM players WHERE team_id = ? AND number = ? LIMIT 1',
-                [teamId, number]
-            );
+            const duplicate = match.competition_id
+                ? await db.query(
+                    `SELECT tep.id
+                     FROM team_entry_players tep
+                     JOIN team_entries te ON te.id = tep.team_entry_id
+                     JOIN players p ON p.id = tep.player_id
+                     WHERE te.competition_id = ?
+                       AND te.team_id = ?
+                       AND COALESCE(tep.number, p.number) = ?
+                     LIMIT 1`,
+                    [match.competition_id, teamId, number]
+                )
+                : await db.query(
+                    'SELECT id FROM players WHERE team_id = ? AND number = ? LIMIT 1',
+                    [teamId, number]
+                );
             if (duplicate.rows.length) {
                 return res.status(400).json({ error: `Player number ${number} is already assigned to this team` });
             }
@@ -154,6 +166,22 @@ module.exports = {
                  VALUES (?, ?, ?, ?, ?)`,
                 [teamId, firstName, lastName, number, parseNullableString(req.body.gender) || match.gender || null]
             );
+
+            if (match.competition_id) {
+                const entryRes = await db.query(
+                    'SELECT id FROM team_entries WHERE competition_id = ? AND team_id = ? LIMIT 1',
+                    [match.competition_id, teamId]
+                );
+                const entryId = entryRes.rows[0]?.id;
+                if (entryId) {
+                    await db.query(
+                        `INSERT INTO team_entry_players (team_entry_id, player_id, number, is_playing)
+                         VALUES (?, ?, ?, 1)`,
+                        [entryId, result.insertId, number]
+                    );
+                }
+            }
+
             const player = await db.query('SELECT * FROM players WHERE id = ?', [result.insertId]);
             res.status(201).json(player.rows[0]);
         } catch (err) {

@@ -1086,8 +1086,8 @@ export default function TeamDashboard() {
 
     if (isCreatingTeam) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                <div className="max-w-md w-full bg-white rounded-lg border border-gray-200 p-8">
+            <div className="official-page min-h-screen flex flex-col items-center justify-center p-4">
+                <div className="official-panel max-w-md w-full rounded-lg p-8">
                     <div className="text-center mb-8">
                         <div className="w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center mx-auto mb-4">
                             <Shield className="text-gray-600 w-6 h-6" />
@@ -1154,38 +1154,38 @@ export default function TeamDashboard() {
     }
 
     return (
-        <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+        <div className="official-page h-screen flex flex-col overflow-hidden">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+            <header className="official-header sticky top-0 z-10">
                 <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         {teamInfo?.logo_url && !teamLogoLoadFailed ? (
                             <img
                                 key={teamInfo.logo_url}
                                 src={teamInfo.logo_url} alt={teamInfo.name}
-                                className="w-10 h-10 object-contain rounded-lg bg-white border border-gray-200"
+                                className="w-10 h-10 object-contain rounded-lg bg-white border border-white/60"
                                 onError={() => setTeamLogoLoadFailed(true)}
                             />
                         ) : (
-                            <div className="p-2 rounded-lg border border-gray-200 bg-gray-50"><Shield className="text-gray-500 w-5 h-5" /></div>
+                            <div className="p-2 rounded-lg border border-white/30 bg-white/15"><Shield className="text-white w-5 h-5" /></div>
                         )}
                         <div>
-                            <h1 className="text-lg font-semibold text-gray-900 tracking-tight">{teamInfo?.name || t('team.dashboard')}</h1>
-                            {teamInfo?.coach && <p className="text-xs text-gray-500 font-medium">{language === 'THA' ? 'ผู้ฝึกสอน' : 'Coach'}: {teamInfo.coach}</p>}
-                            <button onClick={handleEditTeamClick} className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 mt-1 cursor-pointer">
+                            <h1 className="text-lg font-semibold text-white tracking-tight">{teamInfo?.name || t('team.dashboard')}</h1>
+                            {teamInfo?.coach && <p className="text-xs text-blue-100 font-medium">{language === 'THA' ? 'ผู้ฝึกสอน' : 'Coach'}: {teamInfo.coach}</p>}
+                            <button onClick={handleEditTeamClick} className="text-xs text-blue-100 hover:text-white flex items-center gap-1 mt-1 cursor-pointer">
                                 <Edit2 size={12} /> {t('team.editTeam')}
                             </button>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
                         {/* Language Selector */}
-                        <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 p-1 rounded-md">
+                        <div className="flex items-center gap-1 bg-white/12 border border-white/25 p-1 rounded-md">
                             <button
                                 onClick={() => setLanguage('THA')}
                                 className={`px-2 py-1 rounded text-xs font-medium transition cursor-pointer ${
                                     language === 'THA'
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-900'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-blue-100 hover:text-white'
                                 }`}
                             >
                                 TH
@@ -1194,14 +1194,14 @@ export default function TeamDashboard() {
                                 onClick={() => setLanguage('ENG')}
                                 className={`px-2 py-1 rounded text-xs font-medium transition cursor-pointer ${
                                     language === 'ENG'
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-900'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-blue-100 hover:text-white'
                                 }`}
                             >
                                 EN
                             </button>
                         </div>
-                        <button onClick={handleLogout} className="text-sm font-medium text-gray-500 hover:text-blue-600 transition cursor-pointer">
+                        <button onClick={handleLogout} className="text-sm font-medium text-blue-100 hover:text-white transition cursor-pointer">
                             {t('team.signOut')}
                         </button>
                     </div>
@@ -1210,7 +1210,7 @@ export default function TeamDashboard() {
 
             <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
                 {/* Sidebar - Tabs */}
-                <aside className="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-gray-200 flex flex-col">
+                <aside className="w-full md:w-64 bg-white/95 border-b md:border-b-0 md:border-r border-blue-100 flex flex-col shadow-sm">
                     <div className="p-3 md:p-4 flex flex-col flex-1 overflow-y-auto">
                         <nav className="flex flex-row md:flex-col space-x-4 md:space-x-0 md:space-y-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0" aria-label="Tabs">
                             <TabButton active={activeTab === 'competitions'} onClick={() => setActiveTab('competitions')} icon={<Trophy size={18} className="mr-2" />} label={t('team.tabCompetitions')} />
@@ -1237,11 +1237,11 @@ export default function TeamDashboard() {
                     {activeTab === 'roster' && (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                             <div className="lg:col-span-1">
-                                <div className="bg-white rounded-md border border-gray-200 sticky top-0 overflow-hidden">
-                                    <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
+                                <div className="official-panel rounded-md sticky top-0 overflow-hidden">
+                                    <div className="official-panel-header px-5 py-4 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="bg-gray-50 border border-gray-200 p-2 rounded-md">
-                                                {editingPlayerId ? <Edit2 className="text-gray-500 w-5 h-5" /> : <UserPlus className="text-gray-500 w-5 h-5" />}
+                                            <div className="official-icon-box p-2 rounded-md">
+                                                {editingPlayerId ? <Edit2 className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
                                             </div>
                                             <h2 className="text-base font-semibold text-gray-900">
                                                 {editingPlayerId ? t('team.editPlayer') : t('team.addPlayer')}
@@ -1345,10 +1345,10 @@ export default function TeamDashboard() {
                             </div>
 
                             <div className="lg:col-span-2">
-                                <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
-                                    <div className="px-5 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white">
+                                <div className="official-panel rounded-md overflow-hidden">
+                                    <div className="official-panel-header px-5 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                                         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                                            <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Users size={18} className="text-gray-400" /> {t('team.currentRoster')}</h3>
+                                            <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Users size={18} className="text-blue-600" /> {t('team.currentRoster')}</h3>
                                             <div className="flex items-center gap-2">
                                                 <FilterButton active={rosterGenderFilter === 'All'} onClick={() => setRosterGenderFilter('All')} label={t('common.all')} />
                                                 <FilterButton active={rosterGenderFilter === 'Male'} onClick={() => setRosterGenderFilter('Male')} label={language === 'THA' ? 'ทีมชาย' : "Men's Team"} />
@@ -1367,7 +1367,7 @@ export default function TeamDashboard() {
                                     {filteredPlayers.length === 0 ? <EmptyState text={searchTerm ? (language === 'THA' ? "ไม่พบข้อมูลผู้เล่นที่ค้นหา" : "No players found matching your search.") : (language === 'THA' ? "ยังไม่มีผู้เล่นในทีม" : "No players added yet.")} /> : (
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-left border-collapse">
-                                                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                                                <thead className="official-table-head border-b border-gray-200 sticky top-0 z-10">
                                                     <tr>
                                                         <th className="px-4 py-4 text-xs font-medium text-gray-500 w-16 text-center">{t('team.playing')}</th>
                                                         <th className="px-4 py-4 text-xs font-medium text-gray-500 w-16">{language === 'THA' ? 'เบอร์' : 'No.'}</th>
@@ -1453,11 +1453,11 @@ export default function TeamDashboard() {
                     {activeTab === 'staff' && (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-1">
-                                <div className="bg-white rounded-md shadow-sm border border-gray-100 sticky top-0 overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                                <div className="official-panel rounded-md sticky top-0 overflow-hidden">
+                                    <div className="official-panel-header px-6 py-4 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="bg-gray-50 border border-gray-200 p-2 rounded-md">
-                                                {editingStaffId ? <Edit2 className="text-gray-500 w-5 h-5" /> : <Briefcase size={20} className="text-gray-500" />}
+                                            <div className="official-icon-box p-2 rounded-md">
+                                                {editingStaffId ? <Edit2 className="w-5 h-5" /> : <Briefcase size={20} />}
                                             </div>
                                             <h2 className="text-lg font-bold text-gray-800">
                                                 {editingStaffId ? t('team.editStaff') : t('team.addStaff')}
@@ -1496,14 +1496,14 @@ export default function TeamDashboard() {
                             </div>
 
                             <div className="lg:col-span-2">
-                                <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                                <div className="official-panel rounded-md overflow-hidden">
+                                    <div className="official-panel-header px-6 py-4">
                                         <h3 className="font-bold text-gray-800">{t('team.staffList')}</h3>
                                     </div>
                                     {staff.length === 0 ? <EmptyState text={language === 'THA' ? "ยังไม่มีรายชื่อเจ้าหน้าที่ทีมในระบบ" : "No staff members added yet."} /> : (
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-left border-collapse">
-                                                <thead className="bg-gray-50/80 border-b border-gray-200 text-xs uppercase text-gray-500">
+                                                <thead className="official-table-head border-b border-gray-200 text-xs uppercase">
                                                     <tr>
                                                         <th className="px-6 py-4 font-bold tracking-wider">{t('team.role')}</th>
                                                         <th className="px-6 py-4 font-bold tracking-wider">{t('team.nameFull')}</th>
@@ -2379,8 +2379,8 @@ function FilterButton({ active, onClick, label }) {
         <button
             onClick={onClick}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${active
-                ? 'bg-blue-600 text-white'
-                : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-blue-700 border border-blue-100 hover:bg-blue-50'
                 }`}
         >
             {label}
@@ -2464,7 +2464,7 @@ function TopPlayerCard({ title, icon, player, value, label }) {
 
 function Button({ type, label, icon, full, className }) {
     return (
-        <button type={type} className={`${className || "bg-blue-600 hover:bg-blue-700"} text-white font-medium py-2.5 px-4 rounded-md transition flex items-center justify-center gap-2 ${full ? 'w-full' : ''}`}>
+        <button type={type} className={`${className || "official-primary-button"} text-white font-medium py-2.5 px-4 rounded-md transition flex items-center justify-center gap-2 ${full ? 'w-full' : ''}`}>
             {icon} {label}
         </button>
     );
@@ -2477,11 +2477,11 @@ function TabButton({ active, onClick, icon, label }) {
             className={`
                 group inline-flex items-center py-2.5 px-3 md:px-4 rounded-md font-medium text-sm transition whitespace-nowrap
                 ${active
-                    ? 'text-blue-700 bg-blue-50'
+                    ? 'text-white bg-blue-600 shadow-sm'
                     : 'border-transparent text-gray-600 hover:text-blue-700 hover:bg-blue-50'}
             `}
         >
-            <span className={`flex-shrink-0 transition-colors ${active ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-500'}`}>{icon}</span>
+            <span className={`flex-shrink-0 transition-colors ${active ? 'text-white' : 'text-gray-400 group-hover:text-blue-500'}`}>{icon}</span>
             <span>{label}</span>
         </button>
     );

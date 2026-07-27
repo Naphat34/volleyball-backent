@@ -89,28 +89,31 @@ export default function Referees({ darkMode = false }) {
     };
 
     return (
-        <div className="min-h-screen p-6 transition-colors duration-200 bg-gray-50 text-gray-800">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <User className="text-blue-600" /> Officials Management
-                </h1>
+        <div className="official-page min-h-screen p-6 transition-colors duration-200 text-gray-800">
+            <div className="official-header rounded-md px-6 py-5 flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Match Administration</p>
+                    <h1 className="text-2xl font-bold flex items-center gap-2 tracking-tight">
+                        <User className="text-white" /> Officials Management
+                    </h1>
+                </div>
                 <button
                     onClick={() => openModal()}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors"
+                    className="bg-white/95 text-blue-700 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-50 transition-colors font-semibold shadow-sm"
                 >
                     <Plus size={20} /> Add New {activeTab === 'linejudge' ? 'Line Judge' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
+            <div className="official-panel rounded-md p-2 flex gap-2 mb-6 overflow-x-auto">
                 {['referee', 'scorer', 'linejudge'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`pb-3 px-6 font-bold capitalize transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab
-                                ? 'text-blue-600 border-b-2 border-blue-600'
-                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-t-lg'
+                        className={`px-5 py-2.5 rounded-md font-bold capitalize transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'
                             }`}
                     >
                         {getTabIcon(tab)}
@@ -120,7 +123,7 @@ export default function Referees({ darkMode = false }) {
             </div>
 
             {/* List */}
-            <div className="rounded-md border overflow-hidden shadow-sm bg-white border-gray-200">
+            <div className="official-panel rounded-md overflow-hidden">
                 {loading ? (
                     <div className="text-center py-10 text-gray-500">Loading...</div>
                 ) : data.length === 0 ? (
@@ -131,7 +134,7 @@ export default function Referees({ darkMode = false }) {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
-                            <thead className={darkMode ? 'bg-gray-700/50 text-gray-300' : 'bg-gray-50 text-gray-500'}>
+                            <thead className={darkMode ? 'bg-gray-700/50 text-gray-300' : 'official-table-head'}>
                                 <tr>
                                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Name</th>
                                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Country</th>
@@ -144,7 +147,7 @@ export default function Referees({ darkMode = false }) {
                                     <tr key={item.id} className={`transition ${darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'}`}>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                                                <div className={`w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'official-icon-box'}`}>
                                                     {item.firstname.charAt(0)}
                                                 </div>
                                                 <span className="font-medium">{item.firstname} {item.lastname}</span>
@@ -179,7 +182,7 @@ export default function Referees({ darkMode = false }) {
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm backdrop-blur-sm p-4">
                     <div className="w-full max-w-md rounded-lg shadow-2xl overflow-hidden transform transition-all bg-white text-gray-900">
-                        <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex justify-between items-center">
+                        <div className="official-header px-6 py-4 flex justify-between items-center">
                             <h3 className="text-lg font-bold flex items-center gap-2">
                                 {editItem ? <Edit2 size={18} /> : <Plus size={18} />}
                                 {editItem ? 'Edit' : 'Add'} {activeTab === 'linejudge' ? 'Line Judge' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
@@ -230,7 +233,7 @@ export default function Referees({ darkMode = false }) {
 
                         <div className="px-6 py-4 border-t flex justify-end gap-3 border-gray-100 bg-gray-50">
                             <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition">Cancel</button>
-                            <button onClick={handleSave} className="px-6 py-2 rounded-md font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            <button onClick={handleSave} className="official-primary-button px-6 py-2 rounded-md font-medium transition-colors flex items-center gap-2">
                                 <Save size={18} /> Save
                             </button>
                         </div>

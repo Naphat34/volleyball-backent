@@ -13,6 +13,65 @@ const getSocketServerUrl = () => {
     return apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 };
 
+const getRequestDetails = (request) => {
+    const details = request?.details || {};
+    if (typeof details !== 'string') return details;
+
+    try {
+        return JSON.parse(details || '{}');
+    } catch {
+        return {};
+    }
+};
+
+const buildRequestAlert = (request) => {
+    const requestType = String(request?.request_type || '').toUpperCase();
+    const teamName = request?.team_name || 'N/A';
+    const details = getRequestDetails(request);
+
+    if (requestType === 'TIMEOUT') {
+        return {
+            title: 'Timeout Request',
+            text: `Team ${teamName} requested a time out.`,
+            icon: 'warning'
+        };
+    }
+
+    if (requestType === 'SUBSTITUTION') {
+        const pairs = Array.isArray(details.pairs) ? details.pairs : [];
+        const pairsText = pairs.length > 0
+            ? pairs.map((pair) => {
+                const outNum = pair.outPlayer?.number || '?';
+                const inNum = pair.inPlayer?.number || '?';
+                return `OUT #${outNum} -> IN #${inNum}`;
+            }).join('\n')
+            : 'Substitution details are pending.';
+
+        return {
+            title: 'Substitution Request',
+            text: `Team ${teamName} requested a substitution.\n${pairsText}`,
+            icon: 'info'
+        };
+    }
+
+    if (requestType === 'CHALLENGE') {
+        const reason = details.reason || 'Waiting for challenge reason...';
+        const lastActionText = details.lastAction === null || details.lastAction === undefined
+            ? 'Action selection pending'
+            : details.lastAction
+                ? 'Last rally action'
+                : 'Previous action';
+
+        return {
+            title: 'Video Challenge Request',
+            text: `Team ${teamName} requested a video challenge.\nReason: ${reason}\nAction: ${lastActionText}`,
+            icon: 'question'
+        };
+    }
+
+    return null;
+};
+
 const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, isLandscape = false }) => (
     <div className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-full ${isLandscape ? 'w-full' : 'w-full'}`}>
         {/* VC (Challenges) */}
@@ -163,49 +222,46 @@ export default function ScoreViewReferee() {
         }
 
         let activeAlertId = null;
+        const visibleRequestTypes = new Set(['TIMEOUT', 'SUBSTITUTION', 'CHALLENGE']);
 
-        socket.on('new_staff_request', (request) => {
-            if (request.request_type === 'TIMEOUT' || request.request_type === 'SUBSTITUTION') {
-                activeAlertId = request.id;
-                
-                let titleText = '';
-                let textContent = '';
-                let iconType = 'info';
+        const showRequestAlert = (request, { playSound = false } = {}) => {
+            const requestType = String(request?.request_type || '').toUpperCase();
+            if (!visibleRequestTypes.has(requestType)) return;
 
-                if (request.request_type === 'TIMEOUT') {
-                    titleText = 'Request Timeout';
-                    textContent = `ทีม ${request.team_name || 'N/A'} ขอเวลานอก (Timeout)`;
-                    iconType = 'warning';
-                } else if (request.request_type === 'SUBSTITUTION') {
-                    titleText = 'Request Substitution';
-                    const pairsText = request.details?.pairs?.map(p => {
-                        const outNum = p.outPlayer?.number || '?';
-                        const inNum = p.inPlayer?.number || '?';
-                        return `เบอร์ ${outNum} ⇄ เบอร์ ${inNum}`;
-                   }).join(', ') || '';
-                    textContent = `ทีม ${request.team_name || 'N/A'} ขอเปลี่ยนตัว: ${pairsText}`;
-                    iconType = 'info';
-                }
+            const alert = buildRequestAlert(request);
+            if (!alert) return;
 
-                // Play alert sound
+            activeAlertId = request.id;
+
+            if (playSound) {
                 try {
                     const audio = new Audio('/sounds/notification.mp3');
                     audio.play().catch(() => {});
                 } catch {
                     // Notification sound is optional.
                 }
+            }
 
-                Swal.fire({
-                    title: titleText,
-                    text: textContent,
-                    icon: iconType,
-                    showConfirmButton: true,
-                    confirmButtonText: 'ตกลง (OK)',
-                    confirmButtonColor: '#3085d6',
-                    allowOutsideClick: false,
-                    timer: 15000,
-                    timerProgressBar: true
-                });
+            Swal.fire({
+                title: alert.title,
+                text: alert.text,
+                icon: alert.icon,
+                showConfirmButton: true,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#3085d6',
+                allowOutsideClick: false,
+                timer: requestType === 'CHALLENGE' ? undefined : 15000,
+                timerProgressBar: requestType !== 'CHALLENGE'
+            });
+        };
+
+        socket.on('new_staff_request', (request) => {
+            showRequestAlert(request, { playSound: true });
+        });
+
+        socket.on('request_updated', (request) => {
+            if (activeAlertId && Number(request.id) === Number(activeAlertId)) {
+                showRequestAlert(request);
             }
         });
 
@@ -231,6 +287,7 @@ export default function ScoreViewReferee() {
 
         return () => {
             socket.off('new_staff_request');
+            socket.off('request_updated');
             socket.off('request_processed');
             socket.off('match_updated');
             socket.disconnect();

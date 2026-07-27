@@ -208,9 +208,15 @@ export default function PlayerViewTab() {
 
 
     return (
-        <div className="space-y-6">
+        <div className="official-page min-h-screen -m-6 p-6 space-y-6">
+            <div className="official-header rounded-md px-6 py-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Roster Inspection</p>
+                <h2 className="mt-1 text-2xl font-bold tracking-tight flex items-center gap-2">
+                    <Users size={24} /> Player, Coach & Staff View
+                </h2>
+            </div>
             {/* Filters */}
-            <div className="p-6 rounded-xl shadow-sm border bg-white border-gray-100">
+            <div className="official-panel p-6 rounded-md">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* Competition Dropdown */}
                     <div>
@@ -218,7 +224,7 @@ export default function PlayerViewTab() {
                         <select
                             value={selectedBaseName}
                             onChange={(e) => setSelectedBaseName(e.target.value)}
-                            className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
+                            className="w-full px-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
                             <option value="">-- Choose Competition --</option>
                             {uniqueBaseNames.map(name => <option key={name} value={name}>{name}</option>)}
@@ -228,10 +234,10 @@ export default function PlayerViewTab() {
                     {/* Gender Filter */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gender</label>
-                        <div className="flex bg-gray-50 border border-gray-200 shadow-sm rounded-lg p-1 h-[42px] items-center">
+                        <div className="flex bg-slate-50 border border-gray-200 shadow-sm rounded-md p-1 min-h-[42px] items-center">
                             <button
                                 onClick={() => setFilterGender('All')}
-                                className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === 'All' ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
+                                className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === 'All' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'}`}
                             >
                                 All
                             </button>
@@ -239,7 +245,7 @@ export default function PlayerViewTab() {
                                 <button
                                     key={g}
                                     onClick={() => setFilterGender(g)}
-                                    className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === g ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'}`}
+                                    className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === g ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'}`}
                                 >
                                     {g}
                                 </button>
@@ -253,7 +259,7 @@ export default function PlayerViewTab() {
                             value={filterAgeGroup}
                             onChange={(e) => setFilterAgeGroup(e.target.value)}
                             disabled={!selectedBaseName || availableAgeGroups.length === 0}
-                            className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
+                            className="w-full px-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
                             <option value="All">All</option>
                             {availableAgeGroups.map(ag => (
@@ -269,7 +275,7 @@ export default function PlayerViewTab() {
                             value={selectedTeamKey}
                             onChange={(e) => setSelectedTeamKey(e.target.value)}
                             disabled={!selectedBaseName || registeredTeams.length === 0}
-                            className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
+                            className="w-full px-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
                             <option value="">-- Choose Team --</option>
                             {registeredTeams.map(t => (
@@ -283,10 +289,10 @@ export default function PlayerViewTab() {
             </div>
 
             {/* Player List */}
-            <div className="rounded-xl shadow-sm border overflow-hidden mb-6 bg-white border-gray-200">
-                <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/80 backdrop-blur-sm border-gray-100">
-                    <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Users size={18} className="text-gray-400" /> Player List</h3>
-                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-indigo-700 border border-blue-100">{teamPlayers.length} Players</span>
+            <div className="official-panel rounded-md overflow-hidden mb-6">
+                <div className="official-panel-header px-6 py-4 flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Users size={18} className="text-blue-600" /> Player List</h3>
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{teamPlayers.length} Players</span>
                 </div>
 
                 {!selectedTeam ? (
@@ -296,7 +302,7 @@ export default function PlayerViewTab() {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                            <thead className="bg-gray-50/80 backdrop-blur-sm text-gray-500">
+                            <thead className="official-table-head">
                                 <tr>
                                     <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">No.</th>
                                     <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Name</th>
@@ -310,7 +316,7 @@ export default function PlayerViewTab() {
                                         <td className="px-6 py-4 font-mono font-medium text-gray-900 text-lg">{p.number}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">
+                                                <div className="w-9 h-9 rounded-md official-icon-box overflow-hidden">
                                                     {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-full h-full p-2 text-gray-400" />}
                                                 </div>
                                                 <div className="font-medium text-gray-900">
@@ -343,10 +349,10 @@ export default function PlayerViewTab() {
 
             {/* Staff List */}
             {selectedTeam && (
-                <div className="rounded-xl shadow-sm border overflow-hidden bg-white border-gray-200">
-                    <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50/80 backdrop-blur-sm border-gray-100">
-                        <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Briefcase size={18} className="text-gray-400" /> Staff List</h3>
-                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-indigo-700 border border-blue-100">{teamStaff.length} Staff</span>
+                <div className="official-panel rounded-md overflow-hidden">
+                    <div className="official-panel-header px-6 py-4 flex justify-between items-center">
+                        <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Briefcase size={18} className="text-emerald-600" /> Staff List</h3>
+                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{teamStaff.length} Staff</span>
                     </div>
 
                     {teamStaff.length === 0 ? (
@@ -354,7 +360,7 @@ export default function PlayerViewTab() {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
-                                <thead className="bg-gray-50/80 backdrop-blur-sm text-gray-500">
+                                <thead className="official-table-head">
                                     <tr>
                                         <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Name</th>
                                         <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Role</th>
@@ -380,7 +386,7 @@ export default function PlayerViewTab() {
                     <div className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col bg-white text-gray-900">
 
                         {/* Header Background with Profile Image */}
-                        <div className="relative h-32 bg-gray-100 border-b border-gray-200">
+                        <div className="relative h-32 official-header">
                             <button
                                 onClick={() => setViewingPlayer(null)}
                                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 hover:bg-gray-200 p-2 rounded-full transition z-10"

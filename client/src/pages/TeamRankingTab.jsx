@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
-import { Trophy, Filter, X, Calendar } from 'lucide-react';
+import { Trophy, Filter, X, Calendar, Download } from 'lucide-react';
 import { EmptyState } from './AdminShared';
 import { formatThaiDate } from '../utils';
 
@@ -343,6 +343,337 @@ export default function TeamRankingTab() {
         }
     }, [selectedBaseName, competitions, genderFilter, selectedAgeGroupId]);
 
+    const handleExportExcel = () => {
+        if (!standings.length) return;
+
+        const cellText = (value) => value === null || value === undefined || value === '' ? '-' : String(value);
+        const cellNumber = (value) => value === null || value === undefined || value === '' ? 0 : Number(value) || 0;
+        const escapeXml = (value) => cellText(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+        const colName = (index) => {
+            let name = '';
+            let n = index;
+            while (n > 0) {
+                const rem = (n - 1) % 26;
+                name = String.fromCharCode(65 + rem) + name;
+                n = Math.floor((n - 1) / 26);
+            }
+            return name;
+        };
+        const cellRef = (col, row) => `${colName(col)}${row}`;
+        const inlineCell = (col, row, value, style = 0) => (
+            `<c r="${cellRef(col, row)}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(value)}</t></is></c>`
+        );
+        const numberCell = (col, row, value, style = 0) => (
+            `<c r="${cellRef(col, row)}" s="${style}"><v>${cellNumber(value)}</v></c>`
+        );
+        const crcTable = (() => {
+            const table = new Uint32Array(256);
+            for (let i = 0; i < 256; i++) {
+                let c = i;
+                for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+                table[i] = c >>> 0;
+            }
+            return table;
+        })();
+        const crc32 = (bytes) => {
+            let crc = 0xffffffff;
+            for (let i = 0; i < bytes.length; i++) crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+            return (crc ^ 0xffffffff) >>> 0;
+        };
+        const uint16 = (value) => [value & 0xff, (value >>> 8) & 0xff];
+        const uint32 = (value) => [value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff];
+        const dateToDos = (date) => {
+            const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+            const day = ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+            return { time, day };
+        };
+        const createZip = (files) => {
+            const encoder = new TextEncoder();
+            const chunks = [];
+            const central = [];
+            let offset = 0;
+            const now = dateToDos(new Date());
+
+            files.forEach((file) => {
+                const nameBytes = encoder.encode(file.name);
+                const dataBytes = encoder.encode(file.content);
+                const crc = crc32(dataBytes);
+                const localHeader = new Uint8Array([
+                    ...uint32(0x04034b50),
+                    ...uint16(20),
+                    ...uint16(0x0800),
+                    ...uint16(0),
+                    ...uint16(now.time),
+                    ...uint16(now.day),
+                    ...uint32(crc),
+                    ...uint32(dataBytes.length),
+                    ...uint32(dataBytes.length),
+                    ...uint16(nameBytes.length),
+                    ...uint16(0)
+                ]);
+
+                chunks.push(localHeader, nameBytes, dataBytes);
+                central.push({
+                    nameBytes,
+                    crc,
+                    size: dataBytes.length,
+                    offset
+                });
+                offset += localHeader.length + nameBytes.length + dataBytes.length;
+            });
+
+            const centralStart = offset;
+            central.forEach((entry) => {
+                const header = new Uint8Array([
+                    ...uint32(0x02014b50),
+                    ...uint16(20),
+                    ...uint16(20),
+                    ...uint16(0x0800),
+                    ...uint16(0),
+                    ...uint16(now.time),
+                    ...uint16(now.day),
+                    ...uint32(entry.crc),
+                    ...uint32(entry.size),
+                    ...uint32(entry.size),
+                    ...uint16(entry.nameBytes.length),
+                    ...uint16(0),
+                    ...uint16(0),
+                    ...uint16(0),
+                    ...uint16(0),
+                    ...uint32(0),
+                    ...uint32(entry.offset)
+                ]);
+                chunks.push(header, entry.nameBytes);
+                offset += header.length + entry.nameBytes.length;
+            });
+
+            const centralSize = offset - centralStart;
+            chunks.push(new Uint8Array([
+                ...uint32(0x06054b50),
+                ...uint16(0),
+                ...uint16(0),
+                ...uint16(central.length),
+                ...uint16(central.length),
+                ...uint32(centralSize),
+                ...uint32(centralStart),
+                ...uint16(0)
+            ]));
+
+            return new Blob(chunks, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        };
+
+        const ageGroupLabel = availableAgeGroups.find(group => String(group.id) === String(selectedAgeGroupId))?.label || '-';
+        const poolLabel = selectedPool || 'All Pools';
+        const generatedAt = new Date().toLocaleString('th-TH', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        const safeName = [selectedBaseName, genderFilter, selectedPool || 'all-pools']
+            .filter(Boolean)
+            .join('_')
+            .replace(/[\\/:*?"<>|]+/g, '-')
+            .replace(/\s+/g, '_');
+
+        const totalCols = 12 + resultCols.length;
+        const lastCol = colName(totalCols);
+        const pointCol = 6 + resultCols.length;
+        const setsStartCol = pointCol + 1;
+        const pointsStartCol = setsStartCol + 3;
+        const colWidths = [
+            8,
+            38,
+            8,
+            8,
+            8,
+            ...resultCols.map(() => 8),
+            10,
+            8,
+            8,
+            12,
+            8,
+            8,
+            12
+        ];
+        const colsXml = colWidths.map((width, index) => (
+            `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`
+        )).join('');
+        const merges = [
+            `A1:${lastCol}1`,
+            `A2:${lastCol}2`,
+            'B4:D4',
+            'B5:D5',
+            'B6:D6',
+            'B7:D7',
+            'B8:D8',
+            'A10:B10',
+            'C10:E10',
+            resultCols.length > 1 ? `${colName(6)}10:${colName(5 + resultCols.length)}10` : null,
+            `${colName(setsStartCol)}10:${colName(setsStartCol + 2)}10`,
+            `${colName(pointsStartCol)}10:${colName(pointsStartCol + 2)}10`
+        ].filter(Boolean);
+
+        const rows = [];
+        rows.push(`<row r="1" ht="30" customHeight="1">${inlineCell(1, 1, 'Team Rankings Report', 1)}</row>`);
+        rows.push(`<row r="2" ht="24" customHeight="1">${inlineCell(1, 2, 'Volleyball Manager', 2)}</row>`);
+        rows.push(`<row r="3" ht="22" customHeight="1"></row>`);
+        [
+            ['Competition', selectedBaseName],
+            ['Gender', genderFilter],
+            ['Age Group', ageGroupLabel],
+            ['Pool', poolLabel],
+            ['Generated', generatedAt]
+        ].forEach(([label, value], index) => {
+            const row = 4 + index;
+            rows.push(`<row r="${row}" ht="24" customHeight="1">${inlineCell(1, row, label, 3)}${inlineCell(2, row, value, 4)}</row>`);
+        });
+        rows.push(`<row r="9" ht="22" customHeight="1"></row>`);
+        rows.push(`<row r="10" ht="24" customHeight="1">${
+            inlineCell(1, 10, 'Ranking', 5) +
+            inlineCell(3, 10, 'Matches', 5) +
+            inlineCell(6, 10, 'Result Details', 6) +
+            inlineCell(pointCol, 10, 'Total', 6) +
+            inlineCell(setsStartCol, 10, 'Sets', 5) +
+            inlineCell(pointsStartCol, 10, 'Points', 5)
+        }</row>`);
+
+        const headerCells = ['Rank', 'Team', 'Total', 'W', 'L', ...resultCols, 'Points', 'SW', 'SL', 'Ratio', 'PW', 'PL', 'Ratio'];
+        rows.push(`<row r="11" ht="28" customHeight="1">${headerCells.map((label, index) => {
+            const col = index + 1;
+            const style = col >= 6 && col <= pointCol ? 6 : 5;
+            return inlineCell(col, 11, label, style);
+        }).join('')}</row>`);
+
+        standings.forEach((team, index) => {
+            const rank = index + 1;
+            const row = 12 + index;
+            const rankStyle = rank === 1 ? 10 : rank === 2 ? 11 : rank === 3 ? 12 : 9;
+            const teamStyle = rank === 1 ? 18 : rank === 2 ? 19 : rank === 3 ? 20 : 17;
+            const numStyle = rank === 1 ? 21 : rank === 2 ? 22 : rank === 3 ? 23 : 9;
+            const cells = [
+                numberCell(1, row, rank, rankStyle),
+                inlineCell(2, row, `${team.name}${team.code ? `\n${team.code}` : ''}`, teamStyle),
+                numberCell(3, row, team.played, numStyle),
+                numberCell(4, row, team.won, rank === 1 ? 24 : 13),
+                numberCell(5, row, team.lost, rank === 3 ? 25 : 14),
+                ...resultCols.map((col, resultIndex) => numberCell(6 + resultIndex, row, team.results?.[col], numStyle)),
+                numberCell(pointCol, row, team.points, 15),
+                numberCell(setsStartCol, row, team.sets_won, numStyle),
+                numberCell(setsStartCol + 1, row, team.sets_lost, numStyle),
+                inlineCell(setsStartCol + 2, row, team.setRatio, 16),
+                numberCell(pointsStartCol, row, team.points_won, numStyle),
+                numberCell(pointsStartCol + 1, row, team.points_lost, numStyle),
+                inlineCell(pointsStartCol + 2, row, team.pointRatio, 16)
+            ];
+            rows.push(`<row r="${row}" ht="38" customHeight="1">${cells.join('')}</row>`);
+        });
+
+        const worksheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                <sheetViews><sheetView workbookViewId="0" showGridLines="1"/></sheetViews>
+                <sheetFormatPr defaultRowHeight="18"/>
+                <cols>${colsXml}</cols>
+                <sheetData>${rows.join('')}</sheetData>
+                <mergeCells count="${merges.length}">${merges.map(ref => `<mergeCell ref="${ref}"/>`).join('')}</mergeCells>
+                <pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>
+            </worksheet>`;
+        const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                <fonts count="9">
+                    <font><sz val="11"/><name val="Calibri"/></font>
+                    <font><b/><sz val="16"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+                    <font><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+                    <font><b/><sz val="10"/><color rgb="FF1D4ED8"/><name val="Calibri"/></font>
+                    <font><b/><sz val="10"/><color rgb="FF64748B"/><name val="Calibri"/></font>
+                    <font><b/><sz val="10"/><color rgb="FF2563EB"/><name val="Calibri"/></font>
+                    <font><b/><sz val="12"/><color rgb="FF0F172A"/><name val="Calibri"/></font>
+                    <font><b/><sz val="11"/><color rgb="FF00A63E"/><name val="Calibri"/></font>
+                    <font><sz val="11"/><color rgb="FFFF0000"/><name val="Calibri"/></font>
+                </fonts>
+                <fills count="9">
+                    <fill><patternFill patternType="none"/></fill>
+                    <fill><patternFill patternType="gray125"/></fill>
+                    <fill><patternFill patternType="solid"><fgColor rgb="FF0F172A"/><bgColor indexed="64"/></patternFill></fill>
+                    <fill><patternFill patternType="solid"><fgColor rgb="FF2563EB"/><bgColor indexed="64"/></patternFill></fill>
+                    <fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/><bgColor indexed="64"/></patternFill></fill>
+                    <fill><patternFill patternType="solid"><fgColor rgb="FFEFF6FF"/><bgColor indexed="64"/></patternFill></fill>
+                    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFBE6"/><bgColor indexed="64"/></patternFill></fill>
+                    <fill><patternFill patternType="solid"><fgColor rgb="FFF3F4F6"/><bgColor indexed="64"/></patternFill></fill>
+                    <fill><patternFill patternType="solid"><fgColor rgb="FFFFF7ED"/><bgColor indexed="64"/></patternFill></fill>
+                </fills>
+                <borders count="2">
+                    <border><left/><right/><top/><bottom/><diagonal/></border>
+                    <border><left style="thin"><color rgb="FFE2E8F0"/></left><right style="thin"><color rgb="FFE2E8F0"/></right><top style="thin"><color rgb="FFE2E8F0"/></top><bottom style="thin"><color rgb="FFE2E8F0"/></bottom><diagonal/></border>
+                </borders>
+                <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+                <cellXfs count="26">
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+                    <xf numFmtId="0" fontId="1" fillId="2" borderId="0" applyFont="1" applyFill="1"/>
+                    <xf numFmtId="0" fontId="2" fillId="3" borderId="0" applyFont="1" applyFill="1"/>
+                    <xf numFmtId="0" fontId="3" fillId="0" borderId="1" applyFont="1" applyBorder="1"/>
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"/>
+                    <xf numFmtId="0" fontId="4" fillId="4" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="5" fillId="5" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"/>
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="6" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="7" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="8" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="7" fillId="0" borderId="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="8" fillId="0" borderId="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="0" borderId="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="0" borderId="1" applyFont="1" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="6" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="7" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+                    <xf numFmtId="0" fontId="6" fillId="8" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+                    <xf numFmtId="0" fontId="0" fillId="6" borderId="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="0" fillId="7" borderId="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="0" fillId="8" borderId="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="7" fillId="6" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                    <xf numFmtId="0" fontId="8" fillId="8" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+                </cellXfs>
+                <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+            </styleSheet>`;
+        const files = [
+            {
+                name: '[Content_Types].xml',
+                content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`
+            },
+            {
+                name: '_rels/.rels',
+                content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`
+            },
+            {
+                name: 'xl/workbook.xml',
+                content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Team Rankings" sheetId="1" r:id="rId1"/></sheets></workbook>`
+            },
+            {
+                name: 'xl/_rels/workbook.xml.rels',
+                content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`
+            },
+            { name: 'xl/styles.xml', content: stylesXml },
+            { name: 'xl/worksheets/sheet1.xml', content: worksheetXml }
+        ];
+        const blob = createZip(files);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `team_rankings_${safeName || 'export'}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="space-y-6">
             {/* Filter Section */}
@@ -416,6 +747,16 @@ export default function TeamRankingTab() {
                                 </select>
                             </div>
                         )}
+                        <button
+                            type="button"
+                            onClick={handleExportExcel}
+                            disabled={loading || standings.length === 0}
+                            className="inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-200 disabled:text-gray-500 md:w-auto"
+                            title="Export rankings as Excel"
+                        >
+                            <Download size={16} />
+                            Export Excel
+                        </button>
                     </div>
                 </div>
             </div>
