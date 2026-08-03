@@ -16,14 +16,19 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const { getAuthCookieOptions, getJwtSecret } = require('../config/security');
+const { writeAuditLog } = require('../utils/auditLogger');
 
-const SECRET_KEY = process.env.JWT_SECRET || 'mySuperSecretKey123';
+const SECRET_KEY = getJwtSecret();
+const PUBLIC_REGISTER_ROLE = 'team_staff';
+const APPROVED_STATUSES = new Set(['approved', 'active']);
 
 // 1. ลงทะเบียน (Register)
 exports.register = async (req, res) => {
   const client = await db.pool.connect();
   try {
-    const { username, password, role, name, code, coach } = req.body;
+    const { username, password, name, code, coach } = req.body;
+    const role = PUBLIC_REGISTER_ROLE;
 
     // ตรวจสอบว่ามี Username นี้ในระบบหรือยัง
     const userCheck = await client.query('SELECT id FROM users WHERE username = ?', [username]);
@@ -32,7 +37,7 @@ exports.register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 8);
-    const initialStatus = role === 'admin' ? 'approved' : 'pending';
+    const initialStatus = 'pending';
 
     await client.query('BEGIN');
 
@@ -149,6 +154,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: 'Invalid password' });
     }
 
+    if (!APPROVED_STATUSES.has(String(user.status || '').toLowerCase())) {
+      return res.status(403).json({ error: 'Account is not approved' });
+    }
+
     // สร้าง Token
     const token = jwt.sign(
       {
@@ -160,6 +169,8 @@ exports.login = async (req, res) => {
        SECRET_KEY,
       { expiresIn: '2d' }
     );
+
+    res.cookie('token', token, getAuthCookieOptions());
 
    // ส่งข้อมูลกลับไปให้ Frontend ตัดสินใจ Routing
     res.json({
@@ -181,7 +192,7 @@ exports.login = async (req, res) => {
 
 // ฟังก์ชัน Logout (เพื่อล้าง Cookie)
 exports.logout = (req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', getAuthCookieOptions());
   res.clearCookie('role');
   res.json({ message: 'Logged out successfully' });
 };
@@ -282,17 +293,26 @@ exports.deleteUser = async (req, res) => {
     
     await client.query('BEGIN');
 
+    const userBeforeResult = await client.query(
+      'SELECT id, username, role, status, team_id FROM users WHERE id = ?',
+      [id]
+    );
+    if (userBeforeResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     // 1. ปลด User ออกจากการเป็นเจ้าของทีม (ถ้ามี) เพื่อป้องกัน Error FK
     await client.query('UPDATE teams SET user_id = NULL WHERE user_id = ?', [id]);
 
     // 2. ลบ User
     const result = await client.query('DELETE FROM users WHERE id = ?', [id]);
 
-    await client.query('COMMIT');
+    await writeAuditLog(req, 'user.delete', 'user', id, {
+      deleted: userBeforeResult.rows[0] || null
+    }, client);
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    await client.query('COMMIT');
 
     res.json({ message: 'User deleted successfully' });
   } catch (err) {

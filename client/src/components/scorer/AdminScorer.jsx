@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LogOut, User, Trophy, ChevronLeft, Swords, Menu, X } from 'lucide-react';
+import { LogOut, User, Trophy, ChevronLeft, Menu, X } from 'lucide-react';
 import apiClient, { api } from '../../api';
 import Swal from 'sweetalert2';
+import { clearAuthSession, getStoredUser } from '../../authStorage';
 
 const getServerUrl = () => {
   const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -88,18 +89,12 @@ const AdminScorer = () => {
   }, [view, compId]);
 
   // ดึงข้อมูลผู้ใช้จาก localStorage
-  let user = null;
-  try {
-    user = JSON.parse(localStorage.getItem('user'));
-  } catch {
-    user = null;
-  }
+  const user = getStoredUser();
   const username = user?.username || user?.name || "Guest";
 
   // ฟังก์ชัน logout
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    clearAuthSession();
     window.location.href = '/login';
   };
 
@@ -203,7 +198,7 @@ const AdminScorer = () => {
       {/* Main Content Area */}
       <main className={`flex-1 p-4 sm:p-6 lg:p-8 pb-24 ${view === 'menu' ? 'flex items-center justify-center' : ''}`}>
         {view === 'menu' ? (
-          <div className="w-full max-w-4xl">
+          <div className="w-full max-w-5xl space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Champion Grid */}
             <div 

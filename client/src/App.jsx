@@ -19,24 +19,16 @@ import ScoreViewSpectator from './components/viewer/ScoreViewSpectator';
 import ScoreSheet from './pages/ScoreSheet';
 import RosterVerification from './pages/RosterVerification';
 import MatchDetail from './components/MatchDetail';
+import { getAuthToken, getStoredUser } from './authStorage';
 
 // import App (หน้าเดิมที่เป็น Scoreboard) ไว้ใช้ทีหลัง
 // import ScoreboardApp from './App_Original'; 
 
 // Component ช่วยเช็คว่า Login หรือยัง (Private Route)
 const PrivateRoute = ({ children, roleRequired }) => {
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
-  let role = null;
-
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      role = user.role;
-    } catch (e) {
-      console.error("Error parsing user data", e);
-    }
-  }
+  const token = getAuthToken();
+  const user = getStoredUser();
+  const role = user?.role || null;
 
   // ถ้าไม่มี Token หรือ Role ให้ถือว่ายังไม่ Login
   if (!token || !role) return <Navigate to="/login" />;

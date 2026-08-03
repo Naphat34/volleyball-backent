@@ -1,6 +1,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { cleanCompetitionTitle } from '../utils';
+import { getAuthToken } from '../authStorage';
 
 /**
  * Helper function: จัดการการส่งออกไฟล์ (ดาวน์โหลด หรือ คืนค่า Data URL)
@@ -28,7 +29,7 @@ const handleOutput = async (pdfDoc, filename, save, returnDataUrl) => {
 
 const fetchPdfTemplate = async (url) => {
     // กำหนด headers กรณีที่ไฟล์อยู่ใน API ที่ต้องส่ง Token (ถ้าอยู่ใน public ลบ headers ออกได้ครับ)
-    const token = localStorage.getItem('token'); // หรือดึง token ตามระบบของคุณ
+    const token = getAuthToken(); // หรือดึง token ตามระบบของคุณ
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     const response = await fetch(url, { headers });

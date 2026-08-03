@@ -30,16 +30,18 @@ module.exports = {
             const hasEndDate = await hasTableColumn('competitions', 'end_date');
             const hasMaxSets = await hasTableColumn('competitions', 'max_sets');
             const hasAgeGroupId = await hasTableColumn('competitions', 'age_group_id');
+            const hasLogoUrl = await hasTableColumn('competitions', 'logo_url');
             const canJoinAgeGroups = hasAgeGroupId && await hasTable('age_groups');
             const dateSelect = hasMatchDate ? 'c.match_date' : 'NULL as match_date';
             const endDateSelect = hasEndDate ? 'c.end_date' : 'NULL as end_date';
             const maxSetsSelect = hasMaxSets ? 'c.max_sets' : '3 as max_sets';
+            const logoSelect = hasLogoUrl ? 'c.logo_url' : 'NULL as logo_url';
             const ageGroupSelect = canJoinAgeGroups ? 'ag.name as age_group_name' : 'NULL as age_group_name';
             const ageGroupJoin = canJoinAgeGroups ? 'LEFT JOIN age_groups ag ON c.age_group_id = ag.id' : '';
             const orderDate = hasMatchDate ? 'COALESCE(c.match_date, c.start_date)' : 'c.start_date';
 
             const [rows] = await db.query(`
-                SELECT c.id, c.title, c.gender, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
+                SELECT c.id, c.title, c.gender, ${logoSelect}, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
                        ${maxSetsSelect}, ${ageGroupSelect}
                 FROM competitions c
                 ${ageGroupJoin}
@@ -336,11 +338,11 @@ module.exports = {
                         OR UPPER(COALESCE(me.skill, '')) IN ('POINT', 'ATTACK_POINT', 'BLOCK_POINT', 'SERVE_ACE')
                     )
                 `),
-                best_spikers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('ATTACK', 'SPIKE') ${successGrade}`),
-                best_blockers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('BLOCK') ${successGrade}`),
-                best_servers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('SERVE', 'SERVICE') ${successGrade}`),
-                best_setters: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('SET', 'SETTING') ${successGrade}`),
-                best_diggers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('DIG', 'DEFENSE', 'RECEPTION') ${successGrade}`)
+                best_spikers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('A', 'ATTACK', 'SPIKE') ${successGrade}`),
+                best_blockers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('B', 'BLOCK') ${successGrade}`),
+                best_servers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('S', 'SERVE', 'SERVICE') ${successGrade}`),
+                best_setters: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('E', 'SET', 'SETTING') ${successGrade}`),
+                best_diggers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('D', 'DIG', 'DEFENSE', 'R', 'RECEPTION') ${successGrade}`)
             });
         } catch (err) {
             console.error("Public: Get Statistics Error", err);

@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const authMiddleware = require('../middleware/authMiddleware');
+
+router.use(authMiddleware.verifyApprovedToken);
+router.use(authMiddleware.canManageTeams);
 
 // Player Management Routes
 router.post('/teams/:teamId/players', adminController.addPlayerToTeam);

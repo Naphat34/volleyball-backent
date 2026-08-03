@@ -13,6 +13,7 @@ import client, { api } from '../../api';
 import { formatThaiFullDateTime } from '../../utils';
 import EventQueue from '../../utils/eventQueue';
 import { isPlayerLibero, isPlayingPlayer } from '../../utils/playerFilters';
+import { getAuthToken, getStoredUser } from '../../authStorage';
 
 // --- Imported Modals ---
 import ChallengeModal from './modals/ChallengeModal';
@@ -615,7 +616,10 @@ export default function ScorerConsole() {
     useEffect(() => {
         // เชื่อมต่อกับ Socket Server (ใช้ URL เดียวกับ API)
         const socketUrl = getSocketServerUrl();
-        const socket = io(socketUrl);
+        const socket = io(socketUrl, {
+            auth: { token: getAuthToken() },
+            withCredentials: true
+        });
 
         // เข้าร่วม Room ของแมตช์นี้เมื่อเชื่อมต่อหรือเชื่อมต่อใหม่
         socket.on('connect', () => {
@@ -2133,14 +2137,7 @@ export default function ScorerConsole() {
         });
 
         // 4. กลับสู่หน้าหลักตามสิทธิ์การใช้งาน (Role)
-        const userStr = localStorage.getItem('user');
-        let role = 'admin';
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                role = user.role;
-            } catch { /* ignore JSON parse errors for user role */ }
-        }
+        const role = getStoredUser()?.role || 'admin';
         if (role === 'score') {
             navigate('/adminscorer');
         } else {
@@ -3674,14 +3671,7 @@ export default function ScorerConsole() {
                         <button onClick={() => setShowMatchLogModal(true)} className="p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-white transition-all duration-200" title="Match Log"><ListChecks size={18} /></button>
                         <button
                             onClick={() => {
-                                const userStr = localStorage.getItem('user');
-                                let role = 'admin';
-                                if (userStr) {
-                                    try {
-                                        const user = JSON.parse(userStr);
-                                        role = user.role;
-                                    } catch {/* */ }
-                                }
+                                const role = getStoredUser()?.role || 'admin';
                                 if (role === 'score') {
                                     navigate('/adminscorer');
                                 } else {
@@ -3947,7 +3937,6 @@ export default function ScorerConsole() {
                         matchData={matchData}
                     />
                 </section>
-
 
                 {/* Right Sidebar (Team Info) */}
                 <aside className="w-[300px]  bg-white border border-slate-200/60 rounded-lg hidden lg:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">

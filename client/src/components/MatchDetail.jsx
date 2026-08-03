@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { LogOut, User, Edit3, Shield, Menu, X } from "lucide-react";
 import { api } from "../api";
 import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../utils";
+import { getStoredUser } from "../authStorage";
 
 import whistleIcon from "../assets/img/whistle.png";
 import Logo from '../assets/img/logo.png';
@@ -17,12 +18,7 @@ const MatchDetail = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   // ดึงข้อมูลผู้ใช้จาก localStorage
-  let user = null;
-  try {
-    user = JSON.parse(localStorage.getItem('user'));
-  } catch {
-    user = null;
-  }
+  const user = getStoredUser();
   const username = user?.username || user?.name || "Guest";
 
   const normalizeDisplayText = (value) => {

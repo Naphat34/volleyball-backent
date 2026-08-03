@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { writeAuditLog } = require('../utils/auditLogger');
 
 // Helper: สลับทีมสำหรับ Round Robin
 const rotateTeams = (teams) => {
@@ -429,6 +430,11 @@ module.exports = {
         const { id } = req.params;
 
         try {
+            const beforeResult = await db.query('SELECT * FROM matches WHERE id = ?', [id]);
+            if (beforeResult.rows.length === 0) {
+                return res.status(404).json({ error: "Match not found" });
+            }
+
             const fields = [
                 'home_team_id', 'away_team_id', 'start_time', 'location', 'status',
                 'home_set_score', 'away_set_score', 'competition_id', 'match_number',
@@ -483,6 +489,13 @@ module.exports = {
                 const query = `UPDATE matches SET ${updates.join(', ')} WHERE id = $${index}`;
                 await db.query(query, params);
 
+                const afterResult = await db.query('SELECT * FROM matches WHERE id = ?', [id]);
+                await writeAuditLog(req, 'match.update', 'match', id, {
+                    before: beforeResult.rows[0],
+                    after: afterResult.rows[0],
+                    changes: bodyWithAgeGroup
+                });
+
                 // ส่งเหตุการณ์ผ่าน Socket.io
                 const io = req.app.get('io');
                 if (io) {
@@ -503,7 +516,15 @@ module.exports = {
     async deleteMatch(req, res) {
         try {
             const { id } = req.params;
+            const beforeResult = await db.query('SELECT * FROM matches WHERE id = ?', [id]);
+            if (beforeResult.rows.length === 0) {
+                return res.status(404).json({ error: "Match not found" });
+            }
+
             await db.query('DELETE FROM matches WHERE id = ?', [id]);
+            await writeAuditLog(req, 'match.delete', 'match', id, {
+                deleted: beforeResult.rows[0]
+            });
             res.json({ message: "Match deleted" });
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -581,6 +602,12 @@ module.exports = {
                 set_scores          // JSON string ของคะแนนเซต: '["25-20", "25-22"]'
             } = req.body;
 
+            const beforeResult = await client.query('SELECT * FROM matches WHERE id = ?', [id]);
+            if (beforeResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: "Match not found" });
+            }
+
             // 1. อัปเดตข้อมูลหลักในตาราง matches
             await client.query(`
                 UPDATE matches 
@@ -609,6 +636,13 @@ module.exports = {
                     }
                 }
             }
+
+            const afterResult = await client.query('SELECT * FROM matches WHERE id = ?', [id]);
+            await writeAuditLog(req, 'match.result_update', 'match', id, {
+                before: beforeResult.rows[0],
+                after: afterResult.rows[0],
+                changes: { home_set_score, away_set_score, status, set_scores }
+            }, client);
 
             await client.query('COMMIT'); // ยืนยันข้อมูล
 

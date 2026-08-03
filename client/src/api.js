@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAuthToken } from './authStorage';
 
 const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 
@@ -16,7 +17,7 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -64,6 +65,10 @@ export const api = {
   register: (data) => apiClient.post('/auth/register', data),
   logout: () => apiClient.post('/auth/logout'),
   uploadImage: (image) => apiClient.post('/upload-image', { image }),
+  getReportUrl: (type, format) => `${BASE_URL}/reports/${encodeURIComponent(type)}.${encodeURIComponent(format)}`,
+  downloadReport: (type, format) => apiClient.get(`/reports/${encodeURIComponent(type)}.${encodeURIComponent(format)}`, {
+    responseType: 'blob',
+  }),
 
   // Admin
   getPendingUsers: () => apiClient.get('/admin/pending-users'),

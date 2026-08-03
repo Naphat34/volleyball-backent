@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api';
 import { cleanCompetitionTitle } from '../utils';
+import { getStoredUser } from '../authStorage';
 
 const RosterVerification = () => {
     const { matchId } = useParams();
@@ -207,12 +208,7 @@ const RosterVerification = () => {
                 {/* Footer Section */}
                 <div className="absolute bottom-2 left-[6mm] text-[9px] text-gray-500 font-mono tracking-tight print:text-black">
                     Printed by ({(() => {
-                        try {
-                            const u = localStorage.getItem('user');
-                            return u ? JSON.parse(u).username : 'Admin';
-                        } catch {
-                            return 'Admin';
-                        }
+                        return getStoredUser()?.username || 'Admin';
                     })()}) eScorersheet Version DEMO 2026.06.11
                 </div>
 

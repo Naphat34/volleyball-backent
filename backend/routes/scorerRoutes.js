@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const scorerController = require('../controllers/scorerController');
 const authMiddleware = require('../middleware/authMiddleware');
+const validateRequest = require('../middleware/validateRequest');
 
 // Public read endpoints used by scoreboards, score sheets, and viewer screens.
 router.get('/match/:matchId', scorerController.getMatchDetails);
@@ -12,8 +13,8 @@ router.get('/match/:matchId/scoresheet', scorerController.getMatchScoresheetData
 router.get('/match/:matchId/state', scorerController.getLiveState);
 
 // Mutating scorer endpoints are available to admins and scorer-console users.
-const scorerWriteAccess = [authMiddleware.verifyToken, authMiddleware.isScorerOrAdmin];
-router.post('/match/:matchId/event', scorerWriteAccess, scorerController.saveMatchEvent);
+const scorerWriteAccess = [authMiddleware.verifyToken, authMiddleware.canScoreMatches];
+router.post('/match/:matchId/event', scorerWriteAccess, validateRequest('scorerEvent'), scorerController.saveMatchEvent);
 router.post('/match/:matchId/toss', scorerWriteAccess, scorerController.saveCoinToss);
 router.post('/match/:matchId/lineup', scorerWriteAccess, scorerController.saveLineup);
 router.post('/match/:matchId/start-set', scorerWriteAccess, scorerController.startSet);

@@ -6,6 +6,8 @@ const path = require('path');
 
 // --- Imports Middleware ---
 const authMiddleware = require('../middleware/authMiddleware');
+const rateLimit = require('../middleware/rateLimiter');
+const validateRequest = require('../middleware/validateRequest');
 
 // --- Imports Controllers ---
 const publicController = require('../controllers/publicController');
@@ -16,6 +18,7 @@ const competitionsController = require('../controllers/competitionsController');
 const ageGroupController = require('../controllers/ageGroupController');
 const playerController = require('../controllers/playerController');
 const stadiumsController = require('../controllers/stadiumsController');
+const reportController = require('../controllers/reportController');
 const officialRoutes = require('./officialRoutes');
 const scorerRoutes = require('./scorerRoutes');
 
@@ -36,27 +39,9 @@ const buildUploadUrl = (req, filename) => {
 // 1. 🔓 PUBLIC ROUTES (โซนนี้เข้าได้ทุกคน ไม่ต้อง Login)
 // ==================================================================
 
-router.get('/debug/players', async (req, res) => {
-  try {
-    const db = require('../config/db');
-    const cols = await db.query(
-      "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'players' AND table_schema = 'public'"
-    );
-    const rows = await db.query(
-      "SELECT * FROM players LIMIT 5"
-    );
-    res.json({
-      columns: cols.rows,
-      rows: rows.rows
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- Authentication ---
-router.post('/auth/register', authController.register);
-router.post('/auth/login', authController.login);
+router.post('/auth/register', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, keyPrefix: 'register' }), validateRequest('register'), authController.register);
+router.post('/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'login' }), validateRequest('login'), authController.login);
 router.post('/auth/logout', authController.logout);
 
 
@@ -80,7 +65,7 @@ router.get('/public/statistics/:competitionId', publicController.getStatistics);
 // ==================================================================
 // 🚧 MIDDLEWARE BARRIER (หลังจากบรรทัดนี้ ต้อง Login เท่านั้น)
 // ==================================================================
-router.use(authMiddleware.verifyToken); 
+router.use(authMiddleware.verifyApprovedToken); 
 
 // --- Scorer Routes (เพิ่มส่วนนี้) ---
 router.use('/scorer', scorerRoutes);
@@ -91,7 +76,7 @@ router.use('/scorer', scorerRoutes);
 // ==================================================================
 
 // --- User / My Team ---
-router.post('/upload-image', async (req, res) => {
+router.post('/upload-image', rateLimit({ windowMs: 15 * 60 * 1000, max: 30, keyPrefix: 'upload-image' }), validateRequest('uploadImage'), async (req, res) => {
   try {
     const { image } = req.body;
     const match = typeof image === 'string'
@@ -121,53 +106,62 @@ router.post('/upload-image', async (req, res) => {
 
 router.get('/my-team', teamController.getMyTeam);
 router.get('/my-teams', teamController.getMyTeams);
-router.post('/my-team/create', teamController.createMyTeam);
-router.post('/my-team/:id/switch', teamController.switchMyTeam);
-router.put('/my-team', teamController.updateMyTeam);
-router.delete('/my-team', teamController.deleteMyTeam);
+router.post('/my-team/create', authMiddleware.canManageOwnTeam, teamController.createMyTeam);
+router.post('/my-team/:id/switch', authMiddleware.canManageOwnTeam, teamController.switchMyTeam);
+router.put('/my-team', authMiddleware.canManageOwnTeam, teamController.updateMyTeam);
+router.delete('/my-team', authMiddleware.canManageOwnTeam, teamController.deleteMyTeam);
 router.get('/my-team/matches', teamController.getMyMatches);
 router.get('/my-team/matches/:gender', teamController.getMyMatchesByGender);
-router.get('/my-team/players', teamController.getMyPlayers);
-router.post('/my-team/players', teamController.addPlayerToMyTeam);
-router.put('/my-team/players/:id', teamController.updatePlayer);
-router.delete('/my-team/players/:id', teamController.deletePlayer);
+router.get('/my-team/players', authMiddleware.canManageOwnTeam, teamController.getMyPlayers);
+router.post('/my-team/players', authMiddleware.canManageOwnTeam, teamController.addPlayerToMyTeam);
+router.put('/my-team/players/:id', authMiddleware.canManageOwnTeam, teamController.updatePlayer);
+router.delete('/my-team/players/:id', authMiddleware.canManageOwnTeam, teamController.deletePlayer);
 router.get('/my-team/players/stats', teamController.getMyPlayersStats);
-router.get('/my-team/staff', teamController.getMyTeamStaff);
-router.post('/my-team/staff', teamController.addStaffToMyTeam);
-router.put('/my-team/staff/:id', teamController.updateStaff);
-router.delete('/my-team/staff/:id', teamController.deleteStaff);
+router.get('/my-team/staff', authMiddleware.canManageOwnTeam, teamController.getMyTeamStaff);
+router.post('/my-team/staff', authMiddleware.canManageOwnTeam, teamController.addStaffToMyTeam);
+router.put('/my-team/staff/:id', authMiddleware.canManageOwnTeam, teamController.updateStaff);
+router.delete('/my-team/staff/:id', authMiddleware.canManageOwnTeam, teamController.deleteStaff);
 router.get('/my-team/competitions', competitionsController.getMyCompetitions);
 router.get('/my-team/entries', competitionsController.getMyTeamEntries);
 router.get('/my-team/entries/:entryId/players', competitionsController.getMyTeamEntryPlayers);
-router.put('/my-team/entries/:entryId/players', competitionsController.updateMyTeamEntryPlayers);
-router.post('/competitions/join', competitionsController.joinCompetition);
-router.post('/competitions/leave', competitionsController.leaveCompetition);
+router.put('/my-team/entries/:entryId/players', authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryPlayers);
+router.post('/competitions/join', authMiddleware.canManageOwnTeam, competitionsController.joinCompetition);
+router.post('/competitions/leave', authMiddleware.canManageOwnTeam, competitionsController.leaveCompetition);
 
 // --- Matches & Stats ---
 router.get('/competitions/:competitionId/matches', matchController.getMatchesByCompetition);
 router.get('/players/:id/stats', playerController.getPlayerStats);
-router.post('/match-data/lineup', matchController.saveLineup);
-router.post('/match-data/action', matchController.saveMatchAction);
+router.post('/match-data/lineup', authMiddleware.canScoreMatches, matchController.saveLineup);
+router.post('/match-data/action', authMiddleware.canScoreMatches, matchController.saveMatchAction);
 
 // --- Staff Requests & Lineup helpers ---
-router.get('/match/:matchId/requests/pending', matchController.getPendingRequests);
-router.post('/match/:matchId/request', matchController.createRequest);
-router.put('/match/:matchId/requests/:requestId', matchController.updateRequest);
-router.get('/match/:matchId/lineup/:teamId', matchController.getTeamLineup);
-router.delete('/match/:matchId/lineup/:teamId', matchController.deleteTeamLineup);
+router.get('/match/:matchId/requests/pending', authMiddleware.canScoreMatches, matchController.getPendingRequests);
+router.post('/match/:matchId/request', authMiddleware.canAccessOwnMatchTeam({ allowScorer: false, teamParam: 'team_id' }), matchController.createRequest);
+router.put('/match/:matchId/requests/:requestId', authMiddleware.canScoreMatches, matchController.updateRequest);
+router.get('/match/:matchId/lineup/:teamId', authMiddleware.canAccessOwnMatchTeam(), matchController.getTeamLineup);
+router.delete('/match/:matchId/lineup/:teamId', authMiddleware.canScoreMatches, matchController.deleteTeamLineup);
+
+// --- Reports ---
+router.get('/reports/:type.:format', authMiddleware.canExportReports, reportController.exportReport);
+
+// --- Monitoring ---
+router.get('/monitor/socket', authMiddleware.canMonitorSockets, (req, res) => {
+  const monitor = req.app.get('socketMonitor');
+  res.json(monitor ? monitor.snapshot() : { error: 'Socket monitor is not available' });
+});
 
 // ==================================================================
 // 3. 🛡️ ADMIN ROUTES (ต้องเป็น Admin เท่านั้น)
 // ==================================================================
 
 // --- Admin: Competitions ---
-router.get('/admin/competitions', authMiddleware.isAdmin, competitionsController.getAllCompetitions);
-router.post('/admin/competitions', authMiddleware.isAdmin, competitionsController.createCompetition);
-router.put('/admin/competitions/:id', authMiddleware.isAdmin, competitionsController.updateCompetition);
-router.delete('/admin/competitions/:id', authMiddleware.isAdmin, competitionsController.deleteCompetition);
-router.patch('/admin/competitions/:id/status', authMiddleware.isAdmin, competitionsController.toggleCompetitionStatus);
-router.get('/admin/competitions/:competitionId/teams', authMiddleware.isAdmin, competitionsController.getCompetitionTeams);
-router.get('/admin/competitions/:competitionId/matches', authMiddleware.isAdmin, matchController.getMatchesByCompetition);
+router.get('/admin/competitions', authMiddleware.canManageCompetitions, competitionsController.getAllCompetitions);
+router.post('/admin/competitions', authMiddleware.canManageCompetitions, competitionsController.createCompetition);
+router.put('/admin/competitions/:id', authMiddleware.canManageCompetitions, competitionsController.updateCompetition);
+router.delete('/admin/competitions/:id', authMiddleware.canManageCompetitions, competitionsController.deleteCompetition);
+router.patch('/admin/competitions/:id/status', authMiddleware.canManageCompetitions, competitionsController.toggleCompetitionStatus);
+router.get('/admin/competitions/:competitionId/teams', authMiddleware.canManageCompetitions, competitionsController.getCompetitionTeams);
+router.get('/admin/competitions/:competitionId/matches', authMiddleware.canManageMatches, matchController.getMatchesByCompetition);
 
 // --- Admin: Users ---
 router.get('/admin/pending-users', authMiddleware.isAdmin, authController.getPendingUsers);
@@ -177,33 +171,33 @@ router.delete('/admin/users/:id', authMiddleware.isAdmin, authController.deleteU
 router.put('/admin/users/:id', authMiddleware.isAdmin, authController.updateUser);
 
 // --- Admin: Teams ---
-router.get('/admin/teams', authMiddleware.isAdmin, teamController.getAllTeams);
-router.get('/admin/team-entries', authMiddleware.isAdmin, teamController.getAllTeamEntries);
-router.patch('/admin/team-entries/:entryId/status', authMiddleware.isAdmin, teamController.updateTeamEntryStatus);
-router.post('/admin/teams', authMiddleware.isAdmin, teamController.createTeam);
-router.put('/admin/teams/:id', authMiddleware.isAdmin, teamController.updateTeam);
-router.delete('/admin/teams/:id', authMiddleware.isAdmin, teamController.deleteTeam);
-router.get('/admin/teams/:id', authMiddleware.isAdmin, teamController.getTeamDetails);
-router.get('/admin/players', authMiddleware.isAdmin, teamController.getAllPlayers);
-router.get('/admin/teams/:id/players', authMiddleware.isAdmin, teamController.getPlayersByTeam);
-router.get('/admin/teams/:id/staff', authMiddleware.isAdmin, teamController.getStaffByTeam);
+router.get('/admin/teams', authMiddleware.canManageTeams, teamController.getAllTeams);
+router.get('/admin/team-entries', authMiddleware.canManageTeams, teamController.getAllTeamEntries);
+router.patch('/admin/team-entries/:entryId/status', authMiddleware.canManageTeams, teamController.updateTeamEntryStatus);
+router.post('/admin/teams', authMiddleware.canManageTeams, teamController.createTeam);
+router.put('/admin/teams/:id', authMiddleware.canManageTeams, teamController.updateTeam);
+router.delete('/admin/teams/:id', authMiddleware.canManageTeams, teamController.deleteTeam);
+router.get('/admin/teams/:id', authMiddleware.canManageTeams, teamController.getTeamDetails);
+router.get('/admin/players', authMiddleware.canManageTeams, teamController.getAllPlayers);
+router.get('/admin/teams/:id/players', authMiddleware.canManageTeams, teamController.getPlayersByTeam);
+router.get('/admin/teams/:id/staff', authMiddleware.canManageTeams, teamController.getStaffByTeam);
 
 // --- Admin: Matches ---
-router.get('/admin/matches/all', authMiddleware.isAdmin, matchController.getAllMatches);
-router.post('/matches', authMiddleware.isAdmin, matchController.createMatch);
-router.put('/matches/:id', authMiddleware.isAdmin, matchController.updateMatch);
-router.delete('/matches/:id', authMiddleware.isAdmin, matchController.deleteMatch);
-router.put('/matches/:id/result', authMiddleware.isAdmin, matchController.updateMatchResult);
-router.post('/competitions/:competitionId/generate-matches', authMiddleware.isAdmin, matchController.generateFixtures);
+router.get('/admin/matches/all', authMiddleware.canManageMatches, matchController.getAllMatches);
+router.post('/matches', authMiddleware.canManageMatches, validateRequest('createMatch'), matchController.createMatch);
+router.put('/matches/:id', authMiddleware.canManageMatches, matchController.updateMatch);
+router.delete('/matches/:id', authMiddleware.canManageMatches, matchController.deleteMatch);
+router.put('/matches/:id/result', authMiddleware.canScoreMatches, validateRequest('updateMatchResult'), matchController.updateMatchResult);
+router.post('/competitions/:competitionId/generate-matches', authMiddleware.canManageMatches, matchController.generateFixtures);
 
 // --- Admin: Stadiums ---
-router.get('/admin/stadiums', authMiddleware.isAdmin, stadiumsController.getAllStadiums);
-router.post('/admin/stadiums', authMiddleware.isAdmin, stadiumsController.createStadium);
-router.put('/admin/stadiums/:id', authMiddleware.isAdmin, stadiumsController.updateStadium);
-router.delete('/admin/stadiums/:id', authMiddleware.isAdmin, stadiumsController.deleteStadium);
+router.get('/admin/stadiums', authMiddleware.canManageCompetitions, stadiumsController.getAllStadiums);
+router.post('/admin/stadiums', authMiddleware.canManageCompetitions, stadiumsController.createStadium);
+router.put('/admin/stadiums/:id', authMiddleware.canManageCompetitions, stadiumsController.updateStadium);
+router.delete('/admin/stadiums/:id', authMiddleware.canManageCompetitions, stadiumsController.deleteStadium);
 
 // --- Admin: Officials (Use Router) ---
-router.use('/admin', authMiddleware.isAdmin, officialRoutes);
+router.use('/admin', authMiddleware.canManageCompetitions, officialRoutes);
 
 
 

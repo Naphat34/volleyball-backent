@@ -3,6 +3,7 @@ import { api } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { Users, Trophy, CheckCircle2, Calendar, MapPin, ChevronRight, Upload, X } from 'lucide-react';
 import { formatThaiDate } from '../utils';
+import { getStoredUser } from '../authStorage';
 
 const ageGroupOrder = ['U12', 'U14', 'U16', 'U18', 'Open'];
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -136,7 +137,7 @@ export default function CreateTeam() {
 
       alert('Team created successfully.');
 
-      const user = JSON.parse(localStorage.getItem('user'));
+      const user = getStoredUser();
       navigate(user?.role === 'admin' ? '/admin-dashboard' : '/team-dashboard');
       window.location.reload();
     } catch (err) {

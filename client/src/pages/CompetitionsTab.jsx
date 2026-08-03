@@ -1,12 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import client, { api } from '../api';
-import { Trophy, Calendar, MapPin, Edit2, Trash2, PlusCircle, X,  Users, Shield, Download } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Edit2, Trash2, PlusCircle, X,  Users, Shield, Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
 import Swal from 'sweetalert2';
 import { cleanCompetitionTitle, formatThaiDate } from '../utils';
 import MatchesManager from './MatchesManager';
 
 const genderOrder = { Male: 1, Female: 2, Mixed: 3 };
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+const readImageFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    if (!file) {
+        reject(new Error('No file selected'));
+        return;
+    }
+    if (!file.type.startsWith('image/')) {
+        reject(new Error('Please select an image file'));
+        return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+        reject(new Error('Image file must be 2MB or smaller'));
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.readAsDataURL(file);
+});
 
 const normalizeCompetitionTitle = (competition) => {
     const title = competition.title || competition.name || 'Untitled Competition';
@@ -31,7 +52,7 @@ export default function CompetitionsTab() {
     const [competitions, setCompetitions] = useState([]);
     const [compForm, setCompForm] = useState({
         name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-        sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14
+        sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14, logo_url: ''
     });
     const [editingCompId, setEditingCompId] = useState(null);
     const [stadiums, setStadiums] = useState([]);
@@ -48,9 +69,14 @@ export default function CompetitionsTab() {
         if (!acc[title]) {
             acc[title] = {
                 title,
+                logo_url: current.logo_url || '',
                 competitions: [],
                 ageGroups: {}
             };
+        }
+
+        if (!acc[title].logo_url && current.logo_url) {
+            acc[title].logo_url = current.logo_url;
         }
 
         if (!acc[title].ageGroups[ageGroupLabel]) {
@@ -128,13 +154,28 @@ export default function CompetitionsTab() {
 
             setCompForm({
                 name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14
+                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14, logo_url: ''
             });
             setEditingCompId(null);
             setShowModal(false);
             fetchCompetitions();
         } catch (err) {
             Toast.fire({ icon: 'error', title: err.response?.data?.error || 'Failed to save' });
+        }
+    };
+
+    const handleCompetitionLogoFileChange = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const dataUrl = await readImageFileAsDataUrl(file);
+            const res = await api.uploadImage(dataUrl);
+            setCompForm(prev => ({ ...prev, logo_url: res.data.url }));
+        } catch (error) {
+            Toast.fire({ icon: 'error', title: error.response?.data?.error || error.message || 'Image upload failed' });
+        } finally {
+            event.target.value = '';
         }
     };
 
@@ -150,7 +191,8 @@ export default function CompetitionsTab() {
             age_group: c.age_group_id || '',
             status: c.status || 'open',
             max_sets: c.max_sets || 3,
-            max_players: c.max_players || 14
+            max_players: c.max_players || 14,
+            logo_url: c.logo_url || ''
         });
         setEditingCompId(c.id);
         setShowModal(true);
@@ -240,7 +282,7 @@ export default function CompetitionsTab() {
                         onClick={() => {
                             setCompForm({
                                 name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-                                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14
+                                sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14, logo_url: ''
                             });
                             setEditingCompId(null);
                             setShowModal(true);
@@ -262,8 +304,12 @@ export default function CompetitionsTab() {
                             <div key={section.title} className="rounded-lg border transition-all shadow-sm bg-white border-gray-200">
                                 <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 bg-gray-50/50">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-md bg-white border border-gray-200 text-blue-600 shadow-sm">
-                                            <Trophy size={18} />
+                                        <div className="h-11 w-11 rounded-md bg-white border border-gray-200 text-blue-600 shadow-sm flex items-center justify-center overflow-hidden">
+                                            {section.logo_url ? (
+                                                <img src={section.logo_url} alt={section.title} className="h-full w-full object-contain p-1.5" />
+                                            ) : (
+                                                <Trophy size={18} />
+                                            )}
                                         </div>
                                         <h4 className="text-lg font-semibold text-gray-800">{section.title}</h4>
                                     </div>
@@ -342,13 +388,45 @@ export default function CompetitionsTab() {
                             <button onClick={() => {
                                 setShowModal(false);
                                 setEditingCompId(null);
-                                setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14 });
+                                setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14, logo_url: '' });
                             }} className="p-1 rounded-md hover:bg-gray-100 transition-colors">
                                 <X size={18} className="text-gray-500 hover:text-red-600" />
                             </button>
                         </div>
                         <form onSubmit={handleCompSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[80vh]">
                             <Input label="Name" value={compForm.name} onChange={e => setCompForm({ ...compForm, name: e.target.value })} required />
+                            <div className="space-y-1.5">
+                                <label className="block text-sm font-medium text-gray-700">Competition Logo / Symbol</label>
+                                <div className="flex items-center gap-4 rounded-md border border-gray-200 bg-gray-50 p-3">
+                                    <div className="h-20 w-20 shrink-0 rounded-md border border-gray-200 bg-white flex items-center justify-center overflow-hidden">
+                                        {compForm.logo_url ? (
+                                            <img src={compForm.logo_url} alt={compForm.name || 'Competition logo'} className="h-full w-full object-contain p-1.5" />
+                                        ) : (
+                                            <ImageIcon size={24} className="text-gray-300" />
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <label className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 cursor-pointer transition">
+                                                <Upload size={16} />
+                                                Browse
+                                                <input type="file" accept="image/*" className="hidden" onChange={handleCompetitionLogoFileChange} />
+                                            </label>
+                                            {compForm.logo_url && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCompForm(prev => ({ ...prev, logo_url: '' }))}
+                                                    className="inline-flex items-center justify-center h-10 w-10 rounded-md border border-gray-300 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600 transition"
+                                                    aria-label="Remove competition logo"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p className="mt-2 text-xs text-gray-500">JPG, PNG, WebP or GIF up to 2MB</p>
+                                    </div>
+                                </div>
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <Input label="Start Date" type="date" value={compForm.start_date} onChange={e => setCompForm({ ...compForm, start_date: e.target.value })} required />
                                 <Input label="End Date" type="date" value={compForm.end_date} onChange={e => setCompForm({ ...compForm, end_date: e.target.value })} required />
@@ -461,7 +539,7 @@ export default function CompetitionsTab() {
                                 <button type="button" onClick={() => {
                                     setShowModal(false);
                                     setEditingCompId(null);
-                                    setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14 });
+                                    setCompForm({ name: '', start_date: '', end_date: '', location: '', stadium_id: '', sport: 'Volleyball', gender: '', age_group: '', status: 'open', max_sets: 3, max_players: 14, logo_url: '' });
                                 }} className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white border-gray-300 hover:bg-gray-50 font-semibold shadow-sm transition">
                                     Cancel
                                 </button>

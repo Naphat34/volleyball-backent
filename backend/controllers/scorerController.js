@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { normalizeVisGrade, normalizeVisSkill } = require('../config/visCodes');
 
 const hasTableColumn = async (tableName, columnName) => {
     const result = await db.query(
@@ -609,13 +610,16 @@ module.exports = {
                 };
             }
 
+            const normalizedSkill = explicitSkill ? normalizeVisSkill(explicitSkill) : (event_type || null);
+            const normalizedGrade = explicitGrade ? normalizeVisGrade(explicitGrade) : null;
+
             const insertParams = [
                 matchId,
                 set_number || null,
                 team_id || null,
                 player_id || null,
-                explicitSkill || event_type || null,
-                explicitGrade || null,
+                normalizedSkill,
+                normalizedGrade,
                 score_home ?? null,
                 score_away ?? null,
                 server_player_id || null,

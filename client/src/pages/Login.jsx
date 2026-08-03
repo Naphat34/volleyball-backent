@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { User, Lock, Eye, EyeOff, LogIn, Trophy } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import Logo from '../assets/img/Logo1.png';
+import { clearAuthSession, getAuthToken, getStoredUser, setAuthSession } from '../authStorage';
 
 export default function Login() {
   const { language, setLanguage, t } = useLanguage();
@@ -13,22 +14,17 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        if (user.role === 'admin') {
-          navigate('/admin');
-        } else if (user.role === 'score') {
-          navigate('/adminscorer');
-        } else if (user.team_id) {
-          navigate('/team-dashboard');
-        } else {
-          navigate('/create-team');
-        }
-      } catch (e) {
-        console.error("Error auto-redirecting user:", e);
+    const token = getAuthToken();
+    const user = getStoredUser();
+    if (token && user) {
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else if (user.role === 'score') {
+        navigate('/adminscorer');
+      } else if (user.team_id) {
+        navigate('/team-dashboard');
+      } else {
+        navigate('/create-team');
       }
     }
   }, [navigate]);
@@ -49,8 +45,7 @@ export default function Login() {
       const { user, token } = response.data;
       const { role, status, team_id } = user;
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      setAuthSession({ token, user });
 
 
       if (role === "admin") {
@@ -86,6 +81,7 @@ export default function Login() {
         });
 
         await api.logout();
+        clearAuthSession();
         return;
       }
 

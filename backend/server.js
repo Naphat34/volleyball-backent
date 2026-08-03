@@ -7,6 +7,13 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const apiRoutes = require('./routes/api');
 const scorerRoutes = require('./routes/scorerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const { createCorsOptions } = require('./config/security');
+const { rejectCrossOriginMutations, securityHeaders } = require('./config/security');
+const jwt = require('jsonwebtoken');
+const db = require('./config/db');
+const { getJwtSecret } = require('./config/security');
+const { roleHasPermission } = require('./config/permissions');
+const { createSocketMonitor } = require('./utils/socketMonitor');
 
 
 const app = express();
@@ -17,15 +24,18 @@ const uploadsDir = path.join(__dirname, 'uploads');
 // ==========================================
 // 1. Setup Middleware FIRST
 // ==========================================
-const allowedOrigins = [
-  "http://localhost:5173"
-];
+const corsOptions = createCorsOptions();
+const socketMonitor = createSocketMonitor();
+const SECRET_KEY = getJwtSecret();
 
-app.use(cors({
-  origin: true,
-  credentials: true,
-}));
+app.use(cors(corsOptions));
+app.use(securityHeaders);
+app.use(rejectCrossOriginMutations);
 app.use(cookieParser());
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', process.env.TRUST_PROXY);
+}
+app.set('socketMonitor', socketMonitor);
 
 // These parsers must run BEFORE the routes so req.body exists
 app.use(express.json({ limit: '5mb' })); 
@@ -76,26 +86,72 @@ function updateAndEmitStatus(io, matchId) {
 
 function createSocketIo(server) {
   const io = new Server(server, {
-    cors: {
-      origin: true,
-      credentials: true,
-    }
+    cors: corsOptions
   });
 
+  const parseCookies = (cookieHeader = '') => Object.fromEntries(
+    String(cookieHeader)
+      .split(';')
+      .map((part) => part.trim().split('='))
+      .filter(([key, value]) => key && value)
+      .map(([key, value]) => [key, decodeURIComponent(value)])
+  );
+
+  const getSocketUser = async (socket) => {
+    const authToken = socket.handshake.auth?.token;
+    const bearer = socket.handshake.headers.authorization;
+    const cookies = parseCookies(socket.handshake.headers.cookie);
+    const token = authToken || (bearer?.startsWith('Bearer ') ? bearer.slice(7) : null) || cookies.token;
+    if (!token) return null;
+
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const result = await db.query('SELECT id, role, status, team_id FROM users WHERE id = ?', [decoded.id]);
+    const user = result.rows[0];
+    if (!user || !['approved', 'active'].includes(String(user.status || '').toLowerCase())) return null;
+    return user;
+  };
+
+  const canJoinMatchRoom = async ({ socket, matchId, role, side }) => {
+    if (!matchId || !/^\d+$/.test(String(matchId))) return false;
+    if (!['viewer', 'referee', 'staff', 'scorer'].includes(String(role || 'viewer'))) return false;
+    if (role === 'viewer' || role === 'referee') return true;
+
+    const user = socket.user || await getSocketUser(socket);
+    if (!user) return false;
+    socket.user = user;
+
+    if (role === 'scorer') return roleHasPermission(user.role, 'match.score');
+    if (role !== 'staff' || !user.team_id || !['home', 'away'].includes(side)) return false;
+
+    const matchResult = await db.query('SELECT home_team_id, away_team_id FROM matches WHERE id = ?', [matchId]);
+    const match = matchResult.rows[0];
+    if (!match) return false;
+    const expectedTeamId = side === 'home' ? match.home_team_id : match.away_team_id;
+    return String(expectedTeamId) === String(user.team_id);
+  };
+
   io.on('connection', (socket) => {
+    socketMonitor.onConnect(socket);
     console.log(`🔌 Socket connected: ${socket.id}`);
     
-    socket.on('join_match', ({ matchId, role, side }) => {
+    socket.on('join_match', async ({ matchId, role = 'viewer', side }) => {
+      const allowed = await canJoinMatchRoom({ socket, matchId, role, side });
+      if (!allowed) {
+        socket.emit('join_error', { error: 'Not authorized to join this match room' });
+        return;
+      }
       socket.join(`match_${matchId}`);
       socket.matchId = matchId;
       socket.role = role;
       socket.side = side;
+      socketMonitor.onJoin(socket, matchId, role, side);
       console.log(`👤 Socket ${socket.id} joined room match_${matchId} as ${role} (${side || 'N/A'})`);
       
       updateAndEmitStatus(io, matchId);
     });
     
     socket.on('disconnect', () => {
+      socketMonitor.onDisconnect(socket);
       console.log(`❌ Socket disconnected: ${socket.id}`);
       if (socket.matchId) {
         updateAndEmitStatus(io, socket.matchId);

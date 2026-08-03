@@ -1,9 +1,15 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite' 
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      'react-router-dom': fileURLToPath(new URL('./src/router.jsx', import.meta.url)),
+    },
+  },
   plugins: [
     react(),
     tailwindcss(), 

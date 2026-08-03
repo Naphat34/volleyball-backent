@@ -16,9 +16,11 @@ const pool = mysql.createPool({
     
     charset: "utf8mb4",
 
-    ssl: {
-    rejectUnauthorized: false
-  }
+    ssl: process.env.DB_SSL === 'true'
+        ? {
+            rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
+        }
+        : undefined
 });
 
 function normalizeSql(sql) {

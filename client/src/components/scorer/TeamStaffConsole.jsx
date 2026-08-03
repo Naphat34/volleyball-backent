@@ -5,6 +5,7 @@ import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X } from '
 import client, { api } from '../../api';
 import Swal from 'sweetalert2';
 import { isPlayerLibero, filterActivePlayers } from '../../utils/playerFilters';
+import { getAuthToken, getStoredUser } from '../../authStorage';
 
 // Normalize and compare gender values for roster filtering
 const normalizeGender = (g) => String(g || '').trim().toLowerCase();
@@ -204,7 +205,7 @@ export default function TeamStaffConsole() {
             const m = matchRes.data;
             const live = liveRes.data;
 
-            const user = JSON.parse(localStorage.getItem('user'));
+            const user = getStoredUser();
             const isHome = String(m.home_team_id) === String(user?.team_id);
             const isAway = String(m.away_team_id) === String(user?.team_id);
 
@@ -345,7 +346,10 @@ export default function TeamStaffConsole() {
         if (!teamId || !teamSide) return;
 
         const socketUrl = getSocketServerUrl();
-        const socket = io(socketUrl);
+        const socket = io(socketUrl, {
+            auth: { token: getAuthToken() },
+            withCredentials: true
+        });
 
         socket.on('connect', () => {
             setIsConnected(true);

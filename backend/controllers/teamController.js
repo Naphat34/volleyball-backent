@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { writeAuditLog } = require('../utils/auditLogger');
 
 const getColumnName = (row) => row.column_name ?? row.COLUMN_NAME;
 
@@ -1014,6 +1015,12 @@ exports.deleteTeam = async (req, res) => {
     
     await client.query('BEGIN');
 
+    const teamBeforeResult = await client.query('SELECT * FROM teams WHERE id = ?', [id]);
+    if (teamBeforeResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Team not found" });
+    }
+
     // 1. ปลด User ออกจากทีมก่อน (สำคัญมาก เพราะติด FK users.team_id -> teams.id)
     await client.query('UPDATE users SET team_id = NULL WHERE team_id = ?', [id]);
 
@@ -1045,6 +1052,11 @@ exports.deleteTeam = async (req, res) => {
 
     // 5. ลบทีม
     const result = await client.query('DELETE FROM teams WHERE id = ?', [id]);
+
+    await writeAuditLog(req, 'team.delete', 'team', id, {
+      deleted: teamBeforeResult.rows[0],
+      related_match_ids: matchIds
+    }, client);
 
     await client.query('COMMIT');
 
@@ -1303,6 +1315,8 @@ exports.deleteMyTeam = async (req, res) => {
 
     await client.query('BEGIN');
 
+    const teamBeforeResult = await client.query('SELECT * FROM teams WHERE id = ?', [teamId]);
+
     // 2. ปลดทุกคนที่สังกัดทีมนี้ออก (รวมถึงตัวเอง)
     await client.query('UPDATE users SET team_id = NULL WHERE team_id = ?', [teamId]);
 
@@ -1331,6 +1345,11 @@ exports.deleteMyTeam = async (req, res) => {
 
     // 6. ลบทีม
     await client.query('DELETE FROM teams WHERE id = ?', [teamId]);
+
+    await writeAuditLog(req, 'team.self_delete', 'team', teamId, {
+      deleted: teamBeforeResult.rows[0] || null,
+      related_match_ids: matchIds
+    }, client);
 
     await client.query('COMMIT');
     res.json({ message: "Team and all associated data deleted successfully" });
@@ -1445,4 +1464,3 @@ exports.getMyMatchesByGender = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { writeAuditLog } = require('../utils/auditLogger');
 
 const parseNullableInt = (val) => {
   if (val === '' || val === null || val === undefined) return null;
@@ -195,7 +196,7 @@ module.exports = {
     const client = await db.pool.connect();
 
     try {
-        const { title, details, sport, gender, age_group_id, age_group_ids, start_date, end_date, location, status, max_sets, max_players, stadium_id } = req.body;
+        const { title, details, sport, gender, age_group_id, age_group_ids, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url } = req.body;
         const baseTitle = String(title || '').trim();
         const rawAgeGroups = Array.isArray(age_group_ids)
           ? age_group_ids
@@ -208,6 +209,7 @@ module.exports = {
         const cleanStadium = parseNullableInt(stadium_id);
         const cleanStartDate = parseNullableString(start_date);
         const cleanEndDate = parseNullableString(end_date);
+        const cleanLogoUrl = parseNullableString(logo_url);
 
         if (!baseTitle) {
             return res.status(400).json({ error: 'Please enter a competition name' });
@@ -242,8 +244,8 @@ module.exports = {
 
                 await client.query(
                     `INSERT INTO competitions
-                    (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         finalTitle,
                         details,
@@ -256,7 +258,8 @@ module.exports = {
                         status,
                         cleanMaxSets,
                         cleanMaxPlayers,
-                        cleanStadium
+                        cleanStadium,
+                        cleanLogoUrl
                     ]
                 );
                 existingKeys.add(key);
@@ -291,7 +294,7 @@ module.exports = {
   async updateCompetition(req, res) {
     try {
       const { id } = req.params;
-      const { title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id } = req.body;
+      const { title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url } = req.body;
 
       // Handle Gender: ถ้าแก้ไขรายการเดิม จะรับค่าได้แค่เพศเดียว
       // ถ้าส่งมาเป็น "Male,Female" ให้เอาแค่ตัวแรก (หรือ Frontend ควรส่งมาแค่ตัวเดียว)
@@ -304,6 +307,7 @@ module.exports = {
       const cleanStadium = parseNullableInt(stadium_id);
       const cleanStartDate = parseNullableString(start_date);
       const cleanEndDate = parseNullableString(end_date);
+      const cleanLogoUrl = parseNullableString(logo_url);
 
       if (!cleanAgeGroup) {
         return res.status(400).json({ error: 'Please select an age group' });
@@ -311,12 +315,12 @@ module.exports = {
 
       await db.query(
         `UPDATE competitions 
-         SET title=?, details=?, sport=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, stadium_id=?
+         SET title=?, details=?, sport=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, stadium_id=?, logo_url=?
          WHERE id=?`,
         [
           title, details, sport, 
           singleGender, // ใช้ค่าเดียว
-          cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxSets, cleanMaxPlayers, cleanStadium,
+          cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxSets, cleanMaxPlayers, cleanStadium, cleanLogoUrl,
           id
         ]
       );
@@ -339,8 +343,22 @@ module.exports = {
       const { id } = req.params;
       await client.query('BEGIN');
 
+      const beforeResult = await client.query('SELECT * FROM competitions WHERE id = ?', [id]);
+      if (beforeResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Competition not found' });
+      }
+      const relatedMatches = await client.query('SELECT id FROM matches WHERE competition_id = ?', [id]);
+      const relatedTeamEntries = await client.query('SELECT id FROM team_entries WHERE competition_id = ?', [id]);
+
       // ลบข้อมูลที่เกี่ยวข้องก่อน
       await client.query('DELETE FROM matches WHERE competition_id = ?', [id]);
+      await client.query(`
+        DELETE tep FROM team_entry_players tep
+        JOIN team_entries te ON te.id = tep.team_entry_id
+        WHERE te.competition_id = ?
+      `, [id]);
+      await client.query('DELETE FROM team_entries WHERE competition_id = ?', [id]);
       await client.query('DELETE FROM team_competitions WHERE competition_id = ?', [id]);
       
       const result = await client.query('DELETE FROM competitions WHERE id = ?', [id]);
@@ -349,6 +367,12 @@ module.exports = {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Competition not found' });
       }
+
+      await writeAuditLog(req, 'competition.delete', 'competition', id, {
+        deleted: beforeResult.rows[0],
+        related_match_ids: relatedMatches.rows.map((row) => row.id),
+        related_team_entry_ids: relatedTeamEntries.rows.map((row) => row.id)
+      }, client);
 
       await client.query('COMMIT');
       res.json({ message: 'Deleted successfully' });

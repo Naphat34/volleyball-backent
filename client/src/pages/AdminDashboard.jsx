@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useLanguage } from '../context/LanguageContext';
+import { getStoredUser } from '../authStorage';
 
 import CompetitionsTab from './CompetitionsTab';
 import HomeTab from './HomeTab';
@@ -53,10 +54,7 @@ export default function AdminDashboard() {
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const [user] = useState(() => {
-        const storedUser = localStorage.getItem('user');
-        return storedUser ? JSON.parse(storedUser) : null;
-    });
+    const [user] = useState(() => getStoredUser());
     const [pendingUsersCount, setPendingUsersCount] = useState(0);
 
     const fetchPendingUsersCount = useCallback(async () => {
