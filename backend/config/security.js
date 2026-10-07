@@ -1,17 +1,20 @@
-const DEFAULT_JWT_SECRET = 'development-only-secret-change-me';
+const DEFAULT_JWT_SECRET =
+  'development-only-secret-change-me';
 
-const parseCsv = (value) =>
-  String(value || '')
+function parseCsv(value) {
+  return String(value || '')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
 
 /**
  * JWT Secret
  */
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction =
+    process.env.NODE_ENV === 'production';
 
   if (!secret) {
     if (isProduction) {
@@ -27,7 +30,10 @@ function getJwtSecret() {
     return DEFAULT_JWT_SECRET;
   }
 
-  if (isProduction && secret.length < 32) {
+  if (
+    isProduction &&
+    secret.length < 32
+  ) {
     throw new Error(
       'JWT_SECRET must be at least 32 characters in production'
     );
@@ -37,46 +43,56 @@ function getJwtSecret() {
 }
 
 /**
- * CORS Allowed Origins
+ * Allowed CORS Origins
  */
 function getAllowedOrigins() {
-  const configuredOrigins = parseCsv(process.env.CORS_ORIGINS);
+  const configuredOrigins =
+    parseCsv(process.env.CORS_ORIGINS);
 
   if (configuredOrigins.length > 0) {
     return configuredOrigins;
   }
 
-  if (process.env.NODE_ENV === 'production') {
+  if (
+    process.env.NODE_ENV === 'production'
+  ) {
     throw new Error(
       'CORS_ORIGINS must be configured in production'
     );
   }
 
-  return ['http://localhost:5173'];
+  return [
+    'http://localhost:5173',
+  ];
 }
 
 /**
- * CORS Options
+ * CORS
  */
 function createCorsOptions() {
-  const allowedOrigins = getAllowedOrigins();
+  const allowedOrigins =
+    getAllowedOrigins();
 
   return {
     credentials: true,
 
     origin(origin, callback) {
-      // Allow requests without Origin header
-      // e.g. Postman, server-to-server
+      // Requests without Origin
+      // such as Postman/server-to-server
       if (!origin) {
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (
+        allowedOrigins.includes(origin)
+      ) {
         return callback(null, true);
       }
 
       return callback(
-        new Error(`Origin ${origin} is not allowed by CORS`)
+        new Error(
+          `Origin ${origin} is not allowed by CORS`
+        )
       );
     },
   };
@@ -85,7 +101,11 @@ function createCorsOptions() {
 /**
  * Reject cross-origin mutations
  */
-function rejectCrossOriginMutations(req, res, next) {
+function rejectCrossOriginMutations(
+  req,
+  res,
+  next
+) {
   const unsafeMethods = new Set([
     'POST',
     'PUT',
@@ -103,21 +123,29 @@ function rejectCrossOriginMutations(req, res, next) {
     return next();
   }
 
-  const allowedOrigins = getAllowedOrigins();
+  const allowedOrigins =
+    getAllowedOrigins();
 
-  if (allowedOrigins.includes(origin)) {
+  if (
+    allowedOrigins.includes(origin)
+  ) {
     return next();
   }
 
   return res.status(403).json({
-    error: 'Cross-origin request is not allowed',
+    error:
+      'Cross-origin request is not allowed',
   });
 }
 
 /**
  * Security Headers
  */
-function securityHeaders(req, res, next) {
+function securityHeaders(
+  req,
+  res,
+  next
+) {
   res.setHeader(
     'X-Content-Type-Options',
     'nosniff'
@@ -142,25 +170,29 @@ function securityHeaders(req, res, next) {
 }
 
 /**
- * Authentication Cookie
+ * Auth Cookie
  */
 function getAuthCookieOptions() {
   const isProduction =
     process.env.NODE_ENV === 'production';
 
   const sameSite =
-    process.env.AUTH_COOKIE_SAMESITE || 'lax';
+    process.env.AUTH_COOKIE_SAMESITE ||
+    'lax';
 
   return {
     httpOnly: true,
 
-    secure: process.env.AUTH_COOKIE_SECURE
-      ? process.env.AUTH_COOKIE_SECURE === 'true'
-      : isProduction,
+    secure:
+      process.env.AUTH_COOKIE_SECURE
+        ? process.env.AUTH_COOKIE_SECURE ===
+          'true'
+        : isProduction,
 
     sameSite,
 
-    maxAge: 2 * 24 * 60 * 60 * 1000,
+    maxAge:
+      2 * 24 * 60 * 60 * 1000,
 
     path: '/',
   };
