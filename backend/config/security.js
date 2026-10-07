@@ -9,29 +9,27 @@ function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
   const isProduction = process.env.NODE_ENV === 'production';
 
-  if (isProduction && (!secret || secret === DEFAULT_JWT_SECRET)) {
-    throw new Error('JWT_SECRET must be set to a strong non-default value in production');
-  }
-
   if (!secret) {
-    console.warn('JWT_SECRET is not set. Using development fallback secret.');
+    if (isProduction) {
+      throw new Error(
+        'JWT_SECRET must be set in production'
+      );
+    }
+
+    console.warn(
+      'JWT_SECRET is not set. Using development-only fallback secret.'
+    );
+
+    return 'development-only-secret-change-me';
   }
 
-  return secret || DEFAULT_JWT_SECRET;
-}
-
-function getAllowedOrigins() {
-  const configuredOrigins = parseCsv(process.env.CORS_ORIGINS);
-
-  if (configuredOrigins.length > 0) {
-    return configuredOrigins;
+  if (isProduction && secret.length < 32) {
+    throw new Error(
+      'JWT_SECRET must be at least 32 characters in production'
+    );
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('CORS_ORIGINS must be configured in production');
-  }
-
-  return ['http://localhost:5173'];
+  return secret;
 }
 
 function createCorsOptions() {
