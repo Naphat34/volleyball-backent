@@ -1,4 +1,4 @@
-const DEFAULT_JWT_SECRET = 'mySuperSecretKey123';
+const DEFAULT_JWT_SECRET = 'xtVd6N8sxQncjM3sxS1S73shdHDECy4kde4KmobMnYP';
 
 const parseCsv = (value) => String(value || '')
   .split(',')
