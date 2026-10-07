@@ -58,6 +58,7 @@ router.get('/public/teams', publicController.getAllTeams);
 // -- Specific Data --
 router.get('/public/competitions/:competitionId/teams', publicController.getCompetitionTeams);
 router.get('/public/teams/:teamId/players', publicController.getTeamPlayers);
+router.get('/public/players/:id/stats', playerController.getPlayerStats);
 router.get('/public/matches', publicController.getMatches);
 router.get('/public/teams/:teamId/staff', publicController.getTeamStaff);
 router.get('/public/statistics/:competitionId', publicController.getStatistics);
@@ -76,6 +77,10 @@ router.use('/scorer', scorerRoutes);
 // ==================================================================
 
 // --- User / My Team ---
+router.get('/me', authController.getMe);
+router.put('/me', validateRequest('updateMe'), authController.updateMe);
+router.put('/me/password', validateRequest('changePassword'), authController.changeMyPassword);
+
 router.post('/upload-image', rateLimit({ windowMs: 15 * 60 * 1000, max: 30, keyPrefix: 'upload-image' }), validateRequest('uploadImage'), async (req, res) => {
   try {
     const { image } = req.body;
@@ -120,11 +125,14 @@ router.get('/my-team/players/stats', teamController.getMyPlayersStats);
 router.get('/my-team/staff', authMiddleware.canManageOwnTeam, teamController.getMyTeamStaff);
 router.post('/my-team/staff', authMiddleware.canManageOwnTeam, teamController.addStaffToMyTeam);
 router.put('/my-team/staff/:id', authMiddleware.canManageOwnTeam, teamController.updateStaff);
+router.put('/my-team/staff/:id/entries', authMiddleware.canManageOwnTeam, teamController.updateMyStaffEntries);
 router.delete('/my-team/staff/:id', authMiddleware.canManageOwnTeam, teamController.deleteStaff);
 router.get('/my-team/competitions', competitionsController.getMyCompetitions);
 router.get('/my-team/entries', competitionsController.getMyTeamEntries);
 router.get('/my-team/entries/:entryId/players', competitionsController.getMyTeamEntryPlayers);
 router.put('/my-team/entries/:entryId/players', authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryPlayers);
+router.get('/my-team/entries/:entryId/staff', authMiddleware.canManageOwnTeam, competitionsController.getMyTeamEntryStaff);
+router.put('/my-team/entries/:entryId/staff', authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryStaff);
 router.post('/competitions/join', authMiddleware.canManageOwnTeam, competitionsController.joinCompetition);
 router.post('/competitions/leave', authMiddleware.canManageOwnTeam, competitionsController.leaveCompetition);
 
@@ -161,6 +169,7 @@ router.put('/admin/competitions/:id', authMiddleware.canManageCompetitions, comp
 router.delete('/admin/competitions/:id', authMiddleware.canManageCompetitions, competitionsController.deleteCompetition);
 router.patch('/admin/competitions/:id/status', authMiddleware.canManageCompetitions, competitionsController.toggleCompetitionStatus);
 router.get('/admin/competitions/:competitionId/teams', authMiddleware.canManageCompetitions, competitionsController.getCompetitionTeams);
+router.delete('/admin/competitions/:competitionId/teams/:teamId', authMiddleware.canManageCompetitions, competitionsController.removeTeamFromCompetition);
 router.get('/admin/competitions/:competitionId/matches', authMiddleware.canManageMatches, matchController.getMatchesByCompetition);
 
 // --- Admin: Users ---

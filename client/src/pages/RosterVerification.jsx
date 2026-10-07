@@ -1,3 +1,4 @@
+import { StatusBadge } from '../components/ui/SystemUI';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api';
@@ -57,7 +58,7 @@ const RosterVerification = () => {
     return (
         <div className="min-h-screen bg-gray-100 py-6 print:p-0 print:bg-white text-black font-sans">
             {/* Action Bar for Screen Only */}
-            <div className="max-w-[287mm] mx-auto mb-4 flex justify-between items-center print:hidden px-4">
+            <div className="max-w-[287mm] mx-auto mb-4 flex flex-wrap gap-3 justify-between items-center print:hidden px-4">
                 <button 
                     onClick={() => window.history.back()}
                     className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 shadow transition-all font-semibold"
@@ -72,6 +73,7 @@ const RosterVerification = () => {
                 </button>
             </div>
 
+            <div className="mx-auto mb-4 flex max-w-[287mm] flex-wrap items-center gap-3 px-4 print:hidden"><StatusBadge tone={homePlayers.length && awayPlayers.length ? 'success' : 'warning'}>{homePlayers.length && awayPlayers.length ? 'มีรายชื่อทั้งสองทีม / Rosters available' : 'ตรวจรายชื่อก่อนพิมพ์ / Review missing rosters'}</StatusBadge><span className="text-sm text-slate-600">Home {homePlayers.length} · Away {awayPlayers.length}</span></div>
             {/* Print Container (A4 Landscape) */}
             <div id="o2-form" className="w-[287mm] h-[198mm] bg-white mx-auto border border-gray-300 print:border-none shadow-lg print:shadow-none p-[6mm] flex flex-col justify-between box-border relative">
                 

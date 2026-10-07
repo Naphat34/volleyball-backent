@@ -1,298 +1,443 @@
-import React, { useState, useEffect } from 'react';
+import { calculateStandings } from '../../utils/standings';
+import { Feedback, StatusBadge } from '../../components/ui/SystemUI';
+import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
+import PublicHeader from '../../components/PublicHeader';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, ArrowRight, LogIn, CalendarDays, Clock, MapPin, Menu, X } from 'lucide-react';
-import { api } from '../../api';
+import client from '../../api';
+import { Activity, ArrowRight, BarChart3, CalendarDays, Clock, MapPin, Shield, Star, Target, Trophy, Users, Zap } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
-import { formatThaiDate } from '../../utils';
+import { formatThaiDate, formatThaiTime } from '../../utils';
+import {
+    findCompetitionGroupById,
+    getPublicCompetitionVariantLabel,
+    groupPublicCompetitions
+} from '../../utils/publicCompetitionGrouping';
+
+const statusIsLive = (status) => ['live', 'set_playing', 'in_progress'].includes(String(status || '').toLowerCase());
+const statusIsFinished = (status) => ['completed', 'finished', 'match_finished'].includes(String(status || '').toLowerCase());
+
+const getTeamName = (match, side) => (
+    side === 'home'
+        ? match.team_a_name || match.home_team_name || 'TBD'
+        : match.team_b_name || match.away_team_name || 'TBD'
+);
+
+const getTeamLogo = (match, side) => (
+    side === 'home'
+        ? match.team_a_logo || match.home_team_logo_url || ''
+        : match.team_b_logo || match.away_team_logo_url || ''
+);
+
+const TeamBadge = ({ name, logoUrl, size = 'md' }) => {
+    const sizeClass = size === 'lg' ? 'h-14 w-14 text-sm' : 'h-9 w-9 text-[10px]';
+    const initials = String(name || 'TBD').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+
+    return (
+        <div className={`${sizeClass} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white font-bold text-slate-500`}>
+            {logoUrl ? (
+                <img src={logoUrl} alt={name || 'Team'} className="h-full w-full object-contain p-1" />
+            ) : initials}
+        </div>
+    );
+};
 
 export default function LandingPage() {
     const navigate = useNavigate();
-    const { language, setLanguage, t } = useLanguage();
+    const { language, t } = useLanguage();
+    const [competitions, setCompetitions] = useState([]);
+    const [selectedCompetitionId, setSelectedCompetitionId] = useState('');
     const [matches, setMatches] = useState([]);
+    const [teams, setTeams] = useState([]);
+    const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+    const [competitionError, setCompetitionError] = useState(false);
+    const [statisticsError, setStatisticsError] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
+    const [lastUpdated, setLastUpdated] = useState(null);
+    useEffect(() => { if (selectedCompetitionId) writeViewPreference('publicCompetition', selectedCompetitionId); }, [selectedCompetitionId]);
+
+
+    const isThai = language === 'THA';
+    const competitionGroups = useMemo(() => groupPublicCompetitions(competitions), [competitions]);
+    const selectedGroup = findCompetitionGroupById(competitionGroups, selectedCompetitionId);
+    const selectedTitle = selectedGroup?.title || (isThai ? 'รายการแข่งขัน' : 'Competition');
 
     useEffect(() => {
-        const fetchMatches = async () => {
+        let cancelled = false;
+
+        const fetchCompetitions = async () => {
+            setCompetitionError(false);
             try {
-                const res = await api.getPublicMatches();
-                setMatches(res.data);
+                const res = await client.get('/public/competitions');
+                const openCompetitions = (res.data || []).filter((competition) => (
+                    String(competition.status || '').toLowerCase() === 'open'
+                ));
+                if (cancelled) return;
+                setCompetitions(openCompetitions);
+                const remembered = readViewPreference('publicCompetition');
+                const selected = openCompetitions.find(item => String(item.id) === String(remembered)) || openCompetitions[0];
+                setSelectedCompetitionId(selected?.id ? String(selected.id) : '');
             } catch (error) {
-                console.error("Error fetching matches:", error);
-            } finally {
-                setLoading(false);
+                console.error('Error fetching competitions:', error);
+                if (!cancelled) setCompetitionError(true);
             }
         };
-        fetchMatches();
-    }, []);
 
-    const TeamLogo = ({ name, logoUrl }) => {
-        if (logoUrl) {
+        fetchCompetitions();
+        return () => {
+            cancelled = true;
+        };
+    }, [reloadKey]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchDashboardData = async () => {
+            setLoading(true);
+            setLoadError(false);
+            setStatisticsError(false);
+            setStats(null);
+            try {
+                const [matchesRes, teamsRes, statsRes] = await Promise.all([
+                    selectedCompetitionId ? client.get(`/public/matches?competitionId=${selectedCompetitionId}`) : client.get('/public/matches'),
+                    selectedCompetitionId ? client.get(`/public/competitions/${selectedCompetitionId}/teams`) : Promise.resolve({ data: [] }),
+                    selectedCompetitionId ? client.get(`/public/statistics/${selectedCompetitionId}`).catch(() => ({ data: null, unavailable: true })) : Promise.resolve({ data: null })
+                ]);
+
+                if (cancelled) return;
+                setMatches(matchesRes.data || []);
+                setLastUpdated(new Date());
+                setTeams(teamsRes.data || []);
+                setStats(statsRes.data || null);
+                setStatisticsError(Boolean(statsRes.unavailable));
+            } catch (error) {
+                console.error('Error fetching landing data:', error);
+                if (!cancelled) {
+                    setLoadError(true);
+                    setMatches([]);
+                    setTeams([]);
+                    setStats(null);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedCompetitionId, reloadKey]);
+
+    const liveMatches = matches.filter((match) => statusIsLive(match.status));
+    const finishedMatches = matches.filter((match) => statusIsFinished(match.status));
+    const upcomingMatches = matches.filter((match) => !statusIsLive(match.status) && !statusIsFinished(match.status));
+    const featuredMatch = liveMatches[0] || upcomingMatches[0] || finishedMatches[0] || matches[0] || null;
+    const recentResults = finishedMatches.slice(-3).reverse();
+
+    const standingsPreview = useMemo(() => calculateStandings(teams, matches, competitions).slice(0, 5), [teams, matches, competitions]);
+
+    const topPlayers = [
+        { key: 'best_scorers', label: isThai ? 'ทำคะแนน' : 'Scorers', icon: <Star size={16} className="text-amber-500" /> },
+        { key: 'best_spikers', label: isThai ? 'ตบ' : 'Spikers', icon: <Zap size={16} className="text-red-500" /> },
+        { key: 'best_blockers', label: isThai ? 'บล็อก' : 'Blockers', icon: <Shield size={16} className="text-emerald-600" /> },
+        { key: 'best_servers', label: isThai ? 'เสิร์ฟ' : 'Servers', icon: <Target size={16} className="text-blue-600" /> }
+    ].map((item) => ({
+        ...item,
+        player: Array.isArray(stats?.[item.key]) ? stats[item.key][0] : null
+    })).filter((item) => item.player);
+
+    const quickLinks = [
+        { label: t('nav.matches'), icon: <CalendarDays size={18} />, path: '/matches' },
+        { label: t('nav.teams'), icon: <Users size={18} />, path: '/teams' },
+        { label: t('nav.standings'), icon: <BarChart3 size={18} />, path: '/standings' },
+        { label: t('nav.stats'), icon: <Activity size={18} />, path: '/stats' }
+    ];
+
+    const selectCompetitionGroup = (groupKey) => {
+        const group = competitionGroups.find((item) => item.key === groupKey);
+        setSelectedCompetitionId(group?.items[0]?.id ? String(group.items[0].id) : '');
+    };
+
+    const MatchCard = ({ match, compact = false }) => {
+        if (!match) {
             return (
-                <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center overflow-hidden shadow-sm">
-                    <img src={logoUrl} alt={name || "Team"} className="w-full h-full object-cover" />
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
+                    {isThai ? 'ยังไม่มีแมตช์สำหรับรายการนี้' : 'No match available for this competition'}
                 </div>
             );
         }
-        const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : "??";
+
+        const homeSets = match.team_a_score ?? match.home_set_score ?? '-';
+        const awaySets = match.team_b_score ?? match.away_set_score ?? '-';
+
         return (
-            <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center text-[10px] font-bold text-gray-500 shadow-sm">
-                {initials}
-            </div>
+            <button
+                type="button"
+                onClick={() => navigate(`/match-centre/${match.id}`)}
+                className={`w-full rounded-xl border border-slate-200 bg-white text-left transition hover:border-blue-300 hover:bg-blue-50/40 ${compact ? 'p-3' : 'p-5'}`}
+            >
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500">
+                    <span className="rounded bg-blue-50 px-2 py-1 text-blue-700">#{match.match_number || '-'}</span>
+                    <span className="flex items-center gap-1"><Clock size={13} />{formatThaiTime(match.start_time)}</span>
+                    {statusIsLive(match.status) ? (
+                        <span className="rounded bg-red-100 px-2 py-1 text-red-700">LIVE</span>
+                    ) : statusIsFinished(match.status) ? (
+                        <span className="rounded bg-slate-100 px-2 py-1 text-slate-600">{isThai ? 'จบแล้ว' : 'Finished'}</span>
+                    ) : (
+                        <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-700">{isThai ? 'กำลังจะมาถึง' : 'Upcoming'}</span>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <TeamBadge name={getTeamName(match, 'home')} logoUrl={getTeamLogo(match, 'home')} size={compact ? 'md' : 'lg'} />
+                        <div className="min-w-0 truncate text-sm font-bold text-slate-900">{getTeamName(match, 'home')}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center score-number font-mono text-xl font-black text-slate-900">
+                        {homeSets} <span className="text-slate-300">-</span> {awaySets}
+                    </div>
+                    <div className="flex min-w-0 flex-row-reverse items-center gap-3 text-right">
+                        <TeamBadge name={getTeamName(match, 'away')} logoUrl={getTeamLogo(match, 'away')} size={compact ? 'md' : 'lg'} />
+                        <div className="min-w-0 truncate text-sm font-bold text-slate-900">{getTeamName(match, 'away')}</div>
+                    </div>
+                </div>
+
+                {!compact && (
+                    <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span className="flex items-center gap-1"><CalendarDays size={13} />{match.match_date ? formatThaiDate(match.match_date) : '-'}</span>
+                        <span className="flex items-center gap-1"><MapPin size={13} />{match.stadium_name || match.location || '-'}</span>
+                        {match.round_name && <span>{match.round_name}</span>}
+                    </div>
+                )}
+            </button>
         );
     };
 
-    // Group matches by date
-    const groupedMatches = matches.reduce((acc, match) => {
-        const key = match.match_date || "Unknown Date";
-        if (!acc[key]) {
-            acc[key] = {
-                dateString: match.match_date,
-                stadium: match.stadium_name || "",
-                matches: []
-            };
-        }
-        acc[key].matches.push(match);
-        return acc;
-    }, {});
-
     return (
-        <div className="min-h-screen bg-[#f8f9fa] text-gray-800 font-sans pb-16">
+        <div className="app-page min-h-screen pb-16 font-sans text-slate-800">
+            <PublicHeader />
+            {(loadError || competitionError || statisticsError) && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={isThai ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load competition data'} description={isThai ? 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่' : 'Check your connection and try again.'} onRetry={() => setReloadKey(key => key + 1)} retryLabel={isThai ? 'ลองใหม่' : 'Retry'} /></div>}
 
-            {/* --- Navbar --- */}
-            <nav className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">V</div>
-                            <span className="font-bold text-xl tracking-tight text-indigo-900">{t('nav.systemName')}</span>
+            <section className="bg-[#122b52] text-white">
+                <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-12">
+                    <div className="flex flex-col justify-center">
+                        <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-blue-50">
+                            <Trophy size={15} />
+                            {isThai ? 'ศูนย์กลางการแข่งขันวอลเลย์บอล' : 'Volleyball Competition Centre'}
                         </div>
-                        <div className="flex items-center gap-8">
-                            <div className="hidden md:flex items-center gap-8">
-                                <button onClick={() => navigate('/')} className="text-sm font-medium text-blue-600 hover:text-blue-700 transition cursor-pointer">{t('nav.home')}</button>
-                                <button onClick={() => navigate('/teams')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.teams')}</button>
-                                <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.matches')}</button>
-                                <button onClick={() => navigate('/standings')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.standings')}</button>
-                                <button onClick={() => navigate('/stats')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.stats')}</button>
-                            </div>
-                            <div className="hidden md:flex gap-4 items-center">
-                                {/* Language Selector */}
-                                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                                    <button
-                                        onClick={() => setLanguage('THA')}
-                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                            language === 'THA'
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        TH
-                                    </button>
-                                    <button
-                                        onClick={() => setLanguage('ENG')}
-                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                            language === 'ENG'
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        EN
-                                    </button>
-                                </div>
-                                <button
-                                    onClick={() => navigate('/login')}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm cursor-pointer"
-                                >
-                                    <LogIn size={18} /> {t('nav.login')}
-                                </button>
-                            </div>
-                            {/* Hamburger Menu Icon */}
-                            <div className="flex items-center md:hidden">
-                                <button
-                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 focus:outline-none"
-                                >
-                                    {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {/* Mobile Menu Dropdown */}
-                {isMenuOpen && (
-                    <div className="md:hidden bg-white border-t border-gray-100 shadow-inner px-4 pt-2 pb-4 space-y-1">
-                        <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-blue-650 hover:bg-gray-55">{t('nav.home')}</button>
-                        <button onClick={() => { navigate('/teams'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.teams')}</button>
-                        <button onClick={() => { navigate('/matches'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.matches')}</button>
-                        <button onClick={() => { navigate('/standings'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.standings')}</button>
-                        <button onClick={() => { navigate('/stats'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.stats')}</button>
-                        
-                        {/* Mobile Menu Language Selector */}
-                        <div className="flex justify-between items-center px-3 py-2 border-t border-gray-100 mt-2">
-                            <span className="text-sm font-medium text-gray-500">Language / ภาษา</span>
-                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                                <button
-                                    onClick={() => setLanguage('THA')}
-                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                        language === 'THA'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500'
-                                    }`}
-                                >
-                                    TH
-                                </button>
-                                <button
-                                    onClick={() => setLanguage('ENG')}
-                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                        language === 'ENG'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500'
-                                    }`}
-                                >
-                                    EN
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100 mt-2">
-                            <button
-                                onClick={() => { navigate('/login'); setIsMenuOpen(false); }}
-                                className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
-                            >
-                                <LogIn size={18} /> {t('nav.login')}
+                        <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight md:text-5xl">{isThai ? 'ทุกการแข่งขัน ในที่เดียว' : 'Every match. One place.'}</h1>
+                        <p className="mt-4 max-w-2xl text-base leading-7 text-blue-50 md:text-lg">
+                            {isThai
+                                ? 'ติดตามแมตช์สด ตารางแข่งขัน ผลการแข่งขัน ตารางคะแนน และสถิตินักกีฬาของทุกรายการแข่งขัน'
+                                : 'Follow live matches, schedules, results, standings, and player statistics across competitions.'}
+                        </p>
+                        <div className="mt-7 flex flex-wrap gap-3">
+                            <button onClick={() => navigate('/matches')} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-blue-950 hover:bg-blue-50">
+                                {isThai ? 'ดูตารางแข่งขัน' : 'View Schedule'} <ArrowRight size={18} />
+                            </button>
+                            <button onClick={() => navigate('/teams')} className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/10">
+                                {isThai ? 'ทีมเข้าร่วม' : 'Teams'} <Users size={18} />
                             </button>
                         </div>
                     </div>
-                )}
-            </nav>
 
-            {/* --- Match Schedule Section --- */}
-            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 ">
-                <div className="flex items-center justify-center md:justify-start gap-2 text-[#14366A] font-semibold text-xl">
-                    <CalendarDays size={24} />
-                    <span>{t('landing.schedule')}</span>
+                    <div className="rounded-xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2"><StatusBadge tone={liveMatches.length ? 'live' : 'info'} dot>{liveMatches.length ? 'LIVE' : (isThai ? 'แมตช์เด่น' : 'Featured')}</StatusBadge>{lastUpdated && <span className="text-xs text-blue-100">{isThai ? 'อัปเดต' : 'Updated'} {lastUpdated.toLocaleTimeString(isThai ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}</div>
+                                <div className="mt-1 text-lg font-black">{selectedTitle}</div>
+                            </div>
+                            {featuredMatch && (
+                                <button onClick={() => navigate(`/match-centre/${featuredMatch.id}`)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-950 hover:bg-blue-50">
+                                    Match Centre
+                                </button>
+                            )}
+                        </div>
+                        <MatchCard match={featuredMatch} />
+                    </div>
                 </div>
-            </div>
-            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-4 mb-20">
-                {loading ? (
-                    <div className="text-center py-20 text-gray-500 font-medium">{t('landing.loading')}</div>
-                ) : Object.keys(groupedMatches).length === 0 ? (
-                    <div className="text-center py-20 text-gray-500 font-medium">{t('landing.noMatches')}</div>
-                ) : (
-                    Object.values(groupedMatches).map((group, index) => {
-                        const dateFormatted = group.dateString 
-                            ? formatThaiDate(group.dateString) 
-                            : t('landing.unknownDate');
+            </section>
 
-                        return (
-                            <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 mb-8">
-                                {/* Header */}
-                                <div className="bg-[#14366A] text-white px-6 py-4 flex flex-col md:flex-row justify-between items-center shadow-inner">
-                                    <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-center md:text-left text-sm md:text-base font-medium">
-                                        <span className="font-bold text-lg md:text-xl">{t('landing.matchSchedule')}</span>
-                                        {group.stadium && (
-                                            <>
-                                                <span className="hidden md:inline text-white/50">|</span>
-                                                <span className="text-blue-50 uppercase tracking-tight text-xs md:text-sm flex items-center gap-1">
-                                                    <MapPin size={14} /> {group.stadium}
-                                                </span>
-                                            </>
-                                        )}
+            <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1400px] space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+                <section className="rounded-xl border border-slate-200 bg-white p-5">
+                    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <h2 className="flex items-center gap-2 text-xl font-black text-blue-950">
+                                <Trophy size={22} /> {isThai ? 'เลือกรายการแข่งขัน' : 'Choose Competition'}
+                            </h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                {isThai ? 'เลือกชื่อรายการหลัก แล้วเลือกประเภทหรือรุ่นการแข่งขันด้านล่าง' : 'Choose a competition, then select a category below.'}
+                            </p>
+                        </div>
+                        <select
+                            value={selectedGroup?.key || ''}
+                            onChange={(event) => selectCompetitionGroup(event.target.value)}
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:max-w-sm"
+                        >
+                            {competitionGroups.length === 0 ? (
+                                <option>{isThai ? 'ไม่มีรายการแข่งขัน' : 'No competition'}</option>
+                            ) : competitionGroups.map((group) => (
+                                <option key={group.key} value={group.key}>{group.title}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {competitionGroups.map((group) => {
+                            const isSelected = group.key === selectedGroup?.key;
+                            return (
+                                <button
+                                    key={group.key}
+                                    type="button"
+                                    onClick={() => setSelectedCompetitionId(String(group.items[0]?.id || ''))}
+                                    className={`flex min-h-[86px] items-center gap-3 rounded-xl border p-3 text-left transition ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-300'}`}
+                                >
+                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                                        {group.logo_url ? <img src={group.logo_url} alt={group.title} className="h-full w-full object-contain p-1" /> : <Trophy size={22} className="text-slate-300" />}
                                     </div>
-                                    <div className="mt-4 md:mt-0 bg-white text-[#14366A] px-4 py-1.5 rounded text-sm font-bold shadow-sm whitespace-nowrap">
-                                        {dateFormatted}
+                                    <div className="min-w-0">
+                                        <div className="truncate text-sm font-black text-slate-900">{group.title}</div>
+                                        <div className="mt-1 text-xs text-slate-500">{group.items.length} {isThai ? 'รุ่น/ประเภท' : 'categories'}</div>
                                     </div>
-                                </div>
+                                </button>
+                            );
+                        })}
+                    </div>
 
-                                {/* Day Bar */}
-                                <div className="bg-[#eaf3fc] border-b border-gray-200 px-6 py-3 flex items-center justify-center md:justify-start gap-2 text-[#14366A] font-semibold text-sm">
-                                    <CalendarDays size={18} />
-                                    <span>{dateFormatted}</span>
-                                </div>
+                    {selectedGroup?.items.length > 1 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {selectedGroup.items.map((competition) => (
+                                <button
+                                    key={competition.id}
+                                    type="button"
+                                    onClick={() => setSelectedCompetitionId(String(competition.id))}
+                                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${String(selectedCompetitionId) === String(competition.id) ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'}`}
+                                >
+                                    {getPublicCompetitionVariantLabel(competition, language)}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </section>
 
-                                {/* Matches Container */}
-                                <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 bg-white">
-                                    {group.matches.map((match, mIndex) => {
-                                        // Determine color based on gender
-                                        const genderText = (match.match_gender || '').toLowerCase();
-                                        let themeColor = "#14366A"; // Default / Men (น้ำเงินเข้ม)
-                                        if (genderText.includes('women') || genderText.includes('หญิง') || genderText.includes('female')) {
-                                            themeColor = "#ec4899"; // Women (สีชมพู)
-                                        }
+                <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+                    <div className="space-y-6">
+                        <div className="rounded-xl border border-slate-200 bg-white">
+                            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                                <h2 className="flex items-center gap-2 font-black text-blue-950">
+                                    <CalendarDays size={20} /> {isThai ? 'โปรแกรมและผลล่าสุด' : 'Schedule & Results'}
+                                </h2>
+                                <button onClick={() => navigate('/matches')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                                    {isThai ? 'ดูทั้งหมด' : 'View all'}
+                                </button>
+                            </div>
+                            <div className="space-y-3 p-5">
+                                {loading ? (
+                                    <div className="py-12 text-center text-sm text-slate-500">{t('common.loading')}</div>
+                                ) : matches.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-500">
+                                        {isThai ? 'ยังไม่มีโปรแกรมการแข่งขันในรายการนี้' : 'No matches in this competition yet.'}
+                                    </div>
+                                ) : (
+                                    [...liveMatches, ...upcomingMatches, ...recentResults].slice(0, 5).map((match) => (
+                                        <MatchCard key={match.id} match={match} compact />
+                                    ))
+                                )}
+                            </div>
+                        </div>
 
-                                        return (
-                                            <div key={match.id} className="bg-white border border-gray-200 rounded-lg relative shadow-sm hover:shadow-md transition-shadow flex flex-col min-h-[160px] overflow-hidden">
-                                                {/* Left strip */}
-                                                <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{ backgroundColor: themeColor }}></div>
-                                                
-                                                {/* Match Info Header */}
-                                                <div className="flex justify-between items-center bg-gray-50 px-4 py-3 pl-5 border-b border-gray-100">
-                                                    <span className="font-bold text-sm" style={{ color: themeColor }}>#{match.match_number || mIndex + 1}</span>
-                                                    <div className="flex items-center gap-1.5 text-gray-500 text-xs font-semibold">
-                                                        <Clock size={13} className="text-gray-400" /> {match.start_time}
-                                                    </div>
-                                                    <button 
-                                                        onClick={() => navigate(`/match-centre/${match.id}`)}
-                                                        className="border text-[11px] font-semibold px-3 py-1 rounded-full transition bg-white hover:bg-gray-500 hover:text-white shadow-sm" 
-                                                        style={{ borderColor: themeColor, color: themeColor }}
-                                                    >
-                                                        Match Centre
-                                                    </button>
-                                                </div>
-                                                
-                                                {/* Teams and Score Content */}
-                                                <div className="flex justify-between items-center flex-1 gap-2 p-4 pt-6 pl-5 pb-8">
-                                                    {/* Team A */}
-                                                    <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-3 flex-1 w-[35%] text-center sm:text-right">
-                                                        <div className="text-[11px] sm:text-[13px] font-semibold text-gray-800 leading-tight order-2 sm:order-1 sm:mt-0 mt-1">
-                                                            {match.team_a_name || "TBD"}
-                                                        </div>
-                                                        <div className="order-1 sm:order-2">
-                                                            <TeamLogo name={match.team_a_name} logoUrl={match.team_a_logo} />
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    {/* Score */}
-                                                    <div className="flex flex-col items-center justify-center w-[30%] px-1 relative shrink-0 -mt-2">
-                                                        <div className="text-2xl sm:text-[28px] font-bold tracking-widest text-[#1e293b] whitespace-nowrap">
-                                                            {match.team_a_score ?? '-'} <span className="text-gray-400 mx-1">-</span> {match.team_b_score ?? '-'}
-                                                        </div>
-                                                        <div className="absolute -bottom-6 flex flex-col items-center">
-                                                            <span className={`text-[9px] font-bold px-2 py-[3px] rounded tracking-wider shadow-sm uppercase ${
-                                                                match.status === 'COMPLETED' ? 'bg-[#cdedd1] text-[#2db540]' 
-                                                                : match.status === 'LIVE' ? 'bg-red-100 text-red-600'
-                                                                : 'bg-gray-100 text-gray-500'
-                                                            }`}>
-                                                                {match.status || 'SCHEDULED'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    {/* Team B */}
-                                                    <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 flex-1 w-[35%] text-center sm:text-left">
-                                                        <div className="order-1">
-                                                            <TeamLogo name={match.team_b_name} logoUrl={match.team_b_logo} />
-                                                        </div>
-                                                        <div className="text-[11px] sm:text-[13px] font-semibold text-gray-800 leading-tight order-2 sm:mt-0 mt-1">
-                                                            {match.team_b_name || "TBD"}
-                                                        </div>
-                                                    </div>
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                            {quickLinks.map((link) => (
+                                <button
+                                    key={link.path}
+                                    onClick={() => navigate(link.path)}
+                                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-4 text-sm font-black text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                                >
+                                    {link.icon} {link.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <aside className="space-y-6">
+                        <div className="rounded-xl border border-slate-200 bg-white">
+                            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                                <h2 className="flex items-center gap-2 font-black text-blue-950">
+                                    <BarChart3 size={20} /> {isThai ? 'อันดับทีม' : 'Standings'}
+                                </h2>
+                                <button onClick={() => navigate('/standings')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                                    {isThai ? 'ตารางเต็ม' : 'Full table'}
+                                </button>
+                            </div>
+                            <div className="p-5">
+                                {standingsPreview.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-500">
+                                        {isThai ? 'ยังไม่มีคะแนนสะสม' : 'No standings yet.'}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {standingsPreview.map((team, index) => (
+                                            <div key={team.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                                <div className="w-6 text-center text-sm font-black text-blue-700">{index + 1}</div>
+                                                <TeamBadge name={team.name} logoUrl={team.logo_url} />
+                                                <div className="min-w-0 flex-1 truncate text-sm font-bold">{team.name}</div>
+                                                <div className="text-right">
+                                                    <div className="text-sm font-black text-slate-900">{team.points}</div>
+                                                    <div className="text-[10px] uppercase text-slate-400">PTS</div>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        );
-                    })
-                )}
-            </div>
+                        </div>
 
-            {/* --- Footer --- */}
-            <footer className="bg-gray-900 text-gray-400 py-6 text-center text-sm w-full fixed bottom-0 z-40">
-                <p>&copy; {new Date().getFullYear()} Volleyball Tournament System. All rights reserved.</p>
+                        <div className="rounded-xl border border-slate-200 bg-white">
+                            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                                <h2 className="flex items-center gap-2 font-black text-blue-950">
+                                    <Star size={20} /> {isThai ? 'นักกีฬาน่าสนใจ' : 'Top Performers'}
+                                </h2>
+                                <button onClick={() => navigate('/stats')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                                    {isThai ? 'สถิติทั้งหมด' : 'All stats'}
+                                </button>
+                            </div>
+                            <div className="p-5">
+                                {topPlayers.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-500">
+                                        {isThai ? 'ยังไม่มีข้อมูลสถิตินักกีฬา' : 'No player statistics yet.'}
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {topPlayers.map((item) => (
+                                            <div key={item.key} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
+                                                    {item.icon}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="text-xs font-bold text-slate-500">{item.label}</div>
+                                                    <div className="truncate text-sm font-black text-slate-900">
+                                                        {item.player.player_name || item.player.name || `${item.player.first_name || ''} ${item.player.last_name || ''}`.trim() || '-'}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right text-sm font-black text-blue-700">
+                                                    {item.player.total ?? item.player.points ?? item.player.value ?? ''}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </aside>
+                </section>
+            </main>
+
+            <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
+                Copyright {new Date().getFullYear()} Volley Manager. All rights reserved.
             </footer>
-
         </div>
     );
 }

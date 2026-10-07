@@ -28,6 +28,38 @@ const parseNullableJson = (val) => {
     return val;
 };
 
+const normalizeSetScores = (setScores) => {
+    if (setScores === '' || setScores === null || setScores === undefined) return [];
+    const parsed = typeof setScores === 'string' ? JSON.parse(setScores) : setScores;
+    if (!Array.isArray(parsed)) {
+        const error = new Error('Set scores must be an array');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return parsed.map((setScore) => {
+        if (typeof setScore !== 'string' || !/^\d+\s*-\s*\d+$/.test(setScore.trim())) {
+            const error = new Error('Set scores must use home-away format');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const [homePoints, awayPoints] = String(setScore).split('-').map((point) => Number.parseInt(point.trim(), 10));
+        if (homePoints === awayPoints) {
+            const error = new Error('Set scores cannot be tied');
+            error.statusCode = 400;
+            throw error;
+        }
+        return { homePoints, awayPoints, label: `${homePoints}-${awayPoints}` };
+    });
+};
+
+const countSetsWon = (sets) => sets.reduce((totals, setScore) => {
+    if (setScore.homePoints > setScore.awayPoints) totals.home += 1;
+    if (setScore.awayPoints > setScore.homePoints) totals.away += 1;
+    return totals;
+}, { home: 0, away: 0 });
+
 const parseRequestDetails = (details) => {
     if (!details) return null;
     if (typeof details === 'object') return details;
@@ -196,6 +228,19 @@ module.exports = {
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
                 LEFT JOIN competitions c ON m.competition_id = c.id
                 LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
+                LEFT JOIN (
+                    SELECT
+                        match_id,
+                        SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) AS home_set_score,
+                        SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END) AS away_set_score,
+                        CONCAT(
+                            '[',
+                            GROUP_CONCAT(CONCAT('"', home_score, '-', away_score, '"') ORDER BY set_number ASC SEPARATOR ','),
+                            ']'
+                        ) AS set_scores
+                    FROM match_sets
+                    GROUP BY match_id
+                ) ms ON ms.match_id = m.id
                 ORDER BY 
                     m.start_time DESC,
                     m.id DESC
@@ -602,46 +647,53 @@ module.exports = {
                 set_scores          // JSON string ของคะแนนเซต: '["25-20", "25-22"]'
             } = req.body;
 
-            const beforeResult = await client.query('SELECT * FROM matches WHERE id = ?', [id]);
+            const beforeResult = await client.query(`
+                SELECT m.*, COALESCE(c.max_sets, 5) AS max_sets
+                FROM matches m
+                LEFT JOIN competitions c ON m.competition_id = c.id
+                WHERE m.id = ?
+            `, [id]);
             if (beforeResult.rows.length === 0) {
                 await client.query('ROLLBACK');
                 return res.status(404).json({ error: "Match not found" });
             }
 
             // 1. อัปเดตข้อมูลหลักในตาราง matches
+            const normalizedSets = normalizeSetScores(set_scores);
+            const calculatedSets = countSetsWon(normalizedSets);
+            const homeSetScore = normalizedSets.length > 0 ? calculatedSets.home : Number.parseInt(home_set_score, 10);
+            const awaySetScore = normalizedSets.length > 0 ? calculatedSets.away : Number.parseInt(away_set_score, 10);
+            const storedSetScores = JSON.stringify(normalizedSets.map((setScore) => setScore.label));
+            const maxSets = Number.parseInt(beforeResult.rows[0].max_sets, 10) || 5;
+            const setsToWin = Math.ceil(maxSets / 2);
+            const isCompleted = String(status).toLowerCase() === 'completed';
+            const winnerTeamId = isCompleted && homeSetScore >= setsToWin
+                ? beforeResult.rows[0].home_team_id
+                : isCompleted && awaySetScore >= setsToWin
+                    ? beforeResult.rows[0].away_team_id
+                    : null;
+
             await client.query(`
                 UPDATE matches 
-                SET home_set_score = ?, away_set_score = ?, set_scores = ?, status = ?
+                SET home_set_score = ?, away_set_score = ?, set_scores = ?, status = ?, winner_team_id = ?
                 WHERE id = ?
-            `, [home_set_score, away_set_score, set_scores, status, id]);
+            `, [homeSetScore, awaySetScore, storedSetScores, status, winnerTeamId, id]);
 
             // 2. จัดการคะแนนรายเซต (match_sets)
-            if (set_scores && typeof set_scores === 'string') {
-                const parsedSets = JSON.parse(set_scores);
-                if (parsedSets.length > 0) {
-                    // ลบข้อมูลเซตเก่าของแมตช์นี้ออกก่อน (กันซ้ำ)
-                    await client.query('DELETE FROM match_sets WHERE match_id = ?', [id]);
+            await client.query('DELETE FROM match_sets WHERE match_id = ?', [id]);
 
-                    // วนลูป Insert เซตใหม่
-                    for (let i = 0; i < parsedSets.length; i++) {
-                        const setScore = parsedSets[i];
-                        const [homePoints, awayPoints] = setScore.split('-').map(Number);
-                        
-                        if (!isNaN(homePoints) && !isNaN(awayPoints)) {
-                            await client.query(`
-                                INSERT INTO match_sets (match_id, set_number, home_score, away_score)
-                                VALUES (?, ?, ?, ?)
-                            `, [id, i + 1, homePoints, awayPoints]);
-                        }
-                    }
-                }
+            for (let i = 0; i < normalizedSets.length; i++) {
+                const setScore = normalizedSets[i];
+                await client.query(`
+                    INSERT INTO match_sets (match_id, set_number, home_score, away_score)
+                    VALUES (?, ?, ?, ?)
+                `, [id, i + 1, setScore.homePoints, setScore.awayPoints]);
             }
-
             const afterResult = await client.query('SELECT * FROM matches WHERE id = ?', [id]);
             await writeAuditLog(req, 'match.result_update', 'match', id, {
                 before: beforeResult.rows[0],
                 after: afterResult.rows[0],
-                changes: { home_set_score, away_set_score, status, set_scores }
+                changes: { home_set_score: homeSetScore, away_set_score: awaySetScore, status, set_scores: storedSetScores, winner_team_id: winnerTeamId }
             }, client);
 
             await client.query('COMMIT'); // ยืนยันข้อมูล
@@ -657,7 +709,7 @@ module.exports = {
         } catch (err) {
             await client.query('ROLLBACK'); // ย้อนกลับถ้ามี Error
             console.error("Update Match Result Error:", err);
-            res.status(500).json({ error: "Database error" });
+            res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : "Database error" });
         } finally {
             client.release();
         }

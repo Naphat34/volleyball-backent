@@ -30,7 +30,7 @@ export default function MobileTeamDrawer({
     const contrastColor = getContrastColorHex(activeColor);
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[150] flex items-center justify-end lg:hidden animate-fade-in pointer-events-auto">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[150] flex items-center justify-end xl:hidden animate-fade-in pointer-events-auto">
             <div className="bg-white w-full max-w-sm h-full flex flex-col shadow-2xl relative overflow-hidden">
                 {/* Drawer Header */}
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -42,7 +42,8 @@ export default function MobileTeamDrawer({
                     </h3>
                     <button
                         onClick={onClose}
-                        className="p-1 rounded-full hover:bg-slate-200 text-slate-500 transition-colors"
+                        aria-label="Close team panel"
+                        className="min-h-11 min-w-11 p-1 rounded-full hover:bg-slate-200 text-slate-500 transition-colors"
                     >
                         <X size={20} />
                     </button>

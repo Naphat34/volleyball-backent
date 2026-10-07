@@ -31,10 +31,11 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     try {
       await api.register(formData);
-      
+
       Swal.fire({
         icon: 'success',
         title: t('register.successTitle'),
@@ -59,7 +60,7 @@ export default function Register() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between bg-gradient-to-tr from-[#1e40af] via-[#3b82f6] to-[#60a5fa] overflow-hidden font-sans pb-24">
+    <div className="relative min-h-screen flex flex-col justify-between bg-[#122b52] overflow-hidden font-sans pb-24">
       {/* Language Switcher */}
       <div className="absolute top-4 right-4 z-25 flex gap-2">
         <button
@@ -91,13 +92,13 @@ export default function Register() {
       {/* Main Container */}
       <div className="flex-grow flex items-center justify-center px-4 py-12 relative z-10">
         <div className="w-full max-w-4xl bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(30,64,175,0.3)] border border-white/20 p-8 md:p-10 transition-all duration-300 hover:shadow-[0_25px_60px_rgba(30,64_175,0.4)]">
-          
+
           {/* Logo & Header */}
           <div className="text-center mb-10">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 border border-blue-100 shadow-inner mb-4">
               <Trophy className="w-8 h-8 text-blue-600" />
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">
               {t('register.title')}
             </h1>
             <p className="text-sm text-gray-500 mt-2 font-medium">
@@ -106,20 +107,22 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            
+
             {/* ส่วนที่ 1: ข้อมูลบัญชีผู้ใช้ */}
             <div className="space-y-4">
               <h3 className="text-sm font-bold uppercase text-blue-600 tracking-wider flex items-center gap-2 border-b border-gray-100 pb-2">
                 <User size={16} /> {t('register.accountInfo')}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InputField 
-                  label={t('register.username')} 
-                  name="username" 
-                  icon={<User size={18}/>} 
-                  value={formData.username} 
-                  onChange={handleChange} 
-                  required 
+                <InputField
+                  label={t('register.username')}
+                  id="auth-username"
+                  autoComplete="username"
+                  name="username"
+                  icon={<User size={18}/>}
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
                   placeholder={t('login.usernamePlaceholder')}
                 />
                 <div className="space-y-1.5">
@@ -128,18 +131,22 @@ export default function Register() {
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                       <Lock size={18}/>
                     </div>
-                    <input 
-                      type={showPassword ? 'text' : 'password'} 
-                      name="password" 
-                      value={formData.password || ''} 
-                      onChange={handleChange} 
-                      required 
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="auth-password"
+                  autoComplete="new-password"
+                  name="password"
+                      value={formData.password || ''}
+                      onChange={handleChange}
+                      required
                       placeholder={t('register.enterPassword')}
                       className="w-full pl-12 pr-11 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={language === 'THA' ? (showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน') : (showPassword ? 'Hide password' : 'Show password')}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword(!showPassword)}
                       className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-blue-500 transition-colors"
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -155,56 +162,56 @@ export default function Register() {
                 <Trophy size={16} /> {t('register.clubDetails')}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InputField 
-                  label={t('register.teamName')} 
-                  name="name" 
-                  icon={<Users size={18}/>} 
-                  value={formData.name} 
-                  onChange={handleChange} 
-                  required 
+                <InputField
+                  label={t('register.teamName')}
+                  name="name"
+                  icon={<Users size={18}/>}
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
                   placeholder={t('register.teamName')}
                 />
-                <InputField 
-                  label={t('register.teamCode')} 
-                  name="code" 
-                  icon={<FileText size={18}/>} 
-                  maxLength={10} 
-                  value={formData.code} 
-                  onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})} 
-                  required 
+                <InputField
+                  label={t('register.teamCode')}
+                  name="code"
+                  icon={<FileText size={18}/>}
+                  maxLength={10}
+                  value={formData.code}
+                  onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                  required
                   placeholder={t('register.teamCode')}
                 />
-                <InputField 
-                  label={t('register.managerName')} 
-                  name="manager_name" 
-                  icon={<User size={18}/>} 
-                  value={formData.manager_name} 
-                  onChange={handleChange} 
-                  required 
+                <InputField
+                  label={t('register.managerName')}
+                  name="manager_name"
+                  icon={<User size={18}/>}
+                  value={formData.manager_name}
+                  onChange={handleChange}
+                  required
                   placeholder={t('register.managerName')}
                 />
-                <InputField 
-                  label={t('register.coach')} 
-                  name="coach" 
-                  icon={<User size={18}/>} 
-                  value={formData.coach} 
-                  onChange={handleChange} 
+                <InputField
+                  label={t('register.coach')}
+                  name="coach"
+                  icon={<User size={18}/>}
+                  value={formData.coach}
+                  onChange={handleChange}
                   placeholder={t('register.coach')}
                 />
-                <InputField 
-                  label={t('register.phone')} 
-                  name="phone" 
-                  icon={<Phone size={18}/>} 
-                  value={formData.phone} 
-                  onChange={handleChange} 
-                  required 
+                <InputField
+                  label={t('register.phone')}
+                  name="phone"
+                  icon={<Phone size={18}/>}
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
                   placeholder={t('register.phone')}
                 />
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-gray-600 ml-1">{t('register.category')}</label>
-                  <select 
-                    name="category" 
-                    value={formData.category} 
+                  <select
+                    name="category"
+                    value={formData.category}
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200 font-medium"
                   >
@@ -213,36 +220,38 @@ export default function Register() {
                     <option value="Mixed">Mixed</option>
                   </select>
                 </div>
-                <InputField 
-                  label={t('register.province')} 
-                  name="province" 
-                  icon={<MapPin size={18}/>} 
-                  value={formData.province} 
-                  onChange={handleChange} 
-                  required 
+                <InputField
+                  label={t('register.province')}
+                  name="province"
+                  icon={<MapPin size={18}/>}
+                  value={formData.province}
+                  onChange={handleChange}
+                  required
                   placeholder={t('register.province')}
                 />
-                <InputField 
-                  label={t('register.email')} 
-                  name="email" 
-                  type="email" 
-                  icon={<Mail size={18}/>} 
-                  value={formData.email} 
-                  onChange={handleChange} 
+                <InputField
+                  label={t('register.email')}
+                  id="auth-email"
+                  autoComplete="email"
+                  name="email"
+                  type="email"
+                  icon={<Mail size={18}/>}
+                  value={formData.email}
+                  onChange={handleChange}
                   placeholder={t('register.email')}
                 />
               </div>
             </div>
-            
-            <button 
-              type="submit" 
+
+            <button
+              type="submit"
               disabled={loading}
-              className={`w-full ${loading ? 'bg-gray-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'} text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer text-lg mt-6`}
+              className={`w-full ${loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer text-lg mt-6`}
             >
               {loading ? t('register.submitting') : t('register.registerBtn')}
             </button>
           </form>
-          
+
           {/* Link back to Login */}
           <div className="mt-8 text-center border-t border-gray-100 pt-6">
              <p className="text-sm text-gray-500">
@@ -277,12 +286,12 @@ function InputField({ label, name, value, onChange, required, icon, type = "text
       <label className="text-xs font-semibold text-gray-600 ml-1">{label}</label>
       <div className="relative">
         {icon && <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>}
-        <input 
-          type={type} 
-          name={name} 
-          value={value || ''} 
-          onChange={onChange} 
-          required={required} 
+        <input
+          type={type}
+          name={name}
+          value={value || ''}
+          onChange={onChange}
+          required={required}
           maxLength={maxLength}
           placeholder={placeholder || `Enter ${label.toLowerCase()}`}
           className={`w-full ${icon ? 'pl-12' : 'px-4'} py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200`}

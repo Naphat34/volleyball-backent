@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { LogOut, User, Edit3, Shield, Menu, X } from "lucide-react";
+import { LogOut, User, Edit3, Shield, Menu, X, Trophy } from "lucide-react";
 import { api } from "../api";
 import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../utils";
 import { getStoredUser } from "../authStorage";
@@ -37,6 +37,23 @@ const MatchDetail = () => {
     return displayName || "-";
   };
 
+  const isDisplayablePlayer = (player = {}) => {
+    const number = getPlayerNumber(player);
+    return number !== "-";
+  };
+
+  const normalizeRosterPlayers = (players = []) => {
+    const seen = new Set();
+    return (Array.isArray(players) ? players : [])
+      .filter(isDisplayablePlayer)
+      .filter((player) => {
+        const key = String(player.id || player.player_id || `${getPlayerNumber(player)}:${getPlayerName(player)}`);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
   const getPlayerNumber = (player = {}) => {
     const number = normalizeDisplayText(player.number || player.jersey_number || player.shirt_number);
     return number || "-";
@@ -65,6 +82,28 @@ const MatchDetail = () => {
     return "";
   };
 
+  const normalizeSportType = () => "indoor";
+
+  const getPlayerSportTypes = (value) => {
+    const sportTypes = Array.isArray(value) ? value : String(value || "indoor").split(",");
+    return sportTypes
+      .map(type => normalizeSportType(type))
+      .filter(Boolean)
+      .filter((type, index, list) => list.indexOf(type) === index);
+  };
+
+  const getSportBadgeClass = () => "border-blue-200 bg-blue-50 text-blue-700";
+
+  const filterPlayersByMatchSport = (players = [], sportType = "indoor") => (
+    normalizeRosterPlayers(players).filter(player => getPlayerSportTypes(player.sport_types).includes(sportType))
+  );
+
+  const getMatchScopeLabel = (match = {}) => {
+    const ageGroup = normalizeDisplayText(match.age_group_name);
+    const gender = normalizeDisplayText(match.competition_gender || match.gender);
+    return [ageGroup, gender].filter(Boolean).join(" / ");
+  };
+
   const handleLogout = () => {
     localStorage.clear();
     sessionStorage.clear();
@@ -91,6 +130,22 @@ const MatchDetail = () => {
   if (!data || !data.match) return <div className="p-10 text-center font-sans text-gray-500">ไม่พบข้อมูลแมตช์</div>;
 
   const { match, home, away } = data;
+  const matchSportType = normalizeSportType(match.competition_sport_type || match.sport_type || match.competition_sport);
+  const homePlayers = filterPlayersByMatchSport(home?.players, matchSportType);
+  const awayPlayers = filterPlayersByMatchSport(away?.players, matchSportType);
+  const matchScopeLabel = getMatchScopeLabel(match);
+  const rosterEmptyText = matchScopeLabel
+    ? `ยังไม่ได้จัดรายชื่อนักกีฬาสำหรับ ${matchScopeLabel}`
+    : "ยังไม่ได้จัดรายชื่อนักกีฬาสำหรับแมตช์นี้";
+
+  const goToScorerConsole = () => {
+    navigate(`/scorer/${matchId}`, {
+      state: {
+        resetScorerRoster: true,
+        matchRosterData: data
+      }
+    });
+  };
 
   return (
     <div
@@ -103,7 +158,7 @@ const MatchDetail = () => {
                 <div className="flex justify-between h-16 items-center">
                   {/* Logo Section */}
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden">
+                    <div className="w-15 h-15 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden">
                       <img src={Logo} alt="Logo" className="w-9 h-9 object-contain" />
                     </div>
                     <div className="leading-tight">
@@ -178,6 +233,12 @@ const MatchDetail = () => {
           */}
         <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-5 sm:p-7">
           <h2 className="text-center text-xl font-bold text-blue-950 mb-2">{cleanCompetitionTitle(match.competition_title || match.competition_name) || "รายการแข่งขัน"}</h2>
+          <div className="flex justify-center">
+            <span className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-semibold ${getSportBadgeClass(matchSportType)}`}>
+              <Trophy size={14} />
+              Indoor Volleyball
+            </span>
+          </div>
           <div className="flex items-center justify-center gap-6 my-7 flex-wrap">
             <div className="flex items-center justify-end gap-4 text-right flex-1 min-w-[200px]">
               <span className="text-xl font-bold text-slate-800">{match.home_team_name}</span>
@@ -246,7 +307,7 @@ const MatchDetail = () => {
                    <Edit3 size={48} className="text-blue-600" />
                 </div>
                 <button
-                  onClick={() => navigate(`/scorer/${matchId}`)}
+                  onClick={goToScorerConsole}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-md transition-colors text-sm"
                 >
                   Go to Scorer Console
@@ -276,7 +337,12 @@ const MatchDetail = () => {
 
         {/* Rosters Section (Players Only) */}
         <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-5 sm:p-7">
-          <h3 className="text-lg font-bold text-blue-950 mb-6 border-l-4 border-blue-600 pl-3">รายชื่อนักกีฬา (Match Rosters)</h3>
+          <div className="mb-6 border-l-4 border-blue-600 pl-3">
+            <h3 className="text-lg font-bold text-blue-950">รายชื่อนักกีฬา (Match Rosters)</h3>
+            {matchScopeLabel ? (
+              <p className="mt-1 text-sm font-medium text-slate-500">รุ่น/ประเภท: {matchScopeLabel}</p>
+            ) : null}
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Home Players */}
             <div className="space-y-4">
@@ -294,7 +360,7 @@ const MatchDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {home.players && home.players.length > 0 ? home.players.map(player => (
+                    {homePlayers.length > 0 ? homePlayers.map(player => (
                       <tr key={player.id} className="border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors">
                         <td className="py-3 px-4 text-center">
                           <div className="w-10 h-10 mx-auto bg-slate-50 rounded-md overflow-hidden border border-blue-100 flex items-center justify-center">
@@ -313,7 +379,7 @@ const MatchDetail = () => {
                         </td>
                         
                       </tr>
-                    )) : <tr><td colSpan="3" className="py-8 text-center text-gray-400 italic">ไม่มีข้อมูลนักกีฬา</td></tr>}
+                    )) : <tr><td colSpan="3" className="py-8 text-center text-gray-400 italic">{rosterEmptyText}</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -335,7 +401,7 @@ const MatchDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {away.players && away.players.length > 0 ? away.players.map(player => (
+                    {awayPlayers.length > 0 ? awayPlayers.map(player => (
                       <tr key={player.id} className="border-b border-slate-100 last:border-0 hover:bg-blue-50/40 transition-colors">
                         <td className="py-3 px-4 text-center">
                           <div className="w-10 h-10 mx-auto bg-slate-50 rounded-md overflow-hidden border border-blue-100 flex items-center justify-center">
@@ -354,7 +420,7 @@ const MatchDetail = () => {
                         </td>
                       
                       </tr>
-                    )) : <tr><td colSpan="3" className="py-8 text-center text-gray-400 italic">ไม่มีข้อมูลนักกีฬา</td></tr>}
+                    )) : <tr><td colSpan="3" className="py-8 text-center text-gray-400 italic">{rosterEmptyText}</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -419,8 +485,8 @@ const MatchDetail = () => {
         </div>
       </div>
 
-      {/* Fixed Footer */}
-      <footer className="bg-white border-t border-blue-100 py-3 text-center text-xs w-full fixed bottom-0 left-0 z-30 text-slate-500">
+      {/* Footer */}
+      <footer className="bg-white border-t border-blue-100 py-3 text-center text-xs w-full text-slate-500">
         <div className="max-w-7xl mx-auto px-4">
           &copy; {new Date().getFullYear()} Volleyball Scorer Console. All rights reserved.
         </div>
@@ -430,3 +496,4 @@ const MatchDetail = () => {
 };
 
 export default MatchDetail;
+

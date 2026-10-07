@@ -61,6 +61,49 @@ test('validateRequest accepts valid match result payloads', () => {
   assert.equal(res.statusCode, 200);
 });
 
+test('validateRequest accepts array match result payloads', () => {
+  const middleware = validateRequest('updateMatchResult');
+  const req = {
+    body: {
+      home_set_score: 2,
+      away_set_score: 0,
+      status: 'completed',
+      set_scores: ['25-20', '25-22'],
+    },
+  };
+  const res = createResponse();
+  let nextCalled = false;
+
+  middleware(req, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, true);
+  assert.equal(res.statusCode, 200);
+});
+
+test('validateRequest rejects tied set scores', () => {
+  const middleware = validateRequest('updateMatchResult');
+  const req = {
+    body: {
+      home_set_score: 1,
+      away_set_score: 0,
+      status: 'completed',
+      set_scores: ['25-25'],
+    },
+  };
+  const res = createResponse();
+  let nextCalled = false;
+
+  middleware(req, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, false);
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.error, 'Set scores cannot be tied');
+});
+
 test('validateRequest rejects VIS stats without a player', () => {
   const middleware = validateRequest('scorerEvent');
   const req = {

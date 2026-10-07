@@ -199,6 +199,15 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
         return fallbackPlayers;
     };
 
+    const buildStaffForCompetition = (competition) => {
+        const entryId = Number(competition.team_entry_id);
+        if (!Number.isFinite(entryId)) return [];
+
+        return (staff || []).filter((staffMember) => (
+            (staffMember.assigned_entries || []).some((entry) => Number(entry.team_entry_id) === entryId)
+        ));
+    };
+
     const buildFormData = (competition) => {
         const gender = normalizeGender(competition.gender || competition.competition_gender || competition.entry_gender);
         const ageGroupName = resolveAgeGroupName(competition, ageGroupNameMap);
@@ -218,13 +227,19 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                 name: teamInfo?.name || '',
                 code: teamInfo?.code || '',
                 competition_name: competitionName,
+                competition_logo_url: competition.logo_url || competition.competition_logo_url || competition.logo || '',
             },
             players: buildPlayersForCompetition(competition),
+            staff: buildStaffForCompetition(competition),
         };
     };
 
     const selectedForms = selectedGroup?.items.map(buildFormData) || [];
-    const pdfKey = `${selectedGroupKey}_${players.length}_${staff.length}_${JSON.stringify(teamInfo)}_${JSON.stringify(Object.keys(entryRosterById))}`;
+    const staffAssignmentKey = JSON.stringify((staff || []).map((staffMember) => ({
+        id: staffMember.id,
+        entries: (staffMember.assigned_entries || []).map((entry) => entry.team_entry_id)
+    })));
+    const pdfKey = `${selectedGroupKey}_${players.length}_${staff.length}_${staffAssignmentKey}_${JSON.stringify(teamInfo)}_${JSON.stringify(Object.keys(entryRosterById))}`;
 
     return (
         <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700">
@@ -283,7 +298,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                 <div className="flex flex-wrap gap-3">
                                     <PDFDownloadLink
                                         key={`dl-${pdfKey}_${form.key}`}
-                                        document={<O2FormDocument teamInfo={form.teamInfo} players={form.players} staff={staff} />}
+                                        document={<O2FormDocument teamInfo={form.teamInfo} players={form.players} staff={form.staff} />}
                                         fileName={fileName}
                                         className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition font-bold shadow-md dark:shadow-none ${form.rosterReady
                                             ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-100'
@@ -337,7 +352,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                             <div className="flex items-center gap-3">
                                 <BlobProvider
                                     key={`print-${pdfKey}_${previewForm.key}`}
-                                    document={<O2FormDocument teamInfo={previewForm.teamInfo} players={previewForm.players} staff={staff} />}
+                                    document={<O2FormDocument teamInfo={previewForm.teamInfo} players={previewForm.players} staff={previewForm.staff} />}
                                 >
                                     {({ url, loading }) => (
                                         <button
@@ -365,7 +380,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                         </div>
                         <div className="flex-1">
                             <PDFViewer width="100%" height="100%" className="border-none shadow-inner">
-                                <O2FormDocument teamInfo={previewForm.teamInfo} players={previewForm.players} staff={staff} />
+                                <O2FormDocument teamInfo={previewForm.teamInfo} players={previewForm.players} staff={previewForm.staff} />
                             </PDFViewer>
                         </div>
                     </div>

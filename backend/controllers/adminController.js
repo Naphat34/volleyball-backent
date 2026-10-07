@@ -28,12 +28,12 @@ module.exports = {
                 gender, is_captain, is_libero1, is_libero2
             } = req.body;
 
-            // ✅ Validation: number is required
+            // Validation: number is required
             if (!number || number === '' || number === null || number === undefined) {
                 return res.status(400).json({ error: 'Player number is required' });
             }
 
-            // ✅ Validation: at least first_name or last_name must be provided
+            // Validation: at least first_name or last_name must be provided
             const cleanFirstName = parseNullablePersonName(first_name);
             const cleanLastName = parseNullablePersonName(last_name);
             if (!cleanFirstName && !cleanLastName) {
@@ -89,12 +89,12 @@ module.exports = {
                 gender, is_captain, is_libero1, is_libero2, is_playing
             } = req.body;
 
-            // ✅ Validation: number is required ONLY if being updated
+            // Validation: number is required ONLY if being updated
             if (number !== undefined && (!number || number === '' || number === null)) {
                 return res.status(400).json({ error: 'Player number is required' });
             }
 
-            // ✅ Validation: at least first_name or last_name ONLY if names are being updated
+            // Validation: at least first_name or last_name ONLY if names are being updated
             if ((first_name !== undefined || last_name !== undefined) && 
                 (!first_name || first_name === '') && (!last_name || last_name === '')) {
                 return res.status(400).json({ error: 'At least first name or last name must be provided' });

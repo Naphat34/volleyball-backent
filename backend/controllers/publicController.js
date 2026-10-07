@@ -31,17 +31,21 @@ module.exports = {
             const hasMaxSets = await hasTableColumn('competitions', 'max_sets');
             const hasAgeGroupId = await hasTableColumn('competitions', 'age_group_id');
             const hasLogoUrl = await hasTableColumn('competitions', 'logo_url');
+            const hasSportType = await hasTableColumn('competitions', 'sport_type');
+            const hasScoringConfig = await hasTableColumn('competitions', 'scoring_config');
             const canJoinAgeGroups = hasAgeGroupId && await hasTable('age_groups');
             const dateSelect = hasMatchDate ? 'c.match_date' : 'NULL as match_date';
             const endDateSelect = hasEndDate ? 'c.end_date' : 'NULL as end_date';
             const maxSetsSelect = hasMaxSets ? 'c.max_sets' : '3 as max_sets';
             const logoSelect = hasLogoUrl ? 'c.logo_url' : 'NULL as logo_url';
+            const sportTypeSelect = hasSportType ? 'c.sport_type' : "'indoor' as sport_type";
+            const scoringConfigSelect = hasScoringConfig ? 'c.scoring_config' : 'NULL as scoring_config';
             const ageGroupSelect = canJoinAgeGroups ? 'ag.name as age_group_name' : 'NULL as age_group_name';
             const ageGroupJoin = canJoinAgeGroups ? 'LEFT JOIN age_groups ag ON c.age_group_id = ag.id' : '';
             const orderDate = hasMatchDate ? 'COALESCE(c.match_date, c.start_date)' : 'c.start_date';
 
             const [rows] = await db.query(`
-                SELECT c.id, c.title, c.gender, ${logoSelect}, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
+                SELECT c.id, c.title, c.gender, ${sportTypeSelect}, ${scoringConfigSelect}, ${logoSelect}, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
                        ${maxSetsSelect}, ${ageGroupSelect}
                 FROM competitions c
                 ${ageGroupJoin}
@@ -92,6 +96,15 @@ module.exports = {
                     SELECT p.id,
                         p.first_name,
                         p.last_name,
+                        COALESCE(eligibility.sport_types, 'indoor') as sport_types,
+                        COALESCE(c.sport_type, 'indoor') as registered_sport_type,
+                        CASE
+                            WHEN FIND_IN_SET(
+                                CONVERT(COALESCE(c.sport_type, 'indoor') USING utf8mb4) COLLATE utf8mb4_general_ci,
+                                CONVERT(COALESCE(eligibility.sport_types, 'indoor') USING utf8mb4) COLLATE utf8mb4_general_ci
+                            ) > 0 THEN 1
+                            ELSE 0
+                        END as sport_eligible,
                         COALESCE(tep.role, p.position) as position,
                         COALESCE(tep.role, p.position) as role,
                         COALESCE(tep.number, p.number) as number,
@@ -105,7 +118,13 @@ module.exports = {
                         COALESCE(tep.is_libero2, p.is_libero2, 0) as is_libero2
                     FROM team_entry_players tep
                     JOIN team_entries te ON te.id = tep.team_entry_id
+                    JOIN competitions c ON c.id = te.competition_id
                     JOIN players p ON p.id = tep.player_id
+                    LEFT JOIN (
+                        SELECT player_id, GROUP_CONCAT(sport_type ORDER BY sport_type SEPARATOR ',') as sport_types
+                        FROM player_sport_eligibilities
+                        GROUP BY player_id
+                    ) eligibility ON eligibility.player_id = p.id
                     WHERE te.team_id = ?
                       AND te.competition_id = ?
                       AND (tep.is_playing = 1 OR tep.is_playing = true OR tep.is_playing IS NULL)
@@ -119,6 +138,7 @@ module.exports = {
                     SELECT id,
                         first_name,
                         last_name,
+                        COALESCE(eligibility.sport_types, 'indoor') as sport_types,
                         position,
                         position as role,
                         number,
@@ -130,10 +150,15 @@ module.exports = {
                         is_captain,
                         is_libero1,
                         is_libero2
-                    FROM players
-                    WHERE team_id = ?
-                      AND (is_playing = 1 OR is_playing = true OR is_playing IS NULL)
-                    ORDER BY number ASC
+                    FROM players p
+                    LEFT JOIN (
+                        SELECT player_id, GROUP_CONCAT(sport_type ORDER BY sport_type SEPARATOR ',') as sport_types
+                        FROM player_sport_eligibilities
+                        GROUP BY player_id
+                    ) eligibility ON eligibility.player_id = p.id
+                    WHERE p.team_id = ?
+                      AND (p.is_playing = 1 OR p.is_playing = true OR p.is_playing IS NULL)
+                    ORDER BY p.number ASC
                 `, [teamId]);
                 rows = fallbackRows;
             }

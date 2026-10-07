@@ -1,16 +1,25 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { calculateStandings as buildStandings } from '../../utils/standings';
+import { Feedback } from '../../components/ui/SystemUI';
+import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
+import PublicHeader from '../../components/PublicHeader';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import client from '../../api';
-import { Trophy, Filter, LogIn, X, Menu } from 'lucide-react';
-import { cleanCompetitionTitle } from '../../utils';
+import { Trophy, Filter, X } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import {
+    findCompetitionGroupById,
+    getPublicCompetitionVariantLabel,
+    groupPublicCompetitions
+} from '../../utils/publicCompetitionGrouping';
 
 export default function PublicStandings() {
-    const navigate = useNavigate();
-    const { language, setLanguage, t } = useLanguage();
+
+    const { language, t } = useLanguage();
     const [competitions, setCompetitions] = useState([]);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
     const [selectedCompId, setSelectedCompId] = useState('');
+    useEffect(() => { if (selectedCompId) writeViewPreference('publicCompetition', selectedCompId); }, [selectedCompId]);
     const [standings, setStandings] = useState([]);
     const [loading, setLoading] = useState(false);
     const [allMatches, setAllMatches] = useState([]);
@@ -24,245 +33,81 @@ export default function PublicStandings() {
                 const openComps = res.data.filter(c => c.status?.toLowerCase() === 'open');
                 setCompetitions(openComps);
                 if (openComps.length > 0) {
-                    setSelectedCompId(openComps[0].id);
+                    const remembered = readViewPreference('publicCompetition');
+                    setSelectedCompId((openComps.find(item => String(item.id) === String(remembered)) || openComps[0]).id);
                 }
             } catch (err) {
                 console.error("Error fetching competitions:", err);
+                setLoadError(true);
             }
         };
         fetchComps();
-    }, []);
+    }, [reloadKey]);
 
     // 2. คำนวณตารางคะแนนเมื่อเลือกรายการแข่งขัน
     const calculateStandings = useCallback(async (compId) => {
         setLoading(true);
         try {
-            // ดึงข้อมูลแมตช์และทีมแบบ Public
-            const [matchesRes, teamsRes] = await Promise.all([
-                client.get(`/public/matches?competitionId=${compId}`),
-                client.get(`/public/competitions/${compId}/teams`)
+            const competitionIds = compId
+                ? [compId]
+                : competitions
+                    .map((competition) => competition.id)
+                    .filter((id) => id !== undefined && id !== null && id !== '');
+
+            if (competitionIds.length === 0) {
+                setAllMatches([]);
+                setStandings([]);
+                return;
+            }
+
+            const [matchesRes, teamResults] = await Promise.all([
+                client.get(compId ? `/public/matches?competitionId=${compId}` : '/public/matches'),
+                Promise.all(competitionIds.map((id) => client.get(`/public/competitions/${id}/teams`)))
             ]);
 
             const matches = matchesRes.data;
             setAllMatches(matches);
-            const teams = teamsRes.data;
-
-            // เตรียม Object เก็บสถิติ
-            const stats = {};
-            teams.forEach(team => {
-                stats[team.id] = {
-                    id: team.id,
-                    name: team.name,
-                    logo_url: team.logo_url,
-                    played: 0, won: 0, lost: 0, points: 0,
-                    sets_won: 0, sets_lost: 0,
-                    points_won: 0, points_lost: 0
-                };
+            const teamsByKey = new Map();
+            teamResults.flatMap((result) => result.data).forEach((team) => {
+                const key = String(team.id);
+                if (!teamsByKey.has(key)) teamsByKey.set(key, team);
             });
+            const teams = Array.from(teamsByKey.values());
 
-            // คำนวณคะแนน
-            const selectedCompetition = competitions.find((competition) => String(competition.id) === String(compId));
-            const maxSets = Number(selectedCompetition?.max_sets) || Number(matches[0]?.max_sets) || 5;
-            const winSets = maxSets === 3 ? 2 : 3;
-
-            matches.forEach(m => {
-                const status = String(m.status || '').toLowerCase();
-                if (['completed', 'finished', 'match_finished'].includes(status)) {
-                    const homeId = m.home_team_id;
-                    const awayId = m.away_team_id;
-                    
-                    if (stats[homeId] && stats[awayId]) {
-                        stats[homeId].played++;
-                        stats[awayId].played++;
-
-                        const homeSets = parseInt(m.home_set_score) || 0;
-                        const awaySets = parseInt(m.away_set_score) || 0;
-
-                        stats[homeId].sets_won += homeSets;
-                        stats[homeId].sets_lost += awaySets;
-                        stats[awayId].sets_won += awaySets;
-                        stats[awayId].sets_lost += homeSets;
-
-                        // Logic คะแนน (3-0, 3-1 ได้ 3 แต้ม / 3-2 ได้ 2 แต้ม)
-                        if (homeSets > awaySets) {
-                            stats[homeId].won++;
-                            stats[awayId].lost++;
-                            if (awaySets < winSets - 1) { stats[homeId].points += 3; } 
-                            else { stats[homeId].points += 2; stats[awayId].points += 1; }
-                        } else {
-                            stats[awayId].won++;
-                            stats[homeId].lost++;
-                            if (homeSets < winSets - 1) { stats[awayId].points += 3; } 
-                            else { stats[awayId].points += 2; stats[homeId].points += 1; }
-                        }
-
-                        // Small Points (ถ้ามีข้อมูล set_scores)
-                        if (m.set_scores) {
-                             let scores = [];
-                             try { scores = typeof m.set_scores === 'string' ? JSON.parse(m.set_scores) : m.set_scores; } catch (_e) { scores = []; }
-                             if (Array.isArray(scores)) {
-                                 scores.forEach(setScore => {
-                                     const h = Number(setScore.home ?? setScore.team_a ?? String(setScore).split('-')[0]);
-                                     const a = Number(setScore.away ?? setScore.team_b ?? String(setScore).split('-')[1]);
-                                     if (!isNaN(h) && !isNaN(a)) {
-                                         stats[homeId].points_won += h;
-                                         stats[homeId].points_lost += a;
-                                         stats[awayId].points_won += a;
-                                         stats[awayId].points_lost += h;
-                                     }
-                                 });
-                             }
-                        }
-                    }
-                }
-            });
-
-            // แปลงเป็น Array และคำนวณ Ratio
-            const standingsArray = Object.values(stats).map(t => {
-                const setRatio = t.sets_lost === 0 ? (t.sets_won > 0 ? 999 : 0) : t.sets_won / t.sets_lost;
-                const pointRatio = t.points_lost === 0 ? (t.points_won > 0 ? 999 : 0) : t.points_won / t.points_lost;
-                return { 
-                    ...t, 
-                    setRatioVal: setRatio, 
-                    pointRatioVal: pointRatio,
-                    setRatioStr: t.sets_lost === 0 ? (t.sets_won > 0 ? 'MAX' : '0.00') : setRatio.toFixed(3),
-                    pointRatioStr: t.points_lost === 0 ? (t.points_won > 0 ? 'MAX' : '0.00') : pointRatio.toFixed(3)
-                };
-            });
-
-            // เรียงลำดับ: Points > Won > Set Ratio > Point Ratio
-            standingsArray.sort((a, b) => {
-                if (b.points !== a.points) return b.points - a.points;
-                if (b.won !== a.won) return b.won - a.won;
-                if (b.setRatioVal !== a.setRatioVal) return b.setRatioVal - a.setRatioVal;
-                return b.pointRatioVal - a.pointRatioVal;
-            });
+            const standingsArray = buildStandings(teams, matches, competitions);
 
             setStandings(standingsArray);
 
         } catch (err) {
             console.error("Error calculating standings:", err);
+                setLoadError(true);
         } finally {
             setLoading(false);
         }
     }, [competitions]);
 
     useEffect(() => {
-        if (!selectedCompId) return;
+        if (competitions.length === 0) return;
         calculateStandings(selectedCompId);
-    }, [calculateStandings, selectedCompId]);
+    }, [calculateStandings, competitions.length, selectedCompId, reloadKey]);
 
     const getTeamName = (id) => {
         const t = standings.find(s => s.id === id);
         return t ? t.name : 'Unknown Team';
     };
+    const competitionGroups = useMemo(() => groupPublicCompetitions(competitions), [competitions]);
+    const selectedCompetitionGroup = findCompetitionGroupById(competitionGroups, selectedCompId);
 
     return (
-        <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2ff)] text-gray-800 font-sans pb-20">
+        <div className="app-page min-h-screen text-gray-800 font-sans pb-20">
             {/* Navbar */}
-            <nav className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
-                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">V</div>
-                            <span className="font-bold text-xl tracking-tight text-indigo-900">{t('nav.systemName')}</span>
-                        </div>
-                        <div className="flex items-center gap-8">
-                            <div className="hidden md:flex items-center gap-8">
-                                <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.home')}</button>
-                                <button onClick={() => navigate('/teams')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.teams')}</button>
-                                <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.matches')}</button>
-                                <button onClick={() => navigate('/standings')} className="text-sm font-medium text-blue-600 transition cursor-pointer">{t('nav.standings')}</button>
-                                <button onClick={() => navigate('/stats')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.stats')}</button>
-                            </div>
-                            <div className="hidden md:flex gap-4 items-center">
-                                {/* Language Selector */}
-                                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                                    <button
-                                        onClick={() => setLanguage('THA')}
-                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                            language === 'THA'
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        TH
-                                    </button>
-                                    <button
-                                        onClick={() => setLanguage('ENG')}
-                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                            language === 'ENG'
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        EN
-                                    </button>
-                                </div>
-                                <button onClick={() => navigate('/login')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm cursor-pointer">
-                                    <LogIn size={18} /> {t('nav.login')}
-                                </button>
-                            </div>
-                            {/* Hamburger Menu Icon */}
-                            <div className="flex items-center md:hidden">
-                                <button
-                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-655 hover:bg-gray-100 focus:outline-none"
-                                >
-                                    {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {/* Mobile Menu Dropdown */}
-                {isMenuOpen && (
-                    <div className="md:hidden bg-white border-t border-gray-100 shadow-inner px-4 pt-2 pb-4 space-y-1">
-                        <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.home')}</button>
-                        <button onClick={() => { navigate('/teams'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.teams')}</button>
-                        <button onClick={() => { navigate('/matches'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.matches')}</button>
-                        <button onClick={() => { navigate('/standings'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-gray-50">{t('nav.standings')}</button>
-                        <button onClick={() => { navigate('/stats'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.stats')}</button>
-                        
-                        {/* Mobile Menu Language Selector */}
-                        <div className="flex justify-between items-center px-3 py-2 border-t border-gray-100 mt-2">
-                            <span className="text-sm font-medium text-gray-500">Language / ภาษา</span>
-                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                                <button
-                                    onClick={() => setLanguage('THA')}
-                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                        language === 'THA'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500'
-                                    }`}
-                                >
-                                    TH
-                                </button>
-                                <button
-                                    onClick={() => setLanguage('ENG')}
-                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                        language === 'ENG'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500'
-                                    }`}
-                                >
-                                    EN
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100 mt-2">
-                            <button onClick={() => { navigate('/login'); setIsMenuOpen(false); }} className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm">
-                                <LogIn size={18} /> {t('nav.login')}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </nav>
+            <PublicHeader />
+            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load data'} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} retryLabel={language === 'THA' ? 'ลองใหม่' : 'Retry'} /></div>}
+            <div id="main-content" tabIndex={-1} />
 
             {/* Header */}
-            <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 text-white py-12 px-4 shadow-lg mb-8">
-                <div className="w-full mx-auto text-center">
+            <div className="bg-[#122b52] text-white py-12 px-4 shadow-lg mb-8">
+                <div className="w-full max-w-[1400px] mx-auto text-center">
                     <h1 className="text-4xl font-extrabold flex items-center justify-center gap-3 mb-2">
                         <Trophy className="text-yellow-400" size={40} /> {language === 'THA' ? 'อันดับทีมแข่งขัน' : 'Team Standings'}
                     </h1>
@@ -271,23 +116,49 @@ export default function PublicStandings() {
             </div>
 
             {/* Filter */}
-            <div className="w-full mx-auto px-4 mb-8">
-                <div className="bg-white p-4 rounded-md shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="w-full max-w-[1400px] mx-auto px-4 mb-8">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
                     <label className="font-bold text-gray-700 flex items-center gap-2">
                         <Filter size={18} className="text-blue-600"/> {language === 'THA' ? 'เลือกรายการแข่งขัน:' : 'Select Competition:'}
                     </label>
                     <select
-                        value={selectedCompId}
-                        onChange={(e) => setSelectedCompId(e.target.value)}
+                        value={selectedCompId ? (selectedCompetitionGroup?.key || '') : '__all__'}
+                        onChange={(e) => {
+                            if (e.target.value === '__all__') {
+                                setSelectedCompId('');
+                                return;
+                            }
+                            const group = competitionGroups.find((item) => item.key === e.target.value);
+                            setSelectedCompId(group?.items[0]?.id || '');
+                        }}
                         className="w-full md:w-1/2 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium"
                     >
-                        {competitions.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {cleanCompetitionTitle(c.title)}
+                        <option value="__all__">{language === 'THA' ? 'ทั้งหมด' : 'All competitions'}</option>
+                        {competitionGroups.map((group) => (
+                            <option key={group.key} value={group.key}>
+                                {group.title}
                             </option>
                         ))}
                     </select>
                 </div>
+                {selectedCompId && selectedCompetitionGroup?.items.length > 1 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedCompetitionGroup.items.map((competition) => (
+                            <button
+                                key={competition.id}
+                                type="button"
+                                onClick={() => setSelectedCompId(competition.id)}
+                                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                                    String(selectedCompId) === String(competition.id)
+                                        ? 'border-blue-600 bg-blue-600 text-white'
+                                        : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
+                                }`}
+                            >
+                                {getPublicCompetitionVariantLabel(competition, language)}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Match History Modal */}
@@ -362,14 +233,14 @@ export default function PublicStandings() {
             )}
 
             {/* Table */}
-            <div className="w-full mx-auto px-4">
+            <div className="w-full max-w-[1400px] mx-auto px-4">
                 {loading ? (
                     <div className="text-center py-20">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-900 mx-auto"></div>
                         <p className="mt-4 text-gray-500">{t('common.loading')}</p>
                     </div>
                 ) : standings.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-md shadow-sm border border-gray-200">
+                    <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-200">
                         <p className="text-gray-400">{language === 'THA' ? 'ยังไม่มีข้อมูลการแข่งขันสำหรับรายการนี้' : 'No standings information available for this tournament yet.'}</p>
                     </div>
                 ) : (

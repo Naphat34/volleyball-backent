@@ -1,7 +1,14 @@
 import axios from 'axios';
 import { getAuthToken } from './authStorage';
 
-const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+const isLocalFrontend = typeof window !== 'undefined'
+  && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_ORIGIN = isLocalFrontend
+  ? 'http://localhost:3000'
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
+const BASE_URL = `${API_ORIGIN}/api`;
+
+export const getSocketServerUrl = () => API_ORIGIN.replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 //const BASE_URL = `http://localhost:3000/api`;
 
@@ -34,7 +41,7 @@ apiClient.interceptors.response.use((response) => {
   if (typeof data === 'string') {
     return data
       // 1. แปลง localhost ไปที่ Render
-      .replace(/http:\/\/localhost:3000/g, 'https://volleyball-backent-dhtc.onrender.com')
+      .replace(/http:\/\/localhost:3000/g, API_ORIGIN)
       // 2. ป้องกัน Mixed Content โดยบังคับเปลี่ยน http:// ของ Render ให้เป็น https:// ทั้งหมด
       .replace(/http:\/\/volleyball-backent-dhtc\.onrender\.com/g, 'https://volleyball-backent-dhtc.onrender.com');
   }
@@ -64,6 +71,9 @@ export const api = {
   login: (credentials) => apiClient.post('/auth/login', credentials),
   register: (data) => apiClient.post('/auth/register', data),
   logout: () => apiClient.post('/auth/logout'),
+  getMe: () => apiClient.get('/me'),
+  updateMe: (data) => apiClient.put('/me', data),
+  changeMyPassword: (data) => apiClient.put('/me/password', data),
   uploadImage: (image) => apiClient.post('/upload-image', { image }),
   getReportUrl: (type, format) => `${BASE_URL}/reports/${encodeURIComponent(type)}.${encodeURIComponent(format)}`,
   downloadReport: (type, format) => apiClient.get(`/reports/${encodeURIComponent(type)}.${encodeURIComponent(format)}`, {
@@ -91,13 +101,16 @@ export const api = {
   deletePlayer: (id) => apiClient.delete(`/my-team/players/${id}`),
   getMyPlayersStats: () => apiClient.get('/my-team/players/stats'),
   getPlayerStats: (id) => apiClient.get(`/players/${id}/stats`),
-  getPlayersByTeam: (teamId) => apiClient.get(`/public/teams/${teamId}/players`),
+  getPlayersByTeam: (teamId, competitionId) => apiClient.get(
+    `/public/teams/${teamId}/players${competitionId ? `?competitionId=${encodeURIComponent(competitionId)}` : ''}`
+  ),
   getStaffByTeam: (teamId) => apiClient.get(`/public/teams/${teamId}/staff`),
 
   // Staff Management
   getMyStaff: () => apiClient.get('/my-team/staff'),
   addStaff: (data) => apiClient.post('/my-team/staff', data),
   updateStaff: (id, data) => apiClient.put(`/my-team/staff/${id}`, data),
+  updateMyStaffEntries: (id, entry_ids) => apiClient.put(`/my-team/staff/${id}/entries`, { entry_ids }),
   deleteStaff: (id) => apiClient.delete(`/my-team/staff/${id}`),
 
   // === Admin Management ===
@@ -125,6 +138,8 @@ export const api = {
   getMyTeamEntries: () => apiClient.get('/my-team/entries'),
   getMyTeamEntryPlayers: (entryId) => apiClient.get(`/my-team/entries/${entryId}/players`),
   updateMyTeamEntryPlayers: (entryId, player_ids) => apiClient.put(`/my-team/entries/${entryId}/players`, { player_ids }),
+  getMyTeamEntryStaff: (entryId) => apiClient.get(`/my-team/entries/${entryId}/staff`),
+  updateMyTeamEntryStaff: (entryId, staff_ids) => apiClient.put(`/my-team/entries/${entryId}/staff`, { staff_ids }),
   getPublicCompetitionMatches: (id) => apiClient.get(`/public/competitions/${id}/matches`),
   getPublicCompetitionTeams: (id) => apiClient.get(`/public/competitions/${id}/teams`),
   getPublicTeamsList: () => apiClient.get('/public/teams'),

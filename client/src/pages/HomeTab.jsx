@@ -1,3 +1,6 @@
+import { Feedback, Panel, StatusBadge } from '../components/ui/SystemUI';
+import { readViewPreference, writeViewPreference } from '../utils/viewPreferences';
+import { isMatchFinished, isMatchLive } from '../utils/standings';
 import React, { useEffect, useState, useCallback } from 'react';
 import client from '../api';
 import { Calendar, MapPin, Clock, Shield, Filter, Trophy, Users, CheckCircle2, LayoutDashboard, ListFilter } from 'lucide-react';
@@ -5,7 +8,7 @@ import { EmptyState } from './AdminShared';
 import { formatThaiDate, formatThaiTime } from '../utils';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function HomeTab() {
+export default function HomeTab({ onNavigate, pendingUsersCount = 0 }) {
     const { language } = useLanguage();
 
     const formatDate = (date) => {
@@ -34,12 +37,17 @@ export default function HomeTab() {
     const [loading, setLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState('all');
     const [uniqueBaseNames, setUniqueBaseNames] = useState([]);
-    const [selectedBaseName, setSelectedBaseName] = useState('');
-    const [filterGender, setFilterGender] = useState('All');
+    const [selectedBaseName, setSelectedBaseName] = useState(() => readViewPreference('adminCompetition'));
+    const [filterGender, setFilterGender] = useState(() => readViewPreference('adminGender', 'All'));
+    const [loadError, setLoadError] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    useEffect(() => { writeViewPreference('adminCompetition', selectedBaseName); }, [selectedBaseName]);
+    useEffect(() => { writeViewPreference('adminGender', filterGender); }, [filterGender]);
     const [availableGenders, setAvailableGenders] = useState([]);
     const [currentSubTab, setCurrentSubTab] = useState('overview'); // 'overview' or 'schedule'
 
     const fetchCompetitions = useCallback(async () => {
+        setLoadError(false);
         try {
             const res = await client.get('/admin/competitions');
             const openComps = res.data.filter(c => c.status?.toLowerCase() === 'open');
@@ -58,20 +66,22 @@ export default function HomeTab() {
             setUniqueBaseNames(sortedBases);
 
             if (sortedBases.length > 0) {
-                setSelectedBaseName(sortedBases[0]);
+                const remembered = readViewPreference('adminCompetition');
+                setSelectedBaseName(sortedBases.includes(remembered) ? remembered : sortedBases[0]);
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error(err); setLoadError(true); }
     }, []);
 
 
     const getCorrectImageUrl = (url) => {
         if (!url) return '';
-        return url.replace('http://localhost:3000', 'https://volleyball-backent-dhtc.onrender.com');
+        return url;
     };
 
     const fetchMatchData = useCallback(async () => {
         if (!selectedBaseName) return;
         setLoading(true);
+        setLoadError(false);
         try {
             let targetComps = [];
             if (filterGender === 'All') {
@@ -130,6 +140,7 @@ export default function HomeTab() {
 
         } catch (err) {
             console.error(err);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -171,22 +182,24 @@ export default function HomeTab() {
         return () => clearTimeout(timeout);
     }, [fetchMatchData]);
 
+    const matchSearch = <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600">{language === 'THA' ? 'ค้นหาทีม คู่แข่งขัน หรือสนาม' : 'Search teams, matches or venues'}<input type="search" value={searchTerm} onChange={event => { setSearchTerm(event.target.value); setCurrentSubTab('schedule'); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 font-normal" placeholder={language === 'THA' ? 'พิมพ์คำค้นหา…' : 'Search…'} /></label>;
     const filteredMatches = matches.filter(m => {
+        if (searchTerm && ![m.home_team_name, m.away_team_name, m.team_a_name, m.team_b_name, m.match_number, m.stadium_name].filter(Boolean).join(' ').toLocaleLowerCase().includes(searchTerm.toLocaleLowerCase())) return false;
         if (filterStatus === 'all') return true;
-        if (filterStatus === 'completed') return m.status === 'completed';
-        if (filterStatus === 'scheduled') return m.status !== 'completed';
+        if (filterStatus === 'completed') return isMatchFinished(m.status);
+        if (filterStatus === 'scheduled') return !isMatchFinished(m.status);
         return true;
     });
 
-    const completedCount = matches.filter(m => m.status === 'completed').length;
-    const scheduledCount = matches.filter(m => m.status !== 'completed').length;
+    const completedCount = matches.filter(m => isMatchFinished(m.status)).length;
+    const scheduledCount = matches.filter(m => !isMatchFinished(m.status)).length;
 
     // Filtered lists for the dashboard tab
-    const upcomingMatches = matches.filter(m => m.status !== 'completed').slice(0, 3);
-    const recentMatches = matches.filter(m => m.status === 'completed').slice(-3).reverse();
+    const upcomingMatches = matches.filter(m => !isMatchFinished(m.status)).slice(0, 3);
+    const recentMatches = matches.filter(m => isMatchFinished(m.status)).slice(-3).reverse();
     const completionRate = matches.length > 0 ? Math.round((completedCount / matches.length) * 100) : 0;
-    const panelClass = "rounded-lg border border-white/70 bg-white/88 shadow-sm shadow-slate-900/5 backdrop-blur";
-    const cardClass = "rounded-lg border border-white/70 bg-white/90 p-4 shadow-sm shadow-slate-900/5 backdrop-blur";
+    const panelClass = "ui-panel";
+    const cardClass = "ui-panel p-4";
     const selectClass = "w-full rounded-md border border-slate-200 bg-white/95 px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
     const tabClass = "rounded-md px-3 py-2 text-sm font-semibold transition";
     const activeTabClass = "bg-blue-700 text-white shadow-sm shadow-blue-900/20";
@@ -240,9 +253,16 @@ export default function HomeTab() {
 
     return (
         <div className="space-y-5 font-sans text-slate-900">
+            {loadError && <Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load dashboard'} onRetry={async () => { await fetchCompetitions(); await fetchMatchData(); }} />}
+            <Panel title={language === 'THA' ? 'งานที่ต้องดูแล' : 'Your next actions'} description={language === 'THA' ? 'ตรวจสอบสิ่งที่ต้องดำเนินการ ก่อนเริ่มการแข่งขัน' : 'Keep competition preparations on track.'} action={<StatusBadge tone="info">{language === 'THA' ? 'ภาพรวม' : 'Overview'}</StatusBadge>}>
+                <div className="grid gap-3 p-4 sm:grid-cols-3">
+                    {[{ key: 'pending_users', count: pendingUsersCount, label: language === 'THA' ? 'บัญชีรออนุมัติ' : 'Pending accounts' }, { key: 'matches', count: matches.filter(m => !isMatchFinished(m.status) && !m.stadium_id && !m.stadium_name && !m.location).length, label: language === 'THA' ? 'คู่ที่ยังไม่ระบุสนาม' : 'Matches without a venue' }, { key: 'escore', count: matches.filter(m => isMatchLive(m.status)).length, label: language === 'THA' ? 'คู่ที่กำลังแข่งขัน' : 'Live matches' }].map(task => <button key={task.key} onClick={() => onNavigate?.(task.key)} className="flex min-h-24 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"><span className="text-sm font-semibold text-slate-600">{task.label}</span><span className="score-number text-3xl font-bold text-slate-950">{task.count}</span></button>)}
+                </div>
+            </Panel>
+            <div className="max-w-md">{matchSearch}</div>
             {/* Header section with Tournament selection */}
             <div className={`${panelClass} overflow-hidden`}>
-                <div className="border-b border-white/60 bg-gradient-to-r from-slate-950 via-blue-900 to-blue-700 px-5 py-5 text-white">
+                <div className="border-b border-white/60 bg-[#122b52] px-5 py-5 text-white">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">
@@ -498,21 +518,21 @@ export default function HomeTab() {
                                 <div className="space-y-4">
                                     {filteredMatches.length > 0 ? (
                                         filteredMatches.map((match) => (
-                                            <div key={match.id} className="group rounded-lg border border-gray-200 bg-white p-4 transition hover:bg-gray-50">
-                                                <div className="flex flex-col md:flex-row items-center gap-6">
+                                            <div key={match.id} className="group rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-900/5 transition hover:border-blue-200 hover:shadow-md">
+                                                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-5">
                                                     
                                                     {/* Left Match Details */}
-                                                    <div className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-1.5 min-w-[120px] pb-3 md:pb-0 md:pr-6 border-b md:border-b-0 md:border-r border-gray-200 w-full md:w-auto justify-between md:justify-start">
+                                                    <div className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 min-w-[132px] pb-4 md:pb-0 md:pr-5 border-b md:border-b-0 md:border-r border-slate-200 w-full md:w-auto justify-between md:justify-center">
                                                         <div>
-                                                            <span className="rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">Match #{match.match_number}</span>
-                                                            <div className="text-sm font-semibold text-gray-900 mt-1">{match.round_name}</div>
+                                                            <span className="rounded-md border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-700">Match #{match.match_number}</span>
+                                                            <div className="mt-2 text-sm font-semibold text-slate-950">{match.round_name}</div>
                                                         </div>
-                                                        <div className={`px-2 py-0.5 rounded text-[10px] font-medium tracking-wide border ${
+                                                        <div className={`rounded-md px-2.5 py-1 text-[10px] font-semibold tracking-wide border ${
                                                             match.gender === 'Female'
-                                                                ? 'bg-white text-gray-600 border-gray-200'
+                                                                ? 'bg-rose-50 text-rose-700 border-rose-100'
                                                                 : match.gender === 'Mix' || match.gender === 'Mixed'
-                                                                    ? 'bg-white text-gray-600 border-gray-200'
-                                                                    : 'bg-white text-gray-600 border-gray-200'
+                                                                    ? 'bg-violet-50 text-violet-700 border-violet-100'
+                                                                    : 'bg-sky-50 text-sky-700 border-sky-100'
                                                         }`}>
                                                             {match.gender === 'Male' ? (language === 'THA' ? 'ชาย' : 'Men') : match.gender === 'Female' ? (language === 'THA' ? 'หญิง' : 'Women') : match.gender}
                                                         </div>
@@ -520,11 +540,11 @@ export default function HomeTab() {
 
                                                     {/* Center Teams Score */}
                                                     <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-4 w-full">
-                                                        <div className="flex-1 flex flex-col md:flex-row items-center justify-center md:justify-end gap-3 w-full">
-                                                            <div className={`font-medium text-base leading-tight text-center md:text-right order-2 md:order-1 ${match.status === 'completed' && Number(match.home_set_score) > Number(match.away_set_score) ? 'text-gray-900 font-semibold' : 'text-gray-700'}`}>
+                                                        <div className="flex-1 flex flex-col md:flex-row items-center justify-center md:justify-end gap-3 w-full min-w-0">
+                                                            <div className={`font-semibold text-base leading-snug text-center md:text-right order-2 md:order-1 min-w-0 ${match.status === 'completed' && Number(match.home_set_score) > Number(match.away_set_score) ? 'text-slate-950' : 'text-slate-700'}`}>
                                                                 {teams.find(t => t.id == match.home_team_id)?.name || match.home_team || 'TBD'}
                                                             </div>
-                                                            <div className="w-10 h-10 rounded-md bg-white flex items-center justify-center overflow-hidden border border-gray-200 order-1 md:order-2 shrink-0">
+                                                            <div className="w-11 h-11 rounded-lg bg-white flex items-center justify-center overflow-hidden border border-slate-200 order-1 md:order-2 shrink-0 shadow-sm">
                                                                 {teams.find(t => t.id == match.home_team_id)?.logo_url ? (
                                                                     <img 
                                                                     src={getCorrectImageUrl(teams.find(t => t.id == match.home_team_id).logo_url)} 
@@ -540,11 +560,11 @@ export default function HomeTab() {
                                                         <div className="flex flex-col items-center shrink-0">
                                                             {(match.status === 'completed' || (match.home_set_score || 0) > 0 || (match.away_set_score || 0) > 0) ? (
                                                                 <div className="flex flex-col items-center">
-                                                                    <div className="px-4 py-1.5 rounded-md bg-gray-900 text-white font-mono text-base font-semibold tracking-wide mb-1">
+                                                                    <div className="mb-1 rounded-lg bg-slate-950 px-4 py-2 text-white font-mono text-base font-bold tracking-wide shadow-sm">
                                                                         {match.home_set_score || 0} - {match.away_set_score || 0}
                                                                     </div>
                                                                     {match.set_scores && (
-                                                                        <div className="text-[10px] font-mono text-gray-400 mb-1 max-w-[150px] text-center break-words">
+                                                                        <div className="mb-1 max-w-[150px] break-words text-center font-mono text-[10px] text-slate-400">
                                                                             {(() => {
                                                                                 try {
                                                                                     const sets = typeof match.set_scores === 'string' ? JSON.parse(match.set_scores) : (Array.isArray(match.set_scores) ? match.set_scores : null);
@@ -554,42 +574,42 @@ export default function HomeTab() {
                                                                         </div>
                                                                     )}
                                                                     {match.status === 'completed' && (
-                                                                        <span className="px-2 py-0.5 rounded border border-gray-200 bg-white text-[9px] font-medium uppercase tracking-wide text-gray-600 whitespace-nowrap">
+                                                                        <span className="whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
                                                                             {language === 'THA' ? 'จบการแข่งขัน' : 'Completed'}
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             ) : (
-                                                                <div className="px-3 py-1 rounded-md bg-gray-50 border border-gray-200 font-mono text-xs font-medium text-gray-400">VS</div>
+                                                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs font-semibold text-slate-400">VS</div>
                                                             )}
                                                         </div>
 
-                                                        <div className="flex-1 flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 w-full">
-                                                            <div className="w-10 h-10 rounded-md bg-white flex items-center justify-center overflow-hidden border border-gray-200 order-1 md:order-2 shrink-0">
-                                                                {teams.find(t => t.id == match.home_team_id)?.logo_url ? (
+                                                        <div className="flex-1 flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 w-full min-w-0">
+                                                            <div className="w-11 h-11 rounded-lg bg-white flex items-center justify-center overflow-hidden border border-slate-200 order-1 shrink-0 shadow-sm">
+                                                                {teams.find(t => t.id == match.away_team_id)?.logo_url ? (
                                                                     <img 
-                                                                    src={getCorrectImageUrl(teams.find(t => t.id == match.home_team_id).logo_url)} 
-                                                                    alt="Home" 
+                                                                    src={getCorrectImageUrl(teams.find(t => t.id == match.away_team_id).logo_url)} 
+                                                                    alt="Away" 
                                                                     className="w-full h-full object-contain p-1" 
                                                                     />
                                                                 ) : (
                                                                     <Shield size={20} className="text-gray-300" />
                                                                 )}
                                                                 </div>
-                                                            <div className={`font-medium text-base leading-tight text-center md:text-left ${match.status === 'completed' && Number(match.away_set_score) > Number(match.home_set_score) ? 'text-gray-900 font-semibold' : 'text-gray-700'}`}>
+                                                            <div className={`font-semibold text-base leading-snug text-center md:text-left order-2 min-w-0 ${match.status === 'completed' && Number(match.away_set_score) > Number(match.home_set_score) ? 'text-slate-950' : 'text-slate-700'}`}>
                                                                 {teams.find(t => t.id == match.away_team_id)?.name || match.away_team || 'TBD'}
                                                             </div>
                                                         </div>
                                                     </div>
 
                                                     {/* Right Match Location & Date */}
-                                                    <div className="flex flex-row md:flex-col gap-3 md:gap-1 text-xs text-gray-500 min-w-[160px] justify-center md:justify-end text-center md:text-right border-t md:border-t-0 md:border-l border-gray-200 pt-3 md:pt-0 md:pl-6 w-full md:w-auto">
-                                                        <div className="flex items-center justify-center md:justify-end gap-1.5">
-                                                            <Calendar size={13} className="text-gray-400" />
+                                                    <div className="flex flex-row flex-wrap md:flex-col gap-2 text-xs text-slate-500 min-w-[178px] justify-center md:justify-center text-center md:text-right border-t md:border-t-0 md:border-l border-slate-200 pt-4 md:pt-0 md:pl-5 w-full md:w-auto">
+                                                        <div className="flex items-center justify-center md:justify-end gap-1.5 rounded-md bg-slate-50 px-2.5 py-1.5 md:bg-transparent md:px-0 md:py-0">
+                                                            <Calendar size={13} className="text-blue-500" />
                                                             {match.match_date ? formatDate(match.match_date) : (match.start_time && match.start_time.includes('T') ? formatDate(match.start_time) : (language === 'THA' ? 'ยังไม่กำหนดวันที่' : 'Date TBD'))}
                                                         </div>
-                                                        <div className="flex items-center justify-center md:justify-end gap-1.5">
-                                                            <Clock size={13} className="text-gray-400" />
+                                                        <div className="flex items-center justify-center md:justify-end gap-1.5 rounded-md bg-slate-50 px-2.5 py-1.5 md:bg-transparent md:px-0 md:py-0">
+                                                            <Clock size={13} className="text-blue-500" />
                                                             {match.start_time
                                                                 ? formatTime(match.start_time)
                                                                 : (language === 'THA' ? 'ยังไม่กำหนดเวลา' : 'Time TBD')

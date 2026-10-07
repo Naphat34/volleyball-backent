@@ -21,6 +21,24 @@ const isPositiveIntLike = (value) => {
   return Number.isInteger(parsed) && parsed > 0 && String(parsed) === String(value).trim();
 };
 
+const parseSetScores = (value) => {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+  if (!Array.isArray(parsed)) return { error: 'Set scores must be an array' };
+
+  for (const setScore of parsed) {
+    if (typeof setScore !== 'string' || !/^\d+\s*-\s*\d+$/.test(setScore.trim())) {
+      return { error: 'Set scores must use home-away format' };
+    }
+
+    const [homePoints, awayPoints] = setScore.split('-').map((point) => Number.parseInt(point.trim(), 10));
+    if (homePoints === awayPoints) {
+      return { error: 'Set scores cannot be tied' };
+    }
+  }
+
+  return { parsed };
+};
+
 const { isVisGrade, isVisSkill } = require('../config/visCodes');
 
 const validators = {
@@ -53,6 +71,26 @@ const validators = {
     return null;
   },
 
+  updateMe(body) {
+    const blockedFields = ['role', 'status', 'team_id', 'password', 'password_hash'];
+    if (blockedFields.some((field) => body[field] !== undefined)) {
+      return 'This account field cannot be updated here';
+    }
+    if (body.username !== undefined && !isNonEmptyString(body.username)) return 'Username is required';
+    if (!isOptionalString(body.email)) return 'Email must be a string';
+    if (!isOptionalString(body.phone)) return 'Phone must be a string';
+    return null;
+  },
+
+  changePassword(body) {
+    if (!isNonEmptyString(body.current_password)) return 'Current password is required';
+    if (!isNonEmptyString(body.new_password) || body.new_password.length < 8) {
+      return 'New password must be at least 8 characters';
+    }
+    if (!isNonEmptyString(body.confirm_password)) return 'Password confirmation is required';
+    return null;
+  },
+
   createMatch(body) {
     if (!isPositiveIntLike(body.competition_id)) return 'Competition ID is required';
     if (!isPositiveIntLike(body.home_team_id)) return 'Home team is required';
@@ -79,8 +117,8 @@ const validators = {
     }
     if (body.set_scores !== undefined) {
       try {
-        const parsed = typeof body.set_scores === 'string' ? JSON.parse(body.set_scores) : body.set_scores;
-        if (!Array.isArray(parsed)) return 'Set scores must be an array';
+        const { error } = parseSetScores(body.set_scores);
+        if (error) return error;
       } catch {
         return 'Set scores must be valid JSON';
       }

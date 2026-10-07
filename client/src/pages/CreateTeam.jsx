@@ -147,11 +147,11 @@ export default function CreateTeam() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 lg:p-10 font-sans">
-      <div className="bg-white w-full p-8 lg:p-14 rounded-[2.5rem] shadow-2xl overflow-hidden">
+    <div className="app-page min-h-screen flex items-center justify-center p-4 lg:p-10 font-sans">
+      <div className="ui-panel w-full max-w-6xl p-6 lg:p-10 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
           <div className="text-left">
-            <h1 className="text-4xl lg:text-5xl font-semibold text-gray-900 tracking-tight">
+            <h1 className="text-3xl lg:text-4xl font-semibold text-gray-900 tracking-tight">
               New <span className="text-blue-600">Club</span> Registration
             </h1>
             <p className="text-gray-400 mt-3 text-lg font-medium italic">ลงทะเบียนสโมสรใหม่และเลือกการแข่งขัน</p>
@@ -161,7 +161,7 @@ export default function CreateTeam() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-8">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-semibold">1</div>

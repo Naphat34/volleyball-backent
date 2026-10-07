@@ -1,17 +1,3 @@
-exports.getMe = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const [rows] = await db.query(
-      'SELECT id, username, role, status, team_id FROM users WHERE id = ?', 
-      [userId]);
-
-      if (rows.length === 0) 
-        return res.status(404).json({ error: 'User not found' });
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -22,6 +8,149 @@ const { writeAuditLog } = require('../utils/auditLogger');
 const SECRET_KEY = getJwtSecret();
 const PUBLIC_REGISTER_ROLE = 'team_staff';
 const APPROVED_STATUSES = new Set(['approved', 'active']);
+
+const getUsersColumns = async (client = db) => {
+  const result = await client.query(
+    "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()"
+  );
+  return new Set(result.rows.map((row) => row.column_name));
+};
+
+const buildSafeUserSelect = (columns) => {
+  const optionalFields = [];
+  if (columns.has('email')) optionalFields.push('email');
+  if (columns.has('phone')) optionalFields.push('phone');
+  return ['id', 'username', 'role', 'status', 'team_id', ...optionalFields].join(', ');
+};
+
+const buildAuthToken = (user) => jwt.sign(
+  {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    team_id: user.team_id
+  },
+  SECRET_KEY,
+  { expiresIn: '2d' }
+);
+
+const sendUserWithToken = (res, user, message = 'User updated successfully') => {
+  const token = buildAuthToken(user);
+  res.cookie('token', token, getAuthCookieOptions());
+  return res.json({ message, token, user });
+};
+
+exports.getMe = async (req, res) => {
+  try {
+    const columns = await getUsersColumns();
+    const selectFields = buildSafeUserSelect(columns);
+    const result = await db.query(
+      `SELECT ${selectFields} FROM users WHERE id = ?`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateMe = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const columns = await getUsersColumns();
+    const allowedFields = ['username', 'email', 'phone'].filter((field) => field === 'username' || columns.has(field));
+    const updates = [];
+    const values = [];
+
+    if (req.body.username !== undefined) {
+      const username = String(req.body.username || '').trim();
+      if (!username) return res.status(400).json({ error: 'Username is required' });
+
+      const existing = await db.query(
+        'SELECT id FROM users WHERE username = ? AND id <> ?',
+        [username, userId]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+
+      updates.push('username = ?');
+      values.push(username);
+    }
+
+    for (const field of allowedFields.filter((item) => item !== 'username')) {
+      if (req.body[field] !== undefined) {
+        updates.push(`${field} = ?`);
+        values.push(String(req.body[field] || '').trim() || null);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(userId);
+    await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    const selectFields = buildSafeUserSelect(columns);
+    const updatedUser = await db.query(`SELECT ${selectFields} FROM users WHERE id = ?`, [userId]);
+    if (updatedUser.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await writeAuditLog(req, 'user.profile_update', 'user', userId, {
+      fields: updates.map((field) => field.split('=')[0].trim())
+    });
+
+    return sendUserWithToken(res, updatedUser.rows[0]);
+  } catch (err) {
+    console.error("Update Me Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.changeMyPassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { current_password, new_password, confirm_password } = req.body;
+
+    if (new_password !== confirm_password) {
+      return res.status(400).json({ error: 'Password confirmation does not match' });
+    }
+
+    const userResult = await db.query(
+      'SELECT id, username, password_hash FROM users WHERE id = ?',
+      [userId]
+    );
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const currentPasswordMatches = await bcrypt.compare(current_password, user.password_hash);
+    if (!currentPasswordMatches) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    const samePassword = await bcrypt.compare(new_password, user.password_hash);
+    if (samePassword) {
+      return res.status(400).json({ error: 'New password must be different from the current password' });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 8);
+    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, userId]);
+
+    await writeAuditLog(req, 'user.password_change', 'user', userId, {});
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    console.error("Change Password Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
 
 // 1. ลงทะเบียน (Register)
 exports.register = async (req, res) => {
@@ -159,31 +288,22 @@ exports.login = async (req, res) => {
     }
 
     // สร้าง Token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        team_id: user.team_id
-      },
-       SECRET_KEY,
-      { expiresIn: '2d' }
-    );
+    const token = buildAuthToken(user);
 
     res.cookie('token', token, getAuthCookieOptions());
 
    // ส่งข้อมูลกลับไปให้ Frontend ตัดสินใจ Routing
     res.json({
-  message: "Login successful",
-  token: token,
-  user: {
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    status: user.status,
-    team_id: user.team_id
-  }
-});
+      message: "Login successful",
+      token: token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        status: user.status,
+        team_id: user.team_id
+      }
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -243,7 +363,7 @@ exports.getPendingUsers = async (req, res) => {
   }
 };
 
-// ✅ [เพิ่ม] ดึง User ทั้งหมด (ไม่เกี่ยงว่า Approve หรือยัง)
+// [เพิ่ม] ดึง User ทั้งหมด (ไม่เกี่ยงว่า Approve หรือยัง)
 exports.getAllUsers = async (req, res) => {
   try {
     const result = await db.query(`
@@ -258,7 +378,7 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// ✅ [เพิ่ม] Admin: สร้าง User ใหม่ (กำหนด Role/Status ได้เลย)
+// [เพิ่ม] Admin: สร้าง User ใหม่ (กำหนด Role/Status ได้เลย)
 exports.createUser = async (req, res) => {
   try {
     const { username, password, role, status } = req.body;
@@ -285,7 +405,7 @@ exports.createUser = async (req, res) => {
   }
 };
 
-// ✅ [เพิ่ม] ลบ User (เช่น ไล่คนออก หรือลบ Account ผี)
+// [เพิ่ม] ลบ User (เช่น ไล่คนออก หรือลบ Account ผี)
 exports.deleteUser = async (req, res) => {
   const client = await db.pool.connect();
   try {
@@ -323,7 +443,7 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-// ✅ [เพิ่ม] แก้ไขข้อมูล User
+// [เพิ่ม] แก้ไขข้อมูล User
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;

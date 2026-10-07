@@ -14,10 +14,17 @@ import {
 } from 'lucide-react';
 import { cleanCompetitionTitle, formatThaiDate } from '../utils';
 
+const SPORT_TYPE_OPTIONS = [
+    { value: 'indoor', label: 'Indoor Volleyball', sport: 'Volleyball' }
+];
+const ATHLETE_SPORT_POLICY_OPTIONS = [
+    { value: 'single_sport', label: 'One sport only' }
+];
+
 export default function Competitions() {
     const [competitions, setCompetitions] = useState([]);
     // เพิ่ม field status ใน form
-    const [form, setForm] = useState({ name: '', details: '', sport: 'Volleyball', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' });
+    const [form, setForm] = useState({ name: '', details: '', sport: 'Volleyball', sport_type: 'indoor', athlete_sport_policy: 'single_sport', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' });
     const [isEditing, setIsEditing] = useState(null);
 
     useEffect(() => {
@@ -43,6 +50,8 @@ export default function Competitions() {
                 title: form.name, 
                 details: form.details,
                 sport: form.sport,
+                sport_type: form.sport_type,
+                athlete_sport_policy: form.athlete_sport_policy,
                 gender: form.gender,
                 start_date: form.start_date,
                 end_date: form.end_date,
@@ -58,7 +67,7 @@ export default function Competitions() {
                 Swal.fire('Success', "Competition Created!", 'success');
             }
             // Reset Form
-            setForm({ name: '', details: '', sport: 'Volleyball', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' });
+            setForm({ name: '', details: '', sport: 'Volleyball', sport_type: 'indoor', athlete_sport_policy: 'single_sport', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' });
             setIsEditing(null);
             fetchCompetitions();
         } catch (err) {
@@ -108,6 +117,8 @@ export default function Competitions() {
             name: comp.title || comp.name, // รองรับทั้ง title และ name
             details: comp.details || '',
             sport: comp.sport || 'Volleyball',
+            sport_type: 'indoor',
+            athlete_sport_policy: comp.athlete_sport_policy || 'single_sport',
             gender: comp.gender || 'Mix',
             start_date: comp.start_date ? comp.start_date.split('T')[0] : '',
             end_date: comp.end_date ? comp.end_date.split('T')[0] : '',
@@ -129,8 +140,30 @@ export default function Competitions() {
                         <Input label="Tournament Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
                         
                         <div className="grid grid-cols-2 gap-2">
-                             <Input label="Sport" value={form.sport} onChange={e => setForm({ ...form, sport: e.target.value })} />
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Sport Type</label>
+                                <select
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition bg-white"
+                                    value={form.sport_type}
+                                    onChange={e => {
+                                        const selected = SPORT_TYPE_OPTIONS.find(option => option.value === e.target.value) || SPORT_TYPE_OPTIONS[0];
+                                        setForm({ ...form, sport_type: selected.value, sport: selected.sport });
+                                    }}
+                                >
+                                    {SPORT_TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                </select>
+                             </div>
                              <Input label="Gender" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Athlete Policy</label>
+                            <select
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition bg-white"
+                                value={form.athlete_sport_policy}
+                                onChange={e => setForm({ ...form, athlete_sport_policy: e.target.value })}
+                            >
+                                {ATHLETE_SPORT_POLICY_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
                         </div>
 
                         <Input label="Location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
@@ -158,7 +191,7 @@ export default function Competitions() {
                         </button>
 
                         {isEditing && (
-                            <button type="button" onClick={() => { setIsEditing(null); setForm({ name: '', details: '', sport: 'Volleyball', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' }); }} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2 rounded-lg text-sm transition">
+                            <button type="button" onClick={() => { setIsEditing(null); setForm({ name: '', details: '', sport: 'Volleyball', sport_type: 'indoor', athlete_sport_policy: 'single_sport', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' }); }} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2 rounded-lg text-sm transition">
                                 Cancel
                             </button>
                         )}

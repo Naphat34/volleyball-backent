@@ -8,7 +8,8 @@ import PreMatchSetupModal from '../components/scorer/modals/PreMatchSetupModal';
 
 export default function MatchesManager({ competitionId, competition, onClose }) {
     const maxSets = Number(competition?.max_sets) || 5;
-
+    const competitionAgeGroupId = competition?.age_group_id || competition?.category || competition?.category_id || null;
+    const competitionStadiumName = competition?.stadium_name || competition?.stadium || competition?.location || '';
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingMatch, setEditingMatch] = useState(null); // เก็บแมตช์ที่กำลังกรอกคะแนน
@@ -28,7 +29,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
         home_team_id: '',
         away_team_id: '',
         start_time: '',
-        location: '',
+        location: competitionStadiumName,
         gender: competition?.gender || 'Female', // Default
         pool_name: 'A'    // Default
     });
@@ -39,20 +40,18 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
         away_set: 0,
         sets_detail: ["", "", "", "", ""] // รองรับ 5 เซต
     });
-
-
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             // 1. ดึงแมตช์
-            const matchRes = await api.get(`/competitions/${competitionId}/matches`);
+            const [matchRes, teamRes] = await Promise.all([
+                api.get(`/competitions/${competitionId}/matches`),
+                apiHelper.getTeamsByCompetition(competitionId, 'approved')
+            ]);
             setMatches(matchRes.data);
 
-            // 2. ดึงทีม (เพื่อไว้สร้างแมตช์)
-            // ใช้ route ที่เราเพิ่งแก้ /admin/competitions/:id/teams
-            const teamRes = await api.get(`/admin/competitions/${competitionId}/teams`);
+            // 2. ดึงเฉพาะทีมที่อนุมัติแล้ว เพราะ backend อนุญาตให้สร้างแมตช์จากทีม approved เท่านั้น
             setTeams(teamRes.data);
-
         } catch (err) {
             console.error(err);
         } finally {
@@ -65,10 +64,12 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
     }, [fetchData]);
 
     useEffect(() => {
-        if (competition?.gender) {
-            setNewMatchForm(prev => ({ ...prev, gender: competition.gender }));
-        }
-    }, [competition]);
+        setNewMatchForm(prev => ({
+            ...prev,
+            gender: competition?.gender || prev.gender,
+            location: prev.location || competitionStadiumName
+        }));
+    }, [competition?.gender, competitionStadiumName]);
 
     const handleGenerateMatches = async () => {
         const result = await Swal.fire({
@@ -115,6 +116,9 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
             // ---------------------------------------------------------
             // 2. Data Preparation: แปลงข้อมูลให้ตรงกับ Database Schema
             // ---------------------------------------------------------
+            const matchDate = newMatchForm.start_time?.includes('T')
+                ? newMatchForm.start_time.split('T')[0]
+                : null;
             const payload = {
                 // ต้องส่ง competition_id เสมอ และต้องเป็น Int
                 competition_id: parseInt(competitionId), 
@@ -128,12 +132,15 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 
                 // แปลง Date: ถ้าเป็นค่าว่าง "" ให้ส่ง null (เพื่อไม่ให้ DB Error เรื่อง Timestamp)
                 start_time: newMatchForm.start_time || null,
+                match_date: matchDate,
                 
                 // ข้อมูล String อื่นๆ (ใช้ค่าเดิม หรือถ้าว่างให้ส่ง String เปล่า/Default)
                 location: newMatchForm.location || '',
                 round_name: newMatchForm.round_name || 'Round 1',
                 pool_name: newMatchForm.pool_name || '',
                 gender: newMatchForm.gender || competition?.gender || 'Male',
+                age_group_id: competitionAgeGroupId,
+                category: competitionAgeGroupId,
 
                 // ถ้าเป็นการแก้ไข ให้คงสถานะ (Status) เดิมไว้
                 ...(editingMatchId && { status: matches.find(m => m.id === editingMatchId)?.status })
@@ -163,7 +170,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 home_team_id: '', 
                 away_team_id: '', 
                 start_time: '', 
-                location: '',
+                location: competitionStadiumName,
                 match_number: '', 
                 round_name: 'Round 1', // ตั้งค่าเริ่มต้นให้
                 pool_name: '', 
@@ -460,7 +467,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                             setEditingMatchId(null);
                             setNewMatchForm({
                                 round_name: 'Round 1', match_number: '', home_team_id: '', away_team_id: '',
-                                start_time: '', location: '', gender: competition?.gender || 'Female', pool_name: 'A'
+                                start_time: '', location: competitionStadiumName, gender: competition?.gender || 'Female', pool_name: 'A'
                             });
                             setIsCreating(true);
                         }}
@@ -875,3 +882,5 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
         </div>
     );
 }
+
+

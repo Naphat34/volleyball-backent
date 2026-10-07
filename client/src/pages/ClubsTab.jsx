@@ -46,7 +46,8 @@ const teamMatchesSearch = (team, searchTerm) => {
   ].some((value) => String(value || '').toLowerCase().includes(keyword));
 };
 
-export default function ClubsTab() {
+export default function ClubsTab({ initialSearch = '' }) {
+  useEffect(() => { setSearchTerm(initialSearch); }, [initialSearch]);
   const [teams, setTeams] = useState([]);
   const [teamEntries, setTeamEntries] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');

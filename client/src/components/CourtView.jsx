@@ -28,8 +28,8 @@ const PlayerToken = ({
     rightSubTracker,
     leftTeam,
     rightTeam,
-    tokenNumberClass = 'text-[28.5px] lg:text-[57px]',
-    tokenBoxClass = 'w-[53px] h-[53px] lg:w-[91px] lg:h-[91px]'
+    tokenNumberClass = 'text-[24px] lg:text-[46px]',
+    tokenBoxClass = 'w-[45px] h-[45px] lg:w-[76px] lg:h-[76px]'
 }) => {
     if (hideTokens) return null;
     if (!player) return null;
@@ -197,8 +197,8 @@ const CourtView = ({
                             <div className="flex items-center justify-center relative">
                                 <PlayerToken {...commonProps} side="left" posIndex={0} player={homePositions[0]} originalPlayer={leftSwaps[0]} colorClass={leftColor} onClick={() => onPlayerClick && onPlayerClick('home', 0)} /> {/* P1 */}
                                 {servingSide === 'left' && !hideTokens && (
-                                    <div className="absolute -bottom-2 -left-4 lg:-left-6 text-xl lg:text-3xl drop-shadow-md z-20">
-                                        <img src={ballIcon} width="70px" height="70px" alt="ball"/>
+                                    <div className="absolute -bottom-4 -left-2 lg:-bottom-5 lg:-left-3 drop-shadow-md z-20">
+                                        <img src={ballIcon} alt="ball" className="h-9 w-9 lg:h-12 lg:w-12" />
                                     </div>
                                 )}
                             </div>
@@ -216,8 +216,8 @@ const CourtView = ({
                             <div className="flex items-center justify-center relative">
                                 <PlayerToken {...commonProps} side="right" posIndex={0} player={awayPositions[0]} originalPlayer={rightSwaps[0]} colorClass={rightColor} onClick={() => onPlayerClick && onPlayerClick('away', 0)} /> {/* P1 */}
                                 {servingSide === 'right' && !hideTokens && (
-                                    <div className="absolute -top-2 -right-4 lg:-right-6 text-xl lg:text-3xl drop-shadow-md z-20">
-                                        <img src={ballIcon} width="70px" height="70px" alt="ball"/>
+                                    <div className="absolute -top-4 -right-2 lg:-top-5 lg:-right-3 drop-shadow-md z-20">
+                                        <img src={ballIcon} alt="ball" className="h-9 w-9 lg:h-12 lg:w-12" />
                                     </div>
                                 )}
                             </div>

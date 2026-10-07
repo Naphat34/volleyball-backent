@@ -1,24 +1,26 @@
-import React from 'react';
+import PageBoundary from './components/PageBoundary';
+import React, { lazy, Suspense } from 'react';
+import { Feedback } from './components/ui/SystemUI';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import AdminDashboard from './pages/AdminDashboard';
-import CreateTeam from './pages/CreateTeam';
-import TeamDashboard from './pages/TeamDashboard';
-import LandingPage from './pages/guest/LandingPage';
-import PublicStatistics from './pages/guest/PublicStatistics';
-import PublicStandings from './pages/guest/PublicStandings';
-import PublicTeams from './pages/guest/PublicTeams';
-import PublicMatches from './pages/guest/PublicMatches';
-import MatchCentrePage from './pages/guest/MatchCentrePage';
-import ScorerConsole from './components/scorer/ScorerConsole';
-import TeamStaffConsole from './components/scorer/TeamStaffConsole';
-import AdminScorer from './components/scorer/AdminScorer';
-import ScoreViewReferee from './components/viewer/ScoreViewReferee';
-import ScoreViewSpectator from './components/viewer/ScoreViewSpectator';
-import ScoreSheet from './pages/ScoreSheet';
-import RosterVerification from './pages/RosterVerification';
-import MatchDetail from './components/MatchDetail';
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const CreateTeam = lazy(() => import('./pages/CreateTeam'));
+const TeamDashboard = lazy(() => import('./pages/TeamDashboard'));
+const LandingPage = lazy(() => import('./pages/guest/LandingPage'));
+const PublicStatistics = lazy(() => import('./pages/guest/PublicStatistics'));
+const PublicStandings = lazy(() => import('./pages/guest/PublicStandings'));
+const PublicTeams = lazy(() => import('./pages/guest/PublicTeams'));
+const PublicMatches = lazy(() => import('./pages/guest/PublicMatches'));
+const MatchCentrePage = lazy(() => import('./pages/guest/MatchCentrePage'));
+const ScorerConsole = lazy(() => import('./components/scorer/ScorerConsole'));
+const TeamStaffConsole = lazy(() => import('./components/scorer/TeamStaffConsole'));
+const AdminScorer = lazy(() => import('./components/scorer/AdminScorer'));
+const ScoreViewReferee = lazy(() => import('./components/viewer/ScoreViewReferee'));
+const ScoreViewSpectator = lazy(() => import('./components/viewer/ScoreViewSpectator'));
+const ScoreSheet = lazy(() => import('./pages/ScoreSheet'));
+const RosterVerification = lazy(() => import('./pages/RosterVerification'));
+const MatchDetail = lazy(() => import('./components/MatchDetail'));
 import { getAuthToken, getStoredUser } from './authStorage';
 
 // import App (หน้าเดิมที่เป็น Scoreboard) ไว้ใช้ทีหลัง
@@ -42,6 +44,8 @@ const PrivateRoute = ({ children, roleRequired }) => {
 function App() {
   return (
     <BrowserRouter>
+      <PageBoundary>
+      <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title="กำลังเปิดหน้า / Loading page…" /></div>}>
       <Routes>
         {/* หน้า AdminScorer สำหรับ role score */}
         <Route
@@ -134,6 +138,8 @@ function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
 
       </Routes>
+      </Suspense>
+      </PageBoundary>
     </BrowserRouter>
   );
 }

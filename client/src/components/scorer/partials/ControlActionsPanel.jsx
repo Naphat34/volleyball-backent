@@ -84,6 +84,7 @@ const ControlActionsPanel = ({
     workflowStep,
     onConfirmSetEnd,
     isEndingSet,
+    isStartingNextSet,
     startNextSet,
     handleFinishMatch,
     runCoinTossFlow,
@@ -125,8 +126,12 @@ const ControlActionsPanel = ({
             ) : workflowStep === 'SET_FINISHED' ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <span className="font-semibold text-slate-800 uppercase tracking-tight text-lg mb-2">Set {matchData.currentSet} Concluded</span>
-                    <button onClick={startNextSet} className="px-12 py-3 bg-[#3b82f6] hover:bg-blue-600 text-white font-bold shadow-md">
-                        START NEXT SET
+                    <button
+                        onClick={startNextSet}
+                        disabled={isStartingNextSet}
+                        className="px-12 py-3 bg-[#3b82f6] hover:bg-blue-600 text-white font-bold shadow-md transition disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
+                    >
+                        {isStartingNextSet ? 'STARTING...' : 'START NEXT SET'}
                     </button>
                 </div>
             ) : workflowStep === 'MATCH_FINISHED' ? (

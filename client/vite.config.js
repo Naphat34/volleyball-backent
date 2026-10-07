@@ -21,6 +21,10 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined;
 
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) {
+            return 'vendor-react';
+          }
+
           if (id.includes('pdf-lib') || id.includes('@pdf-lib') || id.includes('@react-pdf') || id.includes('jspdf')) {
             return 'vendor-pdf';
           }
@@ -37,7 +41,7 @@ export default defineConfig({
             return 'vendor-utils';
           }
 
-          return 'vendor';
+          return undefined;
         },
       },
     },

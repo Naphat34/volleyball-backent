@@ -1,3 +1,4 @@
+import { StatusBadge } from '../ui/SystemUI';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -9,7 +10,7 @@ import {
 import Swal from 'sweetalert2';
 
 import CourtView from '../CourtView';
-import client, { api } from '../../api';
+import client, { api, getSocketServerUrl } from '../../api';
 import { formatThaiFullDateTime } from '../../utils';
 import EventQueue from '../../utils/eventQueue';
 import { isPlayerLibero, isPlayingPlayer } from '../../utils/playerFilters';
@@ -42,11 +43,6 @@ import LiberoSwapModal from './modals/LiberoSwapModal';
 
 import Buzzer from '../../assets/sound/buzzer.mp3';
 
-const getSocketServerUrl = () => {
-    const apiUrl = import.meta.env.VITE_API_URL;
-    if (!apiUrl) return `${window.location.protocol}//${window.location.hostname}:3000`;
-    return apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-};
 
 // Helper to extract 3-letter code from team name
 const getTeamCode = (teamName) => {
@@ -217,7 +213,17 @@ export default function ScorerConsole() {
 
     // --- STATES ---
     const [isLoading, setIsLoading] = useState(true);
+    const [navbarTime, setNavbarTime] = useState(() => new Date());
     const isFinishingSetRef = useRef(false);
+    const isStartingNextSetRef = useRef(false);
+
+    useEffect(() => {
+        const timerId = window.setInterval(() => {
+            setNavbarTime(new Date());
+        }, 1000);
+
+        return () => window.clearInterval(timerId);
+    }, []);
 
     // 1. คะแนนปัจจุบัน (Score)
     const [score, setScore] = useState(() => {
@@ -377,6 +383,14 @@ export default function ScorerConsole() {
 
     const [pendingSetWinner, setPendingSetWinner] = useState(() => loadState('pendingSetWinner', null));
     const [isEndingSet, setIsEndingSet] = useState(false);
+    const [isStartingNextSet, setIsStartingNextSet] = useState(false);
+
+    useEffect(() => {
+        if (workflowStep !== 'SET_FINISHED' && isStartingNextSetRef.current) {
+            isStartingNextSetRef.current = false;
+            setIsStartingNextSet(false);
+        }
+    }, [workflowStep]);
 
     useEffect(() => {
         if (pendingSetWinner) {
@@ -392,12 +406,70 @@ export default function ScorerConsole() {
     // Roster Data
     const [masterHomeRoster, setMasterHomeRoster] = useState([]);
     const [masterAwayRoster, setMasterAwayRoster] = useState([]);
-    const [homeRoster, setHomeRoster] = useState(() => loadState('homeRoster', []));
-    const [awayRoster, setAwayRoster] = useState(() => loadState('awayRoster', []));
+    const [homeRoster, setHomeRoster] = useState([]);
+    const [awayRoster, setAwayRoster] = useState([]);
     const [homeStaff, setHomeStaff] = useState([]);
     const [awayStaff, setAwayStaff] = useState([]);
     // ป้องกัน PreMatchSetupModal เปิดก่อน roster โหลดเสร็จ
     const [isRosterReady, setIsRosterReady] = useState(false);
+    const scorerRosterResetRef = useRef(false);
+
+    useEffect(() => {
+        if (!location.state?.resetScorerRoster || scorerRosterResetRef.current) return;
+        scorerRosterResetRef.current = true;
+
+        [
+            'homeRoster',
+            'awayRoster',
+            'homeLineup',
+            'awayLineup',
+            'homeLiberos',
+            'awayLiberos',
+            'lastSetHomeLineup',
+            'lastSetAwayLineup',
+            'lastSetHomeLiberos',
+            'lastSetAwayLiberos',
+            'liberoTracker'
+        ].forEach((key) => localStorage.removeItem(`match_${matchId}_${key}`));
+
+        const normalizeNavigationRoster = (players = []) => players
+            .filter(isPlayingPlayer)
+            .map((player) => ({
+                ...player,
+                name: player.name || `${player.first_name || player.firstname || ''} ${player.last_name || player.lastname || ''}`.trim()
+            }));
+
+        const navigationRosterData = location.state?.matchRosterData;
+        if (navigationRosterData) {
+            const nextHomeRoster = normalizeNavigationRoster(navigationRosterData.home?.players || []);
+            const nextAwayRoster = normalizeNavigationRoster(navigationRosterData.away?.players || []);
+            const nextHomeStaff = navigationRosterData.home?.staff || [];
+            const nextAwayStaff = navigationRosterData.away?.staff || [];
+
+            setMasterHomeRoster(nextHomeRoster);
+            setMasterAwayRoster(nextAwayRoster);
+            setHomeRoster(nextHomeRoster);
+            setAwayRoster(nextAwayRoster);
+            setHomeStaff(nextHomeStaff);
+            setAwayStaff(nextAwayStaff);
+
+            localStorage.setItem(`match_${matchId}_homeRoster`, JSON.stringify(nextHomeRoster));
+            localStorage.setItem(`match_${matchId}_awayRoster`, JSON.stringify(nextAwayRoster));
+        }
+
+        setHomeLineup(Array(6).fill(null));
+        setAwayLineup(Array(6).fill(null));
+        setHomeLiberos({ l1: null, l2: null });
+        setAwayLiberos({ l1: null, l2: null });
+        setLastSetHomeLineup(null);
+        setLastSetAwayLineup(null);
+        setLastSetHomeLiberos(null);
+        setLastSetAwayLiberos(null);
+        setLiberoTracker({
+            home: { onCourt: false, activeLibero: null, replacedPlayer: null, posIndex: null },
+            away: { onCourt: false, activeLibero: null, replacedPlayer: null, posIndex: null }
+        });
+    }, [location.state, matchId]);
 
     // --- REFRESH ROSTER FROM BACKEND ---
     const refreshRoster = useCallback(async (hId, aId) => {
@@ -406,11 +478,6 @@ export default function ScorerConsole() {
         if (!homeId && !awayId) return;
 
         try {
-            const [resHome, resAway] = await Promise.all([
-                homeId ? api.getPlayersByTeam(homeId) : Promise.resolve({ data: [] }),
-                awayId ? api.getPlayersByTeam(awayId) : Promise.resolve({ data: [] })
-            ]);
-
             // Helper to map DB player format to components' expected format
             const isTruthyFlag = (value) => (
                 value === true
@@ -460,13 +527,6 @@ export default function ScorerConsole() {
                     role: role
                 };
             };
-
-            const mappedHomeMaster = (resHome.data || []).map(mapPlayerFields);
-            const mappedAwayMaster = (resAway.data || []).map(mapPlayerFields);
-
-            setMasterHomeRoster(mappedHomeMaster);
-            setMasterAwayRoster(mappedAwayMaster);
-
             let activeHomeRoster = [];
             let activeAwayRoster = [];
             let matchRosterData = null;
@@ -477,6 +537,31 @@ export default function ScorerConsole() {
             } catch (err) {
                 console.warn("Failed to fetch match roster data:", err);
             }
+            const normalizeScopeText = (value) => String(value ?? '').trim().toLowerCase();
+            const matchScope = matchRosterData?.match || matchDataRef.current || {};
+            const matchAgeGroupId = Number(
+                matchScope.match_age_group_id
+                || matchScope.age_group_id
+                || matchScope.category
+                || 0
+            );
+            const matchGender = normalizeScopeText(
+                matchScope.competition_gender
+                || matchScope.gender
+                || matchScope.competition_category
+            );
+            const isInMatchScope = (player = {}) => {
+                const playerAgeGroupId = Number(player.entry_age_group_id || player.age_group_id || 0);
+                const playerGender = normalizeScopeText(player.entry_gender || player.gender || player.competition_gender);
+
+                if (matchAgeGroupId && playerAgeGroupId && playerAgeGroupId !== matchAgeGroupId) {
+                    return false;
+                }
+                if (matchGender && playerGender && playerGender !== matchGender) {
+                    return false;
+                }
+                return true;
+            };
 
             if (matchRosterData) {
                 const homePlayers = matchRosterData.home?.players || matchRosterData.homeRoster || [];
@@ -485,29 +570,41 @@ export default function ScorerConsole() {
                 const awayStaffList = matchRosterData.away?.staff || matchRosterData.awayStaff || [];
 
                 activeHomeRoster = homePlayers
+                    .filter(isInMatchScope)
                     .filter(isPlayingPlayer)
                     .map(mapPlayerFields);
 
                 activeAwayRoster = awayPlayers
+                    .filter(isInMatchScope)
                     .filter(isPlayingPlayer)
                     .map(mapPlayerFields);
 
                 setHomeStaff(homeStaffList);
                 setAwayStaff(awayStaffList);
             } else {
-                activeHomeRoster = mappedHomeMaster.filter(isPlayingPlayer).map(mapPlayerFields);
-                activeAwayRoster = mappedAwayMaster.filter(isPlayingPlayer).map(mapPlayerFields);
+                activeHomeRoster = [];
+                activeAwayRoster = [];
                 setHomeStaff([]);
                 setAwayStaff([]);
             }
 
+            setMasterHomeRoster(activeHomeRoster);
+            setMasterAwayRoster(activeAwayRoster);
             setHomeRoster(activeHomeRoster);
             setAwayRoster(activeAwayRoster);
 
             localStorage.setItem(`match_${matchId}_homeRoster`, JSON.stringify(activeHomeRoster));
             localStorage.setItem(`match_${matchId}_awayRoster`, JSON.stringify(activeAwayRoster));
+
+            return {
+                homeRoster: activeHomeRoster,
+                awayRoster: activeAwayRoster,
+                homeStaff: matchRosterData?.home?.staff || matchRosterData?.homeStaff || [],
+                awayStaff: matchRosterData?.away?.staff || matchRosterData?.awayStaff || []
+            };
         } catch (err) {
             console.error("Error refreshing roster:", err);
+            return null;
         }
     }, [matchId]);
 
@@ -536,6 +633,10 @@ export default function ScorerConsole() {
 
     const [activeHistoryTab, setActiveHistoryTab] = useState(1);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [realtimeConnected, setRealtimeConnected] = useState(false);
+    const [liveSyncStatus, setLiveSyncStatus] = useState('pending');
+    const liveSyncGenerationRef = useRef(0);
+    const retryLiveStateRef = useRef(null);
     const [queueCount, setQueueCount] = useState(EventQueue.getQueue().length);
 
     // --- BUTTON CLASS HELPER ---
@@ -586,12 +687,44 @@ export default function ScorerConsole() {
             setServingTeam(live.servingTeam);
         }
         if (typeof live.isHomeLeft === 'boolean') setIsHomeLeft(live.isHomeLeft);
-        if (Array.isArray(live.homeRoster)) setHomeRoster(live.homeRoster);
-        if (Array.isArray(live.awayRoster)) setAwayRoster(live.awayRoster);
-        if (Array.isArray(live.homeLineup)) setHomeLineup(live.homeLineup);
-        if (Array.isArray(live.awayLineup)) setAwayLineup(live.awayLineup);
-        if (live.homeLiberos) setHomeLiberos(live.homeLiberos);
-        if (live.awayLiberos) setAwayLiberos(live.awayLiberos);
+        const readCachedMatchRoster = (side) => {
+            try {
+                const savedRoster = localStorage.getItem(`match_${matchId}_${side}Roster`);
+                return savedRoster ? JSON.parse(savedRoster) : [];
+            } catch {
+                return [];
+            }
+        };
+        const mapLiveLineupToMatchRoster = (side, lineup = []) => {
+            const roster = readCachedMatchRoster(side);
+            return lineup.map((player) => {
+                if (!player) return null;
+                const playerId = player.id || player.player_id || player;
+                return roster.find((rosterPlayer) =>
+                    String(rosterPlayer.id) === String(playerId)
+                    || String(rosterPlayer.player_id) === String(playerId)
+                ) || null;
+            });
+        };
+        const mapLiveLiberosToMatchRoster = (side, liberos = {}) => {
+            const roster = readCachedMatchRoster(side);
+            const findRosterPlayer = (player) => {
+                if (!player) return null;
+                const playerId = player.id || player.player_id || player;
+                return roster.find((rosterPlayer) =>
+                    String(rosterPlayer.id) === String(playerId)
+                    || String(rosterPlayer.player_id) === String(playerId)
+                ) || null;
+            };
+            return {
+                l1: findRosterPlayer(liberos.l1),
+                l2: findRosterPlayer(liberos.l2)
+            };
+        };
+        if (Array.isArray(live.homeLineup)) setHomeLineup(mapLiveLineupToMatchRoster('home', live.homeLineup));
+        if (Array.isArray(live.awayLineup)) setAwayLineup(mapLiveLineupToMatchRoster('away', live.awayLineup));
+        if (live.homeLiberos) setHomeLiberos(mapLiveLiberosToMatchRoster('home', live.homeLiberos));
+        if (live.awayLiberos) setAwayLiberos(mapLiveLiberosToMatchRoster('away', live.awayLiberos));
         if (live.homeLiberoSwaps) setHomeLiberoSwaps(live.homeLiberoSwaps);
         if (live.awayLiberoSwaps) setAwayLiberoSwaps(live.awayLiberoSwaps);
         if (live.teamColors) {
@@ -622,18 +755,22 @@ export default function ScorerConsole() {
         });
 
         // เข้าร่วม Room ของแมตช์นี้เมื่อเชื่อมต่อหรือเชื่อมต่อใหม่
+        socket.on('disconnect', () => setRealtimeConnected(false));
+        socket.on('connect_error', () => setRealtimeConnected(false));
         socket.on('connect', () => {
+            setRealtimeConnected(true);
             socket.emit('join_match', { matchId, role: 'scorer' });
         });
 
         if (socket.connected) {
+            setRealtimeConnected(true);
             socket.emit('join_match', { matchId, role: 'scorer' });
         }
 
         // ดึงข้อมูลเริ่มต้น (Initial Fetch) เพื่อกันกรณีตกหล่น
         client.get(`/match/${matchId}/requests/pending`).then(res => {
             setPendingRequests(res.data || []);
-        });
+        }).catch(error => console.error('Unable to load staff requests:', error));
 
         // ฟังเหตุการณ์อัปเดตสถานะการเชื่อมต่อของทีม
         socket.on('connection_status_update', (statuses) => {
@@ -785,6 +922,8 @@ export default function ScorerConsole() {
 
     // --- EFFECT: SAVE STATE ---
     useEffect(() => {
+        const generation = ++liveSyncGenerationRef.current;
+        let syncActive = true;
         // ถ้าแมตช์จบแล้ว ไม่ควรเขียนข้อมูลทับอีกเพื่อป้องกันการสูญหายของลายเซ็นและข้อมูลอื่น
         if (matchData?.status === 'completed') {
             return;
@@ -795,6 +934,7 @@ export default function ScorerConsole() {
             clearTimeout(debounceTimeoutRef.current);
         }
 
+        setLiveSyncStatus('pending');
         debounceTimeoutRef.current = setTimeout(() => {
             const stateForLocalStorage = {
                 matchData, workflowStep, score, setsWon, completedSets,
@@ -846,13 +986,24 @@ export default function ScorerConsole() {
                 firstServeSet1,
                 updatedAt: updateTimestamp
             };
-            api.updateLiveState(matchId, liveStateForServer).catch(err => {
-                console.error("Failed to sync state to server:", err);
-            });
+            const sendState = async () => {
+                if (!syncActive || generation !== liveSyncGenerationRef.current) return;
+                setLiveSyncStatus('saving');
+                try {
+                    await api.updateLiveState(matchId, liveStateForServer);
+                    if (syncActive && generation === liveSyncGenerationRef.current) setLiveSyncStatus('saved');
+                } catch (error) {
+                    console.error('Failed to sync state to server:', error);
+                    if (syncActive && generation === liveSyncGenerationRef.current) setLiveSyncStatus('error');
+                }
+            };
+            retryLiveStateRef.current = sendState;
+            sendState();
         }, 500); // 500ms debounce delay
 
         return () => {
             clearTimeout(debounceTimeoutRef.current);
+            syncActive = false;
         };
     }, [matchId, matchData, workflowStep, score, setsWon, completedSets, timeouts, challenges, substitutions, matchEvents, servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup, homeLiberos, awayLiberos, history, setsToWin, matchDuration, isTimerRunning, homeLiberoSwaps, awayLiberoSwaps, lastLiberoSwap, teamColors, showTimeoutTimer, timeoutStartTime, subTracker, matchSignatures, referees, postponedChallengeIds, currentChallengeReview, firstServeSet1]);
 
@@ -1155,24 +1306,31 @@ export default function ScorerConsole() {
                             if (live.matchDuration) setMatchDuration(live.matchDuration);
                             if (liveWithMatchFallback.firstServeSet1) setFirstServeSet1(liveWithMatchFallback.firstServeSet1);
 
+                            const readCachedMatchRoster = (side) => {
+                                try {
+                                    const savedRoster = localStorage.getItem(`match_${matchId}_${side}Roster`);
+                                    return savedRoster ? JSON.parse(savedRoster) : [];
+                                } catch {
+                                    return [];
+                                }
+                            };
+
                             if (live.homeLineup && Array.isArray(live.homeLineup)) {
-                                const rosterHome = (await api.getPlayersByTeam(currentMatch.teamHomeId).catch(() => ({ data: [] }))).data || [];
+                                const rosterHome = readCachedMatchRoster('home');
                                 const mapPlayerFields = (p) => {
                                     if (!p) return null;
-                                    if (p.number) return p;
                                     const pid = p.id || p.player_id || p;
-                                    return rosterHome.find(r => String(r.id) === String(pid) || String(r.player_id) === String(pid)) || p;
+                                    return rosterHome.find(r => String(r.id) === String(pid) || String(r.player_id) === String(pid)) || null;
                                 };
                                 const restoredHome = live.homeLineup.map(mapPlayerFields);
                                 if (restoredHome.some(p => p && p.number)) setHomeLineup(restoredHome);
                             }
                             if (live.awayLineup && Array.isArray(live.awayLineup)) {
-                                const rosterAway = (await api.getPlayersByTeam(currentMatch.teamAwayId).catch(() => ({ data: [] }))).data || [];
+                                const rosterAway = readCachedMatchRoster('away');
                                 const mapPlayerFields = (p) => {
                                     if (!p) return null;
-                                    if (p.number) return p;
                                     const pid = p.id || p.player_id || p;
-                                    return rosterAway.find(r => String(r.id) === String(pid) || String(r.player_id) === String(pid)) || p;
+                                    return rosterAway.find(r => String(r.id) === String(pid) || String(r.player_id) === String(pid)) || null;
                                 };
                                 const restoredAway = live.awayLineup.map(mapPlayerFields);
                                 if (restoredAway.some(p => p && p.number)) setAwayLineup(restoredAway);
@@ -1183,10 +1341,25 @@ export default function ScorerConsole() {
 
                             const savedHomeRosterStr = localStorage.getItem(`match_${matchId}_homeRoster`);
                             const savedAwayRosterStr = localStorage.getItem(`match_${matchId}_awayRoster`);
+                            const keepLiberosInRoster = (liberos, roster = []) => {
+                                const findRosterPlayer = (player) => {
+                                    if (!player) return null;
+                                    const playerId = player.id || player.player_id || player;
+                                    return roster.find((rosterPlayer) =>
+                                        String(rosterPlayer.id) === String(playerId)
+                                        || String(rosterPlayer.player_id) === String(playerId)
+                                    ) || null;
+                                };
+                                return {
+                                    l1: findRosterPlayer(liberos?.l1),
+                                    l2: findRosterPlayer(liberos?.l2)
+                                };
+                            };
 
                             if (savedHomeRosterStr) {
                                 try {
                                     const savedHomeRoster = JSON.parse(savedHomeRosterStr);
+                                    restoredHomeLiberos = keepLiberosInRoster(restoredHomeLiberos, savedHomeRoster);
                                     if (!restoredHomeLiberos || (!restoredHomeLiberos.l1 && !restoredHomeLiberos.l2)) {
                                         const libs = savedHomeRoster.filter(isPlayerLibero);
                                         restoredHomeLiberos = { l1: libs[0] || null, l2: libs[1] || null };
@@ -1199,6 +1372,7 @@ export default function ScorerConsole() {
                             if (savedAwayRosterStr) {
                                 try {
                                     const savedAwayRoster = JSON.parse(savedAwayRosterStr);
+                                    restoredAwayLiberos = keepLiberosInRoster(restoredAwayLiberos, savedAwayRoster);
                                     if (!restoredAwayLiberos || (!restoredAwayLiberos.l1 && !restoredAwayLiberos.l2)) {
                                         const libs = savedAwayRoster.filter(isPlayerLibero);
                                         restoredAwayLiberos = { l1: libs[0] || null, l2: libs[1] || null };
@@ -1821,20 +1995,29 @@ export default function ScorerConsole() {
     }, [finishSet, isEndingSet, pendingSetWinner, resolvePendingSetWinner]);
 
     const startNextSet = () => {
-        // Reset scores and quotas for the new set
-        setScore({ home: 0, away: 0 });
-        setTimeouts({ home: 0, away: 0 });
-        setChallenges({ home: 2, away: 2 });
-        setSubstitutions({ home: 0, away: 0 });
-        setSubTracker({ // Reset substitution tracker
-            home: { count: 0, positions: {}, usedPlayers: [] },
-            away: { count: 0, positions: {}, usedPlayers: [] }
-        });
-        setHomeLiberoSwaps({});
-        setAwayLiberoSwaps({});
-        setHistory([]);
+        if (isStartingNextSetRef.current || isStartingNextSet) return;
 
-        const nextSetNumber = matchData.currentSet + 1;
+        const currentSetNumber = Number(matchData.currentSet || 1);
+        const currentCompletedSet = completedSets.find((setInfo) => Number(setInfo.set) === currentSetNumber);
+
+        if (!currentCompletedSet) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'ยังไม่พบผลการแข่งขันของเซตนี้',
+                text: `ต้องบันทึกผล Set ${currentSetNumber} ให้เรียบร้อยก่อน จึงจะเริ่มเซตถัดไปได้`,
+                confirmButtonColor: '#0d54c7ff'
+            });
+            return;
+        }
+
+        isStartingNextSetRef.current = true;
+        setIsStartingNextSet(true);
+
+        const highestCompletedSet = completedSets.reduce((maxSet, setInfo) => {
+            const setNumber = Number(setInfo.set || 0);
+            return setNumber > maxSet ? setNumber : maxSet;
+        }, 0);
+        const nextSetNumber = Math.max(currentSetNumber, highestCompletedSet) + 1;
 
         // Add "Set Started" event to the cumulative match history
         setMatchEvents(prev => [{
@@ -1844,6 +2027,19 @@ export default function ScorerConsole() {
             description: `Set ${nextSetNumber} Started`,
             time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
         }, ...prev]);
+
+        // Reset scores and quotas for the new set
+        setScore({ home: 0, away: 0 });
+        setTimeouts({ home: 0, away: 0 });
+        setChallenges({ home: 2, away: 2 });
+        setSubstitutions({ home: 0, away: 0 });
+        setSubTracker({
+            home: { count: 0, positions: {}, usedPlayers: [] },
+            away: { count: 0, positions: {}, usedPlayers: [] }
+        });
+        setHomeLiberoSwaps({});
+        setAwayLiberoSwaps({});
+        setHistory([]);
 
         const isTieBreak = (setsWon?.home === setsToWin - 1) && (setsWon.away === setsToWin - 1);
         setMatchData(prev => ({ ...prev, currentSet: nextSetNumber }));
@@ -2276,9 +2472,9 @@ export default function ScorerConsole() {
         const setsNeeded = parseInt(data.setsToWin, 10);
         const allHomeRoster = Array.isArray(data.allHome) ? data.allHome : data.confirmedHome;
         const allAwayRoster = Array.isArray(data.allAway) ? data.allAway : data.confirmedAway;
+        let nextHomeRoster = Array.isArray(data.confirmedHome) ? data.confirmedHome : [];
+        let nextAwayRoster = Array.isArray(data.confirmedAway) ? data.confirmedAway : [];
         setSetsToWin(setsNeeded >= 2 ? setsNeeded : 3);
-        setHomeRoster(data.confirmedHome);
-        setAwayRoster(data.confirmedAway);
         setReferees(data.referees);
 
         try {
@@ -2327,9 +2523,26 @@ export default function ScorerConsole() {
                 homePlayers: allHomeRoster,
                 awayPlayers: allAwayRoster
             });
+
+            const refreshedRoster = await refreshRoster();
+            if (refreshedRoster) {
+                nextHomeRoster = refreshedRoster.homeRoster;
+                nextAwayRoster = refreshedRoster.awayRoster;
+            }
         } catch (error) {
             console.error("Failed to update match roster during setup:", error);
+            await Swal.fire({
+                title: 'ไม่สามารถบันทึกรายชื่อนักกีฬาได้',
+                text: error.response?.data?.error || 'ระบบไม่สามารถอัปเดตรายชื่อได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่อีกครั้ง',
+                icon: 'error',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#0d54c7ff'
+            });
+            return;
         }
+
+        setHomeRoster(nextHomeRoster);
+        setAwayRoster(nextAwayRoster);
 
         if (data.matchDetails) {
             setMatchData(prev => ({
@@ -2351,25 +2564,25 @@ export default function ScorerConsole() {
                 max_sets: setsNeeded ? setsNeeded * 2 - 1 : 5
             }));
         }
-        const homeLibFiles = data.confirmedHome.filter(isPlayerLibero);
+        const homeLibFiles = nextHomeRoster.filter(isPlayerLibero);
         setHomeLiberos({
             l1: homeLibFiles[0] || null,
             l2: homeLibFiles[1] || null
         });
 
         // Auto-fill Lineup if exactly 6 regular players are confirmed
-        const homeRegularPlayers = data.confirmedHome.filter(p => !isPlayerLibero(p));
+        const homeRegularPlayers = nextHomeRoster.filter(p => !isPlayerLibero(p));
         if (homeRegularPlayers.length === 6) {
             setHomeLineup(homeRegularPlayers);
         }
 
-        const awayLibFiles = data.confirmedAway.filter(isPlayerLibero);
+        const awayLibFiles = nextAwayRoster.filter(isPlayerLibero);
         setAwayLiberos({
             l1: awayLibFiles[0] || null,
             l2: awayLibFiles[1] || null
         });
 
-        const awayRegularPlayers = data.confirmedAway.filter(p => !isPlayerLibero(p));
+        const awayRegularPlayers = nextAwayRoster.filter(p => !isPlayerLibero(p));
         if (awayRegularPlayers.length === 6) {
             setAwayLineup(awayRegularPlayers);
         }
@@ -2390,8 +2603,8 @@ export default function ScorerConsole() {
                     substitutions,
                     servingTeam,
                     isHomeLeft,
-                    homeRoster: data.confirmedHome,
-                    awayRoster: data.confirmedAway,
+                    homeRoster: nextHomeRoster,
+                    awayRoster: nextAwayRoster,
                     homeLineup,
                     awayLineup,
                     homeLiberos,
@@ -2577,7 +2790,7 @@ export default function ScorerConsole() {
             title: `เวลานอก (TIMEOUT) - ${teamName}`,
             html: `
                 <div style="font-size: 16px; color: #64748b; margin-bottom: 10px;">กำลังนับถอยหลังการขอเวลานอก</div>
-                <div style="font-size: 64px; font-weight: 900; color: #f59e0b; font-family: monospace;" id="timeout-countdown">30</div>
+                <div style="font-size: 64px; font-weight: 900; color: #f59e0b; font-family: var(--font-sans);" id="timeout-countdown">30</div>
                 <div style="font-size: 14px; color: #94a3b8; margin-top: 10px;">วินาที</div>
             `,
             timer: 30000,
@@ -3635,40 +3848,42 @@ export default function ScorerConsole() {
     const activeStaffRequest = pendingRequests.find(r => r.request_type !== 'CHALLENGE' && !postponedRequestIds.includes(r.id));
 
     return (
-        <div className="h-screen flex flex-col bg-white text-slate-900 font-sans overflow-hidden">
+        <div className="scorer-shell flex flex-col bg-app-background text-slate-900 font-sans overflow-hidden">
             {/* --- HEADER --- */}
-            <header className="h-14 bg-white/70 backdrop-blur-md border-b border-slate-200/60 flex items-center justify-between px-6 shrink-0 z-20">
-                <div className="flex items-center gap-4">
-                    <div className="bg-blue-600 p-1.5 rounded-lg text-white shadow-indigo-100 shadow-xl border border-indigo-400/20">
-                        <Trophy size={18} />
+            <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+                <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-blue-700">
+                        <Trophy size={20} strokeWidth={2.25} />
                     </div>
-                    <div className="flex flex-col">
-                        <h1 className="font-semibold text-lg tracking-tight text-slate-900 uppercase leading-tight">
-                            Scorer <span className="text-blue-600">Console</span>
+                    <div className="flex min-w-0 flex-col">
+                        <h1 className="truncate text-base font-bold leading-tight tracking-normal text-slate-950">
+                            Scorer Console
                         </h1>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider flex-wrap">
-                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse"></span> LIVE</span>
-                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                            <span className="text-slate-500">{formatThaiFullDateTime(new Date())}</span>
+                        <div className="mt-0.5 flex items-center gap-2 text-xs font-medium text-slate-500">
+                            <span className="inline-flex items-center gap-1.5 text-rose-600">
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                                LIVE
+                            </span>
+                            <span className="h-1 w-1 rounded-full bg-slate-300"></span>
+                            <span className="truncate">{formatThaiFullDateTime(navbarTime)}</span>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* Sync Status Badge */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-bold uppercase tracking-tighter transition-all duration-300 ${queueCount === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-amber-50 border-amber-200 text-amber-600 animate-pulse'}`}>
-                        {queueCount === 0 ? (
-                            <><CheckCircle size={14} /> Synced</>
-                        ) : (
-                            <><Loader size={14} className="animate-spin" /> Pending ({queueCount})</>
-                        )}
+                    <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
+                        <StatusBadge tone={realtimeConnected ? 'success' : 'warning'} dot>{realtimeConnected ? 'เชื่อมต่อสด / Live' : 'กำลังเชื่อมต่อใหม่ / Reconnecting'}</StatusBadge>
+                        <StatusBadge tone={liveSyncStatus === 'error' ? 'error' : liveSyncStatus === 'saved' && queueCount === 0 ? 'success' : 'warning'}>
+                            {liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}
+                        </StatusBadge>
+                        {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary"><RefreshCcw size={15} />ลองใหม่ / Retry</button>}
                     </div>
 
-                    <div className="flex items-center bg-slate-100 p-1 rounded-md border border-slate-200">
-                        <button onClick={handleProtest} className="p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-white transition-all duration-200" title="Protest / Forfeit">
+                    <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-sm">
+                        <button onClick={handleProtest} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title="Protest / Forfeit">
                             <Whistle size={18} />
                         </button>
-                        <button onClick={() => setShowMatchLogModal(true)} className="p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-white transition-all duration-200" title="Match Log"><ListChecks size={18} /></button>
+                        <button onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title="Match Log"><ListChecks size={18} /></button>
                         <button
                             onClick={() => {
                                 const role = getStoredUser()?.role || 'admin';
@@ -3678,7 +3893,7 @@ export default function ScorerConsole() {
                                     navigate('/admin');
                                 }
                             }}
-                            className="p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-white transition-all duration-200"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                             title="Exit"
                         >
                             <X size={18} />
@@ -3689,7 +3904,7 @@ export default function ScorerConsole() {
 
             <main className="flex-1 flex overflow-hidden p-3 gap-3">
                 {/* Left Sidebar */}
-                <aside className="w-[300px] bg-white border border-slate-200/60 rounded-lg hidden lg:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
+                <aside className="w-[300px] bg-white border border-slate-200/60 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
                     <div className="flex-1 overflow-hidden pb-48">
                         <TeamInfoPanel team={leftTeam} align="left" onPlayerClick={handleCourtPlayerClick} />
                     </div>
@@ -3712,7 +3927,7 @@ export default function ScorerConsole() {
                 </aside>
 
                 {/* CENTER: COURT & SCORE */}
-                <section className="flex-1 flex flex-col gap-3 overflow-hidden min-w-0 lg:min-w-[520px] w-full">
+                <section className="flex-1 flex flex-col gap-3 overflow-hidden min-w-0 xl:min-w-[520px] w-full">
                     {/* SCOREBOARD */}
                     <div className="bg-white border border-slate-200/60 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] shrink-0 overflow-hidden">
 
@@ -3801,7 +4016,7 @@ export default function ScorerConsole() {
                         </div>
 
                         {/* Mobile Roster buttons */}
-                        <div className="flex lg:hidden border-t border-slate-100">
+                        <div className="flex xl:hidden border-t border-slate-100">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setMobilePanelTeam(leftTeam.code); }}
                                 className="flex-1 py-2 text-[10px] font-bold text-center border-r border-slate-100 hover:bg-slate-50 transition-colors"
@@ -3820,7 +4035,7 @@ export default function ScorerConsole() {
                     </div>
 
                     {/* COURT VIEW CONTAINER */}
-                    <div className="flex-1 relative overflow-hidden flex flex-col items-center justify-center gap-2 p-2">
+                    <div className="scorer-court flex-1 relative overflow-hidden flex flex-col items-center justify-center gap-2 p-2">
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-50 to-white pointer-events-none"></div>
                         <div className="w-full flex-1 min-h-0 max-w-4xl max-h-[420px] relative z-10">
                             <CourtView
@@ -3916,6 +4131,7 @@ export default function ScorerConsole() {
                         workflowStep={workflowStep}
                         onConfirmSetEnd={handleConfirmSetEnd}
                         isEndingSet={isEndingSet}
+                        isStartingNextSet={isStartingNextSet}
                         startNextSet={startNextSet}
                         handleFinishMatch={handleFinishMatch}
                         runCoinTossFlow={runCoinTossFlow}
@@ -3939,7 +4155,7 @@ export default function ScorerConsole() {
                 </section>
 
                 {/* Right Sidebar (Team Info) */}
-                <aside className="w-[300px]  bg-white border border-slate-200/60 rounded-lg hidden lg:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
+                <aside className="w-[300px]  bg-white border border-slate-200/60 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
                     <div className="flex-1 overflow-hidden pb-48">
                         <TeamInfoPanel team={rightTeam} align="right" onPlayerClick={handleCourtPlayerClick} />
                     </div>

@@ -1,3 +1,4 @@
+import { StatusBadge } from '../components/ui/SystemUI';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
@@ -804,9 +805,9 @@ export default function ScoreSheet({ matchId }) {
     else if (totalWonB > totalWonA) { matchWinner = teamB; matchScore = `${totalWonB} : ${totalWonA}`; }
 
     return (
-        <div className="min-h-screen bg-gray-500 p-4 font-sans ">
+        <div className="min-h-screen bg-slate-100 p-4 font-sans ">
             {/* Action Bar (Hidden when printing) */}
-            <div className="fixed top-6 right-6 flex gap-3 z-50 print:hidden">
+            <div className="sticky top-0 mb-4 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 z-50 print:hidden">
                 <button
                     onClick={() => {
                         if (window.history.state && window.history.state.idx > 0) {
@@ -835,6 +836,12 @@ export default function ScoreSheet({ matchId }) {
                 </button>
             </div>
 
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">
+                <span className="text-sm font-semibold text-slate-700">ตรวจข้อมูลก่อนพิมพ์ / Review before printing</span>
+                <StatusBadge tone={matchData.home_team_id && matchData.away_team_id ? 'success' : 'warning'}>{matchData.home_team_id && matchData.away_team_id ? 'ระบุทีมแล้ว / Teams assigned' : 'ตรวจสอบทีม / Check teams'}</StatusBadge>
+                <StatusBadge tone={fallbackHomePlayers.length && fallbackAwayPlayers.length ? 'success' : 'warning'}>{fallbackHomePlayers.length && fallbackAwayPlayers.length ? 'มีรายชื่อทั้งสองทีม / Rosters available' : 'รายชื่อยังไม่ครบ / Rosters missing'}</StatusBadge>
+                <StatusBadge tone={matchData.match_date ? 'success' : 'warning'}>{matchData.match_date ? 'ระบุวันแข่งขันแล้ว / Date assigned' : 'ยังไม่ระบุวัน / Date missing'}</StatusBadge>
+            </div>
             {showO4 ? (
                 <MatchResultReportO4 matchData={matchData} scoreData={scoreData} rosterData={rosterData} />
             ) : (

@@ -25,6 +25,37 @@ const parseNullableString = (value) => {
     return text || null;
 };
 
+const normalizeGender = (value) => String(value || '').trim().toLowerCase();
+
+const buildPlayerGenderFilter = (gender) => {
+    const normalized = normalizeGender(gender);
+    if (!normalized || ['mixed', 'mix', 'all'].includes(normalized)) {
+        return { sql: '', params: [] };
+    }
+
+    if (['male', 'men', 'm'].includes(normalized)) {
+        return {
+            sql: `AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                      IN ('male', 'men', 'm')`,
+            params: []
+        };
+    }
+
+    if (['female', 'women', 'f'].includes(normalized)) {
+        return {
+            sql: `AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                      IN ('female', 'women', 'f')`,
+            params: []
+        };
+    }
+
+    return {
+        sql: `AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                  = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)`,
+        params: [gender]
+    };
+};
+
 const parseNullablePlayerName = (value) => {
     const text = parseNullableString(value);
     return text === '0' || text === '-0' || /^\d+$/.test(text || '') ? null : text;
@@ -95,19 +126,77 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
     const playerPlayingWhere = options.playerHasIsPlaying
         ? 'AND (p.is_playing = 1 OR p.is_playing = true OR p.is_playing IS NULL)'
         : '';
+    const displayablePlayerWhere = `
+        AND NOT (
+            COALESCE(NULLIF(TRIM(p.first_name), ''), '-') IN ('-', '0')
+            AND COALESCE(NULLIF(TRIM(p.last_name), ''), '-') IN ('-', '0')
+        )
+    `;
+    const ageGroupId = parseNullableInt(options.ageGroupId);
+    const gender = parseNullableString(options.gender);
+    const ageGroupWhere = ageGroupId
+        ? 'AND COALESCE(te.age_group_id, c.age_group_id) = ?'
+        : '';
+    const genderWhere = gender
+        ? `AND LOWER(CONVERT(COALESCE(te.gender, c.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+              = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)`
+        : '';
+    const playerGenderFilter = buildPlayerGenderFilter(gender);
+    const entryParams = [
+        competitionId,
+        teamId,
+        ...(ageGroupId ? [ageGroupId] : []),
+        ...(gender ? [gender] : []),
+        ...playerGenderFilter.params
+    ];
 
     const entryRoster = await db.query(`
         SELECT ${entrySelectFields}
         FROM team_entry_players tep
         JOIN team_entries te ON te.id = tep.team_entry_id
+        JOIN competitions c ON c.id = te.competition_id
         JOIN players p ON p.id = tep.player_id
         WHERE te.competition_id = ?
           AND te.team_id = ?
+          ${ageGroupWhere}
+          ${genderWhere}
+          ${playerGenderFilter.sql}
           ${entryPlayingWhere}
+          ${displayablePlayerWhere}
         ORDER BY COALESCE(tep.number, p.number) ASC, p.id ASC
-    `, [competitionId, teamId]);
+    `, entryParams);
 
     if (entryRoster.rows.length > 0) {
+        return entryRoster;
+    }
+
+    if (options.allowRegisteredTeamGenderFallback && ageGroupId && gender) {
+        const registeredEntry = await db.query(`
+            SELECT te.id
+            FROM team_entries te
+            JOIN competitions c ON c.id = te.competition_id
+            WHERE te.competition_id = ?
+              AND te.team_id = ?
+              AND COALESCE(te.age_group_id, c.age_group_id) = ?
+              AND LOWER(CONVERT(COALESCE(te.gender, c.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                  = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)
+            LIMIT 1
+        `, [competitionId, teamId, ageGroupId, gender]);
+
+        if (registeredEntry.rows.length > 0) {
+            return db.query(`
+                SELECT ${fallbackSelectFields}
+                FROM players p
+                WHERE p.team_id = ?
+                  AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                      = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)
+                  ${playerPlayingWhere}
+                ORDER BY p.number ASC, p.id ASC
+            `, [teamId, gender]);
+        }
+    }
+
+    if (options.requireEntryRoster) {
         return entryRoster;
     }
 
@@ -116,6 +205,7 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
         FROM players p
         WHERE p.team_id = ?
           ${playerPlayingWhere}
+          ${displayablePlayerWhere}
         ORDER BY p.number ASC, p.id ASC
     `, [teamId]);
 };
@@ -1235,15 +1325,16 @@ module.exports = {
                     t1.name as home_team_name, t1.code as home_team_code, t1.logo_url as home_logo_url,
                     t2.name as away_team_name, t2.code as away_team_code, t2.logo_url as away_logo_url,
                     c.title as competition_name, c.title as competition_title, 
-                    c.gender as competition_gender, c.sport as competition_sport,
+                    c.gender as competition_gender, c.sport as competition_sport, c.sport_type as competition_sport_type,
                     c.start_date as start_date, c.end_date as end_date,
                     COALESCE(c.max_sets, 5) as max_sets,
+                    COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     ag.name as age_group_name
                 FROM matches m
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
                 LEFT JOIN competitions c ON m.competition_id = c.id
-                LEFT JOIN age_groups ag ON c.age_group_id = ag.id
+                LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
                 WHERE m.id = ?
             `, [matchId]);
 
@@ -1291,7 +1382,13 @@ module.exports = {
                 'p.team_id',
                 'p.first_name',
                 'p.last_name',
+                "COALESCE((SELECT GROUP_CONCAT(pse.sport_type ORDER BY pse.sport_type SEPARATOR ',') FROM player_sport_eligibilities pse WHERE pse.player_id = p.id), 'indoor') as sport_types",
+                "COALESCE(c.sport_type, 'indoor') as registered_sport_type",
+                "CASE WHEN FIND_IN_SET(CONVERT(COALESCE(c.sport_type, 'indoor') USING utf8mb4) COLLATE utf8mb4_general_ci, CONVERT(COALESCE((SELECT GROUP_CONCAT(pse.sport_type ORDER BY pse.sport_type SEPARATOR ',') FROM player_sport_eligibilities pse WHERE pse.player_id = p.id), 'indoor') USING utf8mb4) COLLATE utf8mb4_general_ci) > 0 THEN 1 ELSE 0 END as sport_eligible",
                 `COALESCE(${entryNumberExpr}, p.number) as number`,
+                'p.gender',
+                'te.age_group_id as entry_age_group_id',
+                'te.gender as entry_gender',
                 `COALESCE(${entryRoleExpr}, p.position) as position`,
                 `COALESCE(${entryRoleExpr}, p.position) as role`,
                 `COALESCE(${entryCaptainExpr}, ${playerCaptainExpr}, 0) as is_captain`,
@@ -1303,7 +1400,13 @@ module.exports = {
                 'p.team_id',
                 'p.first_name',
                 'p.last_name',
+                "COALESCE((SELECT GROUP_CONCAT(pse.sport_type ORDER BY pse.sport_type SEPARATOR ',') FROM player_sport_eligibilities pse WHERE pse.player_id = p.id), 'indoor') as sport_types",
+                'NULL as registered_sport_type',
+                'NULL as sport_eligible',
                 'p.number',
+                'p.gender',
+                'NULL as entry_age_group_id',
+                'p.gender as entry_gender',
                 'p.position',
                 'p.position as role',
                 `${playerCaptainExpr} as is_captain`,
@@ -1322,7 +1425,11 @@ module.exports = {
 
             const rosterQueryOptions = {
                 entryHasIsPlaying: entryColumnNames.has('is_playing'),
-                playerHasIsPlaying: playerColumnNames.has('is_playing')
+                playerHasIsPlaying: playerColumnNames.has('is_playing'),
+                ageGroupId: match.match_age_group_id,
+                gender: match.competition_gender,
+                requireEntryRoster: true,
+                allowRegisteredTeamGenderFallback: true
             };
 
             const buildPlayersPayload = (rows = []) =>
@@ -1365,19 +1472,23 @@ module.exports = {
             };
 
             // 3. ดึงสตาฟทีม
-            const homeStaff = await db.query(`
-                SELECT first_name, last_name, role 
-                FROM team_staff 
-                WHERE team_id = ? 
-                ORDER BY role ASC
-            `, [match.home_team_id]);
+            const getEntryStaffForMatchTeam = async (teamId) => db.query(`
+                SELECT ts.id, ts.team_id, ts.first_name, ts.last_name, ts.role, ts.gender
+                FROM team_entry_staff tes
+                JOIN team_entries te ON te.id = tes.team_entry_id
+                JOIN competitions c ON c.id = te.competition_id
+                JOIN team_staff ts ON ts.id = tes.staff_id
+                WHERE te.competition_id = ?
+                  AND te.team_id = ?
+                  AND COALESCE(te.age_group_id, c.age_group_id) <=> ?
+                  AND LOWER(CONVERT(COALESCE(te.gender, c.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                      = LOWER(CONVERT(COALESCE(?, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                  AND ts.team_id = te.team_id
+                ORDER BY ts.role ASC, ts.first_name ASC, ts.last_name ASC
+            `, [match.competition_id, teamId, match.match_age_group_id, match.competition_gender]);
 
-            const awayStaff = await db.query(`
-                SELECT first_name, last_name, role 
-                FROM team_staff 
-                WHERE team_id = ? 
-                ORDER BY role ASC
-            `, [match.away_team_id]);
+            const homeStaff = await getEntryStaffForMatchTeam(match.home_team_id);
+            const awayStaff = await getEntryStaffForMatchTeam(match.away_team_id);
 
             res.json({
                 match,
@@ -1409,6 +1520,7 @@ module.exports = {
                     t1.name as home_team_name, t1.code as home_team_code,
                     t2.name as away_team_name, t2.code as away_team_code,
                     c.title as competition_name, c.title as competition_title, c.gender as competition_gender, c.gender as competition_category,
+                    COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     COALESCE(c.max_sets, 5) as max_sets,
                     
                     -- Officials
@@ -1454,13 +1566,23 @@ module.exports = {
                 match.competition_id,
                 match.home_team_id,
                 'p.id, p.first_name, p.last_name, COALESCE(tep.number, p.number) as number, COALESCE(tep.role, p.position) as position',
-                'p.id, p.first_name, p.last_name, p.number, p.position'
+                'p.id, p.first_name, p.last_name, p.number, p.position',
+                {
+                    ageGroupId: match.match_age_group_id,
+                    gender: match.competition_gender,
+                    requireEntryRoster: true
+                }
             );
             const awayPlayers = await getRosterPlayersForMatchTeam(
                 match.competition_id,
                 match.away_team_id,
                 'p.id, p.first_name, p.last_name, COALESCE(tep.number, p.number) as number, COALESCE(tep.role, p.position) as position',
-                'p.id, p.first_name, p.last_name, p.number, p.position'
+                'p.id, p.first_name, p.last_name, p.number, p.position',
+                {
+                    ageGroupId: match.match_age_group_id,
+                    gender: match.competition_gender,
+                    requireEntryRoster: true
+                }
             );
 
             // 5. ดึงเหตุการณ์ (Point by Point)

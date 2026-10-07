@@ -11,6 +11,8 @@ export default function Login() {
   const { language, setLanguage, t } = useLanguage();
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,6 +37,9 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setFormError('');
 
     try {
       const response = await api.login({
@@ -99,17 +104,14 @@ export default function Login() {
         navigate("/create-team");
       }
     } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: t('login.failTitle'),
-        text: err.response?.data?.error || t('login.failText'),
-        confirmButtonColor: "#0243c6ff",
-      });
+      setFormError(err.response?.data?.error || t('login.failText'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between bg-gradient-to-tr from-[#1e40af] via-[#3b82f6] to-[#60a5fa] overflow-hidden font-sans pb-24">
+    <div className="relative min-h-screen flex flex-col justify-between bg-[#122b52] overflow-hidden font-sans pb-24">
       {/* Language Switcher */}
       <div className="absolute top-4 right-4 z-25 flex gap-2">
         <button
@@ -140,12 +142,12 @@ export default function Login() {
 
       {/* Main Container */}
       <div className="flex-grow flex items-center justify-center px-4 py-12 relative z-10">
-        <div className="w-full max-w-md bg-white/70 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(30,64,175,0.3)] border border-white/20 p-8 md:p-10 transition-all duration-300 hover:shadow-[0_25px_60px_rgba(30,64,175,0.4)]">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_rgba(30,64,175,0.3)] border border-white/20 p-8 md:p-10 transition-all duration-300 hover:shadow-[0_25px_60px_rgba(30,64,175,0.4)]">
           
           {/* Logo & Header */}
           <div className="text-center mb-8">            
             <img src={Logo} alt="Logo" className='w-[300px] mx-auto mb-4'/>           
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">
               {t('login.title')}
             </h1>
             <p className="text-sm text-gray-500 mt-2 font-medium">
@@ -154,9 +156,10 @@ export default function Login() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" aria-busy={submitting}>
+            {formError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{formError}</p>}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              <label htmlFor="auth-username" className="block text-sm font-semibold text-gray-700 mb-1.5">
                 {t('login.username')}
               </label>
               <div className="relative">
@@ -164,6 +167,8 @@ export default function Login() {
                   <User className="h-5 w-5 text-gray-400" />
                 </span>
                 <input
+                  id="auth-username"
+                  autoComplete="username"
                   name="username"
                   type="text"
                   required
@@ -175,7 +180,7 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              <label htmlFor="auth-password" className="block text-sm font-semibold text-gray-700 mb-1.5">
                 {t('login.password')}
               </label>
               <div className="relative">
@@ -183,6 +188,8 @@ export default function Login() {
                   <Lock className="h-5 w-5 text-gray-400" />
                 </span>
                 <input
+                  id="auth-password"
+                  autoComplete="current-password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -192,6 +199,8 @@ export default function Login() {
                 />
                 <button
                   type="button"
+                  aria-label={language === 'THA' ? (showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน') : (showPassword ? 'Hide password' : 'Show password')}
+                  aria-pressed={showPassword}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-blue-500 transition-colors"
                 >
@@ -202,10 +211,11 @@ export default function Login() {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={submitting}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogIn className="w-5 h-5" />
-              {t('login.signIn')}
+              {submitting ? (language === 'THA' ? 'กำลังเข้าสู่ระบบ…' : 'Signing in…') : t('login.signIn')}
             </button>
           </form>
 

@@ -1,6 +1,7 @@
 import Swal from 'sweetalert2';
 import React from 'react';
 import { Users } from 'lucide-react';
+import { Button as SystemButton, FormField } from '../components/ui/SystemUI';
 
 // --- Toast Config ---
 export const Toast = Swal.mixin({
@@ -21,21 +22,14 @@ export function ActionButton({ onClick, color, icon, label }) {
 }
 
 export function Input({ label, type = "text", value, onChange, required, placeholder }) {
-    return (
-        <div>
-            <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{label}</label>
-            <input type={type} required={required} value={value} onChange={onChange} placeholder={placeholder}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900"
-            />
-        </div>
-    );
+    return <FormField label={label} type={type} required={required} value={value} onChange={onChange} placeholder={placeholder} />;
 }
 
 export function Button({ type, label, icon, full }) {
     return (
-        <button type={type} className={`official-primary-button text-white font-bold py-2.5 px-4 rounded-md transition flex items-center justify-center gap-2 ${full ? 'w-full' : ''}`}>
+        <SystemButton type={type || 'submit'} className={full ? 'w-full' : ''}>
             {icon} {label}
-        </button>
+        </SystemButton>
     );
 }
 

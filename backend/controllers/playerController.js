@@ -33,16 +33,16 @@ exports.getPlayerStats = async (req, res) => {
         const attErr = parseInt(data.attack_errors) || 0;
         data.attack_efficiency = attAtt > 0 ? ((attKill - attErr) / attAtt * 100).toFixed(1) : 0;
 
-        res.json(data);
-        res.json({
+        return res.json({
             ...playerRes.rows[0], // เพิ่มข้อมูลนักกีฬา (ชื่อ, เบอร์, ตำแหน่ง) เข้าไปใน Response
             ...data
         });
 
     } catch (err) {
         console.error("Get Player Stats Error:", err);
+        if (res.headersSent) return;
         // ส่งค่า 0 กลับไปหากเกิดข้อผิดพลาด (เช่น ยังไม่มีตาราง match_actions)
-        res.json({
+        return res.json({
             attack_attempts: 0, attack_kills: 0, attack_errors: 0,
             block_points: 0, serve_attempts: 0, serve_aces: 0, serve_errors: 0,
             digs: 0, receptions: 0, reception_errors: 0, attack_efficiency: 0

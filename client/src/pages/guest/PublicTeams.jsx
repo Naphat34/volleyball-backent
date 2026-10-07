@@ -1,19 +1,31 @@
+import { Feedback } from '../../components/ui/SystemUI';
+import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
+import PublicHeader from '../../components/PublicHeader';
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import client from '../../api';
-import { Users, ArrowLeft, Ruler, Weight, Calendar, Filter, Trophy, LogIn, X, BarChart2, Activity, Shield, Swords, Menu } from 'lucide-react';
+import { Users, ArrowLeft, Filter, Trophy, X, BarChart2, Activity, Shield, Swords } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { cleanCompetitionTitle } from '../../utils';
+import {
+    getPublicAgeGroupLabel,
+    getPublicCompetitionVariantLabel
+} from '../../utils/publicCompetitionGrouping';
 
 export default function PublicTeams() {
-    const navigate = useNavigate();
-    const { language, setLanguage, t } = useLanguage();
+
+    const { language, t } = useLanguage();
     // --- State ---
     const [groupedComps, setGroupedComps] = useState({}); // เก็บข้อมูลที่จัดกลุ่มแล้ว { "ชื่อรายการ": { Men: id, Women: id } }
     const [compTitles, setCompTitles] = useState([]);     // รายชื่อรายการ (Unique)
     
-    const [selectedTitle, setSelectedTitle] = useState(''); // ชื่อรายการที่เลือก
-    const [selectedGender, setSelectedGender] = useState('All'); // เพศที่เลือก (Men/Women/All)
+    const [selectedTitle, setSelectedTitle] = useState(() => readViewPreference('teamCompetition'));
+    const [loadError, setLoadError] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
+    const [teamSearch, setTeamSearch] = useState('');
+    const [selectedVariantKey, setSelectedVariantKey] = useState(''); // ชื่อรายการที่เลือก
+    const [selectedGender, setSelectedGender] = useState(() => readViewPreference('teamGender', 'All'));
+    useEffect(() => { writeViewPreference('teamCompetition', selectedTitle); }, [selectedTitle]);
+    useEffect(() => { writeViewPreference('teamGender', selectedGender); }, [selectedGender]); // เพศที่เลือก (Men/Women/All)
     
     const [teams, setTeams] = useState([]);
     const [selectedTeam, setSelectedTeam] = useState(null);
@@ -24,14 +36,13 @@ export default function PublicTeams() {
     
     const [loading, setLoading] = useState(false);
     const [loadingPlayers, setLoadingPlayers] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     // 1. โหลดรายการแข่งขัน และ จัดกลุ่ม (Grouping)
     useEffect(() => {
         const fetchComps = async () => {
             try {
                 const res = await client.get('/public/competitions');
-                const rawData = res.data;
+                const rawData = res.data.filter(c => c.status?.toLowerCase() === 'open');
 
                 // Logic การจัดกลุ่มตามชื่อ
                 const groups = {};
@@ -40,19 +51,26 @@ export default function PublicTeams() {
                     // ตัดคำต่อท้ายเช่น (Men), (Women), (Male), (Female) ออกเพื่อให้เหลือแค่ชื่อรายการ
                     // Regex นี้จะลบวงเล็บและคำระบุเพศข้างใน
                     const baseTitle = cleanCompetitionTitle(comp.title);
-                    const ageGroup = comp.age_group_name || comp.age_group || comp.category || '';
-                    const groupTitle = ageGroup ? `${baseTitle} - ${ageGroup}` : baseTitle;
+                    const ageGroup = getPublicAgeGroupLabel(comp);
+                    const variantKey = ageGroup || '__all__';
                     
-                    if (!groups[groupTitle]) {
-                        groups[groupTitle] = {};
+                    if (!groups[baseTitle]) {
+                        groups[baseTitle] = { variants: {} };
+                    }
+                    if (!groups[baseTitle].variants[variantKey]) {
+                        groups[baseTitle].variants[variantKey] = {
+                            label: ageGroup || (language === 'THA' ? 'ทุกรุ่น' : 'All age groups')
+                        };
                     }
                     
                     // map gender ของ API ให้เป็น Key มาตรฐาน
                     const genderText = String(comp.gender || '').toLowerCase();
                     let genderKey = 'Men';
                     if (['women', 'woman', 'female', 'f', 'หญิง'].includes(genderText)) genderKey = 'Women';
+                    if (['mixed', 'mix', 'ผสม'].includes(genderText)) genderKey = 'Mixed';
                     
-                    groups[groupTitle][genderKey] = comp.id;
+                    groups[baseTitle].variants[variantKey][genderKey] = comp.id;
+                    groups[baseTitle].variants[variantKey][`${genderKey}Label`] = getPublicCompetitionVariantLabel(comp, language);
                 });
 
                 setGroupedComps(groups);
@@ -62,25 +80,32 @@ export default function PublicTeams() {
                 // Default เลือกรายการแรก
                 if (titles.length > 0) {
                     setSelectedTitle(titles[0]);
+                    setSelectedVariantKey(Object.keys(groups[titles[0]].variants)[0] || '');
                 }
 
             } catch (err) {
                 console.error("Error fetching competitions:", err);
+                setLoadError(true);
             }
         };
         fetchComps();
-    }, []);
+    }, [language, reloadKey]);
 
     // 2. ตรวจสอบว่า ID ของการแข่งขันคืออะไร (ตาม Title และ Gender ที่เลือก)
     useEffect(() => {
         if (!selectedTitle || !groupedComps[selectedTitle]) return;
 
         // หา ID จากกลุ่มข้อมูล
-        const compIdsMap = groupedComps[selectedTitle];
+        const variants = groupedComps[selectedTitle].variants || {};
+        const variantKeys = Object.keys(variants);
+        const activeVariantKey = selectedVariantKey && variants[selectedVariantKey] ? selectedVariantKey : variantKeys[0];
+        const compIdsMap = variants[activeVariantKey] || {};
         let targetIds = [];
 
         if (selectedGender === 'All') {
-            targetIds = Object.values(compIdsMap);
+            targetIds = ['Men', 'Women', 'Mixed']
+                .map((genderKey) => compIdsMap[genderKey])
+                .filter((id) => id !== undefined && id !== null && id !== '');
         } else if (compIdsMap[selectedGender]) {
             targetIds = [compIdsMap[selectedGender]];
         }
@@ -95,7 +120,7 @@ export default function PublicTeams() {
         // รีเซ็ตทีมที่เลือกค้างไว้
         setSelectedTeam(null); 
 
-    }, [selectedTitle, selectedGender, groupedComps]);
+    }, [selectedTitle, selectedVariantKey, selectedGender, groupedComps]);
 
 
     // ฟังก์ชันดึงทีม
@@ -109,6 +134,7 @@ export default function PublicTeams() {
             setTeams(allTeams);
         } catch (err) {
             console.error("Error fetching teams:", err);
+                setLoadError(true);
             setTeams([]);
         } finally {
             setLoading(false);
@@ -128,12 +154,13 @@ export default function PublicTeams() {
                 setPlayers(res.data);
             } catch (err) {
                 console.error("Error fetching players:", err);
+                setLoadError(true);
             } finally {
                 setLoadingPlayers(false);
             }
         };
         fetchPlayers();
-    }, [selectedTeam]);
+    }, [selectedTeam, reloadKey]);
 
     const handleViewPlayerStats = async (player) => {
         setViewingPlayer(player);
@@ -143,6 +170,7 @@ export default function PublicTeams() {
             setPlayerStats(res.data);
         } catch (err) {
             console.error("Error fetching player stats:", err);
+                setLoadError(true);
         }
     };
 
@@ -159,7 +187,10 @@ export default function PublicTeams() {
     };
 
     // ตรวจสอบว่ารายการที่เลือก มีเพศไหนให้เลือกบ้าง (เพื่อ Disable ปุ่ม)
-    const availableGenders = selectedTitle && groupedComps[selectedTitle] ? Object.keys(groupedComps[selectedTitle]) : [];
+    const selectedVariants = selectedTitle && groupedComps[selectedTitle] ? groupedComps[selectedTitle].variants || {} : {};
+    const selectedVariantKeys = Object.keys(selectedVariants);
+    const selectedVariant = selectedVariants[selectedVariantKey] || selectedVariants[selectedVariantKeys[0]] || {};
+    const availableGenders = Object.keys(selectedVariant).filter((key) => ['Men', 'Women', 'Mixed'].includes(key));
     const normalizeText = (value) => {
         if (value === null || value === undefined) return '';
         const text = String(value).trim();
@@ -175,114 +206,18 @@ export default function PublicTeams() {
     };
 
     return (
-        <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2ff)] text-gray-800 pb-20 font-sans">
+        <div className="app-page min-h-screen text-gray-800 pb-20 font-sans">
             {/* Navbar (คงเดิมไว้) */}
-            <nav className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
-                        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">V</div>
-                            <span className="font-bold text-xl tracking-tight text-indigo-900">{t('nav.systemName')}</span>
-                        </div>
-                        <div className="flex items-center gap-8">
-                            <div className="hidden md:flex items-center gap-8">
-                                <button onClick={() => navigate('/')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.home')}</button>
-                                <button onClick={() => navigate('/teams')} className="text-sm font-medium text-blue-600 transition cursor-pointer">{t('nav.teams')}</button>
-                                <button onClick={() => navigate('/matches')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.matches')}</button>
-                                <button onClick={() => navigate('/standings')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.standings')}</button>
-                                <button onClick={() => navigate('/stats')} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition cursor-pointer">{t('nav.stats')}</button>
-                            </div>
-                            <div className="hidden md:flex gap-4 items-center">
-                                {/* Language Selector */}
-                                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                                    <button
-                                        onClick={() => setLanguage('THA')}
-                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                            language === 'THA'
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        TH
-                                    </button>
-                                    <button
-                                        onClick={() => setLanguage('ENG')}
-                                        className={`px-2 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                            language === 'ENG'
-                                                ? 'bg-white text-blue-600 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        EN
-                                    </button>
-                                </div>
-                                <button onClick={() => navigate('/login')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm cursor-pointer">
-                                    <LogIn size={18} /> {t('nav.login')}
-                                </button>
-                            </div>
-                            {/* Hamburger Menu Icon */}
-                            <div className="flex items-center md:hidden">
-                                <button
-                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-660 hover:bg-gray-100 focus:outline-none"
-                                >
-                                    {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {/* Mobile Menu Dropdown */}
-                {isMenuOpen && (
-                    <div className="md:hidden bg-white border-t border-gray-100 shadow-inner px-4 pt-2 pb-4 space-y-1">
-                        <button onClick={() => { navigate('/'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.home')}</button>
-                        <button onClick={() => { navigate('/teams'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-blue-600 hover:bg-gray-50">{t('nav.teams')}</button>
-                        <button onClick={() => { navigate('/matches'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.matches')}</button>
-                        <button onClick={() => { navigate('/standings'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.standings')}</button>
-                        <button onClick={() => { navigate('/stats'); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">{t('nav.stats')}</button>
-                        
-                        {/* Mobile Menu Language Selector */}
-                        <div className="flex justify-between items-center px-3 py-2 border-t border-gray-100 mt-2">
-                            <span className="text-sm font-medium text-gray-500">Language / ภาษา</span>
-                            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                                <button
-                                    onClick={() => setLanguage('THA')}
-                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                        language === 'THA'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500'
-                                    }`}
-                                >
-                                    TH
-                                </button>
-                                <button
-                                    onClick={() => setLanguage('ENG')}
-                                    className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${
-                                        language === 'ENG'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500'
-                                    }`}
-                                >
-                                    EN
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100 mt-2">
-                            <button onClick={() => { navigate('/login'); setIsMenuOpen(false); }} className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm">
-                                <LogIn size={18} /> {t('nav.login')}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </nav>
+            <PublicHeader />
+            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load data'} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} /></div>}
+            <div id="main-content" tabIndex={-1} />
 
             {/* ✅ LOGIC: ถ้ายังไม่เลือกทีม ให้แสดง Header + Grid */}
             {!selectedTeam ? (
                 <>
                     {/* --- Header Section (แสดงเฉพาะตอนเลือกรายการ) --- */}
-                    <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 text-white py-10 px-4 shadow-lg mb-6">
-                        <div className="w-full mx-auto">
+                    <div className="bg-[#122b52] text-white py-10 px-4 shadow-lg mb-6">
+                        <div className="w-full max-w-[1400px] mx-auto">
                             <h1 className="text-3xl font-extrabold flex items-center gap-3 mb-6">
                                 <Users className="text-yellow-400" size={32} /> {t('guestTeams.title')}
                             </h1>
@@ -297,13 +232,14 @@ export default function PublicTeams() {
                                         <select 
                                             value={selectedTitle}
                                             onChange={(e) => {
-                                                setSelectedTitle(e.target.value);
-                                                const nextComps = groupedComps[e.target.value];
-                                                if (selectedGender !== 'All' && nextComps && !nextComps[selectedGender]) {
-                                                    setSelectedGender('All');
-                                                }
+                                                const nextTitle = e.target.value;
+                                                const nextVariants = groupedComps[nextTitle]?.variants || {};
+                                                const nextVariantKey = Object.keys(nextVariants)[0] || '';
+                                                setSelectedTitle(nextTitle);
+                                                setSelectedVariantKey(nextVariantKey);
+                                                setSelectedGender('All');
                                             }}
-                                            className="w-full bg-white text-gray-900 border-none rounded-md py-3 px-4 focus:ring-4 focus:ring-yellow-400/50 shadow-lg font-medium text-lg"
+                                            className="w-full bg-white text-gray-900 border-none rounded-xl py-3 px-4 focus:ring-4 focus:ring-yellow-400/50 shadow-lg font-medium text-lg"
                                         >
                                             {compTitles.length === 0 ? (
                                                 <option>{t('common.noData')}</option>
@@ -313,6 +249,27 @@ export default function PublicTeams() {
                                                 ))
                                             )}
                                         </select>
+                                        {selectedVariantKeys.length > 1 && (
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {selectedVariantKeys.map((variantKey) => (
+                                                    <button
+                                                        key={variantKey}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedVariantKey(variantKey);
+                                                            setSelectedGender('All');
+                                                        }}
+                                                        className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                                                            selectedVariantKey === variantKey
+                                                                ? 'border-yellow-300 bg-yellow-400 text-indigo-950'
+                                                                : 'border-white/20 bg-white/10 text-indigo-100 hover:bg-white/20'
+                                                        }`}
+                                                    >
+                                                        {selectedVariants[variantKey]?.label || variantKey}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* 2. Gender Selection */}
@@ -320,8 +277,8 @@ export default function PublicTeams() {
                                         <label className="text-sm font-bold text-indigo-200 mb-2 flex items-center gap-2">
                                             <Filter size={16}/> {t('guestTeams.category')}
                                         </label>
-                                        <div className="bg-indigo-800 p-1 rounded-md flex shadow-inner">
-                                            {['All', 'Men', 'Women'].map((gender) => {
+                                        <div className="bg-indigo-800 p-1 rounded-xl flex shadow-inner">
+                                            {['All', 'Men', 'Women', 'Mixed'].map((gender) => {
                                                 const isActive = selectedGender === gender;
                                                 const isDisabled = gender !== 'All' && !availableGenders.includes(gender);
                                                 
@@ -329,6 +286,7 @@ export default function PublicTeams() {
                                                 if (gender === 'All') label = t('guestTeams.allCategory');
                                                 else if (gender === 'Men') label = t('guestTeams.menCategory');
                                                 else if (gender === 'Women') label = t('guestTeams.womenCategory');
+                                                else if (gender === 'Mixed') label = language === 'THA' ? 'ผสม' : 'Mixed';
 
                                                 return (
                                                     <button
@@ -355,23 +313,24 @@ export default function PublicTeams() {
                         </div>
                     </div>
 
-                    <div className="w-full mx-auto px-4">
+                    <div className="w-full max-w-[1400px] mx-auto px-4">
                         {/* --- ส่วนแสดงรายชื่อทีม (Grid) --- */}
+                        <label className="mb-5 block max-w-md text-sm font-semibold text-slate-600">{language === 'THA' ? 'ค้นหาทีม' : 'Search teams'}<input type="search" value={teamSearch} onChange={event => setTeamSearch(event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal" placeholder={language === 'THA' ? 'ชื่อทีม…' : 'Team name…'} /></label>
                         {loading ? (
                             <div className="text-center py-20 flex flex-col items-center">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-900 mb-4"></div>
                                 <p className="text-gray-500 font-medium">{t('guestTeams.loading')}</p>
                             </div>
-                        ) : teams.length === 0 ? (
-                            <div className="text-center py-20 bg-white rounded-md border border-gray-200 shadow-sm">
+                        ) : teams.filter(team => String(team.name || '').toLocaleLowerCase().includes(teamSearch.toLocaleLowerCase())).length === 0 ? (
+                            <div className="text-center py-20 bg-white rounded-xl border border-gray-200 shadow-sm">
                                 <Users size={48} className="mx-auto text-gray-300 mb-3" />
                                 <p className="text-gray-500 text-lg">
-                                    {t('guestTeams.noTeams')}
+                                    {teamSearch ? (language === 'THA' ? 'ไม่พบทีมตามคำค้นหา' : 'No teams match your search.') : t('guestTeams.noTeams')}
                                 </p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in-up">
-                                {teams.map((team) => (
+                                {teams.filter(team => String(team.name || '').toLocaleLowerCase().includes(teamSearch.toLocaleLowerCase())).map((team) => (
                                     <button 
                                         key={team.team_entry_id || `${team.id}-${team.competition_id}`} 
                                         onClick={() => setSelectedTeam(team)}
@@ -389,7 +348,7 @@ export default function PublicTeams() {
                                             <h3 className="text-lg font-bold text-gray-800 group-hover:text-indigo-700 mb-1 leading-tight">
                                                 {team.name}
                                             </h3>
-                                            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-md font-mono mb-2">
+                                            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-xl font-mono mb-2">
                                                 {team.code || '-'}
                                             </span>
                                             <span className="text-xs font-bold text-slate-500">{t('guestTeams.totalPlayers').replace('{count}', team.player_count ?? 0)}</span>
@@ -405,7 +364,7 @@ export default function PublicTeams() {
                 </>
             ) : (
                 /* --- ส่วนแสดงรายละเอียดทีม & นักกีฬา (เมื่อกดเลือกทีมแล้ว) --- */
-                <div className="w-full mx-auto px-4 mt-8 animate-fade-in-up">
+                <div className="w-full max-w-[1400px] mx-auto px-4 mt-8 animate-fade-in-up">
                     <button 
                         onClick={() => setSelectedTeam(null)}
                         className="mb-6 flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm text-blue-600 font-bold hover:bg-blue-50 hover:pr-6 transition-all"
@@ -504,7 +463,7 @@ export default function PublicTeams() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-3">
-                                                    <span className="inline-block px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide bg-gray-100 text-gray-600 border border-gray-200">
+                                                    <span className="inline-block px-2.5 py-1 rounded-xl text-xs font-bold uppercase tracking-wide bg-gray-100 text-gray-600 border border-gray-200">
                                                         {p.position || '-'}
                                                     </span>
                                                 </td>
@@ -559,7 +518,7 @@ export default function PublicTeams() {
                             ) : (
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {/* Attack */}
-                                    <div className="col-span-2 bg-rose-50 p-4 rounded-md border border-rose-100">
+                                    <div className="col-span-2 bg-rose-50 p-4 rounded-xl border border-rose-100">
                                         <h4 className="text-rose-600 font-bold text-sm uppercase mb-3 flex items-center gap-2">
                                             <Swords size={16}/> {t('guestTeams.attack')}
                                         </h4>
@@ -570,7 +529,7 @@ export default function PublicTeams() {
                                         </div>
                                     </div>
                                     {/* Block */}
-                                    <div className="bg-emerald-50 p-4 rounded-md border border-emerald-100">
+                                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
                                         <h4 className="text-emerald-600 font-bold text-sm uppercase mb-3 flex items-center gap-2">
                                             <Shield size={16}/> {t('guestTeams.block')}
                                         </h4>
@@ -580,7 +539,7 @@ export default function PublicTeams() {
                                         </div>
                                     </div>
                                     {/* Serve */}
-                                    <div className="bg-blue-50 p-4 rounded-md border border-blue-100">
+                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                                         <h4 className="text-blue-600 font-bold text-sm uppercase mb-3 flex items-center gap-2">
                                             <Activity size={16}/> {t('guestTeams.serve')}
                                         </h4>
@@ -590,7 +549,7 @@ export default function PublicTeams() {
                                         </div>
                                     </div>
                                     {/* Defense */}
-                                    <div className="col-span-2 md:col-span-4 bg-gray-50 p-4 rounded-md border border-gray-100 flex justify-around items-center">
+                                    <div className="col-span-2 md:col-span-4 bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-around items-center">
                                         <div className="text-center">
                                             <div className="text-2xl font-semibold text-gray-800">{playerStats.digs ?? 0}</div>
                                             <div className="text-xs text-gray-500 uppercase font-bold">{t('guestTeams.digs')}</div>
