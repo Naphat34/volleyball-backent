@@ -1,17 +1,11 @@
 import axios from 'axios';
 import { getAuthToken } from './authStorage';
 
-const isLocalFrontend = typeof window !== 'undefined'
-  && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_ORIGIN = isLocalFrontend
-  ? 'http://localhost:3000'
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
+// ✅ ดึงค่าจาก VITE_API_URL ก่อน หากไม่มีค่อย Fallback ไปที่ http://localhost:3000
+const API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const BASE_URL = `${API_ORIGIN}/api`;
 
 export const getSocketServerUrl = () => API_ORIGIN.replace(/\/api\/?$/, '').replace(/\/$/, '');
-
-//const BASE_URL = `http://localhost:3000/api`;
-
 
 // สร้าง instance ของ axios
 const apiClient = axios.create({
@@ -35,36 +29,38 @@ apiClient.interceptors.request.use(
   }
 );
 
-apiClient.interceptors.response.use((response) => {
+apiClient.interceptors.response.use(
+  (response) => {
+    const replaceLocalhost = (data) => {
+      if (typeof data === 'string') {
+        return data
+          // 1. เปลี่ยน http://localhost:3000 เป็น API_ORIGIN ที่ตั้งค่าไว้
+          .replace(/http:\/\/localhost:3000/g, API_ORIGIN)
+          // 2. ป้องกัน Mixed Content โดยบังคับเปลี่ยน http:// ของ Render ให้เป็น https:// ทั้งหมด
+          .replace(/^http:\/\/(.*\.onrender\.com)/g, 'https://$1');
+      }
+      if (Array.isArray(data)) {
+        return data.map(replaceLocalhost);
+      }
+      if (data !== null && typeof data === 'object') {
+        const updatedData = {};
+        for (const key in data) {
+          updatedData[key] = replaceLocalhost(data[key]);
+        }
+        return updatedData;
+      }
+      return data;
+    };
 
-  const replaceLocalhost = (data) => {
-  if (typeof data === 'string') {
-    return data
-      // 1. แปลง localhost ไปที่ Render
-      .replace(/http:\/\/localhost:3000/g, API_ORIGIN)
-      // 2. ป้องกัน Mixed Content โดยบังคับเปลี่ยน http:// ของ Render ให้เป็น https:// ทั้งหมด
-      .replace(/http:\/\/volleyball-backent-dhtc\.onrender\.com/g, 'https://volleyball-backent-dhtc.onrender.com');
-  }
-  if (Array.isArray(data)) {
-    return data.map(replaceLocalhost);
-  }
-  if (data !== null && typeof data === 'object') {
-    const updatedData = {};
-    for (const key in data) {
-      updatedData[key] = replaceLocalhost(data[key]);
+    if (response.data) {
+      response.data = replaceLocalhost(response.data);
     }
-    return updatedData;
+    return response;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return data;
-};
-
-  if (response.data) {
-    response.data = replaceLocalhost(response.data);
-  }
-  return response;
-}, (error) => {
-  return Promise.reject(error);
-});
+);
 
 export const api = {
   // Auth
@@ -126,7 +122,7 @@ export const api = {
   updateTeam: (id, data) => apiClient.put(`/admin/teams/${id}`, data),
   deleteTeam: (id) => apiClient.delete(`/admin/teams/${id}`),
 
-  // --- Competitions  ---
+  // --- Competitions ---
   getAllCompetitions: () => apiClient.get('/admin/competitions'),
   createCompetition: (data) => apiClient.post('/admin/competitions', data),
   updateCompetition: (id, data) => apiClient.put(`/admin/competitions/${id}`, data),
@@ -188,11 +184,10 @@ export const api = {
   updatePlayerAdmin: (id, data) => apiClient.put(`/admin/players/${id}`, data),
   deletePlayerAdmin: (id) => apiClient.delete(`/admin/players/${id}`),
 
-  // --- ✅ Scorer System (ส่วนที่เพิ่มใหม่) ---
-  // ใช้ route /scorer/match/... ตามที่ตั้งค่าไว้ใน backend
+  // --- Scorer System ---
   getMatchById: (id) => apiClient.get(`/scorer/match/${id}`),
   saveLineup: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/lineup`, data),
-  getMatchLineup: (matchId) => apiClient.get(`/scorer/match/${matchId}/lineup`,),
+  getMatchLineup: (matchId) => apiClient.get(`/scorer/match/${matchId}/lineup`),
   saveMatchEvent: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/event`, data),
   getMatchEvents: (matchId) => apiClient.get(`/scorer/match/${matchId}/events`),
   updateLiveState: (matchId, state) => apiClient.put(`/scorer/match/${matchId}/state`, { state }),
