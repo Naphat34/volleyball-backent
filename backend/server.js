@@ -38,9 +38,32 @@ if (process.env.TRUST_PROXY) {
 app.set('socketMonitor', socketMonitor);
 
 // These parsers must run BEFORE the routes so req.body exists
-app.use(express.json({ limit: '5mb' })); 
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use('/uploads', express.static(uploadsDir));
+
+app.get('/api/debug/uploads', (req, res) => {
+  const fs = require('fs');
+
+  try {
+    const exists = fs.existsSync(uploadsDir);
+
+    const files = exists
+      ? fs.readdirSync(uploadsDir)
+      : [];
+
+    res.json({
+      __dirname,
+      uploadsDir,
+      exists,
+      files
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
 
 // ==========================================
 // 2. Setup Routes SECOND
@@ -58,11 +81,11 @@ const { Server } = require('socket.io');
 function updateAndEmitStatus(io, matchId) {
   const roomName = `match_${matchId}`;
   const clients = io.sockets.adapter.rooms.get(roomName) || new Set();
-  
+
   let homeConnected = false;
   let awayConnected = false;
   let scorerConnected = false;
-  
+
   for (const clientId of clients) {
     const clientSocket = io.sockets.sockets.get(clientId);
     if (clientSocket) {
@@ -74,7 +97,7 @@ function updateAndEmitStatus(io, matchId) {
       }
     }
   }
-  
+
   io.to(roomName).emit('connection_status_update', {
     staff: {
       home: homeConnected,
@@ -133,7 +156,7 @@ function createSocketIo(server) {
   io.on('connection', (socket) => {
     socketMonitor.onConnect(socket);
     console.log(`🔌 Socket connected: ${socket.id}`);
-    
+
     socket.on('join_match', async ({ matchId, role = 'viewer', side }) => {
       const allowed = await canJoinMatchRoom({ socket, matchId, role, side });
       if (!allowed) {
@@ -146,10 +169,10 @@ function createSocketIo(server) {
       socket.side = side;
       socketMonitor.onJoin(socket, matchId, role, side);
       console.log(`👤 Socket ${socket.id} joined room match_${matchId} as ${role} (${side || 'N/A'})`);
-      
+
       updateAndEmitStatus(io, matchId);
     });
-    
+
     socket.on('disconnect', () => {
       socketMonitor.onDisconnect(socket);
       console.log(`❌ Socket disconnected: ${socket.id}`);
