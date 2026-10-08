@@ -8,28 +8,32 @@ const pool = mysql.createPool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    
-
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    
     charset: "utf8mb4",
-
-    ssl: process.env.DB_SSL === 'true'
+    ssl: process.env.DB_SSL === "true"
         ? {
-            rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
-        }
+            rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false"
+          }
         : undefined
 });
 
+/**
+ * แปลง SQL Syntax จาก PostgreSQL เป็น MySQL
+ */
 function normalizeSql(sql) {
     if (typeof sql !== "string") return sql;
 
     let normalized = sql.trim();
 
+    // 1. แปลง $1, $2 เป็น ? (เฉพาะตัวระบุ Parameter)
     normalized = normalized.replace(/\$(\d+)/g, "?");
-    normalized = normalized.replace(/\bRETURNING\b[\s\S]*$/i, "");
+
+    // 2. ลบ RETURNING clause ออกก่อนส่งให้ MySQL
+    normalized = normalized.replace(/\s+RETURNING\s+[\s\S]*$/i, "");
+
+    // 3. แปลง Dialect Specific Keywords
     normalized = normalized.replace(/\bNOW\(\)/gi, "CURRENT_TIMESTAMP");
     normalized = normalized.replace(/\bNULLS\s+LAST\b/gi, "");
     normalized = normalized.replace(/\bILIKE\b/gi, "LIKE");
@@ -40,124 +44,107 @@ function normalizeSql(sql) {
     return normalized;
 }
 
+/**
+ * จำลองคืนค่าแบบ RETURNING (สำหรับ INSERT 单行)
+ */
 function buildReturnedRows(originalSql, params, rows, metadata) {
     if (!/\bRETURNING\b/i.test(originalSql)) {
-        return rows;
-    }
-
-    const insertMatch = originalSql.match(/\binsert\s+into\s+([^\s(]+)\s*\(([^)]*)\)\s*values\s*\(([^)]*)\)/i);
-    if (!insertMatch) {
-        return rows;
+        return Array.isArray(rows) ? rows : [];
     }
 
     const returningMatch = originalSql.match(/\bRETURNING\b\s+(.+)$/i);
-    if (!returningMatch) {
-        return rows;
-    }
+    if (!returningMatch) return Array.isArray(rows) ? rows : [];
 
-    const insertColumns = insertMatch[2]
-        .split(',')
-        .map((column) => column.trim().replace(/`/g, ""));
-    const insertedValues = Array.isArray(params) ? params : [];
     const returnedColumns = returningMatch[1]
-        .split(',')
-        .map((column) => column.trim().replace(/`/g, ""));
+        .split(",")
+        .map((col) => col.trim().replace(/`/g, "").split(/\s+/)[0]);
 
     const row = {};
-    returnedColumns.forEach((column) => {
-        const normalizedColumn = column.split(/\s+/)[0];
-        if (normalizedColumn === "id") {
-            row[normalizedColumn] = metadata.insertId || null;
-            return;
+    returnedColumns.forEach((col) => {
+        if (col.toLowerCase() === "id") {
+            row[col] = metadata.insertId || null;
+        } else {
+            row[col] = null; // คืนค่า default null สำหรับ column อื่นหากไม่ได้ parse เพิ่ม
         }
-
-        const columnIndex = insertColumns.indexOf(normalizedColumn);
-        if (columnIndex >= 0 && insertedValues[columnIndex] !== undefined) {
-            row[normalizedColumn] = insertedValues[columnIndex];
-            return;
-        }
-
-        row[normalizedColumn] = null;
     });
 
     return [row];
 }
 
+/**
+ * ปรับโครงสร้าง Result ให้รองรับโครงสร้างแบบ pg/node-postgres
+ */
 function normalizeResult(rows, fields, metadata = {}, originalSql, params) {
-    const resultRows = Array.isArray(rows) ? rows : [];
-    const normalizedRows = buildReturnedRows(originalSql, params, resultRows, metadata);
-    const result = [normalizedRows];
+    const isSelect = Array.isArray(rows);
+    const resultRows = isSelect ? rows : buildReturnedRows(originalSql, params, rows, metadata);
 
-    result.rows = normalizedRows;
-    result.rowCount = Array.isArray(rows) ? normalizedRows.length : (metadata.affectedRows || 0);
+    const result = [resultRows];
+    result.rows = resultRows;
+    result.rowCount = isSelect ? resultRows.length : (metadata.affectedRows || 0);
     result.insertId = metadata.insertId || null;
     result.affectedRows = metadata.affectedRows || 0;
     result.changedRows = metadata.changedRows || null;
     result.fields = fields || null;
     result.meta = metadata;
+
     return result;
+}
+
+/**
+ * ฟังก์ชัน Wrapping Connection เพื่อให้รองรับ query ที่แปลแล้ว
+ */
+function wrapConnection(connection) {
+    const originalQuery = connection.query.bind(connection);
+
+    connection.query = async (sql, params) => {
+        const normalizedSql = normalizeSql(sql);
+        const [rows, fields] = await originalQuery(normalizedSql, params);
+
+        const metadata = {
+            sql: normalizedSql,
+            affectedRows: rows && typeof rows === "object" && "affectedRows" in rows ? rows.affectedRows : undefined,
+            insertId: rows && typeof rows === "object" && "insertId" in rows ? rows.insertId : undefined,
+            changedRows: rows && typeof rows === "object" && "changedRows" in rows ? rows.changedRows : undefined,
+        };
+
+        return normalizeResult(rows, fields, metadata, sql, params);
+    };
+
+    return connection;
 }
 
 async function query(sql, params) {
     const normalizedSql = normalizeSql(sql);
     const [rows, fields] = await pool.query(normalizedSql, params);
+
     const metadata = {
         sql: normalizedSql,
         affectedRows: rows && typeof rows === "object" && "affectedRows" in rows ? rows.affectedRows : undefined,
         insertId: rows && typeof rows === "object" && "insertId" in rows ? rows.insertId : undefined,
         changedRows: rows && typeof rows === "object" && "changedRows" in rows ? rows.changedRows : undefined,
     };
+
     return normalizeResult(rows, fields, metadata, sql, params);
 }
 
 async function connect() {
     const connection = await pool.getConnection();
-    const originalQuery = connection.query.bind(connection);
-
-    connection.query = async (sql, params) => {
-        const normalizedSql = normalizeSql(sql);
-        const [rows, fields] = await originalQuery(normalizedSql, params);
-        const metadata = {
-            sql: normalizedSql,
-            affectedRows: rows && typeof rows === "object" && "affectedRows" in rows ? rows.affectedRows : undefined,
-            insertId: rows && typeof rows === "object" && "insertId" in rows ? rows.insertId : undefined,
-            changedRows: rows && typeof rows === "object" && "changedRows" in rows ? rows.changedRows : undefined,
-        };
-        return normalizeResult(rows, fields, metadata, sql, params);
-    };
-
-    return connection;
+    return wrapConnection(connection);
 }
 
+// ผูกฟังก์ชัน connect ให้ pool
+pool.connect = connect;
+
+// ทดสอบการเชื่อมต่อเมื่อเริ่มต้นใช้งาน
 (async () => {
     try {
         const conn = await connect();
-        console.log("Connected to MySQL");
+        console.log("Connected to MySQL successfully.");
         conn.release();
     } catch (err) {
-        console.error("MySQL Connection Error");
-        console.error(err);
+        console.error("MySQL Connection Error:", err);
     }
 })();
-
-pool.connect = async () => {
-    const connection = await pool.getConnection();
-    const originalQuery = connection.query.bind(connection);
-
-    connection.query = async (sql, params) => {
-        const normalizedSql = normalizeSql(sql);
-        const [rows, fields] = await originalQuery(normalizedSql, params);
-        const metadata = {
-            sql: normalizedSql,
-            affectedRows: rows && typeof rows === "object" && "affectedRows" in rows ? rows.affectedRows : undefined,
-            insertId: rows && typeof rows === "object" && "insertId" in rows ? rows.insertId : undefined,
-            changedRows: rows && typeof rows === "object" && "changedRows" in rows ? rows.changedRows : undefined,
-        };
-        return normalizeResult(rows, fields, metadata, sql, params);
-    };
-
-    return connection;
-};
 
 module.exports = {
     query,
