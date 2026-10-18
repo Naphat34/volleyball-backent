@@ -35,7 +35,7 @@ export default function PendingUsersTab() {
         }
         try {
             await api.approveUser(id, status);
-            Toast.fire({ icon: 'success', title: `User ${status}` });
+            Toast.fire({ icon: 'success', title: status === 'active' ? 'User approved' : `User ${status}` });
             fetchPendingUsers();
         } catch (err) {
             console.error(err);
@@ -69,7 +69,7 @@ export default function PendingUsersTab() {
                                     <td className="px-6 py-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold border border-blue-100">{u.role}</span></td>
                                     <td className="px-6 py-4 text-sm text-gray-500">{u.name || '-'}</td>
                                     <td className="px-6 py-4 text-right flex justify-end gap-2">
-                                        <ActionButton onClick={() => handleApprove(u.id, 'approved')} color="green" icon={<CheckCircle size={16} />} label="Approve" />
+                                        <ActionButton onClick={() => handleApprove(u.id, 'active')} color="green" icon={<CheckCircle size={16} />} label="Approve" />
                                         <ActionButton onClick={() => handleApprove(u.id, 'rejected')} color="red" icon={<XCircle size={16} />} label="Reject" />
                                     </td>
                                 </tr>

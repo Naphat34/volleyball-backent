@@ -1,5 +1,6 @@
 const roleAliases = {
   score: 'scorer',
+  statistician: 'scorer',
 };
 
 const permissionsByRole = {
@@ -14,6 +15,10 @@ const permissionsByRole = {
   ],
   scorer: [
     'match.score',
+    'match.view',
+    'official.view',
+  ],
+  referee: [
     'match.view',
     'official.view',
   ],

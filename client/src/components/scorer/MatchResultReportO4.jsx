@@ -2,6 +2,12 @@
 import React from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { cleanCompetitionTitle, formatThaiDate } from '../../utils';
+import { getPlayerId, getPlayerNumber } from '../../utils/playerFilters';
+
+const getPlayerNo = (player) => getPlayerNumber(player, {
+    fields: ['number', 'shirt_number', 'jersey_number', 'shirtNumber'],
+    fallback: ''
+});
 
 // Helper to format age group
 const getAgeGroupName = (id) => {
@@ -79,16 +85,6 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
     const showTossLabels = !!(matchData.left_side_team_id && matchData.first_serve_team_id);
     const resultTeamAName = showTossLabels ? (isHomeOnLeft ? programTeamA : programTeamB) : '';
     const resultTeamBName = showTossLabels ? (isHomeOnLeft ? programTeamB : programTeamA) : '';
-
-    const getPlayerId = (p) => {
-        if (!p) return '';
-        return p.id || p.player_id || p.playerId || '';
-    };
-
-    const getPlayerNo = (p) => {
-        if (!p) return '';
-        return p.number || p.shirt_number || p.jersey_number || p.shirtNumber || '';
-    };
 
     const firstFilled = (...values) => values.find(value => value !== undefined && value !== null && String(value).trim() !== '') || '';
 

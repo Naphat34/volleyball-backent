@@ -1,16 +1,16 @@
 import axios from 'axios';
 import { getAuthToken } from './authStorage';
 
-// ✅ ดึงค่าจาก VITE_API_URL ก่อน หากไม่มีค่อย Fallback ไปที่ http://localhost:3000
+// ดึงค่าจาก VITE_API_URL ก่อน หากไม่มีค่อย Fallback ไปที่ http://localhost:3000
 const API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const BASE_URL = `${API_ORIGIN}/api`;
 
-export const getSocketServerUrl = () => API_ORIGIN.replace(/\/api\/?$/, '').replace(/\/$/, '');
+export const getSocketServerUrl = (fallbackOrigin = 'http://localhost:3000') => (import.meta.env.VITE_API_URL || fallbackOrigin).replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 // สร้าง instance ของ axios
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // ✅ สำคัญ! บอกให้ Axios ส่ง/รับ Cookies อัตโนมัติ
+  withCredentials: true, // สำคัญ! บอกให้ Axios ส่ง/รับ Cookies อัตโนมัติ
   headers: {
     'Content-Type': 'application/json',
   },
@@ -66,11 +66,12 @@ export const api = {
   // Auth
   login: (credentials) => apiClient.post('/auth/login', credentials),
   register: (data) => apiClient.post('/auth/register', data),
+  uploadRegistrationTeamLogo: (image) => apiClient.post('/auth/register/team-logo', { image, category: 'team_logo' }),
   logout: () => apiClient.post('/auth/logout'),
   getMe: () => apiClient.get('/me'),
   updateMe: (data) => apiClient.put('/me', data),
   changeMyPassword: (data) => apiClient.put('/me/password', data),
-  uploadImage: (image) => apiClient.post('/upload-image', { image }),
+  uploadImage: (image, category) => apiClient.post('/upload-image', { image, category }),
   getReportUrl: (type, format) => `${BASE_URL}/reports/${encodeURIComponent(type)}.${encodeURIComponent(format)}`,
   downloadReport: (type, format) => apiClient.get(`/reports/${encodeURIComponent(type)}.${encodeURIComponent(format)}`, {
     responseType: 'blob',
@@ -93,6 +94,7 @@ export const api = {
   // Player Management
   getMyPlayers: () => apiClient.get('/my-team/players'),
   addPlayer: (data) => apiClient.post('/my-team/players', data),
+  uploadPlayerDocument: (file, category) => apiClient.post('/upload-player-document', { file, category }),
   updatePlayer: (id, data) => apiClient.put(`/my-team/players/${id}`, data),
   deletePlayer: (id) => apiClient.delete(`/my-team/players/${id}`),
   getMyPlayersStats: () => apiClient.get('/my-team/players/stats'),
@@ -106,7 +108,6 @@ export const api = {
   getMyStaff: () => apiClient.get('/my-team/staff'),
   addStaff: (data) => apiClient.post('/my-team/staff', data),
   updateStaff: (id, data) => apiClient.put(`/my-team/staff/${id}`, data),
-  updateMyStaffEntries: (id, entry_ids) => apiClient.put(`/my-team/staff/${id}/entries`, { entry_ids }),
   deleteStaff: (id) => apiClient.delete(`/my-team/staff/${id}`),
 
   // === Admin Management ===
@@ -134,8 +135,6 @@ export const api = {
   getMyTeamEntries: () => apiClient.get('/my-team/entries'),
   getMyTeamEntryPlayers: (entryId) => apiClient.get(`/my-team/entries/${entryId}/players`),
   updateMyTeamEntryPlayers: (entryId, player_ids) => apiClient.put(`/my-team/entries/${entryId}/players`, { player_ids }),
-  getMyTeamEntryStaff: (entryId) => apiClient.get(`/my-team/entries/${entryId}/staff`),
-  updateMyTeamEntryStaff: (entryId, staff_ids) => apiClient.put(`/my-team/entries/${entryId}/staff`, { staff_ids }),
   getPublicCompetitionMatches: (id) => apiClient.get(`/public/competitions/${id}/matches`),
   getPublicCompetitionTeams: (id) => apiClient.get(`/public/competitions/${id}/teams`),
   getPublicTeamsList: () => apiClient.get('/public/teams'),

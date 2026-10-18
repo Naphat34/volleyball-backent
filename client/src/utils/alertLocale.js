@@ -199,7 +199,38 @@ const patchFire = (target) => {
   if (!target || target.__volleyAlertLocalePatched) return target;
 
   const originalFire = target.fire.bind(target);
-  target.fire = (...args) => originalFire(...localizeFireArgs(args));
+  target.fire = (...args) => {
+    const localizedArgs = localizeFireArgs(args);
+    const requestedOptions = args.length === 1 && args[0] && typeof args[0] === 'object' ? args[0] : {};
+    const options = localizedArgs.length === 1 && localizedArgs[0] && typeof localizedArgs[0] === 'object'
+      ? localizedArgs[0]
+      : { title: localizedArgs[0], text: localizedArgs[1], icon: localizedArgs[2] };
+
+    // Treat simple status/validation alerts as compact notifications. Keep dialogs
+    // that ask for a choice or input as regular SweetAlert dialogs.
+    const isChoiceDialog = requestedOptions.showCancelButton || requestedOptions.showDenyButton || requestedOptions.input ||
+      requestedOptions.confirmButtonText || requestedOptions.cancelButtonText || requestedOptions.denyButtonText;
+    if (!options.toast && !isChoiceDialog) {
+      return originalFire({
+        ...options,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: options.timer ?? 3500,
+        timerProgressBar: options.timerProgressBar ?? true,
+        customClass: {
+          ...options.customClass,
+          popup: [options.customClass?.popup, 'swal2-system-toast'].filter(Boolean).join(' ')
+        },
+        didOpen: (toast) => {
+          options.didOpen?.(toast);
+          toast.addEventListener('mouseenter', Swal.stopTimer);
+          toast.addEventListener('mouseleave', Swal.resumeTimer);
+        }
+      });
+    }
+    return originalFire(...localizedArgs);
+  };
   Object.defineProperty(target, '__volleyAlertLocalePatched', { value: true });
   return target;
 };

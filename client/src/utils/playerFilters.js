@@ -110,8 +110,9 @@ export const filterActiveLiberos = (roster) => {
  * @returns {*} - The player ID or null
  */
 export const getPlayerId = (player) => {
-    if (!player) return null;
-    return player.id || player.player_id || player.playerId || null;
+    if (player === undefined || player === null) return null;
+    if (typeof player !== 'object') return player;
+    return player.id ?? player.player_id ?? player.playerId ?? null;
 };
 
 /**
@@ -119,7 +120,15 @@ export const getPlayerId = (player) => {
  * @param {Object} player - The player object
  * @returns {string|number} - The player number or '?'
  */
-export const getPlayerNumber = (player) => {
-    if (!player) return '?';
-    return player.number || player.jersey_number || player.shirt_number || '?';
+export const getPlayerNumber = (player, {
+    fields = ['number', 'jersey_number', 'shirt_number'],
+    fallback = '?',
+    preserveEmpty = false
+} = {}) => {
+    if (!player || typeof player !== 'object') return fallback;
+    for (const field of fields) {
+        const value = player[field];
+        if (preserveEmpty ? value !== undefined && value !== null : Boolean(value)) return value;
+    }
+    return fallback;
 };

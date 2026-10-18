@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLogger');
+const { normalizeTeamGender } = require('../utils/teamGender');
 
 const parseNullableInt = (val) => {
   if (val === '' || val === null || val === undefined) return null;
@@ -16,21 +17,6 @@ const truncate = (value, maxLength) => String(value || '').slice(0, maxLength);
 const normalizeGender = (value) => String(value || '').trim().toLowerCase();
 
 const VALID_COMPETITION_STATUSES = new Set(['open', 'closed', 'upcoming', 'ended']);
-const VALID_SPORT_TYPES = new Set(['indoor']);
-const VALID_ATHLETE_SPORT_POLICIES = new Set(['single_sport']);
-
-const normalizeAthleteSportPolicy = (value) => {
-  const policy = String(value || '').trim().toLowerCase();
-  return VALID_ATHLETE_SPORT_POLICIES.has(policy) ? policy : 'single_sport';
-};
-
-const normalizeSportType = (sportType, sport) => {
-  const rawSportType = String(sportType || '').trim().toLowerCase();
-  if (VALID_SPORT_TYPES.has(rawSportType)) return rawSportType;
-
-  return 'indoor';
-};
-
 const parseJsonObject = (value) => {
   if (!value) return null;
   if (typeof value === 'object' && !Array.isArray(value)) return value;
@@ -275,18 +261,16 @@ module.exports = {
     const client = await db.pool.connect();
 
     try {
-        const { title, details, sport, sport_type, athlete_sport_policy, scoring_config, gender, age_group_id, age_group_ids, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url } = req.body;
+        const { title, details, sport, scoring_config, gender, age_group_id, age_group_ids, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url } = req.body;
         const baseTitle = String(title || '').trim();
         const rawAgeGroups = Array.isArray(age_group_ids)
           ? age_group_ids
           : String(age_group_ids || age_group_id || '').split(',');
         const selectedAgeGroupIds = [...new Set(rawAgeGroups.map(parseNullableInt).filter(Boolean))];
         const selectedGenders = gender ? gender.split(',').map(g => g.trim()).filter(Boolean) : [];
-        const cleanSportType = normalizeSportType(sport_type, sport);
-        const cleanAthleteSportPolicy = normalizeAthleteSportPolicy(athlete_sport_policy);
-        const cleanMaxPlayers = resolveMaxPlayers(cleanSportType, max_players);
-        const cleanMaxSets = resolveMaxSets(cleanSportType, max_sets);
-        const cleanScoringConfig = buildScoringConfig(cleanSportType, scoring_config);
+        const cleanMaxPlayers = resolveMaxPlayers(null, max_players);
+        const cleanMaxSets = resolveMaxSets(null, max_sets);
+        const cleanScoringConfig = buildScoringConfig(null, scoring_config);
         const cleanStadium = parseNullableInt(stadium_id);
         const cleanStartDate = parseNullableString(start_date);
         const cleanEndDate = parseNullableString(end_date);
@@ -304,9 +288,9 @@ module.exports = {
 
         await client.query('BEGIN');
 
-        const existingRes = await client.query('SELECT id, title, sport_type, gender, age_group_id FROM competitions');
+        const existingRes = await client.query('SELECT id, title, gender, age_group_id FROM competitions');
         const existingKeys = new Set((existingRes.rows || []).map((row) => (
-          `${normalizeCompetitionTitle(row.title)}|${row.sport_type || 'indoor'}|${String(row.gender).trim().toLowerCase()}|${row.age_group_id}`
+          `${normalizeCompetitionTitle(row.title)}|${String(row.gender).trim().toLowerCase()}|${row.age_group_id}`
         )));
 
         let createdCount = 0;
@@ -314,7 +298,7 @@ module.exports = {
         for (const ageGroupId of selectedAgeGroupIds) {
             for (const selectedGender of selectedGenders) {
                 const cleanGender = String(selectedGender).trim();
-                const key = `${normalizeCompetitionTitle(baseTitle)}|${cleanSportType}|${cleanGender.toLowerCase()}|${ageGroupId}`;
+                const key = `${normalizeCompetitionTitle(baseTitle)}|${cleanGender.toLowerCase()}|${ageGroupId}`;
                 if (existingKeys.has(key)) {
                     skippedCount++;
                     continue;
@@ -325,14 +309,12 @@ module.exports = {
 
                 await client.query(
                     `INSERT INTO competitions
-                    (title, details, sport, sport_type, athlete_sport_policy, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, scoring_config, stadium_id, logo_url)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, scoring_config, stadium_id, logo_url)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         finalTitle,
                         details,
                         sport,
-                        cleanSportType,
-                        cleanAthleteSportPolicy,
                         cleanGender,
                         ageGroupId,
                         cleanStartDate,
@@ -378,18 +360,16 @@ module.exports = {
   async updateCompetition(req, res) {
     try {
       const { id } = req.params;
-      const { title, details, sport, sport_type, athlete_sport_policy, scoring_config, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url } = req.body;
+      const { title, details, sport, scoring_config, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url } = req.body;
 
       // Handle Gender: ถ้าแก้ไขรายการเดิม จะรับค่าได้แค่เพศเดียว
       // ถ้าส่งมาเป็น "Male,Female" ให้เอาแค่ตัวแรก (หรือ Frontend ควรส่งมาแค่ตัวเดียว)
       const singleGender = gender && gender.includes(',') ? gender.split(',')[0] : gender;
 
       const cleanAgeGroup = parseNullableInt(age_group_id);
-      const cleanSportType = normalizeSportType(sport_type, sport);
-      const cleanAthleteSportPolicy = normalizeAthleteSportPolicy(athlete_sport_policy);
-      const cleanMaxSets = resolveMaxSets(cleanSportType, max_sets);
-      const cleanMaxPlayers = resolveMaxPlayers(cleanSportType, max_players);
-      const cleanScoringConfig = buildScoringConfig(cleanSportType, scoring_config);
+      const cleanMaxSets = resolveMaxSets(null, max_sets);
+      const cleanMaxPlayers = resolveMaxPlayers(null, max_players);
+      const cleanScoringConfig = buildScoringConfig(null, scoring_config);
       const cleanStadium = parseNullableInt(stadium_id);
       const cleanStartDate = parseNullableString(start_date);
       const cleanEndDate = parseNullableString(end_date);
@@ -416,11 +396,10 @@ module.exports = {
 
       await db.query(
         `UPDATE competitions 
-         SET title=?, details=?, sport=?, sport_type=?, athlete_sport_policy=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, scoring_config=?, stadium_id=?, logo_url=?
+         SET title=?, details=?, sport=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, scoring_config=?, stadium_id=?, logo_url=?
          WHERE id=?`,
         [
-          title, details, sport, cleanSportType, cleanAthleteSportPolicy,
-          singleGender, // ใช้ค่าเดียว
+          title, details, sport, singleGender, // ใช้ค่าเดียว
           cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxSets, cleanMaxPlayers, cleanScoringConfig, cleanStadium, cleanLogoUrl,
           id
         ]
@@ -594,8 +573,6 @@ module.exports = {
           t.code as organization_code,
           c.title as competition_title,
           c.sport,
-          c.sport_type,
-          c.athlete_sport_policy,
           c.gender as competition_gender,
           c.start_date,
           c.end_date,
@@ -628,8 +605,6 @@ module.exports = {
         SELECT
           te.*,
           c.title as competition_title,
-          c.sport_type,
-          c.athlete_sport_policy,
           c.gender as competition_gender,
           c.max_players,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
@@ -649,7 +624,6 @@ module.exports = {
       const playersRes = await db.query(`
         SELECT
           p.*,
-          COALESCE(eligibility.sport_types, 'indoor') as sport_types,
           CASE WHEN tep.id IS NULL THEN 0 ELSE 1 END as selected,
           tep.number as entry_number,
           tep.role as entry_role,
@@ -659,17 +633,11 @@ module.exports = {
           tep.is_playing as entry_is_playing,
           other_te.id as locked_team_entry_id,
           other_c.title as locked_competition_title,
-          other_c.sport_type as locked_sport_type,
           other_c.gender as locked_competition_gender,
           other_ag.name as locked_age_group_name
         FROM players p
         LEFT JOIN team_entry_players tep
           ON tep.player_id = p.id AND tep.team_entry_id = ?
-        LEFT JOIN (
-          SELECT player_id, GROUP_CONCAT(sport_type ORDER BY sport_type SEPARATOR ',') as sport_types
-          FROM player_sport_eligibilities
-          GROUP BY player_id
-        ) eligibility ON eligibility.player_id = p.id
         LEFT JOIN team_entry_players other_tep
           ON other_tep.player_id = p.id
         LEFT JOIN team_entries other_te
@@ -688,23 +656,20 @@ module.exports = {
       const eligiblePlayers = playersRes.rows.map((player) => ({
         ...player,
         gender_eligible: genderMatches(player.gender, entry.competition_gender),
-        sport_eligible: String(player.sport_types || 'indoor').split(',').includes(entry.sport_type || 'indoor'),
         roster_locked: Number(player.selected) !== 1
-          && Boolean(player.locked_team_entry_id)
-          && String(player.locked_sport_type || 'indoor') === String(entry.sport_type || 'indoor'),
+          && Boolean(player.locked_team_entry_id),
       }));
 
       const selectedPlayerIds = eligiblePlayers
-        .filter((player) => Number(player.selected) === 1 && player.gender_eligible && player.sport_eligible)
+        .filter((player) => Number(player.selected) === 1 && player.gender_eligible)
         .map((player) => player.id);
 
       res.json({
         entry,
         players: eligiblePlayers.map((player) => ({
           ...player,
-          selected: player.gender_eligible && player.sport_eligible ? player.selected : 0,
+          selected: player.gender_eligible ? player.selected : 0,
           invalid_entry_assignment: Number(player.selected) === 1 && !player.gender_eligible,
-          invalid_sport_assignment: Number(player.selected) === 1 && !player.sport_eligible,
         })),
         selectedPlayerIds,
       });
@@ -735,8 +700,6 @@ module.exports = {
         SELECT
           te.*,
           c.title as competition_title,
-          c.sport_type,
-          c.athlete_sport_policy,
           c.gender as competition_gender,
           c.max_players,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
@@ -764,14 +727,8 @@ module.exports = {
       if (uniquePlayerIds.length > 0) {
         const placeholders = uniquePlayerIds.map(() => '?').join(',');
         const playersRes = await client.query(`
-          SELECT p.id, p.team_id, p.number, p.position, p.gender, p.is_captain, p.is_libero1, p.is_libero2, p.is_playing,
-                 COALESCE(eligibility.sport_types, 'indoor') as sport_types
+          SELECT p.id, p.team_id, p.number, p.position, p.gender, p.is_captain, p.is_libero1, p.is_libero2, p.is_playing
           FROM players p
-          LEFT JOIN (
-            SELECT player_id, GROUP_CONCAT(sport_type ORDER BY sport_type SEPARATOR ',') as sport_types
-            FROM player_sport_eligibilities
-            GROUP BY player_id
-          ) eligibility ON eligibility.player_id = p.id
           WHERE p.id IN (${placeholders})
         `, uniquePlayerIds);
         selectedPlayers = playersRes.rows;
@@ -794,14 +751,6 @@ module.exports = {
         return res.status(400).json({ error: 'One or more players do not match this competition gender' });
       }
 
-      const invalidSportPlayer = selectedPlayers.find((player) => (
-        !String(player.sport_types || 'indoor').split(',').includes(entry.sport_type || 'indoor')
-      ));
-      if (invalidSportPlayer) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'One or more players are not eligible for this sport type' });
-      }
-
       if (uniquePlayerIds.length > 0) {
         const placeholders = uniquePlayerIds.map(() => '?').join(',');
         const lockedPlayersRes = await client.query(`
@@ -811,7 +760,6 @@ module.exports = {
             p.first_name,
             p.last_name,
             c.title as competition_title,
-            c.sport_type,
             c.gender as competition_gender,
             ag.name as age_group_name
           FROM team_entry_players tep
@@ -822,9 +770,8 @@ module.exports = {
           WHERE te.team_id = ?
             AND te.id <> ?
             AND c.title = ?
-            AND c.sport_type = ?
             AND tep.player_id IN (${placeholders})
-        `, [teamId, entry.id, entry.competition_title, entry.sport_type || 'indoor', ...uniquePlayerIds]);
+        `, [teamId, entry.id, entry.competition_title, ...uniquePlayerIds]);
 
         if (lockedPlayersRes.rows.length > 0) {
           await client.query('ROLLBACK');
@@ -908,7 +855,6 @@ module.exports = {
         SELECT
           te.*,
           c.title as competition_title,
-          c.sport_type,
           c.gender as competition_gender,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
           ag.name as age_group_name
@@ -1042,8 +988,41 @@ module.exports = {
         return res.status(404).json({ error: "Competition not found" });
       }
 
-      const teamRes = await client.query('SELECT * FROM teams WHERE id = ?', [teamId]);
+      const teamRes = await client.query('SELECT * FROM teams WHERE id = ? FOR UPDATE', [teamId]);
       const team = teamRes.rows[0];
+      if (!team) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Team not found.' });
+      }
+      const requestedGender = normalizeTeamGender(competition.gender);
+      let teamGender = normalizeTeamGender(team.gender || team.category);
+      if (!requestedGender) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Competitions must have a Male or Female category.' });
+      }
+      if (!teamGender) {
+        const previousRegistrations = await client.query(`
+          SELECT c.gender FROM team_entries te
+          JOIN competitions c ON c.id = te.competition_id
+          WHERE te.team_id = ?
+          UNION
+          SELECT c.gender FROM team_competitions tc
+          JOIN competitions c ON c.id = tc.competition_id
+          WHERE tc.team_id = ?
+          UNION
+          SELECT p.gender FROM players p WHERE p.team_id = ?
+        `, [teamId, teamId, teamId]);
+        const historicalGenders = new Set(previousRegistrations.rows.map((row) => normalizeTeamGender(row.gender)).filter(Boolean));
+        if (historicalGenders.size > 1) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ error: 'This team has registrations in more than one gender. Contact an administrator to resolve the existing records.' });
+        }
+        if (historicalGenders.size === 1) teamGender = [...historicalGenders][0];
+      }
+      if (teamGender && teamGender !== requestedGender) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: `This team is registered as ${teamGender}. It cannot join a ${requestedGender} competition.` });
+      }
 
       // 2. ตรวจสอบว่าเคยสมัครไปแล้วหรือยัง
       const check = await client.query(
@@ -1054,6 +1033,12 @@ module.exports = {
       if (check.rows.length > 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: "ทีมของคุณสมัครรายการนี้ไปแล้ว (Already registered)" });
+      }
+
+      if (!teamGender) {
+        await client.query('UPDATE teams SET gender = ? WHERE id = ?', [requestedGender, teamId]);
+      } else if (!normalizeTeamGender(team.gender)) {
+        await client.query('UPDATE teams SET gender = ? WHERE id = ?', [teamGender, teamId]);
       }
 
       // 3. บันทึกการสมัครแบบ team entry โดยไม่ clone โรงเรียน/สโมสร

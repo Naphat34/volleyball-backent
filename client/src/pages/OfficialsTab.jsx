@@ -139,6 +139,7 @@ export default function Referees({ darkMode = false }) {
                                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Name</th>
                                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Country</th>
                                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Code</th>
+                                    {activeTab !== 'linejudge' && <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Login Account</th>}
                                     <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -163,6 +164,11 @@ export default function Referees({ darkMode = false }) {
                                                 {item.code || 'No Code'}
                                             </div>
                                         </td>
+                                        {activeTab !== 'linejudge' && (
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {item.account_username || <span className="text-gray-400">No login linked</span>}
+                                            </td>
+                                        )}
 
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">

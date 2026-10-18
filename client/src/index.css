@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+.swal2-system-toast {
+  width: min(360px, calc(100vw - 24px)) !important;
+  padding: 0.85rem 1rem !important;
+  border-radius: 0.8rem !important;
+  font-family: inherit !important;
+}
+
 @font-face {
   font-family: "Bai Jamjuree";
   src: url("/fonts/BaiJamjuree-ExtraLight.ttf") format("truetype");
@@ -188,9 +195,10 @@
   .ui-field p { font-size: .75rem; }
   .public-header { position: sticky; top: 0; z-index: 50; background: white; border-bottom: 1px solid var(--color-app-border); }
   .public-header-inner { max-width: 1440px; margin: auto; min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 2rem; }
-  .public-brand { display: flex; align-items: center; gap: .75rem; min-width: 0; font-weight: 700; font-size: 1rem; }
-  .public-brand small { display: block; color: #64748b; font-size: .7rem; font-weight: 400; margin-top: .1rem; }
-  .public-brand-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: .875rem; background: #2563eb; color: white; flex-shrink: 0; }
+  .public-brand { display: flex; align-items: center; gap: .625rem; min-width: 0; font-weight: 700; font-size: .95rem; line-height: 1.2; }
+  .public-brand-logo { display: block; width: 34px; height: 48px; flex-shrink: 0; object-fit: contain; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .public-brand-copy { display: block; min-width: 0; color: #0f172a; letter-spacing: .035em; text-transform: uppercase; }
+  .public-brand small { display: block; color: #64748b; font-size: .7rem; font-weight: 400; margin-top: .2rem; letter-spacing: 0; }
   .public-desktop-nav, .public-desktop-actions { display: flex; align-items: center; gap: .375rem; }
   .public-desktop-actions { gap: .75rem; }
   .public-nav-link { display: flex; align-items: center; min-height: 44px; padding: .625rem .875rem; border-radius: .625rem; color: #64748b; font-size: .875rem; font-weight: 600; }

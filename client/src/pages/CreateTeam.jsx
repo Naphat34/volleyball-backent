@@ -56,6 +56,7 @@ export default function CreateTeam() {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    gender: 'Male',
     coach: '',
     logo_url: ''
   });
@@ -90,9 +91,11 @@ export default function CreateTeam() {
   }, [competitions]);
 
   const visibleCompetitions = useMemo(() => {
-    if (selectedAgeGroup === 'all') return competitions;
-    return competitions.filter((competition) => getAgeGroupLabel(competition) === selectedAgeGroup);
-  }, [competitions, selectedAgeGroup]);
+    return competitions.filter((competition) => (
+      getGenderLabel(competition.gender) === formData.gender &&
+      (selectedAgeGroup === 'all' || getAgeGroupLabel(competition) === selectedAgeGroup)
+    ));
+  }, [competitions, selectedAgeGroup, formData.gender]);
 
   const toggleCompetitionSelection = (id) => {
     setSelectedCompIds((prev) => (
@@ -103,6 +106,7 @@ export default function CreateTeam() {
   };
 
   const handleChange = (e) => {
+    if (e.target.name === 'gender' && e.target.value !== formData.gender) setSelectedCompIds([]);
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -112,7 +116,7 @@ export default function CreateTeam() {
 
     try {
       const dataUrl = await readImageFileAsDataUrl(file);
-      const res = await api.uploadImage(dataUrl);
+      const res = await api.uploadImage(dataUrl, 'team_logo');
       setFormData({ ...formData, logo_url: res.data.url });
     } catch (error) {
       alert(error.response?.data?.error || error.message);
@@ -205,6 +209,14 @@ export default function CreateTeam() {
                     onChange={handleChange}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">Team Type</label>
+                <select name="gender" value={formData.gender} onChange={handleChange} required className="w-full px-6 py-4 bg-white border border-gray-200 rounded-lg focus:ring-4 focus:ring-indigo-50 outline-none font-semibold text-gray-800 shadow-sm">
+                  <option value="Male">Men's team</option>
+                  <option value="Female">Women's team</option>
+                </select>
               </div>
 
               <ImageUploadField

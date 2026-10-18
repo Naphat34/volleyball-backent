@@ -1,15 +1,18 @@
+import { getTeamCode } from '../../../utils/scorerHelpers';
+import { getContrastClass } from '../../../utils/colorUtils';
 import React from 'react';
 import { Settings, Timer } from 'lucide-react';
 
 import Logo from '../../../assets/img/volleyball.png';
 
-// Helper to extract 3-letter code from team name
-const getTeamCode = (teamName) => {
-    if (!teamName) return '';
-    if (teamName.includes('-')) {
-        return teamName.split('-')[0].trim().toUpperCase();
-    }
-    return teamName.substring(0, 3).toUpperCase();
+const getTeamBadgeStyle = (color) => {
+    const backgroundColor = /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(String(color || '').trim())
+        ? color.trim()
+        : '#334155';
+    return {
+        backgroundColor,
+        color: getContrastClass(backgroundColor) === 'text-white' ? '#ffffff' : '#000000'
+    };
 };
 
 const getSanctionCardType = (metadata = {}, description = '') => {
@@ -124,13 +127,14 @@ const MatchHistorySidebar = ({
     const rightLineupText = formatLineupForCourtSide(isHomeLeft ? selectedAwayLineupText : selectedHomeLineupText, 'right');
 
     return (
-        <aside className="w-[300px] bg-white border-l border-slate-200 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden shrink-0">
+        <aside className="w-[300px] bg-white text-slate-800 border-l border-slate-200 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden shrink-0">
 
             {/* Top Row: Staff connection status */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-white">
                 <button
                     onClick={() => setShowSetup(true)}
-                    className="p-1 border border-slate-200 rounded text-slate-400 hover:bg-slate-50 transition-colors"
+                    aria-label="Match settings"
+                    className="p-1 border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 transition-colors"
                 >
                     <Settings size={18} />
                 </button>
@@ -177,16 +181,17 @@ const MatchHistorySidebar = ({
                         return (
                             <button
                                 key={setNum}
+                                aria-pressed={isActive}
                                 onClick={() => setActiveHistoryTab(setNum)}
-                                className={`shrink-0 px-2.5 py-1 rounded-md border text-[10px] font-bold transition-colors ${isActive
-                                    ? 'bg-blue-600 text-white border-blue-600'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                className={`shrink-0 px-2.5 py-1 rounded-md border text-[10px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 ${isActive
+                                    ? 'bg-blue-700 text-white border-blue-700 hover:bg-blue-800 hover:border-blue-800'
+                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-blue-100 hover:text-blue-900 hover:border-blue-400'
                                     }`}
                                 title={completed ? `Set ${setNum}: ${completed.home}-${completed.away}` : `Set ${setNum}`}
                             >
                                 <span>Set {setNum}</span>
                                 {completed && (
-                                    <span className="ml-1 opacity-80">{completed.home}-{completed.away}</span>
+                                    <span className="ml-1">{completed.home}-{completed.away}</span>
                                 )}
                             </button>
                         );
@@ -201,7 +206,7 @@ const MatchHistorySidebar = ({
                     title={isHomeLeft ? matchData.teamHome : matchData.teamAway}
                     style={{
                     borderColor: isHomeLeft ? teamColors.home : teamColors.away,
-                    backgroundColor: `${isHomeLeft ? teamColors.home : teamColors.away}1A`
+                    ...getTeamBadgeStyle(isHomeLeft ? teamColors.home : teamColors.away)
                     }}
                 >
                     <span className="block truncate">{isHomeLeft ? matchData.teamHome : matchData.teamAway}</span>
@@ -211,7 +216,7 @@ const MatchHistorySidebar = ({
                     title={isHomeLeft ? matchData.teamAway : matchData.teamHome}
                     style={{
                     borderColor: isHomeLeft ? teamColors.away : teamColors.home,
-                    backgroundColor: `${isHomeLeft ? teamColors.away : teamColors.home}1A`
+                    ...getTeamBadgeStyle(isHomeLeft ? teamColors.away : teamColors.home)
                     }}
                 >
                     <span className="block truncate">{isHomeLeft ? matchData.teamAway : matchData.teamHome}</span>
@@ -267,8 +272,9 @@ const MatchHistorySidebar = ({
                                 const accentColor = isHome ? teamColors.home : isAway ? teamColors.away : '#cbd5e1';
                                 const eventTeamName = isHome ? matchData.teamHome : isAway ? matchData.teamAway : mt.team;
                                 const [homeScore, awayScore] = (ev.score || '0-0').split('-');
-                                const leftScore = isHomeLeft ? homeScore : awayScore;
-                                const rightScore = isHomeLeft ? awayScore : homeScore;
+                                // Stored scores are home-away; show the point-winning team first.
+                                const scoringTeamScore = isAway ? awayScore : homeScore;
+                                const opponentScore = isAway ? homeScore : awayScore;
 
                                 // ---- Row content by event type ----
                                 if (mt.type === 'POINT') {
@@ -287,9 +293,9 @@ const MatchHistorySidebar = ({
                                             </div>
                                             {/* Score badge center */}
                                             <div className="flex items-center gap-1 text-[11px] font-black px-1.5 py-0.5 rounded-md mx-1 bg-slate-50 border border-slate-100">
-                                                <span className="text-slate-700 w-4 text-center">{leftScore}</span>
+                                                <span className="text-slate-700 w-4 text-center">{scoringTeamScore}</span>
                                                 <span className="text-slate-400">-</span>
-                                                <span className="text-slate-700 w-4 text-center">{rightScore}</span>
+                                                <span className="text-slate-700 w-4 text-center">{opponentScore}</span>
                                             </div>
                                             {/* Right placeholder or content */}
                                             <div className="flex-1 flex items-center justify-end gap-2">
@@ -311,7 +317,7 @@ const MatchHistorySidebar = ({
                                         <div key={ev.id} className="flex items-center px-3 py-2.5 bg-slate-50/70 hover:bg-slate-100/70 transition-colors border-l-[3px]" style={{ borderColor: accentColor }}>
                                             <div className="flex-1">
                                                 {isLeftEvent && (
-                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-sm" style={{ color: accentColor }}>
+                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full border border-slate-300 shadow-sm" style={getTeamBadgeStyle(accentColor)}>
                                                         <Timer size={12} />
                                                         Timeout {eventTeamName}
                                                     </span>
@@ -319,7 +325,7 @@ const MatchHistorySidebar = ({
                                             </div>
                                             <div className="flex-1 flex justify-end">
                                                 {isRightEvent && (
-                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-sm" style={{ color: accentColor }}>
+                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full border border-slate-300 shadow-sm" style={getTeamBadgeStyle(accentColor)}>
                                                         Timeout {eventTeamName}
                                                         <Timer size={12} />
                                                     </span>
@@ -426,10 +432,11 @@ const MatchHistorySidebar = ({
                                     setShowChallengeRequestPopup(true);
                                     setChallengeConfirmMode(false);
                                 }}
-                                className="w-full mb-1.5 py-1.5 px-2.5 bg-blue-50 text-blue-700 text-[10px] font-black border border-blue-200 rounded hover:bg-blue-100 transition-colors flex justify-between items-center"
+                                style={getTeamBadgeStyle(teamColor)}
+                                className="w-full mb-1.5 py-1.5 px-2.5 text-[10px] font-black border border-slate-300 rounded hover:underline hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 transition-shadow flex justify-between items-center gap-2"
                             >
-                                <span className="truncate">Challenge: <span style={{ color: teamColor }}>{req.team_name}</span></span>
-                                <span className="shrink-0 text-[8px] bg-blue-200 px-1 py-0.5 rounded font-mono uppercase font-black">Resume</span>
+                                <span className="truncate">Challenge: {req.team_name}</span>
+                                <span className="shrink-0 text-[8px] bg-white text-slate-900 border border-slate-300 px-1 py-0.5 rounded font-mono uppercase font-black">Resume</span>
                             </button>
                         );
                     })}
@@ -441,7 +448,7 @@ const MatchHistorySidebar = ({
                 <button
                     onClick={handleUndo}
                     disabled={history.length === 0}
-                    className="w-full py-2.5 bg-rose-50 text-rose-500 text-sm font-semibold border border-rose-200 rounded disabled:opacity-50 hover:bg-rose-100 transition-colors"
+                    className="w-full py-2.5 bg-rose-700 text-white text-sm font-semibold border border-rose-700 rounded enabled:hover:bg-rose-50 enabled:hover:text-rose-800 enabled:hover:border-rose-800 disabled:bg-slate-100 disabled:text-slate-600 disabled:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 transition-colors"
                 >
                     Undo last action
                 </button>

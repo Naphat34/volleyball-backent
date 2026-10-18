@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './ControlActionsPanel.css';
 import {
     PenTool, Trophy, Flag, Clock, Users, RotateCcw, AlertTriangle
 } from 'lucide-react';
@@ -264,14 +265,15 @@ const ControlActionsPanel = ({
                         ) : workflowStep === 'SERVING' ? (
                             <div className="flex flex-col items-center w-full max-w-sm mt-2">
                                 <div className="text-indigo-700 font-bold text-sm flex items-center gap-2 mb-1.5 uppercase">
-                                    <Clock size={18} />
+                                    <Clock size={18} className="serve-wait-clock" />
                                     <span>After referee whistle</span>
                                 </div>
                                 <button
                                     onClick={() => setWorkflowStep('RALLY')}
-                                    className="bg-indigo-700 hover:bg-indigo-800 text-white font-black text-3xl py-3 w-full shadow-md transition-colors"
+                                    type="button"
+                                    className="serve-wait-button bg-indigo-700 hover:bg-indigo-800 text-white font-black text-3xl py-3 w-full shadow-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 active:scale-[0.98]"
                                 >
-                                    Serve
+                                    <span className="relative z-10">Serve</span>
                                 </button>
                             </div>
                         ) : workflowStep === 'RALLY' ? (

@@ -3,7 +3,12 @@ const db = require('../config/db');
 // --- Referees ---
 exports.getAllReferees = async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM referees ORDER BY id ASC');
+        const result = await db.query(`
+            SELECT r.*, u.username AS account_username
+            FROM referees r
+            LEFT JOIN users u ON u.id = r.user_id
+            ORDER BY r.id ASC
+        `);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -27,10 +32,10 @@ exports.createReferee = async (req, res) => {
 exports.updateReferee = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstname, lastname, country } = req.body;
+        const { firstname, lastname, country, code } = req.body;
         await db.query(
-            'UPDATE referees SET firstname = ?, lastname = ?, country = ? WHERE id = ?',
-            [firstname, lastname, country, id]
+            'UPDATE referees SET firstname = ?, lastname = ?, country = ?, code = ? WHERE id = ?',
+            [firstname, lastname, country, code || null, id]
         );
         const updated = await db.query('SELECT * FROM referees WHERE id = ?', [id]);
         res.json(updated.rows[0]);
@@ -42,6 +47,10 @@ exports.updateReferee = async (req, res) => {
 exports.deleteReferee = async (req, res) => {
     try {
         const { id } = req.params;
+        const linked = await db.query('SELECT user_id FROM referees WHERE id = ?', [id]);
+        if (linked.rows[0]?.user_id) {
+            return res.status(409).json({ error: 'This referee has a linked login account. Change the account role before deleting the official record.' });
+        }
         await db.query('DELETE FROM referees WHERE id = ?', [id]);
         res.json({ message: 'Deleted successfully' });
     } catch (err) {
@@ -52,7 +61,12 @@ exports.deleteReferee = async (req, res) => {
 // --- Scorers ---
 exports.getAllScorers = async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM scorers ORDER BY id ASC');
+        const result = await db.query(`
+            SELECT s.*, u.username AS account_username
+            FROM scorers s
+            LEFT JOIN users u ON u.id = s.user_id
+            ORDER BY s.id ASC
+        `);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -91,6 +105,10 @@ exports.updateScorer = async (req, res) => {
 exports.deleteScorer = async (req, res) => {
     try {
         const { id } = req.params;
+        const linked = await db.query('SELECT user_id FROM scorers WHERE id = ?', [id]);
+        if (linked.rows[0]?.user_id) {
+            return res.status(409).json({ error: 'This scorer has a linked login account. Change the account role before deleting the official record.' });
+        }
         await db.query('DELETE FROM scorers WHERE id = ?', [id]);
         res.json({ message: 'Deleted successfully' });
     } catch (err) {

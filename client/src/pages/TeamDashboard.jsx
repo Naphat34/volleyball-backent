@@ -7,6 +7,7 @@ import {
     Users,
     Trophy,
     UserPlus,
+    Plus,
     Calendar,
     Shield,
     Briefcase,
@@ -27,14 +28,13 @@ import {
     Printer,
     Upload,
     Palette,
-    Key,
-    Settings
+    Home,
+    Building2
 } from 'lucide-react';
 
 import { cleanCompetitionTitle, formatThaiDate, calculateAge } from '../utils';
 import O2FormLoader from '../utils/O2FormLoader';
 import { useLanguage } from '../context/LanguageContext';
-import { clearAuthSession, setAuthSession } from '../authStorage';
 
 // Toast Configuration
 const Toast = Swal.mixin({
@@ -53,9 +53,6 @@ const genderOrder = { Male: 1, Female: 2, Mixed: 3, Mix: 3 };
 const ageGroupOrder = ['U12', 'U14', 'U16', 'U18', 'Open'];
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const PRIMARY_BLUE = '#2563eb';
-const SPORT_TYPE_OPTIONS = [
-    { value: 'indoor', label: 'Indoor' }
-];
 const DEFAULT_UNIFORM_COLORS = {
     main_color: '#1f2937',
     second_color: '#ffffff',
@@ -65,20 +62,9 @@ const DEFAULT_UNIFORM_COLORS = {
     libero_third_color: '#ffffff'
 };
 
-const normalizeSportTypes = (value) => {
-    const raw = Array.isArray(value)
-        ? value
-        : String(value || 'indoor').split(',');
-    const clean = [...new Set(raw.map(item => String(item || '').trim().toLowerCase()).filter(item => item === 'indoor'))];
-    return clean.length > 0 ? clean : ['indoor'];
-};
-
-const formatSportTypes = (value) => normalizeSportTypes(value)
-    .map(type => SPORT_TYPE_OPTIONS.find(option => option.value === type)?.label || type)
-    .join(' + ');
 
 const normalizeCompetitionTitle = (competition) => {
-    return cleanCompetitionTitle(competition?.title || competition?.name || 'Untitled Competition');
+    return cleanCompetitionTitle(competition?.competition_title || competition?.title || competition?.name || 'Untitled Competition');
 };
 
 const getScheduleCompetitionName = (item = {}) => (
@@ -87,16 +73,16 @@ const getScheduleCompetitionName = (item = {}) => (
     })
 );
 
-const getScheduleCompetitionKey = (item = {}) => (
-    getScheduleCompetitionName(item).trim().toLocaleLowerCase()
-);
-
 const getGenderLabel = (gender) => {
     const normalized = String(gender || 'Mixed').trim();
     if (/^(male|men|m)$/i.test(normalized)) return 'Male';
     if (/^(female|women|f)$/i.test(normalized)) return 'Female';
     if (/^(mix|mixed)$/i.test(normalized)) return 'Mixed';
     return normalized || 'Mixed';
+};
+const getTeamGender = (gender) => {
+    const normalized = getGenderLabel(gender);
+    return normalized === 'Male' || normalized === 'Female' ? normalized : null;
 };
 
 const getAgeGroupLabel = (competition) => (
@@ -122,18 +108,9 @@ const getCompetitionAgeGroupKey = (competition) => (
     String(getAgeGroupLabel(competition) || 'General')
 );
 
-const getCompetitionSportType = () => {
-    return 'indoor';
-};
-
-const getCompetitionSportLabel = () => (
-    'Indoor Volleyball'
-);
-
 const groupCompetitionsByTitle = (competitions) => Object.values((competitions || []).reduce((acc, competition) => {
     const title = normalizeCompetitionTitle(competition);
-    const sportType = getCompetitionSportType(competition);
-    const key = `${title.toLowerCase()}::${sportType}`;
+    const key = title.toLowerCase();
     if (!acc[key]) {
         acc[key] = {
             key,
@@ -141,8 +118,7 @@ const groupCompetitionsByTitle = (competitions) => Object.values((competitions |
             start_date: competition.start_date,
             end_date: competition.end_date,
             location: competition.location,
-            sport: getCompetitionSportLabel(competition),
-            sport_type: sportType,
+            sport: competition.sport || 'Volleyball',
             categories: []
         };
     }
@@ -159,7 +135,7 @@ const groupCompetitionsByTitle = (competitions) => Object.values((competitions |
         return (genderOrder[genderA] || 99) - (genderOrder[genderB] || 99)
             || genderA.localeCompare(genderB);
     })
-})).sort((a, b) => a.title.localeCompare(b.title) || a.sport.localeCompare(b.sport));
+})).sort((a, b) => a.title.localeCompare(b.title));
 
 const readImageFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     if (!file) {
@@ -184,12 +160,27 @@ const readImageFileAsDataUrl = (file) => new Promise((resolve, reject) => {
 const buildTeamFormFromInfo = (team = {}) => ({
     name: team.name || '',
     code: team.code || '',
+    gender: getTeamGender(team.gender || team.category) || '',
     logo_url: team.logo_url || '',
     coach: team.coach || '',
     manager_name: team.manager_name || '',
     phone: team.phone || '',
     email: team.email || '',
     province: team.province || '',
+    district: team.district || '',
+    office_phone: team.office_phone || '',
+    mobile_phone: team.mobile_phone || team.phone || '',
+    fax: team.fax || '',
+    line_id: team.line_id || '',
+    address_number: team.address_number || '',
+    building: team.building || '',
+    moo: team.moo || '',
+    soi: team.soi || '',
+    road: team.road || '',
+    address_province: team.address_province || '',
+    address_district: team.address_district || '',
+    subdistrict: team.subdistrict || '',
+    postal_code: team.postal_code || '',
     main_color: team.main_color || DEFAULT_UNIFORM_COLORS.main_color,
     second_color: team.second_color || DEFAULT_UNIFORM_COLORS.second_color,
     third_color: team.third_color || DEFAULT_UNIFORM_COLORS.third_color,
@@ -241,10 +232,10 @@ export default function TeamDashboard() {
             cancelButtonText: t('common.cancel')
         });
         if (!confirmation.isConfirmed) return;
-        
+
         // Optimistic UI update
         setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, is_playing: newIsPlaying } : p));
-        
+
         try {
             await api.updatePlayer(player.id, { is_playing: newIsPlaying });
         } catch {
@@ -257,8 +248,6 @@ export default function TeamDashboard() {
         }
     };
     const [statsGenderFilter, setStatsGenderFilter] = useState('All');
-    const [rosterGenderFilter, setRosterGenderFilter] = useState('All');
-    const [rosterEntryFilter, setRosterEntryFilter] = useState('all');
     const [rosterViewLoading, setRosterViewLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -266,9 +255,6 @@ export default function TeamDashboard() {
     const [openCompetitions, setOpenCompetitions] = useState([]);
     const [myCompetitions, setMyCompetitions] = useState([]);
     const [myMatches, setMyMatches] = useState([]);
-    const [scheduleFilterId, setScheduleFilterId] = useState('all'); // State สำหรับกรอง Match Schedule
-    const [scheduleAgeGroupFilter, setScheduleAgeGroupFilter] = useState('all');
-    const [scheduleGenderFilter, setScheduleGenderFilter] = useState('all');
     const [competitionGroupFilter, setCompetitionGroupFilter] = useState('all');
     const [joinSelections, setJoinSelections] = useState({});
     const [joinGenderSelections, setJoinGenderSelections] = useState({});
@@ -276,13 +262,6 @@ export default function TeamDashboard() {
     const [entryRosterPlayers, setEntryRosterPlayers] = useState([]);
     const [entryRosterSelectedIds, setEntryRosterSelectedIds] = useState([]);
     const [entryRosterLoading, setEntryRosterLoading] = useState(false);
-    const [entryStaffModal, setEntryStaffModal] = useState(null);
-    const [entryStaffList, setEntryStaffList] = useState([]);
-    const [entryStaffSelectedIds, setEntryStaffSelectedIds] = useState([]);
-    const [entryStaffLoading, setEntryStaffLoading] = useState(false);
-    const [staffAssignmentModal, setStaffAssignmentModal] = useState(null);
-    const [staffAssignmentEntryIds, setStaffAssignmentEntryIds] = useState([]);
-    const [staffAssignmentLoading, setStaffAssignmentLoading] = useState(false);
 
     const [teamInfo, setTeamInfo] = useState(null);
     const [teamLogoLoadFailed, setTeamLogoLoadFailed] = useState(false);
@@ -298,18 +277,12 @@ export default function TeamDashboard() {
         phone: '',
         email: '',
         province: '',
+        gender: 'Male',
         ...DEFAULT_UNIFORM_COLORS
     });
-    const [accountForm, setAccountForm] = useState({ username: '', email: '', phone: '' });
-    const [passwordForm, setPasswordForm] = useState({
-        current_password: '',
-        new_password: '',
-        confirm_password: ''
-    });
-    const [accountSaving, setAccountSaving] = useState(false);
-    const [passwordSaving, setPasswordSaving] = useState(false);
-
     const [editingPlayerId, setEditingPlayerId] = useState(null);
+    const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
+    const [playerDocuments, setPlayerDocuments] = useState({ identity_document_url: '', student_certificate_url: '', guardian_consent_url: '' });
     const [editingStaffId, setEditingStaffId] = useState(null);
     const [viewingStatsPlayer, setViewingStatsPlayer] = useState(null);
     const [statsData, setStatsData] = useState(null);
@@ -324,9 +297,9 @@ export default function TeamDashboard() {
         weight: '',
         birth_date: '',
         nationality: '',
+        hometown: '',
         photo: '',
         gender: 'Male',
-        sport_types: ['indoor'],
         is_captain: false,
         is_libero1: false,
         is_libero2: false
@@ -381,57 +354,17 @@ export default function TeamDashboard() {
         return [competitionName, ageGroup, gender].filter(Boolean).join(' / ');
     };
 
-    const getEntryStaffScopeLabel = () => {
-        if (!entryStaffModal) return 'this staff roster';
-        const competitionName = normalizeCompetitionTitle(entryStaffModal.competition);
-        const ageGroup = entryStaffModal.entry?.age_group_name || 'General';
-        const gender = entryStaffModal.entry?.competition_gender || entryStaffModal.entry?.gender || '';
-        return [competitionName, ageGroup, gender].filter(Boolean).join(' / ');
-    };
-
     const getLockedRosterLabel = (player = {}) => {
         const ageGroup = player.locked_age_group_name || 'General';
         const gender = player.locked_competition_gender || '';
         return [ageGroup, gender].filter(Boolean).join(' / ');
     };
 
-    const getRosterEntryOptionLabel = useCallback((entry = {}) => {
-        const competitionName = normalizeCompetitionTitle(entry);
-        const ageGroup = getAgeGroupLabel(entry);
-        const gender = getGenderLabel(entry.competition_gender || entry.gender);
-        return [competitionName, ageGroup, gender].filter(Boolean).join(' / ');
-    }, []);
-
-    const normalizeEntryRosterPlayer = useCallback((player = {}) => ({
-        ...player,
-        number: player.entry_number ?? player.number,
-        position: player.entry_role ?? player.position,
-        is_captain: player.entry_is_captain ?? player.is_captain,
-        is_libero1: player.entry_is_libero1 ?? player.is_libero1,
-        is_libero2: player.entry_is_libero2 ?? player.is_libero2,
-        is_playing: player.entry_is_playing ?? player.is_playing
-    }), []);
-
-    const loadRosterView = useCallback(async (entryFilter = 'all') => {
+    const loadRosterView = useCallback(async () => {
         setRosterViewLoading(true);
         try {
-            if (entryFilter === 'all' || entryFilter === 'unassigned') {
-                const res = await api.getMyPlayers();
-                const allPlayers = [...new Map((res.data || []).map(player => [String(player.id), player])).values()];
-                setPlayers(entryFilter === 'unassigned'
-                    ? allPlayers.filter(player => !player.team_entry_id)
-                    : allPlayers
-                );
-                return;
-            }
-
-            const res = await api.getMyTeamEntryPlayers(entryFilter);
-            const selectedIds = new Set((res.data.selectedPlayerIds || []).map(String));
-            const selectedPlayers = (res.data.players || [])
-                .filter(player => selectedIds.has(String(player.id)) || Number(player.selected) === 1)
-                .map(normalizeEntryRosterPlayer);
-
-            const uniquePlayers = [...new Map(selectedPlayers.map(player => [String(player.id), player])).values()];
+            const res = await api.getMyPlayers();
+            const uniquePlayers = [...new Map((res.data || []).map(player => [String(player.id), player])).values()];
             setPlayers(uniquePlayers);
         } catch (err) {
             console.error(err);
@@ -442,7 +375,7 @@ export default function TeamDashboard() {
         } finally {
             setRosterViewLoading(false);
         }
-    }, [language, normalizeEntryRosterPlayer]);
+    }, [language]);
 
     const cleanPositiveNumberText = (value) => {
         if (value === null || value === undefined || value === '') return '';
@@ -458,6 +391,8 @@ export default function TeamDashboard() {
 
     const buildPlayerPayload = () => ({
         ...playerForm,
+        ...playerDocuments,
+        school_affiliation: playerForm.school_affiliation || teamInfo?.name || '',
         first_name: cleanPersonText(playerForm.first_name),
         last_name: cleanPersonText(playerForm.last_name),
         nickname: cleanPersonText(playerForm.nickname),
@@ -466,13 +401,13 @@ export default function TeamDashboard() {
         nationality: cleanPersonText(playerForm.nationality, { allowNumeric: true })
     });
 
-    const handleImageFileChange = async (event, onLoaded) => {
+    const handleImageFileChange = async (event, category, onLoaded) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
         try {
             const dataUrl = await readImageFileAsDataUrl(file);
-            const res = await api.uploadImage(dataUrl);
+            const res = await api.uploadImage(dataUrl, category);
             await onLoaded(res.data.url);
         } catch (error) {
             Toast.fire({
@@ -491,6 +426,15 @@ export default function TeamDashboard() {
         [openCompetitions]
     );
 
+    const selectedOpenGender = useMemo(() => {
+        const selectedIds = Object.values(joinSelections).flat();
+        const genders = new Set(selectedIds.map((id) => {
+            const competition = openCompetitions.find((item) => String(item.id) === String(id));
+            return competition ? getGenderLabel(competition.gender) : null;
+        }).filter((gender) => gender === 'Male' || gender === 'Female'));
+        return genders.size === 1 ? [...genders][0] : null;
+    }, [joinSelections, openCompetitions]);
+
     const groupedMyCompetitions = useMemo(
         () => groupCompetitionsByTitle(myCompetitions),
         [myCompetitions]
@@ -503,8 +447,6 @@ export default function TeamDashboard() {
                 optionsByKey.set(group.key, {
                     key: group.key,
                     title: group.title,
-                    sport: group.sport,
-                    sport_type: group.sport_type,
                     start_date: group.start_date,
                     end_date: group.end_date,
                     location: group.location
@@ -513,7 +455,7 @@ export default function TeamDashboard() {
         });
 
         return [...optionsByKey.values()]
-            .sort((a, b) => a.title.localeCompare(b.title) || a.sport.localeCompare(b.sport));
+            .sort((a, b) => a.title.localeCompare(b.title));
     }, [groupedMyCompetitions, groupedOpenCompetitions]);
 
     const filteredMyCompetitionGroups = useMemo(() => (
@@ -522,11 +464,21 @@ export default function TeamDashboard() {
             : groupedMyCompetitions.filter(group => group.key === competitionGroupFilter)
     ), [competitionGroupFilter, groupedMyCompetitions]);
 
-    const filteredOpenCompetitionGroups = useMemo(() => (
-        competitionGroupFilter === 'all'
-            ? groupedOpenCompetitions
-            : groupedOpenCompetitions.filter(group => group.key === competitionGroupFilter)
-    ), [competitionGroupFilter, groupedOpenCompetitions]);
+    const filteredOpenCompetitionGroups = useMemo(() => {
+        const lockedGender = getTeamGender(teamInfo?.gender || teamInfo?.category) || selectedOpenGender;
+        const genderFilteredGroups = groupedOpenCompetitions
+            .map(group => ({
+                ...group,
+                categories: group.categories.filter(category => {
+                    const gender = getGenderLabel(category.gender);
+                    return (gender === 'Male' || gender === 'Female') && (!lockedGender || gender === lockedGender);
+                })
+            }))
+            .filter(group => group.categories.length > 0);
+        return competitionGroupFilter === 'all'
+            ? genderFilteredGroups
+            : genderFilteredGroups.filter(group => group.key === competitionGroupFilter);
+    }, [competitionGroupFilter, groupedOpenCompetitions, teamInfo?.gender, teamInfo?.category, selectedOpenGender]);
 
     const selectedCompetitionGroup = useMemo(() => (
         competitionGroupOptions.find(group => group.key === competitionGroupFilter) || null
@@ -574,11 +526,28 @@ export default function TeamDashboard() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            if (activeTab === 'roster') {
+            if (activeTab === 'overview') {
+                const [resTeam, resPlayers, resStaff, resCompetitions, resMatches] = await Promise.all([
+                    api.getMyTeam(),
+                    api.getMyPlayers(),
+                    api.getMyStaff(),
+                    api.getMyCompetitions(),
+                    api.getMyMatches()
+                ]);
+                setTeamInfo(resTeam.data);
+                setTeamForm(buildTeamFormFromInfo(resTeam.data));
+                setPlayers(resPlayers.data || []);
+                setStaff(resStaff.data || []);
+                setMyCompetitions(resCompetitions.data || []);
+                setMyMatches(resMatches.data || []);
+            } else if (activeTab === 'team_info') {
+                const resTeam = await api.getMyTeam();
+                setTeamInfo(resTeam.data);
+                setTeamForm(buildTeamFormFromInfo(resTeam.data));
+            } else if (activeTab === 'roster') {
                 const resMy = await api.getMyCompetitions();
                 setMyCompetitions(resMy.data || []);
-                setRosterEntryFilter('all');
-                await loadRosterView('all');
+                await loadRosterView();
             } else if (activeTab === 'staff') {
                 const [resStaff, resMy] = await Promise.all([
                     api.getMyStaff(),
@@ -622,13 +591,6 @@ export default function TeamDashboard() {
                 const resTeam = await api.getMyTeam();
                 setTeamInfo(resTeam.data);
                 setTeamForm(buildTeamFormFromInfo(resTeam.data));
-            } else if (activeTab === 'account') {
-                const res = await api.getMe();
-                setAccountForm({
-                    username: res.data?.username || '',
-                    email: res.data?.email || '',
-                    phone: res.data?.phone || ''
-                });
             }
         } catch (err) {
             console.error(err);
@@ -741,6 +703,7 @@ export default function TeamDashboard() {
                 Toast.fire({ icon: 'success', title: language === 'THA' ? 'เพิ่มผู้เล่นเรียบร้อยแล้ว' : 'Player added successfully' });
             }
             resetPlayerForm();
+            setIsPlayerModalOpen(false);
             fetchData();
         } catch (err) {
             Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'บันทึกข้อมูลผู้เล่นล้มเหลว' : 'Failed to save player') });
@@ -749,24 +712,26 @@ export default function TeamDashboard() {
 
     const resetPlayerForm = () => {
         setEditingPlayerId(null);
+        setIsPlayerModalOpen(false);
         setPlayerForm({
             number: '', first_name: '', last_name: '', nickname: '',
             position: 'OH', height_cm: '', weight: '',
-            birth_date: '', nationality: '', photo: '',
+            birth_date: '', nationality: '', hometown: '', photo: '',
             gender: 'Male', is_captain: false,
-            sport_types: ['indoor'],
             is_libero1: false, is_libero2: false
         });
     };
 
     const handleEditPlayer = (p) => {
+        setIsPlayerModalOpen(true);
         setEditingPlayerId(p.id);
+        setPlayerDocuments({ identity_document_url: p.identity_document_url || '', student_certificate_url: p.student_certificate_url || '', guardian_consent_url: p.guardian_consent_url || '' });
         setPlayerForm({
             number: p.number ?? '', first_name: cleanPersonText(p.first_name), last_name: cleanPersonText(p.last_name),
             nickname: cleanPersonText(p.nickname), position: p.position ?? 'OH', height_cm: cleanPositiveNumberText(p.height_cm),
             weight: cleanPositiveNumberText(p.weight), birth_date: p.birth_date ? p.birth_date.split('T')[0] : '',
-            nationality: p.nationality ?? '', photo: p.photo ?? '', gender: p.gender ?? 'Male',
-            sport_types: normalizeSportTypes(p.sport_types),
+            nationality: p.nationality ?? '', photo: p.photo ?? '', gender: getTeamGender(teamInfo?.gender || teamInfo?.category) || p.gender || 'Male',
+            title: p.title || '', middle_name: p.middle_name || '', jersey_name: p.jersey_name || '', national_id: p.national_id || '', fivb_id: p.fivb_id || '', hometown: p.hometown || '', school_affiliation: p.school_affiliation || teamInfo?.name || '', grade_level: p.grade_level || '', contact_phone: p.contact_phone || '',
             is_captain: isTruthyFlag(p.is_captain),
             is_libero1: isTruthyFlag(p.is_libero1),
             is_libero2: isTruthyFlag(p.is_libero2)
@@ -858,6 +823,13 @@ export default function TeamDashboard() {
             const comps = openCompetitions.filter(c => ids.includes(c.id));
             if (comps.length === 0) {
                 Toast.fire({ icon: 'warning', title: language === 'THA' ? 'ไม่พบรายการที่เลือก' : 'Selected categories were not found' });
+                return;
+            }
+
+            const selectedGenders = new Set(comps.map((competition) => getGenderLabel(competition.gender)));
+            const existingGender = getTeamGender(teamInfo?.gender || teamInfo?.category);
+            if (selectedGenders.size !== 1 || (existingGender && !selectedGenders.has(existingGender))) {
+                Toast.fire({ icon: 'warning', title: language === 'THA' ? 'บัญชีนี้เลือกสมัครได้เพียงทีมชายหรือทีมหญิงประเภทเดียว' : 'A team can register for one gender only.' });
                 return;
             }
 
@@ -1003,104 +975,6 @@ export default function TeamDashboard() {
         }
     };
 
-    const openEntryStaffModal = async (competition) => {
-        const entryId = competition.team_entry_id;
-        if (!entryId) {
-            Toast.fire({ icon: 'error', title: language === 'THA' ? 'ไม่พบข้อมูลทีมที่สมัครของรายการนี้' : 'Missing team entry for this competition' });
-            return;
-        }
-
-        setEntryStaffLoading(true);
-        try {
-            const res = await api.getMyTeamEntryStaff(entryId);
-            setEntryStaffModal({ competition, entry: res.data.entry });
-            setEntryStaffList(res.data.staff || []);
-            setEntryStaffSelectedIds((res.data.selectedStaffIds || []).map(id => Number(id)).filter(Number.isFinite));
-        } catch (err) {
-            Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'โหลดรายชื่อเจ้าหน้าที่ไม่สำเร็จ' : 'Failed to load staff roster') });
-        } finally {
-            setEntryStaffLoading(false);
-        }
-    };
-
-    const toggleEntryStaff = (staffMember) => {
-        const staffId = Number(staffMember.id);
-        if (!Number.isFinite(staffId)) return;
-
-        setEntryStaffSelectedIds(prev => {
-            if (prev.includes(staffId)) {
-                return prev.filter(id => id !== staffId);
-            }
-            return [...prev, staffId];
-        });
-    };
-
-    const saveEntryStaff = async () => {
-        if (!entryStaffModal?.entry?.id) return;
-
-        const confirmation = await Swal.fire({
-            title: language === 'THA' ? 'ยืนยันการบันทึกเจ้าหน้าที่?' : 'Confirm staff roster update?',
-            text: language === 'THA'
-                ? `ระบบจะบันทึกเจ้าหน้าที่ ${entryStaffSelectedIds.length} คนใน ${getEntryStaffScopeLabel()}`
-                : `${entryStaffSelectedIds.length} staff member(s) will be saved for ${getEntryStaffScopeLabel()}.`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: PRIMARY_BLUE,
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: t('common.confirm'),
-            cancelButtonText: t('common.cancel')
-        });
-        if (!confirmation.isConfirmed) return;
-
-        setEntryStaffLoading(true);
-        try {
-            await api.updateMyTeamEntryStaff(entryStaffModal.entry.id, entryStaffSelectedIds);
-            Toast.fire({ icon: 'success', title: language === 'THA' ? 'บันทึกเจ้าหน้าที่ประจำรุ่นแล้ว' : 'Staff roster saved' });
-            setEntryStaffModal(null);
-            fetchData();
-        } catch (err) {
-            Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'บันทึกเจ้าหน้าที่ไม่สำเร็จ' : 'Failed to save staff roster') });
-        } finally {
-            setEntryStaffLoading(false);
-        }
-    };
-
-    const openStaffAssignmentModal = (staffMember) => {
-        const selectedEntryIds = (staffMember.assigned_entries || [])
-            .map(entry => Number(entry.team_entry_id))
-            .filter(Number.isFinite);
-        setStaffAssignmentModal(staffMember);
-        setStaffAssignmentEntryIds(selectedEntryIds);
-    };
-
-    const toggleStaffAssignmentEntry = (entry) => {
-        const entryId = Number(entry.team_entry_id);
-        if (!Number.isFinite(entryId)) return;
-
-        setStaffAssignmentEntryIds(prev => {
-            if (prev.includes(entryId)) {
-                return prev.filter(id => id !== entryId);
-            }
-            return [...prev, entryId];
-        });
-    };
-
-    const saveStaffAssignments = async () => {
-        if (!staffAssignmentModal?.id) return;
-
-        setStaffAssignmentLoading(true);
-        try {
-            await api.updateMyStaffEntries(staffAssignmentModal.id, staffAssignmentEntryIds);
-            Toast.fire({ icon: 'success', title: language === 'THA' ? 'บันทึกรุ่น/ประเภทของเจ้าหน้าที่แล้ว' : 'Staff assignments saved' });
-            setStaffAssignmentModal(null);
-            fetchData();
-        } catch (err) {
-            Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'บันทึกรุ่น/ประเภทไม่สำเร็จ' : 'Failed to save staff assignments') });
-        } finally {
-            setStaffAssignmentLoading(false);
-        }
-    };
-
     const handleViewStats = async (player) => {
         setViewingStatsPlayer(player);
         setStatsData({});
@@ -1156,33 +1030,12 @@ export default function TeamDashboard() {
 
     const normalizedSearchTerm = (searchTerm || '').toString().toLowerCase();
 
-    const rosterEntryOptions = useMemo(() => {
-        const registeredEntries = (myCompetitions || [])
-            .filter(entry => entry.team_entry_id)
-            .map(entry => ({
-                value: String(entry.team_entry_id),
-                label: getRosterEntryOptionLabel(entry)
-            }))
-            .sort((a, b) => a.label.localeCompare(b.label));
-
-        return [
-            { value: 'all', label: language === 'THA' ? 'รายชื่อทั้งหมด' : 'All players' },
-            { value: 'unassigned', label: language === 'THA' ? 'ยังไม่ลงรุ่น' : 'Unassigned' },
-            ...registeredEntries
-        ];
-    }, [myCompetitions, language, getRosterEntryOptionLabel]);
-
-    const selectedRosterEntryLabel = rosterEntryOptions.find(option => option.value === rosterEntryFilter)?.label || '';
-
-    const staffEntryOptions = useMemo(() => (
+    const rosterCompetitionNames = useMemo(() => [...new Set(
         (myCompetitions || [])
             .filter(entry => entry.team_entry_id)
-            .map(entry => ({
-                ...entry,
-                optionLabel: getRosterEntryOptionLabel(entry)
-            }))
-            .sort((a, b) => a.optionLabel.localeCompare(b.optionLabel))
-    ), [myCompetitions, getRosterEntryOptionLabel]);
+            .map(entry => normalizeCompetitionTitle(entry))
+            .filter(Boolean)
+    )], [myCompetitions]);
 
     const filteredPlayers = players.filter(p => {
         const firstName = cleanPersonText(p?.first_name).toLowerCase();
@@ -1190,28 +1043,15 @@ export default function TeamDashboard() {
         const nickname = cleanPersonText(p?.nickname).toLowerCase();
         const numberText = (p?.number ?? '').toString();
 
-        return (rosterGenderFilter === 'All' || p?.gender === rosterGenderFilter) &&
-            (
-                firstName.includes(normalizedSearchTerm) ||
-                lastName.includes(normalizedSearchTerm) ||
-                nickname.includes(normalizedSearchTerm) ||
-                numberText.includes(normalizedSearchTerm)
-            );
+        return firstName.includes(normalizedSearchTerm) ||
+            lastName.includes(normalizedSearchTerm) ||
+            nickname.includes(normalizedSearchTerm) ||
+            numberText.includes(normalizedSearchTerm);
     });
 
     const rosterEmptyText = searchTerm
         ? (language === 'THA' ? "ไม่พบข้อมูลผู้เล่นที่ค้นหา" : "No players found matching your search.")
-        : rosterEntryFilter !== 'all'
-            ? (language === 'THA'
-                ? `ไม่พบนักกีฬาใน${selectedRosterEntryLabel ? ` ${selectedRosterEntryLabel}` : 'รุ่นที่เลือก'}`
-                : `No players found for${selectedRosterEntryLabel ? ` ${selectedRosterEntryLabel}` : ' the selected entry'}.`)
-            : (language === 'THA' ? "ยังไม่มีผู้เล่นในทีม" : "No players added yet.");
-
-    const handleRosterEntryFilterChange = (event) => {
-        const nextFilter = event.target.value;
-        setRosterEntryFilter(nextFilter);
-        loadRosterView(nextFilter);
-    };
+        : (language === 'THA' ? "ยังไม่มีผู้เล่นในทีม" : "No players added yet.");
 
     const entryRosterDuplicateNumbers = useMemo(() => {
         const counts = new Map();
@@ -1228,67 +1068,21 @@ export default function TeamDashboard() {
             .map(([number]) => number));
     }, [entryRosterPlayers, entryRosterSelectedIds]);
 
-    const scheduleFilterSource = useMemo(() => ([
-        ...myCompetitions.map(item => ({ ...item, source: 'competition' })),
-        ...myMatches.map(item => ({ ...item, source: 'match' }))
-    ]), [myCompetitions, myMatches]);
+    const openScheduleCompetitions = useMemo(() => (
+        myCompetitions.filter(competition => String(competition.status || '').toLowerCase() === 'open')
+    ), [myCompetitions]);
 
-    const scheduleCompetitionOptions = useMemo(() => {
-        const options = new Map();
-        scheduleFilterSource.forEach(item => {
-            const label = getScheduleCompetitionName(item);
-            const key = getScheduleCompetitionKey(item);
-            if (key && !options.has(key)) {
-                options.set(key, label);
-            }
-        });
+    const openScheduleCompetitionIds = useMemo(() => (
+        new Set(openScheduleCompetitions.map(competition => String(competition.id)))
+    ), [openScheduleCompetitions]);
 
-        return [...options.entries()]
-            .map(([value, label]) => ({ value, label }))
-            .sort((a, b) => a.label.localeCompare(b.label));
-    }, [scheduleFilterSource]);
-
-    const scheduleAgeGroupOptions = useMemo(() => {
-        const options = new Map();
-        scheduleFilterSource.forEach(item => {
-            const key = getCompetitionAgeGroupKey(item);
-            const label = getAgeGroupLabel(item);
-            if (key && !options.has(key)) {
-                options.set(key, label);
-            }
-        });
-
-        return [...options.entries()]
-            .map(([value, label]) => ({ value, label }))
-            .sort((a, b) => {
-                const orderA = ageGroupOrder.indexOf(a.label);
-                const orderB = ageGroupOrder.indexOf(b.label);
-                if (orderA !== -1 || orderB !== -1) {
-                    return (orderA === -1 ? 99 : orderA) - (orderB === -1 ? 99 : orderB);
-                }
-                return a.label.localeCompare(b.label);
-            });
-    }, [scheduleFilterSource]);
-
-    const scheduleGenderOptions = useMemo(() => {
-        const options = new Set();
-        scheduleFilterSource.forEach(item => {
-            options.add(getGenderLabel(item.gender || item.competition_gender || item.entry_gender));
-        });
-
-        return [...options]
-            .filter(Boolean)
-            .sort((a, b) => (genderOrder[a] || 99) - (genderOrder[b] || 99) || a.localeCompare(b));
-    }, [scheduleFilterSource]);
+    const openScheduleCompetitionNames = useMemo(() => (
+        [...new Set(openScheduleCompetitions.map(getScheduleCompetitionName).filter(Boolean))]
+    ), [openScheduleCompetitions]);
 
     const filteredScheduleMatches = useMemo(() => (
-        myMatches.filter(match => {
-            const competitionMatched = scheduleFilterId === 'all' || getScheduleCompetitionKey(match) === scheduleFilterId;
-            const ageGroupMatched = scheduleAgeGroupFilter === 'all' || getCompetitionAgeGroupKey(match) === scheduleAgeGroupFilter;
-            const genderMatched = scheduleGenderFilter === 'all' || getGenderLabel(match.gender || match.competition_gender) === scheduleGenderFilter;
-            return competitionMatched && ageGroupMatched && genderMatched;
-        })
-    ), [myMatches, scheduleFilterId, scheduleAgeGroupFilter, scheduleGenderFilter]);
+        myMatches.filter(match => openScheduleCompetitionIds.has(String(match.competition_id)))
+    ), [myMatches, openScheduleCompetitionIds]);
 
     const handleExportCSV = () => {
         if (filteredPlayers.length === 0) {
@@ -1378,66 +1172,7 @@ export default function TeamDashboard() {
             Toast.fire({ icon: 'success', title: language === 'THA' ? 'อัปเดตข้อมูลทีมเรียบร้อยแล้ว' : 'Team updated successfully' });
         } catch (err) {
             console.error(err);
-            Toast.fire({ icon: 'error', title: language === 'THA' ? 'อัปเดตข้อมูลทีมไม่สำเร็จ' : 'Failed to update team' });
-        }
-    };
-
-    const handleAccountSubmit = async (e) => {
-        e.preventDefault();
-        setAccountSaving(true);
-        try {
-            const res = await api.updateMe(accountForm);
-            setAccountForm({
-                username: res.data?.user?.username || '',
-                email: res.data?.user?.email || '',
-                phone: res.data?.user?.phone || ''
-            });
-            setAuthSession({ token: res.data?.token, user: res.data?.user });
-            Toast.fire({ icon: 'success', title: language === 'THA' ? 'อัปเดตข้อมูลบัญชีเรียบร้อยแล้ว' : 'Account updated successfully' });
-        } catch (err) {
-            Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'อัปเดตข้อมูลบัญชีไม่สำเร็จ' : 'Failed to update account') });
-        } finally {
-            setAccountSaving(false);
-        }
-    };
-
-    const handlePasswordSubmit = async (e) => {
-        e.preventDefault();
-        if (passwordForm.new_password !== passwordForm.confirm_password) {
-            Toast.fire({ icon: 'warning', title: language === 'THA' ? 'รหัสผ่านใหม่ไม่ตรงกัน' : 'New passwords do not match' });
-            return;
-        }
-
-        const confirmation = await Swal.fire({
-            title: language === 'THA' ? 'เปลี่ยนรหัสผ่าน?' : 'Change password?',
-            text: language === 'THA'
-                ? 'หลังเปลี่ยนรหัสผ่านสำเร็จ ระบบจะพาคุณกลับไปเข้าสู่ระบบใหม่'
-                : 'After the password is changed, you will be asked to sign in again.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: PRIMARY_BLUE,
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: t('common.confirm'),
-            cancelButtonText: t('common.cancel')
-        });
-        if (!confirmation.isConfirmed) return;
-
-        setPasswordSaving(true);
-        try {
-            await api.changeMyPassword(passwordForm);
-            await api.logout().catch(() => {});
-            clearAuthSession();
-            await Swal.fire({
-                title: language === 'THA' ? 'เปลี่ยนรหัสผ่านสำเร็จ' : 'Password changed',
-                text: language === 'THA' ? 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' : 'Please sign in again.',
-                icon: 'success',
-                confirmButtonColor: PRIMARY_BLUE
-            });
-            navigate('/login');
-        } catch (err) {
-            Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'เปลี่ยนรหัสผ่านไม่สำเร็จ' : 'Failed to change password') });
-        } finally {
-            setPasswordSaving(false);
+            Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'อัปเดตข้อมูลทีมไม่สำเร็จ' : 'Failed to update team') });
         }
     };
 
@@ -1497,6 +1232,14 @@ export default function TeamDashboard() {
                             label={t('team.name')} placeholder="e.g. Bangkok Volley Club"
                             value={teamForm.name} required onChange={e => setTeamForm({ ...teamForm, name: e.target.value })}
                         />
+                                                <div>
+                                                    <label className="mb-1 block text-xs font-medium text-gray-500">{language === 'THA' ? 'ประเภททีม' : 'Team type'}</label>
+                                                    <select value={teamForm.gender} onChange={e => setTeamForm({ ...teamForm, gender: e.target.value })} required className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                                                        <option value="">{language === 'THA' ? 'เลือกประเภททีม' : 'Select team type'}</option>
+                                                        <option value="Male">{language === 'THA' ? 'ชาย' : 'Men'}</option>
+                                                        <option value="Female">{language === 'THA' ? 'หญิง' : 'Women'}</option>
+                                                    </select>
+                                                </div>
                         <Input
                             label={t('team.code')} placeholder="e.g. BVC"
                             value={teamForm.code} required onChange={e => setTeamForm({ ...teamForm, code: e.target.value })}
@@ -1533,7 +1276,7 @@ export default function TeamDashboard() {
                             label={t('team.logoUrl')}
                             value={teamForm.logo_url}
                             previewAlt={teamForm.name || 'Team logo'}
-                            onFileSelect={(event) => handleImageFileChange(event, (imageUrl) => setTeamForm(prev => ({ ...prev, logo_url: imageUrl })))}
+                            onFileSelect={(event) => handleImageFileChange(event, 'team_logo', (imageUrl) => setTeamForm(prev => ({ ...prev, logo_url: imageUrl })))}
                             onClear={() => setTeamForm(prev => ({ ...prev, logo_url: '' }))}
                         />
 
@@ -1568,9 +1311,9 @@ export default function TeamDashboard() {
                         <div>
                             <h1 className="text-lg font-semibold text-white tracking-tight">{teamInfo?.name || t('team.dashboard')}</h1>
                             {teamInfo?.coach && <p className="text-xs text-blue-100 font-medium">{language === 'THA' ? 'ผู้ฝึกสอน' : 'Coach'}: {teamInfo.coach}</p>}
-                            <button onClick={handleEditTeamClick} className="text-xs text-blue-100 hover:text-white flex items-center gap-1 mt-1 cursor-pointer">
+                            {/*!teamInfo?.is_profile_locked && <button onClick={handleEditTeamClick} className="text-xs text-blue-100 hover:text-white flex items-center gap-1 mt-1 cursor-pointer">
                                 <Edit2 size={12} /> {t('team.editTeam')}
-                            </button>
+                            </button>*/}
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -1609,14 +1352,15 @@ export default function TeamDashboard() {
                 <aside className="w-full md:w-64 bg-white/95 border-b md:border-b-0 md:border-r border-blue-100 flex flex-col shadow-sm">
                     <div className="p-3 md:p-4 flex flex-col flex-1 overflow-y-auto">
                         <nav className="flex flex-row md:flex-col space-x-4 md:space-x-0 md:space-y-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0" aria-label="Tabs">
+                            <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Home size={18} className="mr-2" />} label={language === 'THA' ? 'ภาพรวมทีม' : 'Team Overview'} />
+                            <TabButton active={activeTab === 'team_info'} onClick={() => setActiveTab('team_info')} icon={<Building2 size={18} className="mr-2" />} label={language === 'THA' ? 'ข้อมูลทีม' : 'Team Information'} />
                             <TabButton active={activeTab === 'competitions'} onClick={() => setActiveTab('competitions')} icon={<Trophy size={18} className="mr-2" />} label={t('team.tabCompetitions')} />
                             <TabButton active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')} icon={<Calendar size={18} className="mr-2" />} label={t('team.tabSchedule')} />
                             <TabButton active={activeTab === 'roster'} onClick={() => setActiveTab('roster')} icon={<Users size={18} className="mr-2" />} label={t('team.tabRoster')} />
-                            <TabButton active={activeTab === 'uniform'} onClick={() => setActiveTab('uniform')} icon={<Palette size={18} className="mr-2" />} label="Uniform" />
+                            <TabButton active={activeTab === 'uniform'} onClick={() => setActiveTab('uniform')} icon={<Palette size={18} className="mr-2" />} label={language === 'THA' ? 'ชุดการแข่งขัน' : 'Uniform'} />
                             <TabButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} icon={<BarChart2 size={18} className="mr-2" />} label={t('team.tabStats')} />
                             <TabButton active={activeTab === 'staff'} onClick={() => setActiveTab('staff')} icon={<Briefcase size={18} className="mr-2" />} label={t('team.tabStaff')} />
                             <TabButton active={activeTab === 'print'} onClick={() => setActiveTab('print')} icon={<Printer size={18} className="mr-2" />} label={t('team.tabPrint')} />
-                            <TabButton active={activeTab === 'account'} onClick={() => setActiveTab('account')} icon={<Settings size={18} className="mr-2" />} label={language === 'THA' ? 'บัญชี' : 'Account'} />
                         </nav>
                         <div className="mt-auto pt-4 border-t border-gray-200 hidden md:block">
                             <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition group cursor-pointer">
@@ -1630,16 +1374,75 @@ export default function TeamDashboard() {
                 {/* Main Content Area */}
                 <main id="main-content" className="workspace-content flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
 
-                    <Panel className="mb-6" title={language === 'THA' ? 'เตรียมทีมให้พร้อมแข่งขัน' : 'Prepare your team'} description={language === 'THA' ? 'จัดการรายชื่อ สมัครรายการ และตรวจเอกสารจากเมนูเดียว' : 'Manage your roster, entries, schedule and documents.'}>
+                    {activeTab === 'overview' && <>
+                    <Panel className="mb-6" title={language === 'THA' ? 'ภาพรวมทีม' : 'Team Overview'} description={language === 'THA' ? 'สรุปข้อมูลทีมและทางลัดไปยังเมนูที่ใช้งานบ่อย' : 'A quick summary of your team and shortcuts to common tasks.'}>
                         <nav aria-label={language === 'THA' ? 'ขั้นตอนเตรียมทีม' : 'Team preparation'} className="grid grid-cols-2 gap-2 p-4 lg:grid-cols-4">
                             {[['roster', language === 'THA' ? 'รายชื่อนักกีฬา' : 'Roster'], ['competitions', language === 'THA' ? 'สมัครการแข่งขัน' : 'Competition entries'], ['schedule', language === 'THA' ? 'ตารางแข่งขัน' : 'Schedule'], ['print', language === 'THA' ? 'ตรวจและพิมพ์เอกสาร' : 'Review documents']].map(([key, label], index) => <button type="button" key={key} onClick={() => setActiveTab(key)} aria-current={activeTab === key ? 'step' : undefined} className={`flex min-h-14 items-center gap-3 rounded-xl border p-3 text-left text-sm font-semibold transition ${activeTab === key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white border border-slate-200 text-xs">{index + 1}</span>{label}</button>)}
                         </nav>
                     </Panel>
+                    <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        {[
+                            { label: language === 'THA' ? 'นักกีฬา' : 'Players', value: players.length, icon: <Users size={19} /> },
+                            { label: language === 'THA' ? 'รายการที่เข้าร่วม' : 'Competitions', value: groupedMyCompetitions.length, icon: <Trophy size={19} /> },
+                            { label: language === 'THA' ? 'เจ้าหน้าที่ทีม' : 'Team Staff', value: staff.length, icon: <Briefcase size={19} /> },
+                            { label: language === 'THA' ? 'แมตช์ของทีม' : 'Team Matches', value: myMatches.length, icon: <Calendar size={19} /> }
+                        ].map((item) => <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-center justify-between text-sm font-medium text-slate-500"><span>{item.label}</span><span className="text-blue-600">{item.icon}</span></div>
+                            <p className="mt-2 text-2xl font-bold text-slate-900">{item.value}</p>
+                        </div>)}
+                    </div>
+                    </>}
+                    {activeTab === 'team_info' && <section className="w-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-900">{language === 'THA' ? 'ข้อมูลทีม' : 'Team Information'}</h2>
+                                <p className="mt-1 text-sm text-slate-500">{language === 'THA' ? 'ข้อมูลตามที่ลงทะเบียนไว้ในระบบ' : 'Team details as registered in the system.'}</p>
+                            </div>
+                            <button type="button" onClick={handleEditTeamClick} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"><Edit2 size={16} />{t('team.editTeam')}</button>
+                        </div>
+                        <div className="space-y-6 p-5 sm:p-6">
+                            {[
+                                { title: language === 'THA' ? '1. ข้อมูลทีม' : '1. Team information', fields: [
+                                    [language === 'THA' ? 'โรงเรียน/สังกัด' : 'School / Organization', teamInfo?.name],
+                                    [language === 'THA' ? 'จังหวัด' : 'Province', teamInfo?.province],
+                                    [language === 'THA' ? 'อำเภอ' : 'District', teamInfo?.district],
+                                    [language === 'THA' ? 'ประเภททีม' : 'Team type', getTeamGender(teamInfo?.gender || teamInfo?.category) === 'Male' ? (language === 'THA' ? 'ชาย' : 'Men') : getTeamGender(teamInfo?.gender || teamInfo?.category) === 'Female' ? (language === 'THA' ? 'หญิง' : 'Women') : '-']
+                                ]},
+                                { title: language === 'THA' ? '2. ผู้จัดการทีม/ผู้ประสานงาน' : '2. Team manager / Contact person', fields: [
+                                    [language === 'THA' ? 'ชื่อ-สกุล' : 'Full name', teamInfo?.manager_name],
+                                    [language === 'THA' ? 'อีเมล์' : 'Email', teamInfo?.email],
+                                    [language === 'THA' ? 'โทรศัพท์' : 'Office phone', teamInfo?.office_phone],
+                                    [language === 'THA' ? 'เบอร์มือถือ' : 'Mobile phone', teamInfo?.mobile_phone || teamInfo?.phone],
+                                    [language === 'THA' ? 'โทรสาร' : 'Fax', teamInfo?.fax],
+                                    ['Line ID', teamInfo?.line_id]
+                                ]},
+                                { title: language === 'THA' ? '3. ที่อยู่สำหรับติดต่อ' : '3. Contact address', fields: [
+                                    [language === 'THA' ? 'เลขที่/ห้อง' : 'Number / Room', teamInfo?.address_number],
+                                    [language === 'THA' ? 'หมู่บ้าน/อาคาร' : 'Village / Building', teamInfo?.building],
+                                    [language === 'THA' ? 'หมู่ที่' : 'Moo', teamInfo?.moo],
+                                    [language === 'THA' ? 'ซอย/ตรอก' : 'Soi / Alley', teamInfo?.soi],
+                                    [language === 'THA' ? 'ถนน' : 'Road', teamInfo?.road],
+                                    [language === 'THA' ? 'จังหวัด' : 'Province', teamInfo?.address_province],
+                                    [language === 'THA' ? 'เขต/อำเภอ' : 'District', teamInfo?.address_district],
+                                    [language === 'THA' ? 'แขวง/ตำบล' : 'Subdistrict', teamInfo?.subdistrict],
+                                    [language === 'THA' ? 'รหัสไปรษณีย์' : 'Postal code', teamInfo?.postal_code]
+                                ]}
+                            ].map(section => <div key={section.title}>
+                                <h3 className="mb-3 border-b border-slate-100 pb-2 text-sm font-semibold text-slate-700">{section.title}</h3>
+                                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                    {section.fields.map(([label, value]) => <div key={label} className="min-h-[68px] rounded-lg border border-slate-100 bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">{label}</p>
+                                        <p className="mt-1 break-words text-sm font-semibold text-slate-900">{value || '-'}</p>
+                                    </div>)}
+                                </div>
+                            </div>)}
+                        </div>
+                    </section>}
                     {/* ========================== ROSTER TAB ========================== */}
                     {activeTab === 'roster' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                            <div className="lg:col-span-1">
-                                <div className="official-panel rounded-md sticky top-0 overflow-hidden">
+                        <div className="space-y-4">
+                            <div className={isPlayerModalOpen ? 'fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 p-3 sm:p-6' : 'hidden'} onMouseDown={(event) => { if (event.target === event.currentTarget) setIsPlayerModalOpen(false); }}>
+                                <div className="official-panel mx-auto max-w-3xl rounded-xl overflow-hidden shadow-2xl">
                                     <div className="official-panel-header px-5 py-4 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <div className="official-icon-box p-2 rounded-md">
@@ -1649,11 +1452,9 @@ export default function TeamDashboard() {
                                                 {editingPlayerId ? t('team.editPlayer') : t('team.addPlayer')}
                                             </h2>
                                         </div>
-                                        {editingPlayerId && (
-                                            <button onClick={resetPlayerForm} className="text-xs text-gray-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 transition cursor-pointer">
+                                        <button onClick={() => { setIsPlayerModalOpen(false); setEditingPlayerId(null); }} className="text-xs text-gray-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 transition cursor-pointer">
                                                 <X size={14} /> {t('common.cancel')}
-                                            </button>
-                                        )}
+                                        </button>
                                     </div>
                                     <div className="p-5">
                                         <div className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
@@ -1677,34 +1478,8 @@ export default function TeamDashboard() {
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-500 mb-1">{t('team.gender')}</label>
-                                                <div className="flex gap-4">
-                                                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Male" checked={playerForm.gender === 'Male'} onChange={e => setPlayerForm({ ...playerForm, gender: e.target.value })} className="text-gray-900 focus:ring-gray-500" /> <span className="text-sm text-gray-700">{language === 'THA' ? 'ชาย' : 'Male'}</span></label>
-                                                    <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="gender" value="Female" checked={playerForm.gender === 'Female'} onChange={e => setPlayerForm({ ...playerForm, gender: e.target.value })} className="text-gray-900 focus:ring-gray-500" /> <span className="text-sm text-gray-700">{language === 'THA' ? 'หญิง' : 'Female'}</span></label>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-500 mb-1">{language === 'THA' ? 'ประเภทที่เล่นได้' : 'Eligible Sport Types'}</label>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {SPORT_TYPE_OPTIONS.map(option => {
-                                                        const current = normalizeSportTypes(playerForm.sport_types);
-                                                        const checked = current.includes(option.value);
-                                                        return (
-                                                            <label key={option.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium cursor-pointer transition ${checked ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={checked}
-                                                                    onChange={e => {
-                                                                        const next = e.target.checked
-                                                                            ? [...current, option.value]
-                                                                            : current.filter(type => type !== option.value);
-                                                                        setPlayerForm({ ...playerForm, sport_types: next.length ? next : [option.value] });
-                                                                    }}
-                                                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                                                />
-                                                                <span>{option.label}</span>
-                                                            </label>
-                                                        );
-                                                    })}
+                                                <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700">
+                                                    {getTeamGender(teamInfo?.gender || teamInfo?.category) === 'Female' ? (language === 'THA' ? 'หญิง' : 'Women') : (language === 'THA' ? 'ชาย' : 'Men')}
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
@@ -1712,8 +1487,24 @@ export default function TeamDashboard() {
                                                 <Input label={t('team.lastName')} value={playerForm.last_name} onChange={e => setPlayerForm({ ...playerForm, last_name: e.target.value })} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
+                                                <Input label="คำนำหน้า" value={playerForm.title || ''} onChange={e => setPlayerForm({ ...playerForm, title: e.target.value })} />
+                                                <Input label="ชื่อกลาง" value={playerForm.middle_name || ''} onChange={e => setPlayerForm({ ...playerForm, middle_name: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
                                                 <Input label={t('team.nickname')} value={playerForm.nickname} onChange={e => setPlayerForm({ ...playerForm, nickname: e.target.value })} />
-                                                <Input label={t('team.nationality')} value={playerForm.nationality} placeholder="TH" onChange={e => setPlayerForm({ ...playerForm, nationality: e.target.value })} />
+                                                <Input label="ชื่อย่อบนเสื้อ" value={playerForm.jersey_name || ''} onChange={e => setPlayerForm({ ...playerForm, jersey_name: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <Input label="เลขประจำตัวประชาชน (13 หลัก)" value={playerForm.national_id || ''} maxLength={13} onChange={e => setPlayerForm({ ...playerForm, national_id: e.target.value.replace(/\D/g, '').slice(0, 13) })} />
+                                                <Input label="FIVB ID" value={playerForm.fivb_id || ''} onChange={e => setPlayerForm({ ...playerForm, fivb_id: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <Input label="ภูมิลำเนา" value={playerForm.hometown || ''} onChange={e => setPlayerForm({ ...playerForm, hometown: e.target.value })} />
+                                                <Input label="โรงเรียน/สังกัด" value={playerForm.school_affiliation || teamInfo?.name || ''} onChange={e => setPlayerForm({ ...playerForm, school_affiliation: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <Input label="ระดับชั้น" value={playerForm.grade_level || ''} onChange={e => setPlayerForm({ ...playerForm, grade_level: e.target.value })} />
+                                                <Input label="โทรศัพท์ติดต่อ" value={playerForm.contact_phone || ''} onChange={e => setPlayerForm({ ...playerForm, contact_phone: e.target.value })} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
                                                 <Input label={t('team.height')} type="number" value={playerForm.height_cm} onChange={e => setPlayerForm({ ...playerForm, height_cm: e.target.value })} />
@@ -1724,9 +1515,13 @@ export default function TeamDashboard() {
                                                 label={t('team.photoUrl')}
                                                 value={playerForm.photo}
                                                 previewAlt={`${playerForm.first_name} ${playerForm.last_name}`.trim() || 'Player photo'}
-                                                onFileSelect={(event) => handleImageFileChange(event, (dataUrl) => setPlayerForm({ ...playerForm, photo: dataUrl }))}
+                                                onFileSelect={(event) => handleImageFileChange(event, 'player_photo', (dataUrl) => setPlayerForm({ ...playerForm, photo: dataUrl }))}
                                                 onClear={() => setPlayerForm({ ...playerForm, photo: '' })}
                                             />
+                                            <div className="space-y-3 rounded-lg border border-slate-200 p-4">
+                                                <h3 className="text-sm font-semibold text-slate-800">เอกสารยืนยันคุณสมบัติ</h3>
+                                                {[["identity_document_url", "สำเนาบัตรประชาชน/สูติบัตร"], ["student_certificate_url", "หนังสือรับรองการเป็นนักเรียนจากโรงเรียน"], ["guardian_consent_url", "หนังสือยินยอมจากผู้ปกครอง"]].map(([key, label]) => <label key={key} className="block text-xs font-medium text-slate-600">{label}<input type="file" accept=".pdf,image/jpeg,image/png,image/webp" className="mt-1 block w-full text-xs" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 5 * 1024 * 1024) { Toast.fire({ icon: 'error', title: 'ไฟล์ต้องมีขนาดไม่เกิน 5MB' }); return; } const reader = new FileReader(); reader.onload = async () => { try { const { data } = await api.uploadPlayerDocument(reader.result, key); setPlayerDocuments(prev => ({ ...prev, [key]: data.url })); } catch (error) { Toast.fire({ icon: 'error', title: error.response?.data?.error || 'อัปโหลดเอกสารไม่สำเร็จ' }); } }; reader.readAsDataURL(file); }} />{playerDocuments[key] && <span className="mt-1 block text-emerald-700">อัปโหลดแล้ว</span>}</label>)}
+                                            </div>
 
                                             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
                                                 <input type="checkbox" id="is_captain" className="w-4 h-4 text-gray-900 bg-gray-100 border-gray-300 rounded focus:ring-gray-500 cursor-pointer" checked={playerForm.is_captain} onChange={e => setPlayerForm({ ...playerForm, is_captain: e.target.checked })} />
@@ -1736,34 +1531,34 @@ export default function TeamDashboard() {
                                             {playerForm.position === 'L' && (
                                                 <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
                                                     <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            className="w-5 h-5 text-yellow-600 bg-white border-gray-300 rounded focus:ring-yellow-500 focus:ring-2 cursor-pointer" 
-                                                            checked={playerForm.is_libero1} 
+                                                        <input
+                                                            type="checkbox"
+                                                            className="w-5 h-5 text-yellow-600 bg-white border-gray-300 rounded focus:ring-yellow-500 focus:ring-2 cursor-pointer"
+                                                            checked={playerForm.is_libero1}
                                                             onChange={e => {
                                                                 const checked = e.target.checked;
-                                                                setPlayerForm({ 
-                                                                    ...playerForm, 
+                                                                setPlayerForm({
+                                                                    ...playerForm,
                                                                     is_libero1: checked,
                                                                     is_libero2: checked ? false : playerForm.is_libero2
                                                                 });
-                                                            }} 
+                                                            }}
                                                         />
                                                         <span className="text-sm font-bold text-gray-700">{t('team.libero1')}</span>
                                                     </label>
                                                     <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            className="w-5 h-5 text-yellow-600 bg-white border-gray-300 rounded focus:ring-yellow-500 focus:ring-2 cursor-pointer" 
-                                                            checked={playerForm.is_libero2} 
+                                                        <input
+                                                            type="checkbox"
+                                                            className="w-5 h-5 text-yellow-600 bg-white border-gray-300 rounded focus:ring-yellow-500 focus:ring-2 cursor-pointer"
+                                                            checked={playerForm.is_libero2}
                                                             onChange={e => {
                                                                 const checked = e.target.checked;
-                                                                setPlayerForm({ 
-                                                                    ...playerForm, 
+                                                                setPlayerForm({
+                                                                    ...playerForm,
                                                                     is_libero2: checked,
                                                                     is_libero1: checked ? false : playerForm.is_libero1
                                                                 });
-                                                            }} 
+                                                            }}
                                                         />
                                                         <span className="text-sm font-bold text-gray-700">{t('team.libero2')}</span>
                                                     </label>
@@ -1776,26 +1571,41 @@ export default function TeamDashboard() {
                                 </div>
                             </div>
 
-                            <div className="lg:col-span-2">
+                            <div className="w-full">
+                                <div className="mb-4 flex flex-col gap-4 rounded-md border border-blue-950/20 bg-[#142b50] px-5 py-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                                    <div>
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-200">Team Roster</p>
+                                        <h2 className="mt-1 text-xl font-bold leading-tight sm:text-2xl">
+                                            {language === 'THA' ? 'จัดการนักกีฬา' : 'Players Management'}
+                                        </h2>
+                                    </div>
+                                    <button type="button" disabled={!getTeamGender(teamInfo?.gender || teamInfo?.category)}
+                                        onClick={() => { setEditingPlayerId(null); setPlayerForm(prev => ({ ...prev, gender: getTeamGender(teamInfo?.gender || teamInfo?.category) || 'Male' }));
+                                        setPlayerDocuments({ identity_document_url: '', student_certificate_url: '', guardian_consent_url: '' }); setIsPlayerModalOpen(true); }}
+                                        title={!getTeamGender(teamInfo?.gender || teamInfo?.category) ? (language === 'THA' ? 'กรุณากำหนดประเภททีมก่อนเพิ่มนักกีฬา' : 'Set team type before adding players') : undefined}
+                                        className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-blue-800 shadow-sm transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#142b50] disabled:cursor-not-allowed disabled:opacity-55">
+                                        <Plus size={18} strokeWidth={2.25} />
+                                        Add Player
+                                    </button>
+                                </div>
+                                {!getTeamGender(teamInfo?.gender || teamInfo?.category) && <p className="text-right text-xs text-amber-700">{language === 'THA' ? 'กรุณาแก้ไขข้อมูลทีมและเลือกประเภทชายหรือหญิงก่อนเพิ่มนักกีฬา' : 'Edit team information and choose Men or Women before adding players.'}</p>}
                                 <div className="official-panel rounded-md overflow-hidden">
                                     <div className="official-panel-header px-5 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                                         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                                             <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Users size={18} className="text-blue-600" /> {t('team.currentRoster')}</h3>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <FilterButton active={rosterGenderFilter === 'All'} onClick={() => setRosterGenderFilter('All')} label={t('common.all')} />
-                                                <FilterButton active={rosterGenderFilter === 'Male'} onClick={() => setRosterGenderFilter('Male')} label={language === 'THA' ? 'ทีมชาย' : "Men's Team"} />
-                                                <FilterButton active={rosterGenderFilter === 'Female'} onClick={() => setRosterGenderFilter('Female')} label={language === 'THA' ? 'ทีมหญิง' : "Women's Team"} />
-                                                <select
-                                                    value={rosterEntryFilter}
-                                                    onChange={handleRosterEntryFilterChange}
-                                                    disabled={rosterViewLoading}
-                                                    className="h-8 max-w-full rounded-md border border-blue-100 bg-white px-3 text-xs font-semibold text-blue-700 shadow-sm outline-none transition hover:bg-blue-50 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60 sm:max-w-[280px]"
-                                                >
-                                                    {rosterEntryOptions.map(option => (
-                                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                            <span className="inline-flex w-fit items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                                                {getTeamGender(teamInfo?.gender || teamInfo?.category) === 'Female'
+                                                    ? (language === 'THA' ? 'ทีมหญิง' : "Women's Team")
+                                                    : (language === 'THA' ? 'ทีมชาย' : "Men's Team")}
+                                            </span>
+                                            {rosterCompetitionNames.length > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                                                    <span className="font-semibold text-gray-500">{language === 'THA' ? 'รายการแข่งขัน:' : 'Competitions:'}</span>
+                                                    {rosterCompetitionNames.map(name => (
+                                                        <span key={name} className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-700">{name}</span>
                                                     ))}
-                                                </select>
-                                            </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2 w-full sm:w-auto">
                                             <div className="relative w-full sm:w-64">
@@ -1820,7 +1630,6 @@ export default function TeamDashboard() {
                                                         <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-16">{t('team.photo')}</th>
                                                         <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider min-w-[150px]">{t('team.nameFull')}</th>
                                                         <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('team.position')}</th>
-                                                        <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{language === 'THA' ? 'ประเภท' : 'Sport'}</th>
                                                         <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">{language === 'THA' ? 'ส่วนสูง' : 'Height'}</th>
                                                         <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">{language === 'THA' ? 'น้ำหนัก' : 'Weight'}</th>
                                                         <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">{t('team.age')}</th>
@@ -1836,8 +1645,8 @@ export default function TeamDashboard() {
                                                         return (
                                                             <tr key={p.id} className="hover:bg-gray-50 transition group">
                                                                 <td className="px-4 py-4 text-center">
-                                                                    <input 
-                                                                        type="checkbox" 
+                                                                    <input
+                                                                        type="checkbox"
                                                                         className="w-4 h-4 text-gray-900 bg-gray-100 border-gray-300 rounded focus:ring-gray-500 cursor-pointer transition"
                                                                         checked={p.is_playing ?? true}
                                                                         onChange={() => togglePlayerMatchSelection(p)}
@@ -1864,13 +1673,11 @@ export default function TeamDashboard() {
                                                                 <td className="px-4 py-4">
                                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700">{p.position}</span>
                                                                 </td>
-                                                                <td className="px-4 py-4">
-                                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-blue-100 bg-blue-50 text-xs font-semibold text-blue-700">{formatSportTypes(p.sport_types)}</span>
-                                                                </td>
+
                                                                 <td className="px-4 py-4 text-center"><span className="text-sm text-gray-700 font-medium font-mono">{formatMeasure(p.height_cm, language === 'THA' ? 'ซม.' : 'cm')}</span></td>
                                                                 <td className="px-4 py-4 text-center"><span className="text-sm text-gray-700 font-medium font-mono">{formatMeasure(p.weight, language === 'THA' ? 'กก.' : 'kg')}</span></td>
                                                                 <td className="px-4 py-4 text-center"><span className="text-sm text-gray-700 font-bold font-mono">{age || '-'}</span></td>
-                                                                <td className="px-4 py-4 text-center"><span className="text-sm text-gray-600 font-medium whitespace-nowrap">{p.nationality || '-'}</span></td>
+                                                                <td className="px-4 py-4 text-center"><span className="text-sm text-gray-600 font-medium whitespace-nowrap">{[p.hometown, p.nationality].filter(value => String(value || '').trim()).join(' / ') || '-'}</span></td>
                                                                 <td className="px-4 py-4 text-right">
                                                                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-2 group-hover:translate-x-0">
                                                                         <button onClick={() => handleViewStats(p)} className="text-gray-400 hover:text-blue-600 transition p-2 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 cursor-pointer" title={t('team.tabStats')}><BarChart2 size={16} /></button>
@@ -1958,7 +1765,6 @@ export default function TeamDashboard() {
                                                         <th className="px-6 py-4 font-bold tracking-wider">{t('team.role')}</th>
                                                         <th className="px-6 py-4 font-bold tracking-wider">{t('team.nameFull')}</th>
                                                         <th className="px-6 py-4 font-bold tracking-wider">{t('team.gender')}</th>
-                                                        <th className="px-6 py-4 font-bold tracking-wider">{language === 'THA' ? 'รุ่น/ประเภท' : 'Categories'}</th>
                                                         <th className="px-6 py-4 text-right font-bold tracking-wider">{t('common.actions')}</th>
                                                     </tr>
                                                 </thead>
@@ -1968,22 +1774,8 @@ export default function TeamDashboard() {
                                                             <td className="px-6 py-4"><span className="px-2 py-1 bg-white text-gray-600 border border-gray-200 rounded text-xs font-medium whitespace-nowrap">{translateRole(s.role)}</span></td>
                                                             <td className="px-6 py-4 font-bold text-gray-900">{s.first_name} {s.last_name}</td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">{s.gender ? (s.gender === 'Male' ? (language === 'THA' ? 'ชาย' : 'Male') : (language === 'THA' ? 'หญิง' : 'Female')) : '-'}</td>
-                                                            <td className="px-6 py-4">
-                                                                {s.assigned_entries?.length > 0 ? (
-                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                        {s.assigned_entries.map(entry => (
-                                                                            <span key={entry.team_entry_id} className="rounded border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
-                                                                                {[entry.age_group_name || 'General', getGenderLabel(entry.entry_gender || entry.competition_gender)].filter(Boolean).join(' / ')}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-xs text-gray-400">{language === 'THA' ? 'ยังไม่ผูกกับรุ่น' : 'Not assigned'}</span>
-                                                                )}
-                                                            </td>
                                                             <td className="px-6 py-4 text-right">
                                                                 <div className="flex justify-end gap-2 opacity-100 transition-all duration-200">
-                                                                    <button onClick={() => openStaffAssignmentModal(s)} className="text-gray-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-md transition" title={language === 'THA' ? 'จัดรุ่น/ประเภท' : 'Assign categories'}><Briefcase size={16} /></button>
                                                                     <button onClick={() => handleEditStaff(s)} className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-md transition" title={t('common.edit')}><Edit2 size={16} /></button>
                                                                     <button onClick={() => handleDeleteStaff(s.id)} className="text-gray-400 hover:text-red-500 p-2 rounded-lg transition" title={t('common.delete')}><Trash2 size={16} /></button>
                                                                 </div>
@@ -2156,14 +1948,7 @@ export default function TeamDashboard() {
                                                                     <Users size={16} /> Roster
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => openEntryStaffModal(c)}
-                                                                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-medium rounded-md text-sm hover:bg-gray-50 transition cursor-pointer flex items-center gap-2"
-                                                                >
-                                                                    <Briefcase size={16} /> Staff
-                                                                </button>
-                                                                <button
                                                                     onClick={() => {
-                                                                        setScheduleFilterId(c.id.toString());
                                                                         setActiveTab('schedule');
                                                                     }}
                                                                     className="px-4 py-2 bg-white border border-blue-200 text-blue-700 font-medium rounded-md text-sm hover:bg-blue-50 transition cursor-pointer"
@@ -2199,7 +1984,7 @@ export default function TeamDashboard() {
                                         filteredOpenCompetitionGroups.map(group => {
                                             const selectedCategoryIds = joinSelections[group.key] || [];
                                             const selectedGenders = joinGenderSelections[group.key] || [];
-                                            const availableGenders = [...new Set(group.categories.map(c => getGenderLabel(c.gender)))].sort((a, b) => (genderOrder[a] || 99) - (genderOrder[b] || 99) || a.localeCompare(b));
+                                            const availableGenders = [...new Set(group.categories.map(c => getGenderLabel(c.gender)).filter(gender => gender === 'Male' || gender === 'Female'))].sort((a, b) => (genderOrder[a] || 99) - (genderOrder[b] || 99) || a.localeCompare(b));
                                             const visibleGenders = selectedGenders.length > 0 ? selectedGenders : [];
 
                                             return (
@@ -2219,10 +2004,13 @@ export default function TeamDashboard() {
                                                             <div className="rounded-md border border-gray-200 bg-white p-3">
                                                                 <div className="mb-3 flex items-center justify-between gap-3">
                                                                     <div className="text-sm font-semibold text-gray-900">1. Gender</div>
-                                                                    <span className="text-xs text-gray-500">Select one or more</span>
+                                                                    <span className="text-xs text-gray-500">{language === 'THA' ? 'เลือกได้ประเภทเดียวต่อทีม' : 'One gender type per team'}</span>
                                                                 </div>
                                                                 <div className="flex flex-wrap gap-2">
-                                                                    {availableGenders.map((gender) => {
+                                                                    {availableGenders.filter((gender) => {
+                                                                        const lockedGender = getTeamGender(teamInfo?.gender || teamInfo?.category);
+                                                                        return !lockedGender && !selectedOpenGender ? true : gender === (lockedGender || selectedOpenGender);
+                                                                    }).map((gender) => {
                                                                         const isSelected = selectedGenders.includes(gender);
                                                                         return (
                                                                             <button
@@ -2381,71 +2169,21 @@ export default function TeamDashboard() {
                                     </div>
                                 </div>
                                 {/* ✅ เพิ่ม Dropdown สำหรับกรองตารางแข่งขันตามรายการ */}
-                                <div className="w-full sm:w-auto">
-                                    <select
-                                        value={scheduleFilterId}
-                                        onChange={(e) => setScheduleFilterId(e.target.value)}
-                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 sm:w-72"
-                                    >
-                                        <option value="all">{language === 'THA' ? 'ทุกรายการแข่งขัน (แสดงทั้งหมด)' : 'All Competitions (Show All)'}</option>
-                                        {scheduleCompetitionOptions.map(option => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                <div className="sm:ml-auto sm:max-w-[55%] sm:text-right">
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                                        {openScheduleCompetitionNames.length
+                                            ? openScheduleCompetitionNames.join(' · ')
+                                            : (language === 'THA' ? 'ไม่มีรายการที่เปิดอยู่' : 'No open competitions')}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="space-y-4 border-b border-slate-200 bg-slate-50/70 px-6 py-4">
-                                <div className="flex flex-col gap-2">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                                        {language === 'THA' ? 'เลือกรุ่น' : 'Age group'}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <FilterButton
-                                            active={scheduleAgeGroupFilter === 'all'}
-                                            onClick={() => setScheduleAgeGroupFilter('all')}
-                                            label={language === 'THA' ? 'ทุกรุ่น' : 'All age groups'}
-                                        />
-                                        {scheduleAgeGroupOptions.map(option => (
-                                            <FilterButton
-                                                key={option.value}
-                                                active={scheduleAgeGroupFilter === option.value}
-                                                onClick={() => setScheduleAgeGroupFilter(option.value)}
-                                                label={option.label}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                                        {language === 'THA' ? 'เลือกประเภท' : 'Category'}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <FilterButton
-                                            active={scheduleGenderFilter === 'all'}
-                                            onClick={() => setScheduleGenderFilter('all')}
-                                            label={language === 'THA' ? 'ทุกประเภท' : 'All categories'}
-                                        />
-                                        {scheduleGenderOptions.map(option => (
-                                            <FilterButton
-                                                key={option}
-                                                active={scheduleGenderFilter === option}
-                                                onClick={() => setScheduleGenderFilter(option)}
-                                                label={option}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
                             {myMatches.length === 0 ? <EmptyState text={language === 'THA' ? "ยังไม่มีตารางการแข่งขันในขณะนี้" : "No matches scheduled."} /> : (
                                 <div className="divide-y divide-slate-100 bg-white">
                                     {/* ✅ กรอง Match ที่นำมาแสดงตามที่เลือกใน Dropdown */}
                                     {filteredScheduleMatches
                                         .map(m => {
-                                            const displayStatus = m.status === 'completed' 
-                                                ? (language === 'THA' ? 'แข่งขันแล้ว' : 'Completed') 
+                                            const displayStatus = m.status === 'completed'
+                                                ? (language === 'THA' ? 'แข่งขันแล้ว' : 'Completed')
                                                 : (m.status === 'live' ? (language === 'THA' ? 'กำลังแข่งขัน' : 'Live') : (language === 'THA' ? 'ยังไม่เริ่ม' : 'Scheduled'));
                                             return (
                                                 <div key={m.id} className="group flex flex-col gap-5 px-6 py-5 transition hover:bg-slate-50/80 md:flex-row md:items-center md:justify-between">
@@ -2528,161 +2266,73 @@ export default function TeamDashboard() {
                         </div>
                     )}
 
-                    {/* ========================== ACCOUNT TAB ========================== */}
-                    {activeTab === 'account' && (
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-5xl">
-                            <div className="official-panel rounded-md overflow-hidden">
-                                <div className="official-panel-header px-5 py-4 flex items-center gap-3">
-                                    <div className="official-icon-box p-2 rounded-md">
-                                        <User size={20} />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-base font-semibold text-gray-900">
-                                            {language === 'THA' ? 'ข้อมูลบัญชี' : 'Account Details'}
-                                        </h2>
-                                        <p className="text-xs text-gray-500">
-                                            {language === 'THA' ? 'แก้ไขข้อมูลเข้าสู่ระบบและช่องทางติดต่อของคุณ' : 'Update your sign-in name and contact details.'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <form onSubmit={handleAccountSubmit} className="p-5 space-y-4">
-                                    <Input
-                                        label={language === 'THA' ? 'ชื่อผู้ใช้' : 'Username'}
-                                        value={accountForm.username}
-                                        onChange={e => setAccountForm({ ...accountForm, username: e.target.value })}
-                                        required
-                                    />
-                                    <Input
-                                        label={language === 'THA' ? 'อีเมล' : 'Email'}
-                                        type="email"
-                                        value={accountForm.email}
-                                        onChange={e => setAccountForm({ ...accountForm, email: e.target.value })}
-                                    />
-                                    <Input
-                                        label={language === 'THA' ? 'โทรศัพท์' : 'Phone'}
-                                        value={accountForm.phone}
-                                        onChange={e => setAccountForm({ ...accountForm, phone: e.target.value })}
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={accountSaving}
-                                        className="official-primary-button w-full rounded-md px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {accountSaving
-                                            ? (language === 'THA' ? 'กำลังบันทึก...' : 'Saving...')
-                                            : (language === 'THA' ? 'บันทึกข้อมูลบัญชี' : 'Save Account')}
-                                    </button>
-                                </form>
-                            </div>
-
-                            <div className="official-panel rounded-md overflow-hidden">
-                                <div className="official-panel-header px-5 py-4 flex items-center gap-3">
-                                    <div className="official-icon-box p-2 rounded-md">
-                                        <Key size={20} />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-base font-semibold text-gray-900">
-                                            {language === 'THA' ? 'เปลี่ยนรหัสผ่าน' : 'Change Password'}
-                                        </h2>
-                                        <p className="text-xs text-gray-500">
-                                            {language === 'THA' ? 'ยืนยันรหัสผ่านเดิมก่อนตั้งรหัสผ่านใหม่' : 'Confirm your current password before setting a new one.'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <form onSubmit={handlePasswordSubmit} className="p-5 space-y-4">
-                                    <Input
-                                        label={language === 'THA' ? 'รหัสผ่านปัจจุบัน' : 'Current Password'}
-                                        type="password"
-                                        value={passwordForm.current_password}
-                                        onChange={e => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                                        required
-                                    />
-                                    <Input
-                                        label={language === 'THA' ? 'รหัสผ่านใหม่' : 'New Password'}
-                                        type="password"
-                                        value={passwordForm.new_password}
-                                        onChange={e => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
-                                        required
-                                    />
-                                    <Input
-                                        label={language === 'THA' ? 'ยืนยันรหัสผ่านใหม่' : 'Confirm New Password'}
-                                        type="password"
-                                        value={passwordForm.confirm_password}
-                                        onChange={e => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
-                                        required
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={passwordSaving}
-                                        className="w-full rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {passwordSaving
-                                            ? (language === 'THA' ? 'กำลังเปลี่ยนรหัสผ่าน...' : 'Changing password...')
-                                            : (language === 'THA' ? 'เปลี่ยนรหัสผ่าน' : 'Change Password')}
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
                 </main>
             </div>
 
             {/* Edit Team Modal */}
             {isEditingTeam && (
                 <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-md border border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-hidden animate-fade-in-up flex flex-col">
+                    <div className="bg-white rounded-md border border-gray-200 w-full max-w-4xl max-h-[90vh] overflow-hidden animate-fade-in-up flex flex-col">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-gray-800">{t('team.editTeam')}</h3>
                             <button onClick={() => setIsEditingTeam(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
                         </div>
                         <div className="p-6 overflow-y-auto">
-                            <form onSubmit={handleUpdateTeam} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Input label={t('team.name')} value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} required />
-                                    <Input label={t('team.code')} value={teamForm.code} onChange={e => setTeamForm({ ...teamForm, code: e.target.value })} required />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Input
-                                        label={language === 'THA' ? 'ผู้ฝึกสอน' : 'Coach'}
-                                        value={teamForm.coach}
-                                        onChange={e => setTeamForm({ ...teamForm, coach: e.target.value })}
-                                    />
-                                    <Input
-                                        label={language === 'THA' ? 'ผู้จัดการทีม' : 'Team Manager'}
-                                        value={teamForm.manager_name}
-                                        onChange={e => setTeamForm({ ...teamForm, manager_name: e.target.value })}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Input
-                                        label={language === 'THA' ? 'โทรศัพท์' : 'Phone'}
-                                        value={teamForm.phone}
-                                        onChange={e => setTeamForm({ ...teamForm, phone: e.target.value })}
-                                    />
-                                    <Input
-                                        label={language === 'THA' ? 'อีเมล' : 'Email'}
-                                        type="email"
-                                        value={teamForm.email}
-                                        onChange={e => setTeamForm({ ...teamForm, email: e.target.value })}
-                                    />
-                                </div>
-                                <Input
-                                    label={language === 'THA' ? 'จังหวัด' : 'Province'}
-                                    value={teamForm.province}
-                                    onChange={e => setTeamForm({ ...teamForm, province: e.target.value })}
-                                />
+                            <form onSubmit={handleUpdateTeam} className="space-y-6">
+                                <section className="space-y-3">
+                                    <h4 className="border-b border-gray-100 pb-2 text-sm font-semibold text-gray-800">{language === 'THA' ? '1. ข้อมูลทีม' : '1. Team information'}</h4>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <Input label={language === 'THA' ? 'โรงเรียน/สังกัด' : 'School / Organization'} value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} required />
+                                        <Input label={language === 'THA' ? 'รหัสทีม' : 'Team code'} value={teamForm.code} onChange={e => setTeamForm({ ...teamForm, code: e.target.value })} required />
+                                        <Input label={language === 'THA' ? 'จังหวัด' : 'Province'} value={teamForm.province} onChange={e => setTeamForm({ ...teamForm, province: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'อำเภอ' : 'District'} value={teamForm.district} onChange={e => setTeamForm({ ...teamForm, district: e.target.value })} />
+                                        <div>
+                                            <label className="mb-1 block text-xs font-medium text-gray-500">{language === 'THA' ? 'ประเภททีม' : 'Team type'}</label>
+                                            <select value={teamForm.gender} onChange={e => setTeamForm({ ...teamForm, gender: e.target.value })} required className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                                                <option value="">{language === 'THA' ? 'เลือกประเภททีม' : 'Select team type'}</option>
+                                                <option value="Male">{language === 'THA' ? 'ชาย' : 'Men'}</option>
+                                                <option value="Female">{language === 'THA' ? 'หญิง' : 'Women'}</option>
+                                            </select>
+                                        </div>
+                                        <Input label={language === 'THA' ? 'ผู้ฝึกสอน' : 'Coach'} value={teamForm.coach} onChange={e => setTeamForm({ ...teamForm, coach: e.target.value })} />
+                                    </div>
+                                </section>
+                                <section className="space-y-3">
+                                    <h4 className="border-b border-gray-100 pb-2 text-sm font-semibold text-gray-800">{language === 'THA' ? '2. ผู้จัดการทีม/ผู้ประสานงาน' : '2. Team manager / Contact person'}</h4>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <Input label={language === 'THA' ? 'ชื่อ-สกุล' : 'Full name'} value={teamForm.manager_name} onChange={e => setTeamForm({ ...teamForm, manager_name: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'อีเมล์' : 'Email'} type="email" value={teamForm.email} onChange={e => setTeamForm({ ...teamForm, email: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'โทรศัพท์' : 'Office phone'} value={teamForm.office_phone} onChange={e => setTeamForm({ ...teamForm, office_phone: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'เบอร์มือถือ' : 'Mobile phone'} value={teamForm.mobile_phone} onChange={e => setTeamForm({ ...teamForm, mobile_phone: e.target.value, phone: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'โทรสาร' : 'Fax'} value={teamForm.fax} onChange={e => setTeamForm({ ...teamForm, fax: e.target.value })} />
+                                        <Input label="Line ID" value={teamForm.line_id} onChange={e => setTeamForm({ ...teamForm, line_id: e.target.value })} />
+                                    </div>
+                                </section>
+                                <section className="space-y-3">
+                                    <h4 className="border-b border-gray-100 pb-2 text-sm font-semibold text-gray-800">{language === 'THA' ? '3. ที่อยู่สำหรับติดต่อ' : '3. Contact address'}</h4>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <Input label={language === 'THA' ? 'เลขที่/ห้อง' : 'Number / Room'} value={teamForm.address_number} onChange={e => setTeamForm({ ...teamForm, address_number: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'หมู่บ้าน/อาคาร' : 'Village / Building'} value={teamForm.building} onChange={e => setTeamForm({ ...teamForm, building: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'หมู่ที่' : 'Moo'} value={teamForm.moo} onChange={e => setTeamForm({ ...teamForm, moo: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'ซอย/ตรอก' : 'Soi / Alley'} value={teamForm.soi} onChange={e => setTeamForm({ ...teamForm, soi: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'ถนน' : 'Road'} value={teamForm.road} onChange={e => setTeamForm({ ...teamForm, road: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'จังหวัด' : 'Province'} value={teamForm.address_province} onChange={e => setTeamForm({ ...teamForm, address_province: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'เขต/อำเภอ' : 'District'} value={teamForm.address_district} onChange={e => setTeamForm({ ...teamForm, address_district: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'แขวง/ตำบล' : 'Subdistrict'} value={teamForm.subdistrict} onChange={e => setTeamForm({ ...teamForm, subdistrict: e.target.value })} />
+                                        <Input label={language === 'THA' ? 'รหัสไปรษณีย์' : 'Postal code'} value={teamForm.postal_code} onChange={e => setTeamForm({ ...teamForm, postal_code: e.target.value })} />
+                                    </div>
+                                </section>
                                 <ImageUploadField
                                     label={t('team.logoUrl')}
                                     value={teamForm.logo_url}
                                     previewAlt={teamForm.name || 'Team logo'}
-                                    onFileSelect={(event) => handleImageFileChange(event, (imageUrl) => setTeamForm(prev => ({ ...prev, logo_url: imageUrl })))}
+                                    onFileSelect={(event) => handleImageFileChange(event, 'team_logo', (imageUrl) => setTeamForm(prev => ({ ...prev, logo_url: imageUrl })))}
                                     onClear={() => setTeamForm(prev => ({ ...prev, logo_url: '' }))}
                                 />
                                 <Button type="submit" label={t('common.save')} full />
-                                <div className="pt-6 border-t border-gray-100 mt-6">
-                                    <p className="text-xs text-red-500 font-bold uppercase mb-2">{language === 'THA' ? 'พื้นที่อันตราย (Danger Zone)' : 'Danger Zone'}</p>
-                                    <button type="button" onClick={handleDeleteTeam} className="w-full py-2 px-4 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                                <div className="border-t border-gray-100 pt-5">
+                                    <p className="mb-2 text-xs font-bold uppercase text-red-500">{language === 'THA' ? 'พื้นที่อันตราย (Danger Zone)' : 'Danger Zone'}</p>
+                                    <button type="button" onClick={handleDeleteTeam} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-50">
                                         <Trash2 size={16} /> {language === 'THA' ? 'ลบทีมแข่งขัน' : 'Delete Team'}
                                     </button>
                                 </div>
@@ -2745,89 +2395,6 @@ export default function TeamDashboard() {
                 </div>
             )}
 
-            {staffAssignmentModal && (
-                <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-md border border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-start bg-gray-50">
-                            <div>
-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <Briefcase size={20} className="text-gray-500" />
-                                    {language === 'THA' ? 'จัดรุ่น/ประเภทของเจ้าหน้าที่' : 'Assign Staff Categories'}
-                                </h3>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {staffAssignmentModal.first_name} {staffAssignmentModal.last_name} · {translateRole(staffAssignmentModal.role)}
-                                </p>
-                            </div>
-                            <button onClick={() => setStaffAssignmentModal(null)} className="text-gray-400 hover:text-gray-600">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="px-6 py-3 border-b border-gray-100 bg-blue-50 text-xs leading-relaxed text-blue-800">
-                            {language === 'THA'
-                                ? 'เจ้าหน้าที่ 1 คนสามารถผูกกับรุ่น/ประเภทได้หลายรายการ และข้อมูลนี้จะใช้กับ roster ของรายการแข่งขัน'
-                                : 'One staff member can be assigned to multiple age groups/categories. These assignments are tied to competition roster entries.'}
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {staffEntryOptions.length === 0 ? (
-                                <EmptyState text={language === 'THA' ? 'ทีมยังไม่ได้สมัครรายการแข่งขัน' : 'No registered competition entries found.'} />
-                            ) : (
-                                <div className="space-y-3">
-                                    {staffEntryOptions.map(entry => {
-                                        const entryId = Number(entry.team_entry_id);
-                                        const selected = staffAssignmentEntryIds.includes(entryId);
-                                        return (
-                                            <button
-                                                key={entry.team_entry_id}
-                                                type="button"
-                                                onClick={() => toggleStaffAssignmentEntry(entry)}
-                                                disabled={staffAssignmentLoading}
-                                                className={`w-full text-left p-4 rounded-md border transition flex items-center justify-between gap-4 ${
-                                                    selected
-                                                        ? 'border-blue-500 bg-blue-50'
-                                                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                <div className="min-w-0">
-                                                    <div className="font-bold text-gray-900 truncate">{normalizeCompetitionTitle(entry)}</div>
-                                                    <div className="mt-1 text-xs text-gray-500">
-                                                        {getAgeGroupLabel(entry)} / {getGenderLabel(entry.competition_gender || entry.gender)}
-                                                    </div>
-                                                </div>
-                                                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
-                                                    selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'
-                                                }`}>
-                                                    {selected ? '✓' : ''}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setStaffAssignmentModal(null)}
-                                className="px-4 py-2 border rounded-md text-sm font-medium text-blue-700 bg-white border-blue-200 hover:bg-blue-50"
-                            >
-                                {language === 'THA' ? 'ยกเลิก' : 'Cancel'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={saveStaffAssignments}
-                                disabled={staffAssignmentLoading}
-                                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-200 disabled:cursor-not-allowed text-white rounded-md text-sm font-medium"
-                            >
-                                {language === 'THA' ? 'บันทึก' : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {entryRosterModal && (
                 <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-md border border-gray-200 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -2871,8 +2438,7 @@ export default function TeamDashboard() {
                                     {entryRosterPlayers.map(player => {
                                         const selected = entryRosterSelectedIds.includes(Number(player.id));
                                         const locked = Boolean(player.roster_locked);
-                                        const sportEligible = player.sport_eligible !== false && player.sport_eligible !== 0;
-                                        const disabled = !player.gender_eligible || !sportEligible || locked;
+                                        const disabled = !player.gender_eligible || locked;
                                         const rosterNumber = String(getRosterPlayerNumber(player) || '').trim();
                                         const hasDuplicateNumber = selected && rosterNumber && entryRosterDuplicateNumbers.has(rosterNumber);
                                         const lockedRosterLabel = getLockedRosterLabel(player);
@@ -2897,7 +2463,7 @@ export default function TeamDashboard() {
                                                         #{rosterNumber || '-'} {player.first_name} {player.last_name}
                                                     </div>
                                                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                                        <span>{player.gender || '-'} / {player.position || '-'} / {formatSportTypes(player.sport_types)} / {player.birth_date ? `${calculateAge(player.birth_date)} yrs` : '-'}</span>
+                                                        <span>{player.gender || '-'} / {player.position || '-'} / {player.birth_date ? `${calculateAge(player.birth_date)} yrs` : '-'}</span>
                                                         {hasDuplicateNumber && (
                                                             <span className="rounded border border-red-200 bg-white px-1.5 py-0.5 font-semibold text-red-600">
                                                                 {language === 'THA' ? 'เลขซ้ำในรุ่นนี้' : 'Duplicate in roster'}
@@ -2913,11 +2479,6 @@ export default function TeamDashboard() {
                                                         {!player.gender_eligible && (
                                                             <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-semibold text-gray-500">
                                                                 {language === 'THA' ? 'เพศไม่ตรงรุ่น' : 'Gender mismatch'}
-                                                            </span>
-                                                        )}
-                                                        {!sportEligible && (
-                                                            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-semibold text-gray-500">
-                                                                {language === 'THA' ? 'ประเภทกีฬาไม่ตรง' : 'Sport mismatch'}
                                                             </span>
                                                         )}
                                                     </div>
@@ -2955,104 +2516,6 @@ export default function TeamDashboard() {
                 </div>
             )}
 
-            {entryStaffModal && (
-                <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-md border border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-start bg-gray-50">
-                            <div>
-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <Briefcase size={20} className="text-gray-500" />
-                                    {language === 'THA' ? 'จัดเจ้าหน้าที่ประจำรุ่น' : 'Manage Staff Roster'}
-                                </h3>
-                                <p className="text-sm text-gray-500 mt-1">{normalizeCompetitionTitle(entryStaffModal.competition)}</p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    {entryStaffModal.entry.age_group_name || 'General'} / {entryStaffModal.entry.competition_gender}
-                                </p>
-                            </div>
-                            <button onClick={() => setEntryStaffModal(null)} className="text-gray-400 hover:text-gray-600">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="px-6 py-3 border-b border-gray-100 flex items-center justify-between text-sm">
-                            <span className="font-medium text-gray-700">
-                                {language === 'THA' ? 'เลือกแล้ว' : 'Selected'}: {entryStaffSelectedIds.length}
-                            </span>
-                            <span className="text-gray-500">
-                                {language === 'THA' ? 'เจ้าหน้าที่ 1 คนเลือกได้หลายรุ่น/ประเภท' : 'One staff member can be assigned to multiple categories'}
-                            </span>
-                        </div>
-
-                        <div className="px-6 py-3 border-b border-gray-100 bg-blue-50 text-xs leading-relaxed text-blue-800">
-                            {language === 'THA'
-                                ? `กำลังจัดเจ้าหน้าที่สำหรับ ${getEntryStaffScopeLabel()} โดยจะผูกกับ roster รายการแข่งขันนี้`
-                                : `Editing staff for ${getEntryStaffScopeLabel()}. Staff assignments are stored on this competition roster.`}
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {entryStaffLoading ? (
-                                <div className="py-12 text-center text-sm text-gray-500">
-                                    {language === 'THA' ? 'กำลังโหลดข้อมูล...' : 'Loading...'}
-                                </div>
-                            ) : entryStaffList.length === 0 ? (
-                                <EmptyState text={language === 'THA' ? 'ยังไม่มีเจ้าหน้าที่ในทีมนี้' : 'No staff found for this team.'} />
-                            ) : (
-                                <div className="space-y-3">
-                                    {entryStaffList.map(staffMember => {
-                                        const selected = entryStaffSelectedIds.includes(Number(staffMember.id));
-                                        return (
-                                            <button
-                                                key={staffMember.id}
-                                                type="button"
-                                                onClick={() => toggleEntryStaff(staffMember)}
-                                                disabled={entryStaffLoading}
-                                                className={`w-full text-left p-4 rounded-md border transition flex items-center justify-between gap-4 ${
-                                                    selected
-                                                        ? 'border-blue-500 bg-blue-50'
-                                                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                <div className="min-w-0">
-                                                    <div className="font-bold text-gray-900 truncate">
-                                                        {staffMember.first_name} {staffMember.last_name}
-                                                    </div>
-                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                                        <span>{translateRole(staffMember.role)}</span>
-                                                        {staffMember.gender && <span>{getGenderLabel(staffMember.gender)}</span>}
-                                                    </div>
-                                                </div>
-                                                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
-                                                    selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'
-                                                }`}>
-                                                    {selected ? '✓' : ''}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setEntryStaffModal(null)}
-                                className="px-4 py-2 border rounded-md text-sm font-medium text-blue-700 bg-white border-blue-200 hover:bg-blue-50"
-                            >
-                                {language === 'THA' ? 'ยกเลิก' : 'Cancel'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={saveEntryStaff}
-                                disabled={entryStaffLoading}
-                                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-200 disabled:cursor-not-allowed text-white rounded-md text-sm font-medium"
-                            >
-                                {language === 'THA' ? 'บันทึกเจ้าหน้าที่' : 'Save Staff'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
@@ -3061,14 +2524,14 @@ export default function TeamDashboard() {
 
 function UniformTab({ language, teamForm, setTeamForm, onSubmit }) {
     const uniformFields = [
-        { key: 'main_color', step: '1.1', label: 'Main colors' },
-        { key: 'second_color', step: '1.2', label: 'Second color' },
-        { key: 'third_color', step: '1.3', label: 'Third color' },
+        { key: 'main_color', step: '1.1', label: language === 'THA' ? 'สีหลัก' : 'Main color' },
+        { key: 'second_color', step: '1.2', label: language === 'THA' ? 'สีรอง' : 'Second color' },
+        { key: 'third_color', step: '1.3', label: language === 'THA' ? 'สีที่สาม' : 'Third color' },
     ];
     const liberoFields = [
-        { key: 'libero_main_color', step: '2.1', label: 'Main colors' },
-        { key: 'libero_second_color', step: '2.2', label: 'Second color' },
-        { key: 'libero_third_color', step: '2.3', label: 'Third color' },
+        { key: 'libero_main_color', step: '2.1', label: language === 'THA' ? 'สีหลัก' : 'Main color' },
+        { key: 'libero_second_color', step: '2.2', label: language === 'THA' ? 'สีรอง' : 'Second color' },
+        { key: 'libero_third_color', step: '2.3', label: language === 'THA' ? 'สีที่สาม' : 'Third color' },
     ];
 
     const updateColor = (key, value) => {
@@ -3091,7 +2554,7 @@ function UniformTab({ language, teamForm, setTeamForm, onSubmit }) {
                             <Palette className="text-gray-500 w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-base font-semibold text-gray-900">Uniform</h2>
+                            <h2 className="text-base font-semibold text-gray-900">{language === 'THA' ? 'ชุดการแข่งขัน' : 'Uniform'}</h2>
                             <p className="text-xs text-gray-500">
                                 {language === 'THA'
                                     ? 'กำหนดสีเสื้อนักกีฬาและสีเสื้อ Libero สำหรับเอกสารทีม'
@@ -3111,17 +2574,19 @@ function UniformTab({ language, teamForm, setTeamForm, onSubmit }) {
                 <form onSubmit={onSubmit} className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
                     <div className="space-y-5">
                         <UniformColorSection
-                            title="1. Uniform"
+                            title={language === 'THA' ? '1. ชุดนักกีฬา' : '1. Uniform'}
                             subtitle={language === 'THA' ? 'สีเสื้อหลักของนักกีฬา' : 'Player uniform colors'}
                             fields={uniformFields}
                             teamForm={teamForm}
+                            language={language}
                             onChange={updateColor}
                         />
                         <UniformColorSection
-                            title="2. Libero Uniform"
+                            title={language === 'THA' ? '2. ชุด Libero' : '2. Libero Uniform'}
                             subtitle={language === 'THA' ? 'สีเสื้อสำหรับ Libero' : 'Libero uniform colors'}
                             fields={liberoFields}
                             teamForm={teamForm}
+                            language={language}
                             onChange={updateColor}
                         />
                     </div>
@@ -3141,7 +2606,7 @@ function UniformTab({ language, teamForm, setTeamForm, onSubmit }) {
                             secondColor={teamForm.libero_second_color}
                             thirdColor={teamForm.libero_third_color}
                         />
-                        <Button type="submit" label={language === 'THA' ? 'บันทึกสี Uniform' : 'Save Uniform Colors'} full />
+                        <Button type="submit" label={language === 'THA' ? 'บันทึกชุดการแข่งขัน' : 'Save Uniform Colors'} full />
                     </div>
                 </form>
             </div>
@@ -3149,7 +2614,7 @@ function UniformTab({ language, teamForm, setTeamForm, onSubmit }) {
     );
 }
 
-function UniformColorSection({ title, subtitle, fields, teamForm, onChange }) {
+function UniformColorSection({ title, subtitle, fields, teamForm, language, onChange }) {
     return (
         <section className="rounded-md border border-gray-200 bg-gray-50/60 p-4">
             <div className="mb-4">
@@ -3162,6 +2627,7 @@ function UniformColorSection({ title, subtitle, fields, teamForm, onChange }) {
                         key={field.key}
                         label={`${field.step} ${field.label}`}
                         value={teamForm[field.key]}
+                        placeholder={language === 'THA' ? 'เช่น blue หรือ #1f2937' : 'e.g. blue or #1f2937'}
                         onChange={(value) => onChange(field.key, value)}
                     />
                 ))}
@@ -3170,28 +2636,18 @@ function UniformColorSection({ title, subtitle, fields, teamForm, onChange }) {
     );
 }
 
-function UniformColorInput({ label, value, onChange }) {
-    const normalizedValue = /^#[0-9A-F]{6}$/i.test(value || '') ? value : '#ffffff';
-
+function UniformColorInput({ label, value, placeholder, onChange }) {
     return (
         <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
-            <div className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-2 py-2 focus-within:border-gray-500 focus-within:ring-2 focus-within:ring-gray-100">
-                <input
-                    type="color"
-                    value={normalizedValue}
-                    onChange={e => onChange(e.target.value)}
-                    className="h-8 w-9 shrink-0 cursor-pointer rounded border border-gray-200 bg-white p-0.5"
-                    aria-label={label}
-                />
-                <input
-                    type="text"
-                    value={value || ''}
-                    onChange={e => onChange(e.target.value)}
-                    placeholder="#000000"
-                    className="min-w-0 flex-1 border-0 bg-transparent text-sm font-medium text-gray-900 outline-none uppercase"
-                />
-            </div>
+            <input
+                type="text"
+                value={value || ''}
+                onChange={e => onChange(e.target.value)}
+                placeholder={placeholder}
+                className="min-h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                aria-label={label}
+            />
         </div>
     );
 }

@@ -50,6 +50,8 @@ export default function ClubsTab({ initialSearch = '' }) {
   useEffect(() => { setSearchTerm(initialSearch); }, [initialSearch]);
   const [teams, setTeams] = useState([]);
   const [teamEntries, setTeamEntries] = useState([]);
+  const [competitions, setCompetitions] = useState([]);
+  const [selectedCompetition, setSelectedCompetition] = useState('open');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -61,6 +63,7 @@ export default function ClubsTab({ initialSearch = '' }) {
     phone: '',
     email: '',
     province: '',
+    gender: 'Male',
     logo_url: '',
     username: '',
     password: '',
@@ -69,12 +72,14 @@ export default function ClubsTab({ initialSearch = '' }) {
 
   const fetchTeams = async () => {
     try {
-      const [teamsRes, entriesRes] = await Promise.all([
+      const [teamsRes, entriesRes, competitionsRes] = await Promise.all([
         api.getAllTeams(),
         api.getAllTeamEntries(),
+        api.getAllCompetitions(),
       ]);
       setTeams(teamsRes.data || []);
       setTeamEntries(entriesRes.data || []);
+      setCompetitions(competitionsRes.data || []);
     } catch (err) {
       console.error('Fetch teams failed', err);
     }
@@ -93,6 +98,7 @@ export default function ClubsTab({ initialSearch = '' }) {
       phone: '',
       email: '',
       province: '',
+      gender: 'Male',
       logo_url: '',
       username: '',
       password: '',
@@ -148,10 +154,21 @@ export default function ClubsTab({ initialSearch = '' }) {
     }
   };
 
-  const filteredEntries = useMemo(
-    () => teamEntries.filter((entry) => teamMatchesSearch(entry, searchTerm)),
-    [teamEntries, searchTerm]
+  const openCompetitions = useMemo(
+    () => competitions.filter((competition) => String(competition.status || '').toLowerCase() === 'open'),
+    [competitions]
   );
+
+  const filteredEntries = useMemo(() => {
+    const openCompetitionIds = new Set(openCompetitions.map((competition) => Number(competition.id)));
+    return teamEntries.filter((entry) => {
+      const matchesCompetition = selectedCompetition === 'all'
+        || (selectedCompetition === 'open'
+          ? openCompetitionIds.has(Number(entry.competition_id))
+          : Number(entry.competition_id) === Number(selectedCompetition));
+      return matchesCompetition && teamMatchesSearch(entry, searchTerm);
+    });
+  }, [teamEntries, searchTerm, selectedCompetition, openCompetitions]);
 
   const groupedEntries = useMemo(() => {
     const groups = new Map();
@@ -348,6 +365,25 @@ export default function ClubsTab({ initialSearch = '' }) {
         </div>
       </div>
 
+      <div className="flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <label htmlFor="team-competition-filter" className="text-sm font-semibold text-blue-950">
+          รายการแข่งขันที่เปิดรับสมัคร
+          <span className="ml-2 text-xs font-normal text-blue-700">{openCompetitions.length} รายการ</span>
+        </label>
+        <select
+          id="team-competition-filter"
+          value={selectedCompetition}
+          onChange={(event) => setSelectedCompetition(event.target.value)}
+          className="min-h-10 w-full rounded-lg border border-blue-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-200 sm:max-w-md"
+        >
+          <option value="open">ทุกรายการแข่งขันที่เปิดรับสมัคร</option>
+          {openCompetitions.map((competition) => (
+            <option key={competition.id} value={String(competition.id)}>{competition.title || competition.name || competition.competition_title || `รายการแข่งขัน #${competition.id}`}</option>
+          ))}
+          <option value="all">ดูทีมจากทุกรายการแข่งขัน (รวมรายการปิด)</option>
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase">ทีมทั้งหมด</p>
@@ -472,6 +508,14 @@ export default function ClubsTab({ initialSearch = '' }) {
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     placeholder="TEAM01"
                   />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Team Type</label>
+                  <select name="gender" value={createForm.gender} onChange={handleCreateInput} required className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                    <option value="Male">Men's team</option>
+                    <option value="Female">Women's team</option>
+                  </select>
                 </div>
 
                 <div>

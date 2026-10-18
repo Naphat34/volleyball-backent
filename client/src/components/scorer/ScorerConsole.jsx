@@ -1,3 +1,5 @@
+import { getTeamCode, buildScorerLiveState, replaceLineupPlayer, isLineupSetupLocked, saveRosterApproval } from '../../utils/scorerHelpers';
+import { getSetElapsedSeconds, restoreSetTimer } from '../../utils/setTimer';
 import { StatusBadge } from '../ui/SystemUI';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
@@ -43,15 +45,6 @@ import LiberoSwapModal from './modals/LiberoSwapModal';
 
 import Buzzer from '../../assets/sound/buzzer.mp3';
 
-
-// Helper to extract 3-letter code from team name
-const getTeamCode = (teamName) => {
-    if (!teamName) return '';
-    if (teamName.includes('-')) {
-        return teamName.split('-')[0].trim().toUpperCase();
-    }
-    return teamName.substring(0, 3).toUpperCase();
-};
 
 const workflowStepRank = {
     COIN_TOSS: 1,
@@ -314,9 +307,23 @@ export default function ScorerConsole() {
     const [lastSetHomeLiberos, setLastSetHomeLiberos] = useState(() => loadState('lastSetHomeLiberos', null));
     const [lastSetAwayLiberos, setLastSetAwayLiberos] = useState(() => loadState('lastSetAwayLiberos', null));
     const [teamColors, setTeamColors] = useState(() => loadState('teamColors', DEFAULT_TEAM_COLORS));
+    const [lineupSetup, setLineupSetup] = useState(() => loadState('lineupSetup', {}));
+
+    useEffect(() => {
+        localStorage.setItem(`match_${matchId}_lineupSetup`, JSON.stringify(lineupSetup));
+    }, [lineupSetup, matchId]);
 
     const handleTeamColorChange = (team, color) => {
+        if (isLineupSetupLocked(matchData.currentSet, lineupSetup, team, 'colorLocked')) return;
+        markLocalStateUpdate();
         setTeamColors(prev => ({ ...prev, [team]: color }));
+        setLineupSetup(prev => ({ ...prev, [team]: { ...prev[team], colorLocked: true } }));
+    };
+
+    const handleRosterApproval = (field, signature) => {
+        if (!signature || lineupSetup.approvals?.[field]) return;
+        markLocalStateUpdate();
+        setLineupSetup(prev => saveRosterApproval(prev, field, signature));
     };
 
     // Signatures
@@ -609,8 +616,22 @@ export default function ScorerConsole() {
     }, [matchId]);
 
     // Timer
-    const [matchDuration, setMatchDuration] = useState(() => loadState('matchDuration', 0));
-    const [isTimerRunning, setIsTimerRunning] = useState(() => loadState('isTimerRunning', false));
+    const [initialTimer] = useState(() => restoreSetTimer({
+        matchDuration: loadState('matchDuration', 0),
+        isTimerRunning: loadState('isTimerRunning', false),
+        setTimerStartedAt: loadState('setTimerStartedAt', null),
+        workflowStep: loadState('workflowStep', null)
+    }));
+    const [matchDuration, setMatchDuration] = useState(initialTimer.matchDuration);
+    const [isTimerRunning, setIsTimerRunning] = useState(initialTimer.isTimerRunning);
+    const [setTimerStartedAt, setSetTimerStartedAt] = useState(initialTimer.setTimerStartedAt);
+
+    const restoreMatchTimer = useCallback((snapshot) => {
+        const timer = restoreSetTimer(snapshot);
+        setMatchDuration(timer.matchDuration);
+        setIsTimerRunning(timer.isTimerRunning);
+        setSetTimerStartedAt(timer.setTimerStartedAt);
+    }, []);
 
     // Substitution Context
     const [subData, setSubData] = useState({
@@ -643,12 +664,16 @@ export default function ScorerConsole() {
 
     // --- EFFECT: TIMER ---
     useEffect(() => {
-        let interval;
-        if (isTimerRunning) {
-            interval = setInterval(() => setMatchDuration(prev => prev + 1), 1000);
-        }
-        return () => clearInterval(interval);
-    }, [isTimerRunning]);
+        if (!isTimerRunning || !setTimerStartedAt) return;
+        const tick = () => setMatchDuration(getSetElapsedSeconds({ isTimerRunning, setTimerStartedAt }));
+        tick();
+        const interval = setInterval(tick, 1000);
+        document.addEventListener('visibilitychange', tick);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', tick);
+        };
+    }, [isTimerRunning, setTimerStartedAt]);
 
     // --- EFFECT: SYNC HISTORY TAB ---
     useEffect(() => {
@@ -736,14 +761,14 @@ export default function ScorerConsole() {
         }
         if (live.showTimeoutTimer !== undefined) setShowTimeoutTimer(live.showTimeoutTimer);
         if (live.timeoutStartTime !== undefined) setTimeoutStartTime(live.timeoutStartTime);
-        if (live.matchDuration !== undefined) setMatchDuration(live.matchDuration);
-        if (live.isTimerRunning !== undefined) setIsTimerRunning(live.isTimerRunning);
+        restoreMatchTimer({ ...live, workflowStep: normalizedWorkflowStep });
         if (live.subTracker) setSubTracker(live.subTracker);
         if (live.referees) setReferees(live.referees);
         if (live.matchSignatures) setMatchSignatures(live.matchSignatures);
+        if (live.lineupSetup) setLineupSetup(live.lineupSetup);
         if (live.currentChallengeReview !== undefined) setCurrentChallengeReview(live.currentChallengeReview);
         if (live.firstServeSet1 !== undefined) setFirstServeSet1(live.firstServeSet1);
-    }, [matchId]);
+    }, [matchId, restoreMatchTimer]);
 
     // --- EFFECT: SOCKET.IO FOR STAFF REQUESTS ---
     useEffect(() => {
@@ -920,6 +945,20 @@ export default function ScorerConsole() {
 
     const debounceTimeoutRef = useRef(null);
 
+    const createLiveState = useCallback((overrides = {}) => buildScorerLiveState({
+        matchData, workflowStep, score, setsWon, timeouts, challenges, substitutions,
+        servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup,
+        homeLiberos, awayLiberos, homeLiberoSwaps, awayLiberoSwaps, teamColors,
+        showTimeoutTimer, timeoutStartTime, matchDuration, isTimerRunning, setTimerStartedAt,
+        subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup
+    }, overrides), [
+        matchData, workflowStep, score, setsWon, timeouts, challenges, substitutions,
+        servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup,
+        homeLiberos, awayLiberos, homeLiberoSwaps, awayLiberoSwaps, teamColors,
+        showTimeoutTimer, timeoutStartTime, matchDuration, isTimerRunning, setTimerStartedAt,
+        subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup
+    ]);
+
     // --- EFFECT: SAVE STATE ---
     useEffect(() => {
         const generation = ++liveSyncGenerationRef.current;
@@ -940,7 +979,7 @@ export default function ScorerConsole() {
                 matchData, workflowStep, score, setsWon, completedSets,
                 timeouts, challenges, substitutions, matchEvents, servingTeam,
                 homeRoster, awayRoster, homeLineup, awayLineup, homeLiberos, awayLiberos,
-                history, setsToWin, matchDuration, isTimerRunning, lastLiberoSwap, teamColors,
+                history, setsToWin, matchDuration, isTimerRunning, setTimerStartedAt, lastLiberoSwap, teamColors,
                 homeLiberoSwaps, awayLiberoSwaps, showTimeoutTimer, timeoutStartTime, subTracker,
                 matchSignatures, referees, postponedChallengeIds, currentChallengeReview, firstServeSet1
             };
@@ -956,36 +995,9 @@ export default function ScorerConsole() {
             if (!localStateUpdateTsRef.current) {
                 localStateUpdateTsRef.current = updateTimestamp;
             }
-            const liveStateForServer = {
-                matchData,
-                workflowStep,
-                score,
-                setsWon,
-                timeouts,
-                challenges,
-                substitutions,
-                servingTeam,
-                isHomeLeft,
-                homeRoster,
-                awayRoster,
-                homeLineup,
-                awayLineup,
-                homeLiberos,
-                awayLiberos,
-                homeLiberoSwaps,
-                awayLiberoSwaps,
-                teamColors,
-                showTimeoutTimer,
-                timeoutStartTime,
-                matchDuration,
-                isTimerRunning,
-                subTracker,
-                referees,
-                matchSignatures,
-                currentChallengeReview,
-                firstServeSet1,
+            const liveStateForServer = createLiveState({
                 updatedAt: updateTimestamp
-            };
+            });
             const sendState = async () => {
                 if (!syncActive || generation !== liveSyncGenerationRef.current) return;
                 setLiveSyncStatus('saving');
@@ -1005,7 +1017,7 @@ export default function ScorerConsole() {
             clearTimeout(debounceTimeoutRef.current);
             syncActive = false;
         };
-    }, [matchId, matchData, workflowStep, score, setsWon, completedSets, timeouts, challenges, substitutions, matchEvents, servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup, homeLiberos, awayLiberos, history, setsToWin, matchDuration, isTimerRunning, homeLiberoSwaps, awayLiberoSwaps, lastLiberoSwap, teamColors, showTimeoutTimer, timeoutStartTime, subTracker, matchSignatures, referees, postponedChallengeIds, currentChallengeReview, firstServeSet1]);
+    }, [matchId, matchData, workflowStep, score, setsWon, completedSets, timeouts, challenges, substitutions, matchEvents, servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup, homeLiberos, awayLiberos, history, setsToWin, matchDuration, isTimerRunning, setTimerStartedAt, homeLiberoSwaps, awayLiberoSwaps, lastLiberoSwap, teamColors, showTimeoutTimer, timeoutStartTime, subTracker, matchSignatures, referees, postponedChallengeIds, currentChallengeReview, firstServeSet1, createLiveState]);
 
     // เก็บ ID ผู้เล่นที่ถูกเปลี่ยนตัวออกด้วยกรณีพิเศษ (บาดเจ็บ/ให้ออก) ห้ามลงเล่นทั้งนัด
     const [disqualifiedPlayers, setDisqualifiedPlayers] = useState(() => {
@@ -1303,7 +1315,8 @@ export default function ScorerConsole() {
                             if (live.showTimeoutTimer !== undefined) setShowTimeoutTimer(live.showTimeoutTimer);
                             if (live.currentChallengeReview !== undefined) setCurrentChallengeReview(live.currentChallengeReview);
                             if (live.matchSignatures) setMatchSignatures(live.matchSignatures);
-                            if (live.matchDuration) setMatchDuration(live.matchDuration);
+                            if (live.lineupSetup) setLineupSetup(live.lineupSetup);
+                            restoreMatchTimer({ ...live, workflowStep: normalizedWorkflowStep });
                             if (liveWithMatchFallback.firstServeSet1) setFirstServeSet1(liveWithMatchFallback.firstServeSet1);
 
                             const readCachedMatchRoster = (side) => {
@@ -1404,7 +1417,7 @@ export default function ScorerConsole() {
         };
         fetchMatchDataRef.current = fetchMatchData;
         fetchMatchData();
-    }, [matchId, refreshRoster]);
+    }, [matchId, refreshRoster, restoreMatchTimer]);
 
 
     // --- API HELPER: SAVE EVENT (OFFLINE-FIRST) ---
@@ -1598,6 +1611,9 @@ export default function ScorerConsole() {
             awayLineup: [...awayLineup],
             isHomeLeft,
             workflowStep,
+            matchDuration,
+            isTimerRunning,
+            setTimerStartedAt,
             timeouts: { ...timeouts },
             challenges: { ...challenges },
             substitutions: { ...substitutions },
@@ -1631,7 +1647,10 @@ export default function ScorerConsole() {
         subTracker,
         substitutions,
         timeouts,
-        workflowStep
+        workflowStep,
+        matchDuration,
+        isTimerRunning,
+        setTimerStartedAt
     ]);
 
     const handleSwapCourtSide = useCallback(() => {
@@ -1873,17 +1892,21 @@ export default function ScorerConsole() {
         if (isFinishingSetRef.current) return;
         isFinishingSetRef.current = true;
 
+        const finalDuration = getSetElapsedSeconds({ matchDuration, isTimerRunning, setTimerStartedAt });
         const payload = {
             setNumber: matchData.currentSet,
             homeScore: finalScore.home,
             awayScore: finalScore.away,
-            duration: Math.ceil(matchDuration / 60)
+            duration: Math.ceil(finalDuration / 60)
         };
 
         try {
             const response = await api.endSet(matchId, payload);
 
             if (response.data.success) {
+                setMatchDuration(finalDuration);
+                setIsTimerRunning(false);
+                setSetTimerStartedAt(null);
                 // 1. ดึงข้อมูลจาก backend (แก้ชื่อให้ตรงเผื่อไว้ด้วย)
 
                 // 2. คำนวณจำนวนเซตล่าสุดจากฝั่ง Frontend เอง (ปลอดภัยที่สุด)
@@ -1924,7 +1947,6 @@ export default function ScorerConsole() {
                     });
                     setWorkflowStep('MATCH_FINISHED');
                     setPendingSetWinner(null);
-                    setIsTimerRunning(false);
                     // ถ้าคุณมีฟังก์ชันเรียกหน้าต่างสรุปผล ก็สามารถใส่ไว้ตรงนี้ได้ครับ
                 } else {
                     // ถ้าเซตยังไม่ครบ ถึงให้เริ่มตั้งค่าเซตถัดไป
@@ -1943,7 +1965,7 @@ export default function ScorerConsole() {
         } finally {
             isFinishingSetRef.current = false;
         }
-    }, [matchData.currentSet, matchData.teamHome, matchData.teamAway, matchDuration, matchId, setsWon.home, setsWon.away, setsToWin, saveStateToHistory]);
+    }, [matchData.currentSet, matchData.teamHome, matchData.teamAway, matchDuration, isTimerRunning, setTimerStartedAt, matchId, setsWon.home, setsWon.away, setsToWin, saveStateToHistory]);
 
     const resolvePendingSetWinner = useCallback(() => {
         if (pendingSetWinner?.winnerCode && pendingSetWinner?.finalScore) {
@@ -2029,6 +2051,9 @@ export default function ScorerConsole() {
         }, ...prev]);
 
         // Reset scores and quotas for the new set
+        setIsTimerRunning(false);
+        setMatchDuration(0);
+        setSetTimerStartedAt(null);
         setScore({ home: 0, away: 0 });
         setTimeouts({ home: 0, away: 0 });
         setChallenges({ home: 2, away: 2 });
@@ -2099,6 +2124,7 @@ export default function ScorerConsole() {
                 setIsHomeLeft(lastState.isHomeLeft);
 
                 if (lastState.workflowStep) setWorkflowStep(lastState.workflowStep);
+                if (lastState.matchDuration !== undefined) restoreMatchTimer(lastState);
                 if (lastState.timeouts) setTimeouts(lastState.timeouts);
                 if (lastState.challenges) setChallenges(lastState.challenges);
                 if (lastState.substitutions) setSubstitutions(lastState.substitutions);
@@ -2154,37 +2180,21 @@ export default function ScorerConsole() {
             workflowStep: 'SERVING'
         }, setNum);
 
+        const startedAt = Date.now();
         setWorkflowStep('SERVING');
+        setMatchDuration(0);
+        setSetTimerStartedAt(startedAt);
         setIsTimerRunning(true);
 
         try {
-            await api.updateLiveState(matchId, {
-                matchData,
+            await api.updateLiveState(matchId, createLiveState({
                 workflowStep: 'SERVING',
-                score,
-                setsWon,
+                matchDuration: 0,
+                setTimerStartedAt: startedAt,
                 completedSets,
-                timeouts,
-                challenges,
-                substitutions,
                 matchEvents: [startEvent, ...matchEvents.filter(e => !(e.set === setNum && e.description.includes('Started')))],
-                servingTeam,
-                isHomeLeft,
-                homeRoster,
-                awayRoster,
-                homeLineup,
-                awayLineup,
-                homeLiberos,
-                awayLiberos,
-                homeLiberoSwaps,
-                awayLiberoSwaps,
-                teamColors,
-                matchDuration,
-                isTimerRunning: true,
-                subTracker,
-                referees,
-                matchSignatures
-            });
+                isTimerRunning: true
+            }));
         } catch (error) {
             console.error("Failed to sync match start to server:", error);
         }
@@ -2279,33 +2289,10 @@ export default function ScorerConsole() {
 
         // 2. บันทึก live state ล่าสุดไปยังเซิร์ฟเวอร์ทันที
         try {
-            const liveStateForServer = {
-                matchData,
+            const liveStateForServer = createLiveState({
                 workflowStep: 'MATCH_FINISHED',
-                score,
-                setsWon,
-                timeouts,
-                challenges,
-                substitutions,
-                servingTeam,
-                isHomeLeft,
-                homeRoster,
-                awayRoster,
-                homeLineup,
-                awayLineup,
-                homeLiberos,
-                awayLiberos,
-                homeLiberoSwaps,
-                awayLiberoSwaps,
-                teamColors,
-                showTimeoutTimer,
-                timeoutStartTime,
-                matchDuration,
-                isTimerRunning,
-                subTracker,
-                referees,
                 matchSignatures: finalSignatures
-            };
+            });
             await api.updateLiveState(matchId, liveStateForServer);
             await saveEventToBackend('MATCH_FINISHED', servingTeam || 'home', {
                 description: 'Match Finished',
@@ -2323,9 +2310,9 @@ export default function ScorerConsole() {
             'timeouts', 'challenges', 'substitutions', 'matchEvents', 'servingTeam',
             'isHomeLeft', 'homeRoster', 'awayRoster', 'homeLineup', 'awayLineup',
             'homeLiberos', 'awayLiberos', 'history', 'setsToWin', 'matchDuration',
-            'isTimerRunning', 'lastLiberoSwap', 'teamColors', 'homeLiberoSwaps',
+            'isTimerRunning', 'setTimerStartedAt', 'lastLiberoSwap', 'teamColors', 'homeLiberoSwaps',
             'awayLiberoSwaps', 'liberoTracker', 'disqualified', 'tossWinner',
-            'matchSignatures', 'referees', 'firstServeSet1', 'pendingSetWinner'
+            'matchSignatures', 'referees', 'firstServeSet1', 'pendingSetWinner', 'lineupSetup'
         ];
 
         keysToClear.forEach(key => {
@@ -2423,33 +2410,10 @@ export default function ScorerConsole() {
 
         // บันทึกลายเซ็นลงฐานข้อมูลทันที
         try {
-            const liveStateForServer = {
-                matchData,
+            const liveStateForServer = createLiveState({
                 workflowStep: 'SIGNATURES', // or current
-                score,
-                setsWon,
-                timeouts,
-                challenges,
-                substitutions,
-                servingTeam,
-                isHomeLeft,
-                homeRoster,
-                awayRoster,
-                homeLineup,
-                awayLineup,
-                homeLiberos,
-                awayLiberos,
-                homeLiberoSwaps,
-                awayLiberoSwaps,
-                teamColors,
-                showTimeoutTimer,
-                timeoutStartTime,
-                matchDuration,
-                isTimerRunning,
-                subTracker,
-                referees,
                 matchSignatures: data // use new data
-            };
+            });
             await api.updateLiveState(matchId, liveStateForServer);
         } catch (error) {
             console.error("Failed to sync signatures to DB:", error);
@@ -2469,6 +2433,7 @@ export default function ScorerConsole() {
     };
 
     const handleSetupConfirm = async (data) => {
+        if (showRosterSetup && isLineupSetupLocked(matchData.currentSet, lineupSetup, showRosterSetupTeam, 'rosterLocked')) return;
         const setsNeeded = parseInt(data.setsToWin, 10);
         const allHomeRoster = Array.isArray(data.allHome) ? data.allHome : data.confirmedHome;
         const allAwayRoster = Array.isArray(data.allAway) ? data.allAway : data.confirmedAway;
@@ -2589,40 +2554,22 @@ export default function ScorerConsole() {
 
         // หากเป็นการแก้ไขข้อมูลระหว่างเกม (Manually Edit) ให้ปิด Modal และไม่ต้องเปลี่ยน Step
         if (showRosterSetup) {
+            const nextLineupSetup = {
+                ...lineupSetup,
+                [showRosterSetupTeam]: { ...lineupSetup[showRosterSetupTeam], rosterLocked: true }
+            };
+            markLocalStateUpdate();
+            setLineupSetup(nextLineupSetup);
             setShowRosterSetup(false);
             setShowRosterSetupTeam(null);
             
             try {
-                const liveStateForServer = {
-                    matchData,
-                    workflowStep,
-                    score,
-                    setsWon,
-                    timeouts,
-                    challenges,
-                    substitutions,
-                    servingTeam,
-                    isHomeLeft,
+                const liveStateForServer = createLiveState({
+                    lineupSetup: nextLineupSetup,
                     homeRoster: nextHomeRoster,
                     awayRoster: nextAwayRoster,
-                    homeLineup,
-                    awayLineup,
-                    homeLiberos,
-                    awayLiberos,
-                    homeLiberoSwaps,
-                    awayLiberoSwaps,
-                    teamColors,
-                    showTimeoutTimer,
-                    timeoutStartTime,
-                    matchDuration,
-                    isTimerRunning,
-                    subTracker,
-                    referees,
-                    matchSignatures,
-                    currentChallengeReview,
-                    firstServeSet1,
-                    updatedAt: new Date().toISOString()
-                };
+                    updatedAt: Date.now()
+                });
                 await api.updateLiveState(matchId, liveStateForServer);
             } catch (error) {
                 console.error("Failed to sync updated roster to server:", error);
@@ -3039,6 +2986,25 @@ export default function ScorerConsole() {
                 return;
             }
 
+            if (request.request_type === 'LINEUP') {
+                const requestedLineup = Array.isArray(requestDetailsForApproval.lineup)
+                    ? [...requestDetailsForApproval.lineup]
+                        .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+                        .map((player) => player?.player_id ?? player?.id ?? null)
+                    : [];
+
+                if (requestedLineup.length !== 6 || requestedLineup.some((playerId) => !playerId)) {
+                    throw new Error('The submitted lineup is incomplete. Ask the team to submit all six players again.');
+                }
+
+                await api.saveLineup(matchId, {
+                    team_id: request.team_id,
+                    set_number: lineupRequestSetNumber,
+                    player_positions: requestedLineup,
+                    libero_id: null
+                });
+            }
+
             await client.put(`/match/${matchId}/requests/${request.id}`, { status: 'APPROVED' });
 
             if (request.request_type === 'TIMEOUT') {
@@ -3133,8 +3099,7 @@ export default function ScorerConsole() {
                     await handleSubstitutionConfirm(fullPlayerIn, false, posIndex, playerOut, teamCode);
                 }
 
-                if (teamCode === 'home') setHomeLineup(currentLineup);
-                else setAwayLineup(currentLineup);
+                // handleSubstitutionConfirm owns lineup updates, including originalPos.
                 markLocalStateUpdate();
             }
 
@@ -3795,13 +3760,7 @@ export default function ScorerConsole() {
 
         // --- 2. อัปเดต Lineup บนสนาม ---
         const setLineup = team === 'home' ? setHomeLineup : setAwayLineup;
-        setLineup(prev => {
-            const newLineup = [...prev];
-            // Preserve the originalPos when substituting
-            const pInWithPos = { ...playerIn, originalPos: originalPos };
-            newLineup[posIndex] = pInWithPos;
-            return newLineup;
-        });
+        setLineup(prev => replaceLineupPlayer(prev, posIndex, playerIn, originalPos));
 
         // --- 3. บันทึก Event ลง Backend ---
         await saveEventToBackend('SUBSTITUTION', team, {
@@ -4228,8 +4187,16 @@ export default function ScorerConsole() {
                 homeRoster={homeRoster}
                 awayRoster={awayRoster}
                 teamColors={teamColors}
-                onSetRoster={(team) => { setShowRosterSetup(true); setShowRosterSetupTeam(team); setShowLineupModal(false); }}
+                onSetRoster={(team) => {
+                    if (isLineupSetupLocked(matchData.currentSet, lineupSetup, team, 'rosterLocked')) return;
+                    setShowRosterSetup(true);
+                    setShowRosterSetupTeam(team);
+                    setShowLineupModal(false);
+                }}
                 onColorChange={handleTeamColorChange}
+                lineupSetup={lineupSetup}
+                signatures={lineupSetup.approvals || {}}
+                onSignaturesChange={handleRosterApproval}
                 score={score}
                 currentSet={matchData.currentSet}
             />

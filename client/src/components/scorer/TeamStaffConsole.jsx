@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X } from 'lucide-react';
-import client, { api } from '../../api';
+import client, { api, getSocketServerUrl } from '../../api';
 import Swal from 'sweetalert2';
-import { isPlayerLibero, filterActivePlayers } from '../../utils/playerFilters';
+import { isPlayerLibero, filterActivePlayers, getPlayerId, getPlayerNumber as readPlayerNumber } from '../../utils/playerFilters';
 import { getAuthToken, getStoredUser } from '../../authStorage';
 
 // Normalize and compare gender values for roster filtering
@@ -22,11 +22,6 @@ const matchesMatchGender = (player, matchGender) => {
     return true;
 };
 const filterByMatchGender = (roster, matchGender) => Array.isArray(roster) ? roster.filter(p => matchesMatchGender(p, matchGender)) : [];
-const getSocketServerUrl = () => {
-    const apiUrl = import.meta.env.VITE_API_URL;
-    if (!apiUrl) return `${window.location.protocol}//${window.location.hostname}:3000`;
-    return apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-};
 
 const getLiberoTag = (p) => {
     if (!p) return 'L';
@@ -37,16 +32,11 @@ const getLiberoTag = (p) => {
     return 'L';
 };
 
-const getPlayerId = (player) => {
-    if (player === undefined || player === null) return null;
-    if (typeof player !== 'object') return player;
-    return player.id ?? player.player_id ?? player.playerId ?? null;
-};
-
-const getPlayerNumber = (player) => {
-    if (!player || typeof player !== 'object') return '';
-    return player.number ?? player.entry_number ?? player.shirt_number ?? player.jersey_number ?? '';
-};
+const getPlayerNumber = (player) => readPlayerNumber(player, {
+    fields: ['number', 'entry_number', 'shirt_number', 'jersey_number'],
+    fallback: '',
+    preserveEmpty: true
+});
 
 const samePlayer = (a, b) => {
     const aId = getPlayerId(a);
@@ -285,6 +275,24 @@ export default function TeamStaffConsole() {
                 const reqRes = await client.get(`/match/${matchId}/requests/pending`);
                 const myPendingLineup = reqRes.data.find(r => String(r.team_id) === String(user.team_id) && r.request_type === 'LINEUP');
                 setHasPendingLineup(!!myPendingLineup);
+                if (myPendingLineup) {
+                    let pendingLineupDetails = myPendingLineup.details || {};
+                    if (typeof pendingLineupDetails === 'string') {
+                        try {
+                            pendingLineupDetails = JSON.parse(pendingLineupDetails || '{}');
+                        } catch {
+                            pendingLineupDetails = {};
+                        }
+                    }
+                    const pendingPlayers = Array.isArray(pendingLineupDetails.lineup)
+                        ? [...pendingLineupDetails.lineup]
+                            .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+                            .map(player => ({ id: player.player_id ?? player.id, ...player }))
+                        : [];
+                    if (pendingPlayers.length > 0) {
+                        setLineup(hydrateLineupPlayers(pendingPlayers, currentRoster));
+                    }
+                }
 
                 const myPendingSub = reqRes.data.find(r => String(r.team_id) === String(user.team_id) && r.request_type === 'SUBSTITUTION');
                 setHasPendingSubstitution(!!myPendingSub);
@@ -345,7 +353,7 @@ export default function TeamStaffConsole() {
     useEffect(() => {
         if (!teamId || !teamSide) return;
 
-        const socketUrl = getSocketServerUrl();
+        const socketUrl = getSocketServerUrl(`${window.location.protocol}//${window.location.hostname}:3000`);
         const socket = io(socketUrl, {
             auth: { token: getAuthToken() },
             withCredentials: true
@@ -953,6 +961,16 @@ export default function TeamStaffConsole() {
     };
 
     const handleClearConfirmedLineup = async () => {
+        if (!hasPendingLineup || !activeRequestIdRef.current) {
+            await Swal.fire({
+                icon: 'info',
+                title: 'Lineup already approved',
+                text: 'Contact the scorer if the approved lineup needs to be changed.',
+                confirmButtonColor: '#2563eb'
+            });
+            return;
+        }
+
         const result = await Swal.fire({
             title: 'ยืนยันการล้างข้อมูล Lineup?',
             text: 'ระบบจะลบรายชื่อผู้เล่นตัวจริงที่บันทึกไว้ในเซตนี้ และจะไม่ส่งคำขอไปยังโต๊ะบันทึก',
@@ -966,23 +984,11 @@ export default function TeamStaffConsole() {
 
         if (result.isConfirmed) {
             try {
-                const currentSetNum = matchData.current_set || matchData.currentSet || 1;
-                await client.delete(`/match/${matchId}/lineup/${teamInfo.id}?set=${currentSetNum}`);
-                
-                // Clear state locally
+                await client.put(`/match/${matchId}/requests/${activeRequestIdRef.current}`, { status: 'REJECTED' });
                 setLineup([]);
                 setTempLineup(Array(6).fill(null));
                 setSelectedPlayerForLineup(null);
-
-                // Cancel pending LINEUP request if exists
-                if (activeRequestIdRef.current && hasPendingLineup) {
-                    try {
-                        await client.put(`/match/${matchId}/requests/${activeRequestIdRef.current}`, { status: 'REJECTED' });
-                    } catch {
-                        // ignore
-                    }
-                    activeRequestIdRef.current = null;
-                }
+                activeRequestIdRef.current = null;
                 setHasPendingLineup(false);
 
                 Swal.fire({
@@ -1028,13 +1034,6 @@ export default function TeamStaffConsole() {
                 is_captain: p.is_captain || p.role === 'C' || false,
                 is_libero: isPlayerLibero(p)
             }));
-
-            await api.saveLineup(matchId, {
-                team_id: teamInfo.id,
-                set_number: targetSetNumber,
-                player_positions: tempLineup,
-                players
-            });
 
             const res = await client.post(`/match/${matchId}/request`, {
                 team_id: teamInfo.id,

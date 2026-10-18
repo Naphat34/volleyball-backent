@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLogger');
+const { roleHasPermission } = require('../config/permissions');
 
 // Helper: สลับทีมสำหรับ Round Robin
 const rotateTeams = (teams) => {
@@ -116,28 +117,28 @@ const parseFieldValue = (field, val) => {
     if (field === 'start_time') {
         return normalizeTimeValue(val);
     }
-    
+
     // Integer fields
     if ([
-        'home_team_id', 'away_team_id', 'competition_id', 'match_number', 
-        'winner_team_id', 'stadium_id', 'team_a_score', 'team_b_score', 
-        'referee_1_id', 'referee_2_id', 'scorer_id', 'assistant_scorer_id', 
-        'line_judge_1_id', 'line_judge_2_id', 'line_judge_3_id', 'line_judge_4_id', 
+        'home_team_id', 'away_team_id', 'competition_id', 'match_number',
+        'winner_team_id', 'stadium_id', 'team_a_score', 'team_b_score',
+        'referee_1_id', 'referee_2_id', 'scorer_id', 'assistant_scorer_id',
+        'line_judge_1_id', 'line_judge_2_id', 'line_judge_3_id', 'line_judge_4_id',
         'category', 'age_group_id', 'first_serve_team_id', 'left_side_team_id'
     ].includes(field)) {
         return parseInt(val, 10);
     }
-    
+
     // JSON / JSONB fields
     if (['set_scores', 'home_lineup', 'away_lineup', 'live_state', 'match_state'].includes(field)) {
         return parseNullableJson(val);
     }
-    
+
     // Boolean fields
     if (field === 'has_challenge') {
         return parseNullableBool(val);
     }
-    
+
     // Text / Character fields
     return val;
 };
@@ -207,19 +208,19 @@ module.exports = {
     async getAllMatches(req, res) {
         try {
             const result = await db.query(`
-                SELECT 
-                    m.id, m.competition_id, c.title as competition_name, m.round_name, 
+                SELECT
+                    m.id, m.competition_id, c.title as competition_name, m.round_name,
                     m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
                     COALESCE(ms.away_set_score, m.away_set_score) AS away_set_score,
                     COALESCE(ms.set_scores, m.set_scores) AS set_scores,
                     m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, 5) as max_sets,
-                    
+
                     m.home_team_id,
                     t1.name as home_team, t1.code as home_team_code,
                     t1.logo_url as home_team_logo_url,
-                    
+
                     m.away_team_id,
                     t2.name as away_team, t2.code as away_team_code,
                     t2.logo_url as away_team_logo_url
@@ -241,7 +242,7 @@ module.exports = {
                     FROM match_sets
                     GROUP BY match_id
                 ) ms ON ms.match_id = m.id
-                ORDER BY 
+                ORDER BY
                     m.start_time DESC,
                     m.id DESC
             `);
@@ -301,18 +302,18 @@ module.exports = {
         const { competitionId } = req.params;
         try {
             const result = await db.query(`
-                SELECT 
-                    m.id, m.competition_id, m.round_name, 
+                SELECT
+                    m.id, m.competition_id, m.round_name,
                     m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
                     m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, 5) as max_sets,
-                    
+
                     m.home_team_id,
                     t1.name as home_team, t1.code as home_team_code,
                     t1.name as team_a_name, t1.code as team_a_code,
                     t1.logo_url as home_team_logo_url,
-                    
+
                     m.away_team_id,
                     t2.name as away_team, t2.code as away_team_code,
                     t2.name as team_b_name, t2.code as team_b_code,
@@ -336,8 +337,8 @@ module.exports = {
                     GROUP BY match_id
                 ) ms ON ms.match_id = m.id
                 WHERE m.competition_id = ?
-                ORDER BY 
-                    CASE 
+                ORDER BY
+                    CASE
                         WHEN m.match_number REGEXP '^[0-9]+$' THEN CAST(m.match_number AS SIGNED)
                         ELSE 9999
                     END ASC,
@@ -391,7 +392,7 @@ module.exports = {
             res.status(500).json({ error: err.message });
         }
     },
-    
+
     // ==========================================
     // 2. CREATE: สร้างแมตช์ใหม่ (Manual)
     // ==========================================
@@ -614,7 +615,7 @@ module.exports = {
             for (const match of fixtures) {
                 // แก้ไข: ใช้ set_scores (มี s) ให้ตรงกับฟังก์ชันอื่น
                 await db.query(
-                    `INSERT INTO matches (competition_id, home_team_id, away_team_id, round_name, match_number, status, home_set_score, away_set_score, set_scores, age_group_id, category, gender) 
+                    `INSERT INTO matches (competition_id, home_team_id, away_team_id, round_name, match_number, status, home_set_score, away_set_score, set_scores, age_group_id, category, gender)
                      VALUES (?, ?, ?, ?, ?, 'scheduled', 0, 0, '[]', ?, ?, ?)`,
                     [
                         competitionId,
@@ -640,10 +641,10 @@ module.exports = {
             await client.query('BEGIN'); // เริ่ม Transaction
 
             const { id } = req.params; // matchId
-            const { 
-                home_set_score, 
-                away_set_score, 
-                status,       
+            const {
+                home_set_score,
+                away_set_score,
+                status,
                 set_scores          // JSON string ของคะแนนเซต: '["25-20", "25-22"]'
             } = req.body;
 
@@ -674,7 +675,7 @@ module.exports = {
                     : null;
 
             await client.query(`
-                UPDATE matches 
+                UPDATE matches
                 SET home_set_score = ?, away_set_score = ?, set_scores = ?, status = ?, winner_team_id = ?
                 WHERE id = ?
             `, [homeSetScore, awaySetScore, storedSetScores, status, winnerTeamId, id]);
@@ -721,7 +722,7 @@ module.exports = {
     async saveMatchAction(req, res) {
         try {
             const { match_id, set_number, team_id, player_id, skill, grade, score_home, score_away, description } = req.body;
-            
+
             await db.query(
                 `INSERT INTO match_actions (match_id, set_number, team_id, player_id, skill, grade, score_home, score_away, description, created_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
@@ -731,7 +732,7 @@ module.exports = {
         } catch (err) {
             console.error("Save Action Error:", err);
             // ไม่ return 500 เพื่อให้เกมดำเนินต่อได้แม้ log พลาด (แต่ควรแก้ DB ให้รองรับ)
-            res.status(200).json({ error: "Log failed but ignored" }); 
+            res.status(200).json({ error: "Log failed but ignored" });
         }
     },
 
@@ -744,11 +745,9 @@ module.exports = {
             // { match_id, team_id, starters, libero_id }
             const { match_id, team_id, starters, libero_id } = req.body;
 
-            console.log("Saving lineup params:", { match_id, team_id });
-
             // 2. ใช้ match_id ในการค้นหา
             const matchRes = await db.query('SELECT home_team_id, away_team_id FROM matches WHERE id = ?', [match_id]);
-            
+
             if (matchRes.rows.length === 0) {
                 return res.status(404).json({ message: 'Match not found' });
             }
@@ -788,13 +787,35 @@ module.exports = {
     async getPendingRequests(req, res) {
         try {
             const { matchId } = req.params;
+            const isScorer = roleHasPermission(req.user?.role, 'match.score');
+            const userTeamId = req.user?.team_id;
+
+            if (!isScorer) {
+                if (!userTeamId) {
+                    return res.status(403).json({ error: 'Your account is not linked to a team' });
+                }
+
+                const matchRes = await db.query(
+                    'SELECT home_team_id, away_team_id FROM matches WHERE id = ?',
+                    [matchId]
+                );
+                const match = matchRes.rows[0];
+                if (!match) return res.status(404).json({ error: 'Match not found' });
+                if (String(match.home_team_id) !== String(userTeamId) && String(match.away_team_id) !== String(userTeamId)) {
+                    return res.status(403).json({ error: 'Your team is not part of this match' });
+                }
+            }
+
+            const params = [matchId];
+            const teamScope = isScorer ? '' : ' AND mr.team_id = ?';
+            if (!isScorer) params.push(userTeamId);
             const result = await db.query(
-                `SELECT mr.*, t.name AS team_name 
+                `SELECT mr.*, t.name AS team_name
                  FROM match_requests mr
                  LEFT JOIN teams t ON mr.team_id = t.id
-                 WHERE mr.match_id = ? AND mr.status = 'PENDING' 
+                 WHERE mr.match_id = ? AND mr.status = 'PENDING'${teamScope}
                  ORDER BY mr.id ASC`,
-                [matchId]
+                params
             );
             res.json(result.rows.map(row => ({
                 ...row,
@@ -841,7 +862,7 @@ module.exports = {
 
             // ดึงข้อมูลคำขอตัวเต็มที่รวมชื่อทีม (team_name) ด้วย
             const newRequestRes = await db.query(
-                `SELECT mr.*, t.name AS team_name 
+                `SELECT mr.*, t.name AS team_name
                  FROM match_requests mr
                  LEFT JOIN teams t ON mr.team_id = t.id
                  WHERE mr.id = ?`,
@@ -869,28 +890,48 @@ module.exports = {
         try {
             const { matchId, requestId } = req.params;
             const { status, details } = req.body;
-            
+            const isScorer = roleHasPermission(req.user?.role, 'match.score');
+
+            if (!isScorer) {
+                if (status !== 'REJECTED' || details !== undefined || !req.user?.team_id) {
+                    return res.status(403).json({ error: 'Team staff can only cancel their own pending requests' });
+                }
+
+                const requestRes = await db.query(
+                    'SELECT team_id, status FROM match_requests WHERE id = ? AND match_id = ?',
+                    [requestId, matchId]
+                );
+                const pendingRequest = requestRes.rows[0];
+                if (!pendingRequest) return res.status(404).json({ error: 'Request not found' });
+                if (String(pendingRequest.team_id) !== String(req.user.team_id)) {
+                    return res.status(403).json({ error: 'You can only cancel your own team requests' });
+                }
+                if (String(pendingRequest.status).toUpperCase() !== 'PENDING') {
+                    return res.status(409).json({ error: 'Only pending requests can be cancelled' });
+                }
+            }
+
             let query = 'UPDATE match_requests SET ';
             const updates = [];
             const params = [];
-            
+
             if (status !== undefined) {
                 params.push(status);
                 updates.push('status = ?');
             }
-            
+
             if (details !== undefined) {
                 params.push(details ? JSON.stringify(details) : null);
                 updates.push('details = ?');
             }
-            
+
             if (updates.length === 0) {
                 return res.json({ success: true, message: "No updates provided" });
             }
-            
+
             params.push(requestId, matchId);
             query += updates.join(', ') + ` WHERE id = ? AND match_id = ?`;
-            
+
             const result = await db.query(query, params);
             const affectedRows = result.affectedRows ?? result.rowCount ?? 0;
             if (affectedRows === 0) {
@@ -899,7 +940,7 @@ module.exports = {
 
             // ดึงข้อมูลคำขอตัวเต็มพร้อมชื่อทีม
             const updatedRequestRes = await db.query(
-                `SELECT mr.*, t.name AS team_name 
+                `SELECT mr.*, t.name AS team_name
                  FROM match_requests mr
                  LEFT JOIN teams t ON mr.team_id = t.id
                  WHERE mr.id = ?`,
@@ -933,7 +974,7 @@ module.exports = {
             const setNum = req.query.set ? parseInt(req.query.set, 10) : 1;
             const result = await db.query(
                 `SELECT player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6
-                 FROM match_lineups 
+                 FROM match_lineups
                  WHERE match_id = ? AND team_id = ? AND set_number = ?`,
                 [matchId, teamId, setNum]
             );
@@ -961,7 +1002,7 @@ module.exports = {
             const { matchId, teamId } = req.params;
             const setNum = req.query.set ? parseInt(req.query.set, 10) : 1;
             await db.query(
-                `DELETE FROM match_lineups 
+                `DELETE FROM match_lineups
                  WHERE match_id = ? AND team_id = ? AND set_number = ?`,
                 [matchId, teamId, setNum]
             );
@@ -971,4 +1012,4 @@ module.exports = {
             res.status(500).json({ error: err.message });
         }
     }
-}; 
+};

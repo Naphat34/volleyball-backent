@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useNavigate, Link } from 'react-router-dom';
-import Swal from 'sweetalert2'; 
-import { User, Lock, Eye, EyeOff, LogIn, Trophy } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import Logo from '../assets/img/Logo1.png';
+import Logo from '../assets/img/Logo_Phatthalung.png';
 import { clearAuthSession, getAuthToken, getStoredUser, setAuthSession } from '../authStorage';
 
 export default function Login() {
@@ -21,7 +21,9 @@ export default function Login() {
     if (token && user) {
       if (user.role === 'admin') {
         navigate('/admin');
-      } else if (user.role === 'score') {
+      } else if (['score', 'scorer', 'statistician'].includes(user.role)) {
+        navigate('/adminscorer');
+      } else if (user.role === 'referee') {
         navigate('/adminscorer');
       } else if (user.team_id) {
         navigate('/team-dashboard');
@@ -49,6 +51,7 @@ export default function Login() {
 
       const { user, token } = response.data;
       const { role, status, team_id } = user;
+      const normalizedStatus = String(status || '').trim().toLowerCase();
 
       setAuthSession({ token, user });
 
@@ -66,7 +69,7 @@ export default function Login() {
       }
 
       // เพิ่ม redirect สำหรับ scorer
-      if (role === "score") {
+      if (["score", "scorer", "statistician"].includes(role)) {
         await Swal.fire({
           icon: "success",
           title: t('login.successTitle'),
@@ -78,7 +81,7 @@ export default function Login() {
         return;
       }
 
-      if (status !== "approved") {
+      if (normalizedStatus !== 'active') {
         await Swal.fire({
           icon: "warning",
           title: t('login.pendingTitle'),
@@ -97,6 +100,11 @@ export default function Login() {
         timer: 1500,
         showConfirmButton: false,
       });
+
+      if (role === 'referee') {
+        navigate('/adminscorer');
+        return;
+      }
 
       if (team_id) {
         navigate("/team-dashboard");
@@ -143,16 +151,16 @@ export default function Login() {
       {/* Main Container */}
       <div className="flex-grow flex items-center justify-center px-4 py-12 relative z-10">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_rgba(30,64,175,0.3)] border border-white/20 p-8 md:p-10 transition-all duration-300 hover:shadow-[0_25px_60px_rgba(30,64,175,0.4)]">
-          
+
           {/* Logo & Header */}
-          <div className="text-center mb-8">            
-            <img src={Logo} alt="Logo" className='w-[300px] mx-auto mb-4'/>           
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">
-              {t('login.title')}
-            </h1>
-            <p className="text-sm text-gray-500 mt-2 font-medium">
-              {t('login.subtitle')}
-            </p>
+          <div className="mb-8">
+            <div className="mb-6 flex items-center justify-center gap-4">
+              <img src={Logo} alt="Phatthalung Volleyball Club" className="h-24 w-16 shrink-0 object-contain" />
+              <div className="text-left">
+                <p className="text-xl font-extrabold tracking-tight text-slate-950">Volley Manager</p>
+                <p className="mt-1 text-sm font-semibold text-slate-600">ระบบจัดการแข่งขันวอลเลย์บอล</p>
+              </div>
+            </div>
           </div>
 
           {/* Form */}

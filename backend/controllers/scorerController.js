@@ -1325,7 +1325,7 @@ module.exports = {
                     t1.name as home_team_name, t1.code as home_team_code, t1.logo_url as home_logo_url,
                     t2.name as away_team_name, t2.code as away_team_code, t2.logo_url as away_logo_url,
                     c.title as competition_name, c.title as competition_title, 
-                    c.gender as competition_gender, c.sport as competition_sport, c.sport_type as competition_sport_type,
+                    c.gender as competition_gender, c.sport as competition_sport,
                     c.start_date as start_date, c.end_date as end_date,
                     COALESCE(c.max_sets, 5) as max_sets,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
@@ -1381,11 +1381,7 @@ module.exports = {
                 'p.id',
                 'p.team_id',
                 'p.first_name',
-                'p.last_name',
-                "COALESCE((SELECT GROUP_CONCAT(pse.sport_type ORDER BY pse.sport_type SEPARATOR ',') FROM player_sport_eligibilities pse WHERE pse.player_id = p.id), 'indoor') as sport_types",
-                "COALESCE(c.sport_type, 'indoor') as registered_sport_type",
-                "CASE WHEN FIND_IN_SET(CONVERT(COALESCE(c.sport_type, 'indoor') USING utf8mb4) COLLATE utf8mb4_general_ci, CONVERT(COALESCE((SELECT GROUP_CONCAT(pse.sport_type ORDER BY pse.sport_type SEPARATOR ',') FROM player_sport_eligibilities pse WHERE pse.player_id = p.id), 'indoor') USING utf8mb4) COLLATE utf8mb4_general_ci) > 0 THEN 1 ELSE 0 END as sport_eligible",
-                `COALESCE(${entryNumberExpr}, p.number) as number`,
+                'p.last_name',                `COALESCE(${entryNumberExpr}, p.number) as number`,
                 'p.gender',
                 'te.age_group_id as entry_age_group_id',
                 'te.gender as entry_gender',
@@ -1399,11 +1395,7 @@ module.exports = {
                 'p.id',
                 'p.team_id',
                 'p.first_name',
-                'p.last_name',
-                "COALESCE((SELECT GROUP_CONCAT(pse.sport_type ORDER BY pse.sport_type SEPARATOR ',') FROM player_sport_eligibilities pse WHERE pse.player_id = p.id), 'indoor') as sport_types",
-                'NULL as registered_sport_type',
-                'NULL as sport_eligible',
-                'p.number',
+                'p.last_name',                'p.number',
                 'p.gender',
                 'NULL as entry_age_group_id',
                 'p.gender as entry_gender',
@@ -1471,24 +1463,17 @@ module.exports = {
                 rows: buildPlayersPayload(awayPlayersQuery.rows || [])
             };
 
-            // 3. ดึงสตาฟทีม
-            const getEntryStaffForMatchTeam = async (teamId) => db.query(`
-                SELECT ts.id, ts.team_id, ts.first_name, ts.last_name, ts.role, ts.gender
-                FROM team_entry_staff tes
-                JOIN team_entries te ON te.id = tes.team_entry_id
-                JOIN competitions c ON c.id = te.competition_id
-                JOIN team_staff ts ON ts.id = tes.staff_id
-                WHERE te.competition_id = ?
-                  AND te.team_id = ?
-                  AND COALESCE(te.age_group_id, c.age_group_id) <=> ?
-                  AND LOWER(CONVERT(COALESCE(te.gender, c.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
-                      = LOWER(CONVERT(COALESCE(?, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
-                  AND ts.team_id = te.team_id
-                ORDER BY ts.role ASC, ts.first_name ASC, ts.last_name ASC
-            `, [match.competition_id, teamId, match.match_age_group_id, match.competition_gender]);
+            // Staff records belong to the team. Return the complete team list instead of
+            // requiring a team_entry_staff assignment for this competition/category.
+            const getTeamStaffForMatch = async (teamId) => db.query(`
+                SELECT id, team_id, first_name, last_name, role, gender
+                FROM team_staff
+                WHERE team_id = ?
+                ORDER BY role ASC, first_name ASC, last_name ASC, id ASC
+            `, [teamId]);
 
-            const homeStaff = await getEntryStaffForMatchTeam(match.home_team_id);
-            const awayStaff = await getEntryStaffForMatchTeam(match.away_team_id);
+            const homeStaff = await getTeamStaffForMatch(match.home_team_id);
+            const awayStaff = await getTeamStaffForMatch(match.away_team_id);
 
             res.json({
                 match,

@@ -24,7 +24,7 @@ const MatchDetail = lazy(() => import('./components/MatchDetail'));
 import { getAuthToken, getStoredUser } from './authStorage';
 
 // import App (หน้าเดิมที่เป็น Scoreboard) ไว้ใช้ทีหลัง
-// import ScoreboardApp from './App_Original'; 
+// import ScoreboardApp from './App_Original';
 
 // Component ช่วยเช็คว่า Login หรือยัง (Private Route)
 const PrivateRoute = ({ children, roleRequired }) => {
@@ -36,7 +36,8 @@ const PrivateRoute = ({ children, roleRequired }) => {
   if (!token || !role) return <Navigate to="/login" />;
 
   // ถ้าไม่ใช่ Role ที่ต้องการ (เช่น Admin) ให้เด้งไป Login
-  if (roleRequired && role !== roleRequired) return <Navigate to="/login" />;
+  const allowedRoles = Array.isArray(roleRequired) ? roleRequired : roleRequired ? [roleRequired] : [];
+  if (allowedRoles.length > 0 && !allowedRoles.includes(role)) return <Navigate to="/login" />;
 
   return children;
 };
@@ -51,7 +52,7 @@ function App() {
         <Route
           path="/adminscorer"
           element={
-            <PrivateRoute roleRequired="score">
+            <PrivateRoute roleRequired={['score', 'scorer', 'statistician', 'referee']}>
               <AdminScorer />
             </PrivateRoute>
           }
@@ -60,8 +61,8 @@ function App() {
         <Route
           path="/admin/champion/:competitionId"
           element={
-            <PrivateRoute roleRequired="score">
-              <MatchDetail /> 
+            <PrivateRoute roleRequired={['score', 'scorer', 'statistician']}>
+              <MatchDetail />
             </PrivateRoute>
           }
         />
@@ -106,7 +107,7 @@ function App() {
         <Route
           path="/scorer/:matchId"
           element={
-            <PrivateRoute>
+            <PrivateRoute roleRequired={['admin', 'score', 'scorer', 'statistician']}>
               <ScorerConsole />
             </PrivateRoute>
           }
@@ -127,14 +128,14 @@ function App() {
         <Route path="/roster-verification/:matchId" element={<RosterVerification />} />
         <Route path="/match/:matchId" element={<MatchDetail />} />
 
-        {/* ✅ ย้ายมาไว้ตรงนี้ครับ (ต้องอยู่ก่อนตัว * เสมอ) */}
+        {/* ย้ายมาไว้ตรงนี้ครับ (ต้องอยู่ก่อนตัว * เสมอ) */}
         <Route path="/stats" element={<PublicStatistics />} />
-        <Route path="/standings" element={<PublicStandings />} /> {/* ✅ เพิ่ม Route นี้ */}
-        <Route path="/teams" element={<PublicTeams />} /> {/* ✅ เพิ่ม Route นี้ */}
+        <Route path="/standings" element={<PublicStandings />} />
+        <Route path="/teams" element={<PublicTeams />} />
         <Route path="/matches" element={<PublicMatches />} />
         <Route path="/match-centre/:matchId" element={<MatchCentrePage />} />
 
-        {/* ⛔️ ตัวดักจับ URL ผิด (Catch-all) ต้องเอาไว้ล่างสุดเสมอ! */}
+        {/* ตัวดักจับ URL ผิด (Catch-all) ต้องเอาไว้ล่างสุดเสมอ! */}
         <Route path="*" element={<Navigate to="/login" replace />} />
 
       </Routes>

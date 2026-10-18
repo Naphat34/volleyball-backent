@@ -199,14 +199,9 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
         return fallbackPlayers;
     };
 
-    const buildStaffForCompetition = (competition) => {
-        const entryId = Number(competition.team_entry_id);
-        if (!Number.isFinite(entryId)) return [];
-
-        return (staff || []).filter((staffMember) => (
-            (staffMember.assigned_entries || []).some((entry) => Number(entry.team_entry_id) === entryId)
-        ));
-    };
+    // Team staff belong to the user's single registered team, so include the
+    // complete team list in every O-2 form instead of filtering by roster entry.
+    const buildStaffForCompetition = () => (Array.isArray(staff) ? staff : []);
 
     const buildFormData = (competition) => {
         const gender = normalizeGender(competition.gender || competition.competition_gender || competition.entry_gender);
@@ -235,11 +230,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
     };
 
     const selectedForms = selectedGroup?.items.map(buildFormData) || [];
-    const staffAssignmentKey = JSON.stringify((staff || []).map((staffMember) => ({
-        id: staffMember.id,
-        entries: (staffMember.assigned_entries || []).map((entry) => entry.team_entry_id)
-    })));
-    const pdfKey = `${selectedGroupKey}_${players.length}_${staff.length}_${staffAssignmentKey}_${JSON.stringify(teamInfo)}_${JSON.stringify(Object.keys(entryRosterById))}`;
+    const pdfKey = `${selectedGroupKey}_${players.length}_${staff.length}_${JSON.stringify(teamInfo)}_${JSON.stringify(Object.keys(entryRosterById))}`;
 
     return (
         <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700">

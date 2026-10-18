@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import client, { api } from '../api';
 import { Trophy, Calendar, MapPin, Edit2, Trash2, PlusCircle, X,  Users, Shield, Download, Upload, Image as ImageIcon, Layers } from 'lucide-react';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
@@ -8,31 +8,10 @@ import MatchesManager from './MatchesManager';
 
 const genderOrder = { Male: 1, Female: 2, Mixed: 3 };
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-const SPORT_TYPE_OPTIONS = [
-    { value: 'indoor', label: 'Indoor Volleyball', sport: 'Volleyball', max_sets: 3, max_players: 14 }
-];
-const ATHLETE_SPORT_POLICY_OPTIONS = [
-    { value: 'single_sport', label: 'One sport only' }
-];
 const DEFAULT_COMP_FORM = {
     name: '', start_date: '', end_date: '', location: '', stadium_id: '',
-    sport: 'Volleyball', sport_type: 'indoor', gender: '', age_group: '',
-    athlete_sport_policy: 'single_sport', status: 'open', max_sets: 3, max_players: 14, logo_url: ''
-};
-
-const getSportTypeMeta = (sportType) => (
-    SPORT_TYPE_OPTIONS.find(option => option.value === sportType) || SPORT_TYPE_OPTIONS[0]
-);
-
-const applySportTypeDefaults = (form, sportType) => {
-    const meta = getSportTypeMeta(sportType);
-    return {
-        ...form,
-        sport_type: meta.value,
-        sport: meta.sport,
-        max_sets: meta.max_sets,
-        max_players: meta.max_players
-    };
+    sport: 'Volleyball', gender: '', age_group: '',
+status: 'open', max_sets: 3, max_players: 14, logo_url: ''
 };
 
 const readImageFileAsDataUrl = (file) => new Promise((resolve, reject) => {
@@ -69,8 +48,8 @@ const getAgeGroupLabel = (competition) => (
 
 const getGenderLabel = (gender) => {
     const normalized = String(gender || 'Mixed').trim();
-    if (/^(male|men|m|ชาย)$/i.test(normalized)) return 'Male';
-    if (/^(female|women|f|หญิง)$/i.test(normalized)) return 'Female';
+    if (/^(male|men|m|เธเธฒเธข)$/i.test(normalized)) return 'Male';
+    if (/^(female|women|f|เธซเธเธดเธ)$/i.test(normalized)) return 'Female';
     return normalized || 'Mixed';
 };
 
@@ -202,7 +181,7 @@ export default function CompetitionsTab() {
 
         try {
             const dataUrl = await readImageFileAsDataUrl(file);
-            const res = await api.uploadImage(dataUrl);
+            const res = await api.uploadImage(dataUrl, 'competition_logo');
             setCompForm(prev => ({ ...prev, logo_url: res.data.url }));
         } catch (error) {
             Toast.fire({ icon: 'error', title: error.response?.data?.error || error.message || 'Image upload failed' });
@@ -219,8 +198,6 @@ export default function CompetitionsTab() {
             location: c.location || '',
             stadium_id: c.stadium_id || '',
             sport: c.sport || 'Volleyball',
-            sport_type: 'indoor',
-            athlete_sport_policy: c.athlete_sport_policy || 'single_sport',
             gender: c.gender || '',
             age_group: c.age_group_id || '',
             status: c.status || 'open',
@@ -293,10 +270,10 @@ export default function CompetitionsTab() {
 
     if (managingMatchesComp) {
         return (
-            <MatchesManager 
-                competitionId={managingMatchesComp.id} 
-                competition={managingMatchesComp} 
-                onClose={() => setManagingMatchesComp(null)} 
+            <MatchesManager
+                competitionId={managingMatchesComp.id}
+                competition={managingMatchesComp}
+                onClose={() => setManagingMatchesComp(null)}
             />
         );
     }
@@ -349,7 +326,6 @@ export default function CompetitionsTab() {
                                             <th className="px-4 py-3">Age Group</th>
                                             <th className="px-4 py-3">Gender</th>
                                             <th className="px-4 py-3">Status</th>
-                                            <th className="px-4 py-3">Sport</th>
                                             <th className="px-4 py-3">Teams</th>
                                             <th className="px-4 py-3">Start Date</th>
                                             <th className="px-4 py-3">Stadium</th>
@@ -400,12 +376,7 @@ export default function CompetitionsTab() {
                                                             </span>
                                                         </button>
                                                     </td>
-                                                    <td className="px-4 py-3 text-gray-600">
-                                                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                                            <Shield size={14} className="text-blue-500" />
-                                                            {getSportTypeMeta(c.sport_type || 'indoor').label}
-                                                        </span>
-                                                    </td>
+
                                                     <td className="px-4 py-3 text-gray-600">
                                                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                                                             <Users size={14} className="text-gray-400" />
@@ -517,32 +488,6 @@ export default function CompetitionsTab() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="block text-sm font-medium text-gray-700">Sport Type</label>
-                                    <select
-                                        value={compForm.sport_type || 'indoor'}
-                                        onChange={e => setCompForm(prev => applySportTypeDefaults(prev, e.target.value))}
-                                        className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                    >
-                                        {SPORT_TYPE_OPTIONS.map(option => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-medium text-gray-700">Athlete Policy</label>
-                                    <select
-                                        value={compForm.athlete_sport_policy || 'single_sport'}
-                                        onChange={e => setCompForm({ ...compForm, athlete_sport_policy: e.target.value })}
-                                        className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                    >
-                                        {ATHLETE_SPORT_POLICY_OPTIONS.map(option => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
                                     <label className="block text-sm font-medium text-gray-700">Age Groups</label>
                                     {editingCompId ? (
                                         <select required value={compForm.age_group} onChange={e => setCompForm({ ...compForm, age_group: e.target.value })} className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
@@ -586,24 +531,24 @@ export default function CompetitionsTab() {
                                         const currentGenders = compForm.gender ? compForm.gender.split(',').filter(x => x) : [];
                                         const isSelected = currentGenders.includes(g);
                                         return (
-                                            <button 
-                                                key={g} 
-                                                type="button" 
+                                            <button
+                                                key={g}
+                                                type="button"
                                                 onClick={() => {
                                                     if (editingCompId) {
                                                         // Single-select when editing (cannot have multiple genders for an existing category)
                                                         setCompForm({ ...compForm, gender: g });
                                                     } else {
                                                         // Multi-select when creating
-                                                        const newGenders = isSelected 
-                                                            ? currentGenders.filter(x => x !== g) 
+                                                        const newGenders = isSelected
+                                                            ? currentGenders.filter(x => x !== g)
                                                             : [...currentGenders, g];
                                                         setCompForm({ ...compForm, gender: newGenders.join(',') });
                                                     }
-                                                }} 
+                                                }}
                                                 className={`flex-1 py-2 text-sm font-medium rounded-md border transition-all ${
-                                                    isSelected 
-                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+                                                    isSelected
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                                                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                                                 }`}
                                             >
@@ -622,8 +567,8 @@ export default function CompetitionsTab() {
                                     className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all mb-4"
                                     required
                                 >
-                                    <option value={3}>Best of 3 - ชนะ 2 ใน 3 เซต</option>
-                                    <option value={5}>Best of 5 - ชนะ 3 ใน 5 เซต</option>
+                                    <option value={3}>Best of 3 - เธเธเธฐ 2 เนเธ 3 เน€เธเธ•</option>
+                                    <option value={5}>Best of 5 - เธเธเธฐ 3 เนเธ 5 เน€เธเธ•</option>
                                 </select>
                                 <Input label="Max Players" type="number" value={compForm.max_players} onChange={e => setCompForm({ ...compForm, max_players: parseInt(e.target.value, 10) || '' })} />
                             </div>
@@ -712,12 +657,12 @@ export default function CompetitionsTab() {
                                                 <button
                                                     onClick={async () => {
                                                         const result = await Swal.fire({
-                                                            title: 'ลบทีมสโมสร?',
-                                                            text: 'การลบทีมจะลบข้อมูลนักกีฬาและเจ้าหน้าที่ทั้งหมดของทีมนี้ด้วยถาวร',
+                                                            title: 'เธฅเธเธ—เธตเธกเธชเนเธกเธชเธฃ?',
+                                                            text: 'เธเธฒเธฃเธฅเธเธ—เธตเธกเธเธฐเธฅเธเธเนเธญเธกเธนเธฅเธเธฑเธเธเธตเธฌเธฒเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธ—เธฑเนเธเธซเธกเธ”เธเธญเธเธ—เธตเธกเธเธตเนเธ”เนเธงเธขเธ–เธฒเธงเธฃ',
                                                             icon: 'warning',
                                                             showCancelButton: true,
                                                             confirmButtonColor: '#ef4444',
-                                                            confirmButtonText: 'ยืนยันการลบ'
+                                                            confirmButtonText: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธ'
                                                         });
                                                         if (result.isConfirmed) {
                                                             try {

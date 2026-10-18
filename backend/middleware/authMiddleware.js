@@ -5,7 +5,7 @@ const { normalizeRole, roleHasPermission } = require('../config/permissions');
 const db = require('../config/db');
 
 const SECRET_KEY = getJwtSecret();
-const APPROVED_STATUSES = new Set(['approved', 'active']);
+const ACTIVE_STATUSES = new Set(['active']);
 
 // 1. เช็คว่า Login หรือยัง (Verify Token)
 exports.verifyToken = (req, res, next) => {
@@ -60,8 +60,8 @@ exports.requireApprovedUser = async (req, res, next) => {
     );
     const user = result.rows[0];
     if (!user) return res.status(401).json({ error: 'User not found' });
-    if (!APPROVED_STATUSES.has(String(user.status || '').toLowerCase())) {
-      return res.status(403).json({ error: 'Account is not approved' });
+    if (!ACTIVE_STATUSES.has(String(user.status || '').trim().toLowerCase())) {
+      return res.status(403).json({ error: 'Account is not active' });
     }
 
     req.user.role = user.role;
@@ -80,6 +80,16 @@ exports.verifyApprovedToken = [
 
 exports.canManageOwnTeam = exports.hasPermission('team.self.manage');
 exports.canRequestMatchChanges = exports.hasPermission('match.request');
+
+exports.canViewPendingMatchRequests = (req, res, next) => {
+  if (
+    roleHasPermission(req.user?.role, 'match.score')
+    || roleHasPermission(req.user?.role, 'match.request')
+  ) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Insufficient permissions' });
+};
 
 exports.canAccessOwnMatchTeam = ({ allowScorer = true, teamParam = 'teamId', matchParam = 'matchId' } = {}) => async (req, res, next) => {
   try {

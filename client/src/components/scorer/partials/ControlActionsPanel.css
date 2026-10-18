@@ -1,0 +1,71 @@
+.serve-wait-button {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 2px solid #93c5fd;
+    border-radius: 10px;
+    background: #1d4ed8;
+    color: #fff;
+    animation: serve-wait-flash 1.6s steps(1, end) infinite;
+}
+
+.serve-wait-button::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 2px solid currentColor;
+    border-radius: 6px;
+    pointer-events: none;
+    animation: serve-wait-ripple 1.6s ease-out infinite;
+}
+
+.serve-wait-clock {
+    filter: drop-shadow(0 0 5px rgb(99 102 241 / 55%));
+    animation: serve-wait-clock 1.8s ease-in-out infinite;
+}
+
+.serve-wait-button:hover {
+    filter: brightness(1.1);
+}
+
+.serve-wait-button:active {
+    filter: brightness(0.95);
+}
+
+@keyframes serve-wait-ripple {
+    0%, 50% { opacity: 0.8; transform: scale(0.94, 0.8); }
+    45%, 95%, 100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes serve-wait-flash {
+    0%, 100% {
+        background: #1d4ed8;
+        color: #fff;
+        box-shadow: 0 6px 22px rgb(37 99 235 / 45%), 0 0 0 5px rgb(59 130 246 / 15%);
+        border-color: #93c5fd;
+    }
+    50% {
+        background: #facc15;
+        color: #172554;
+        box-shadow: 0 6px 22px rgb(234 179 8 / 45%), 0 0 0 5px rgb(250 204 21 / 20%);
+        border-color: #fef08a;
+    }
+}
+
+@keyframes serve-wait-clock {
+    0%, 75%, 100% { transform: rotate(0); }
+    82% { transform: rotate(-20deg) scale(1.15); }
+    90% { transform: rotate(20deg) scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .serve-wait-button,
+    .serve-wait-button::after,
+    .serve-wait-clock {
+        animation: none;
+    }
+
+    .serve-wait-button::after {
+        display: none;
+    }
+}

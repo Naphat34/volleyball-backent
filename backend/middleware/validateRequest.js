@@ -50,20 +50,48 @@ const validators = {
 
   register(body) {
     if (!isNonEmptyString(body.username)) return 'Username is required';
-    if (!isNonEmptyString(body.password) || body.password.length < 8) {
-      return 'Password must be at least 8 characters';
+    if (
+      !isNonEmptyString(body.password)
+      || body.password.length < 8
+      || !/[A-Z]/.test(body.password)
+      || !/[a-z]/.test(body.password)
+      || !/[0-9]/.test(body.password)
+      || !/[^A-Za-z0-9]/.test(body.password)
+    ) {
+      return 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character';
     }
+    if (body.confirm_password !== body.password) return 'Password confirmation does not match';
     if (body.role !== undefined && body.role !== 'team_staff') {
       return 'Invalid role';
     }
     if (!isNonEmptyString(body.name)) return 'Team name is required for team staff registration';
     if (!isNonEmptyString(body.code)) return 'Team code is required for team staff registration';
+    if (body.code.trim().length > 10) return 'Team code must be 10 characters or fewer';
+    const requiredRegistrationFields = [
+      'manager_name', 'email', 'mobile_phone', 'province', 'district', 'address_number',
+      'address_province', 'address_district', 'subdistrict', 'postal_code'
+    ];
+    if (requiredRegistrationFields.some((field) => !isNonEmptyString(body[field]))) {
+      return 'Please complete all required team, contact, and address details';
+    }
+    if (!/^\S+@\S+\.\S+$/.test(body.email.trim())) return 'Enter a valid email address';
     if (!isOptionalString(body.email)) return 'Email must be a string';
     if (!isOptionalString(body.phone)) return 'Phone must be a string';
+    if (!isOptionalString(body.logo_url) || (body.logo_url && body.logo_url.length > 500)) return 'Team logo URL is invalid';
+    const optionalRegistrationFields = [
+      'office_phone', 'mobile_phone', 'fax', 'line_id', 'address_number',
+      'building', 'moo', 'soi', 'road', 'address_province', 'address_district',
+      'subdistrict', 'postal_code'
+    ];
+    if (optionalRegistrationFields.some((field) => !isOptionalString(body[field]))) {
+      return 'Registration details must be strings';
+    }
+    if (body.category && !['Male', 'Female'].includes(body.category)) return 'Invalid team category';
     return null;
   },
 
   uploadImage(body) {
+    if (!['team_logo', 'player_photo', 'competition_logo'].includes(body.category)) return 'Select a valid image category';
     if (!isNonEmptyString(body.image)) return 'Image data is required';
     if (!/^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(body.image)) {
       return 'Invalid image data';
@@ -78,6 +106,9 @@ const validators = {
     }
     if (body.username !== undefined && !isNonEmptyString(body.username)) return 'Username is required';
     if (!isOptionalString(body.email)) return 'Email must be a string';
+    if (typeof body.email === 'string' && body.email.trim() && !/^\S+@\S+\.\S+$/.test(body.email.trim())) {
+      return 'Enter a valid email address';
+    }
     if (!isOptionalString(body.phone)) return 'Phone must be a string';
     return null;
   },

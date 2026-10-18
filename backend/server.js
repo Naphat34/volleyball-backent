@@ -38,7 +38,7 @@ if (process.env.TRUST_PROXY) {
 app.set('socketMonitor', socketMonitor);
 
 // These parsers must run BEFORE the routes so req.body exists
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use('/uploads', express.static(uploadsDir));
 
@@ -130,7 +130,7 @@ function createSocketIo(server) {
     const decoded = jwt.verify(token, SECRET_KEY);
     const result = await db.query('SELECT id, role, status, team_id FROM users WHERE id = ?', [decoded.id]);
     const user = result.rows[0];
-    if (!user || !['approved', 'active'].includes(String(user.status || '').toLowerCase())) return null;
+    if (!user || String(user.status || '').trim().toLowerCase() !== 'active') return null;
     return user;
   };
 

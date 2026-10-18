@@ -20,24 +20,19 @@ import MatchList from '../MatchList';
 
 import databaseIcon from '../../assets/img/database.png';
 import trophyIcon from '../../assets/img/trophy.png';
-import Logo from '../../assets/img/logo.png';
+import Logo from '../../assets/img/Logo_Phatthalung.png';
 
-
-const normalizeSportType = () => 'indoor';
 
 const getCompetitionBaseTitle = (competition = {}) => {
   const rawTitle = competition.competition_title || competition.title || '';
   return rawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
 };
 
-const getSportLabel = () => 'Indoor Volleyball';
-
 const AdminScorer = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const view = searchParams.get('view') || 'menu';
   const compId = searchParams.get('compId');
-  const sportFilter = 'indoor';
 
   const [competitions, setCompetitions] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -72,7 +67,7 @@ const AdminScorer = () => {
             const matchingComps = allComps.filter((c) => {
               const cRawTitle = c.competition_title || c.title || '';
               const cCleanTitle = cRawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
-              return cCleanTitle === selectedCleanTitle && normalizeSportType(c) === normalizeSportType(selected);
+              return cCleanTitle === selectedCleanTitle;
             });
 
             const matchPromises = matchingComps.map((c) =>
@@ -108,6 +103,7 @@ const AdminScorer = () => {
   // ดึงข้อมูลผู้ใช้จาก localStorage
   const user = getStoredUser();
   const username = user?.username || user?.name || "Guest";
+  const isReferee = String(user?.role || '').trim().toLowerCase() === 'referee';
 
   // ฟังก์ชัน logout
   const handleLogout = () => {
@@ -116,26 +112,24 @@ const AdminScorer = () => {
   };
 
   const handleShowChampions = () => {
-    setSearchParams({ view: 'champions', sport: 'indoor' });
+    setSearchParams({ view: 'champions' });
   };
 
   const handleShowMatches = (comp) => {
-    setSearchParams({ view: 'matches', compId: comp.id, sport: 'indoor' });
+    setSearchParams({ view: 'matches', compId: comp.id });
   };
 
   // กรองรายการที่สถานะเป็น OPEN ล่วงหน้า, รองรับตัวพิมพ์เล็ก/ใหญ่ และกรองรายการซ้ำ โดยไม่แสดงและไม่ซ้ำตามเพศ (Male/Female/ชาย/หญิง)
   const openCompetitions = [];
   const seenTitles = new Set();
-  competitions.filter(c => normalizeSportType(c) === sportFilter).forEach((c) => {
+  competitions.forEach((c) => {
     if (c.status?.toUpperCase() === 'OPEN') {
       const cleanTitle = getCompetitionBaseTitle(c);
-      const sportType = normalizeSportType(c);
-      const uniqueKey = `${sportType}:${cleanTitle}`;
+      const uniqueKey = cleanTitle.toLowerCase();
       if (!seenTitles.has(uniqueKey)) {
         seenTitles.add(uniqueKey);
         openCompetitions.push({
           ...c,
-          sport_type: sportType,
           display_title: cleanTitle,
           display_logo_url: c.logo_url || c.logo || c.competition_logo_url || c.image_url || ''
         });
@@ -222,23 +216,14 @@ const AdminScorer = () => {
             <div className="rounded-lg border border-blue-100 bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-blue-950">Scorer Data</h2>
-                  <p className="text-xs text-slate-500">Choose match type before opening competition data</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setSearchParams({ view: 'champions', sport: 'indoor' })}
-                    className="flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
-                  >
-                    <Trophy size={16} /> Indoor
-                  </button>
+                  <h2 className="text-lg font-bold text-blue-950">{isReferee ? 'Referee Data' : 'Scorer Data'}</h2>
+                  <p className="text-xs text-slate-500">{isReferee ? 'Choose a competition to view match data' : 'Choose match type before opening competition data'}</p>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Champion Grid */}
-            <div 
+            {!isReferee && <div
               onClick={handleShowChampions}
               className="bg-white rounded-lg border border-blue-100 p-8 flex flex-col items-center justify-center text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer group shadow-sm"
             >
@@ -249,10 +234,10 @@ const AdminScorer = () => {
               <p className="text-slate-500 text-sm leading-relaxed">
                 จัดการข้อมูลการแข่งขัน <br/> ผลการแข่งขัน
               </p>
-            </div>
+            </div>}
 
             {/* Match Data Grid */}
-            <div onClick={handleShowChampions} className="bg-white rounded-lg border border-blue-100 p-8 flex flex-col items-center justify-center text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer group shadow-sm">
+            {isReferee && <div onClick={handleShowChampions} className="bg-white rounded-lg border border-blue-100 p-8 flex flex-col items-center justify-center text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer group shadow-sm">
               <div className="bg-blue-50 p-5 rounded-lg mb-5 border border-blue-100 group-hover:bg-blue-100 transition-colors">
                  <img src={databaseIcon} alt="Database Icon" className="w-16 h-16" />
               </div>
@@ -260,7 +245,7 @@ const AdminScorer = () => {
               <p className="text-slate-500 text-sm leading-relaxed">
                 ข้อมูลการแข่งขัน <br/> และจัดการผลการแข่งทั้งหมด
               </p>
-            </div>
+            </div>}
             </div>
           </div>
         ) : view === 'champions' ? (
@@ -273,21 +258,6 @@ const AdminScorer = () => {
                   className="flex items-center gap-2 px-3 py-2 bg-white text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold text-sm border border-blue-200"
                 >
                   <ChevronLeft size={18} /> ย้อนกลับ
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 rounded-lg border border-blue-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-blue-950">{getSportLabel(sportFilter)}</h2>
-                <p className="text-xs text-slate-500">Select competition group</p>
-              </div>
-              <div className="flex rounded-md border border-blue-100 bg-blue-50/60 p-1">
-                <button
-                  type="button"
-                  onClick={() => setSearchParams({ view: 'champions', sport: 'indoor' })}
-                  className={`flex items-center gap-1.5 rounded px-3 py-2 text-xs font-semibold transition ${sportFilter === 'indoor' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-blue-700'}`}
-                >
-                  <Trophy size={14} /> Indoor
                 </button>
               </div>
             </div>
@@ -330,9 +300,6 @@ const AdminScorer = () => {
                                 <div>
                                   <div className="flex flex-wrap items-center gap-2">
                                     <p className="font-semibold text-slate-800 leading-tight">{comp.display_title || comp.competition_title || comp.title}</p>
-                                    <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold border-blue-200 bg-blue-50 text-blue-700`}>
-                                      {getSportLabel(normalizeSportType(comp))}
-                                    </span>
                                   </div>
                                   <p className="text-xs text-slate-500 mt-1">{comp.location || 'ไม่ได้ระบุสถานที่'}</p>
                                 </div>
@@ -356,7 +323,7 @@ const AdminScorer = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-blue-100 shadow-sm">
               <div className="flex items-center gap-4">
                 <button 
-                  onClick={() => setSearchParams({ view: 'champions', sport: sportFilter })} 
+                  onClick={() => setSearchParams({ view: 'champions' })}
                   className="flex items-center gap-2 px-3 py-2 bg-white text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold text-sm border border-blue-200"
                 >
                   <ChevronLeft size={18} /> ย้อนกลับ
@@ -366,15 +333,7 @@ const AdminScorer = () => {
                 </h2>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-white px-4 py-3 shadow-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded border px-2 py-1 text-xs font-semibold border-blue-200 bg-blue-50 text-blue-700`}>
-                  {getSportLabel(sportFilter)}
-                </span>
-                <span className="text-xs font-medium text-slate-500">
-                  Showing only {getSportLabel(sportFilter).toLowerCase()} matches from this competition group
-                </span>
-              </div>
+            <div className="flex justify-end rounded-lg border border-blue-100 bg-white px-4 py-3 shadow-sm">
               <span className="text-xs font-semibold text-slate-500">{matches.length} matches</span>
             </div>
             
@@ -384,9 +343,9 @@ const AdminScorer = () => {
               <div className="bg-white rounded-lg border border-blue-100 p-4 shadow-sm">
                 <MatchList 
                   matches={matches} 
-                  isAdmin={true} 
+                  isAdmin={!isReferee}
                   onClick={(m) => window.open(`/match/${m.id}`, '_blank')}
-                  onScore={(m) => navigate(`/match/${m.id}`)}
+                  onScore={!isReferee ? (m) => navigate(`/match/${m.id}`) : undefined}
                 />
               </div>
             )}

@@ -129,7 +129,6 @@ export default function ScorerConsole() {
                     <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center font-bold text-lg">V</div>
                     <div>
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">{matchSetupData.title}</div>
-                        <div className="text-[10px] text-slate-500 flex items-center gap-1"><MapPin size={10}/> Indoor Stadium</div>
                     </div>
                 </div>
                 

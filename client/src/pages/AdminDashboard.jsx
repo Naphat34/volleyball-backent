@@ -1,4 +1,5 @@
 import WorkspaceSearch from '../components/WorkspaceSearch';
+import Logo from '../assets/img/Logo_Phatthalung.png';
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
 import { useNavigate } from 'react-router-dom';
@@ -203,8 +204,8 @@ export default function AdminDashboard() {
                 <div className={`h-[76px] flex items-center justify-between px-5 border-b border-slate-200/70 bg-white/95 ${isCollapsed ? 'lg:px-4 lg:justify-center' : ''}`}>
                     {!isCollapsed ? (
                         <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-[0_10px_22px_rgba(15,23,42,0.18)]">
-                                <Trophy size={21} />
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center">
+                                <img src={Logo} alt="Phatthalung Volleyball Club" className="h-10 w-10 object-contain" />
                             </div>
                             <div className="min-w-0">
                             <h1 className="truncate text-base font-semibold tracking-tight text-slate-950">
@@ -217,7 +218,7 @@ export default function AdminDashboard() {
                         </div>
                     ) : (
                         <div className="hidden h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white shadow-[0_10px_22px_rgba(15,23,42,0.18)] lg:flex">
-                            <Trophy size={21} />
+                            <img src={Logo} alt="Phatthalung Volleyball Club" className="h-10 w-10 object-contain" />
                         </div>
                     )}
                     {isCollapsed && (

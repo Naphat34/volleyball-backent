@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogIn, Menu, Trophy, X } from 'lucide-react';
+import { LogIn, Menu, X } from 'lucide-react';
+import Logo from '../assets/img/Logo_Phatthalung.png';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function PublicHeader() {
@@ -20,7 +21,10 @@ export default function PublicHeader() {
     return <header className="public-header">
         <a className="ui-skip-link" href="#main-content">{language === 'THA' ? 'ข้ามไปเนื้อหา' : 'Skip to content'}</a>
         <div className="public-header-inner">
-            <Link to="/" className="public-brand"><span className="public-brand-icon"><Trophy size={21} /></span><span>{t('nav.systemName')}<small>{language === 'THA' ? 'ศูนย์กลางการแข่งขัน' : 'Competition hub'}</small></span></Link>
+            <Link to="/" className="public-brand">
+                <img src={Logo} alt="Phatthalung Volleyball Club" className="public-brand-logo" />
+                <span className="public-brand-copy">{t('nav.systemName')}<small>{language === 'THA' ? 'ระบบจัดการแข่งขันวอลเลย์บอล' : 'Volleyball competition manager'}</small></span>
+            </Link>
             <nav aria-label={language === 'THA' ? 'เมนูหลัก' : 'Main navigation'} className="public-desktop-nav">
                 {links.map(([to, key]) => <Link key={to} to={to} aria-current={pathname === to ? 'page' : undefined} className={`public-nav-link ${pathname === to ? 'is-active' : ''}`}>{t(`nav.${key}`)}</Link>)}
             </nav>

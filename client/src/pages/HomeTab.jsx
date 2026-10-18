@@ -40,7 +40,6 @@ export default function HomeTab({ onNavigate, pendingUsersCount = 0 }) {
     const [selectedBaseName, setSelectedBaseName] = useState(() => readViewPreference('adminCompetition'));
     const [filterGender, setFilterGender] = useState(() => readViewPreference('adminGender', 'All'));
     const [loadError, setLoadError] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
     useEffect(() => { writeViewPreference('adminCompetition', selectedBaseName); }, [selectedBaseName]);
     useEffect(() => { writeViewPreference('adminGender', filterGender); }, [filterGender]);
     const [availableGenders, setAvailableGenders] = useState([]);
@@ -182,9 +181,7 @@ export default function HomeTab({ onNavigate, pendingUsersCount = 0 }) {
         return () => clearTimeout(timeout);
     }, [fetchMatchData]);
 
-    const matchSearch = <label className="flex flex-col gap-1 text-sm font-semibold text-slate-600">{language === 'THA' ? 'ค้นหาทีม คู่แข่งขัน หรือสนาม' : 'Search teams, matches or venues'}<input type="search" value={searchTerm} onChange={event => { setSearchTerm(event.target.value); setCurrentSubTab('schedule'); }} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 font-normal" placeholder={language === 'THA' ? 'พิมพ์คำค้นหา…' : 'Search…'} /></label>;
     const filteredMatches = matches.filter(m => {
-        if (searchTerm && ![m.home_team_name, m.away_team_name, m.team_a_name, m.team_b_name, m.match_number, m.stadium_name].filter(Boolean).join(' ').toLocaleLowerCase().includes(searchTerm.toLocaleLowerCase())) return false;
         if (filterStatus === 'all') return true;
         if (filterStatus === 'completed') return isMatchFinished(m.status);
         if (filterStatus === 'scheduled') return !isMatchFinished(m.status);
@@ -254,12 +251,6 @@ export default function HomeTab({ onNavigate, pendingUsersCount = 0 }) {
     return (
         <div className="space-y-5 font-sans text-slate-900">
             {loadError && <Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load dashboard'} onRetry={async () => { await fetchCompetitions(); await fetchMatchData(); }} />}
-            <Panel title={language === 'THA' ? 'งานที่ต้องดูแล' : 'Your next actions'} description={language === 'THA' ? 'ตรวจสอบสิ่งที่ต้องดำเนินการ ก่อนเริ่มการแข่งขัน' : 'Keep competition preparations on track.'} action={<StatusBadge tone="info">{language === 'THA' ? 'ภาพรวม' : 'Overview'}</StatusBadge>}>
-                <div className="grid gap-3 p-4 sm:grid-cols-3">
-                    {[{ key: 'pending_users', count: pendingUsersCount, label: language === 'THA' ? 'บัญชีรออนุมัติ' : 'Pending accounts' }, { key: 'matches', count: matches.filter(m => !isMatchFinished(m.status) && !m.stadium_id && !m.stadium_name && !m.location).length, label: language === 'THA' ? 'คู่ที่ยังไม่ระบุสนาม' : 'Matches without a venue' }, { key: 'escore', count: matches.filter(m => isMatchLive(m.status)).length, label: language === 'THA' ? 'คู่ที่กำลังแข่งขัน' : 'Live matches' }].map(task => <button key={task.key} onClick={() => onNavigate?.(task.key)} className="flex min-h-24 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"><span className="text-sm font-semibold text-slate-600">{task.label}</span><span className="score-number text-3xl font-bold text-slate-950">{task.count}</span></button>)}
-                </div>
-            </Panel>
-            <div className="max-w-md">{matchSearch}</div>
             {/* Header section with Tournament selection */}
             <div className={`${panelClass} overflow-hidden`}>
                 <div className="border-b border-white/60 bg-[#122b52] px-5 py-5 text-white">

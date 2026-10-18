@@ -8,7 +8,7 @@ export const translations = {
       stats: "สถิติ",
       login: "เข้าสู่ระบบ",
       logout: "ออกจากระบบ",
-      systemName: "VolleySystem"
+      systemName: "Volley Manager"
     },
     landing: {
       schedule: "ตารางการแข่งขัน",
@@ -210,7 +210,7 @@ export const translations = {
       stats: "Statistics",
       login: "Login",
       logout: "Logout",
-      systemName: "VolleySystem"
+      systemName: "Volley Manager"
     },
     landing: {
       schedule: "Match Schedule",

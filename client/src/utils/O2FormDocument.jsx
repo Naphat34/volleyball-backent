@@ -1,7 +1,18 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
+import { Page, Text as ReactPdfText, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
 
 import LogoAVC from '../assets/img/AVC_Logo.png';
+import './reactPdfBrowserCompat';
+
+const normalizeThaiPdfChild = (child) => (
+  typeof child === 'string' ? child.replace(/\u0E33/g, '\u0E4D\u0E32') : child
+);
+
+const Text = ({ children, ...props }) => (
+  <ReactPdfText {...props}>
+    {React.Children.map(children, normalizeThaiPdfChild)}
+  </ReactPdfText>
+);
 
 const getServerUrl = () => {
   const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -20,6 +31,10 @@ Font.register({
   family: 'Sarabun',
   src: '/fonts/Sarabun-Regular.ttf'
 });
+
+// Thai words should stay intact; the default English hyphenator can split names
+// and leave the final characters outside the O-2 table cells.
+Font.registerHyphenationCallback((word) => [word]);
 
 const styles = StyleSheet.create({
   page: {
@@ -129,7 +144,7 @@ const styles = StyleSheet.create({
   },
   columnHeader: {
     fontWeight: 'bold',
-    fontSize: 6.7,
+    fontSize: 7,
     padding: 2,
     borderRightWidth: 1,
     borderRightColor: '#111827',
@@ -152,7 +167,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   groupedHeaderTitleText: {
-    fontSize: 6.2,
+    fontSize: 7,
     fontWeight: 'bold',
     color: '#111827'
   },
@@ -169,7 +184,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   groupedHeaderSubText: {
-    fontSize: 5.4,
+    fontSize: 7,
     fontWeight: 'bold',
     color: '#111827'
   },
@@ -184,7 +199,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB'
   },
   tableCell: {
-    fontSize: 6.5,
+    fontSize: 7,
+    lineHeight: 1.5,
     paddingHorizontal: 3,
     paddingVertical: 2,
     borderRightWidth: 0.8,
@@ -203,13 +219,14 @@ const styles = StyleSheet.create({
   },
   nameCell: {
     textAlign: 'left',
-    fontSize: 6.6
+    fontSize: 7
   },
   compactCell: {
-    fontSize: 6.1
+    fontSize: 7
   },
   lastCell: {
-    borderRightWidth: 0
+    borderRightWidth: 0,
+    fontSize: 7
   },
 
   // Footer sections
@@ -252,7 +269,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch'
   },
   footerTableCell: {
-    fontSize: 6.5,
+    fontSize: 7,
     paddingHorizontal: 2,
     paddingVertical: 2,
     borderRightWidth: 0.8,
@@ -265,19 +282,20 @@ const styles = StyleSheet.create({
   colorSubRow: {
     borderBottomWidth: 0.8,
     borderBottomColor: '#9CA3AF',
-    paddingVertical: 1,
+    paddingVertical: 2,
     paddingHorizontal: 3,
-    height: 12,
+    minHeight: 15,
     justifyContent: 'center'
   },
   colorSubRowLast: {
-    paddingVertical: 1,
+    paddingVertical: 2,
     paddingHorizontal: 3,
-    height: 12,
+    minHeight: 15,
     justifyContent: 'center'
   },
   colorText: {
-    fontSize: 6.5
+    fontSize: 7,
+    lineHeight: 1.5
   },
 
   organiserNoticeBox: {
@@ -417,42 +435,6 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
     return `${day}-${month}-${year}`;
   };
 
-  // Get Staff Member by Role
-  const getStaffMember = (role, index = 0) => {
-    if (!staff || !Array.isArray(staff)) return null;
-
-    const roleMapping = {
-      'Team Manager': ['Team Manager', 'Manager', 'Team manager'],
-      'Head Coach': ['Head Coach', 'Coach', 'Head coach'],
-      'Assistant Coach': ['Assistant Coach', 'Assistant coach', 'Asst Coach', 'Assistant Coach 1'],
-      'Assistant Coach 2': ['Assistant Coach 2', 'Assistant coach 2', 'Asst Coach 2'],
-      'Physiotherapist': ['Physiotherapist', 'Therapist', 'Trainer', 'Therapist/Trainer', 'Physio'],
-      'Statistician': ['Statistician', 'Stats']
-    };
-
-    const targetRoles = roleMapping[role] || [role];
-
-    const list = staff.filter(member =>
-      targetRoles.some(r => member.role?.toLowerCase().trim() === r.toLowerCase().trim())
-    );
-
-    // Fall back to second Assistant Coach if explicitly looking for Assistant Coach 2
-    if (role === 'Assistant Coach 2' && list.length === 0) {
-      const asstList = staff.filter(member =>
-        roleMapping['Assistant Coach'].some(r => member.role?.toLowerCase().trim() === r.toLowerCase().trim())
-      );
-      return asstList[1] || null;
-    }
-
-    return list[index] || null;
-  };
-
-  // Staff name in Lastname Firstname format
-  const getStaffName = (s) => {
-    if (!s) return '';
-    return [valueOrBlank(s.first_name), valueOrBlank(s.last_name)].filter(Boolean).join(' ');
-  };
-
   // Staff country code
   const getStaffCountry = (s) => {
     if (!s) return '';
@@ -512,67 +494,6 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
     };
   };
 
-  const colorNameMap = {
-    '#000000': 'Black',
-    '#111827': 'Black',
-    '#1f2937': 'Dark Grey',
-    '#374151': 'Grey',
-    '#6b7280': 'Grey',
-    '#9ca3af': 'Light Grey',
-    '#d1d5db': 'Light Grey',
-    '#ffffff': 'White',
-    '#ef4444': 'Red',
-    '#dc2626': 'Red',
-    '#f97316': 'Orange',
-    '#f59e0b': 'Amber',
-    '#facc15': 'Yellow',
-    '#22c55e': 'Green',
-    '#16a34a': 'Green',
-    '#14b8a6': 'Teal',
-    '#06b6d4': 'Cyan',
-    '#0ea5e9': 'Sky Blue',
-    '#2563eb': 'Blue',
-    '#1d4ed8': 'Blue',
-    '#4f46e5': 'Indigo',
-    '#7c3aed': 'Purple',
-    '#9333ea': 'Purple',
-    '#db2777': 'Pink',
-  };
-
-  const formatUniformColor = (color) => {
-    const raw = valueOrBlank(color);
-    if (!raw) return '';
-    const normalized = raw.toLowerCase();
-    if (!normalized.startsWith('#')) return raw;
-
-    const expanded = normalized.length === 4
-      ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
-      : normalized;
-    if (colorNameMap[expanded]) return colorNameMap[expanded];
-
-    const hex = expanded.replace('#', '');
-    if (!/^[0-9a-f]{6}$/i.test(hex)) return raw;
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const brightness = (r + g + b) / 3;
-
-    if (max - min < 18) {
-      if (brightness < 50) return 'Black';
-      if (brightness > 225) return 'White';
-      return brightness > 150 ? 'Light Grey' : 'Grey';
-    }
-    if (r >= max && g > 170 && b < 80) return 'Yellow';
-    if (r >= max && g > 100 && b < 80) return 'Orange';
-    if (r >= max && b > 120 && g < 120) return 'Pink';
-    if (r >= max) return 'Red';
-    if (g >= max && b > 120) return 'Teal';
-    if (g >= max) return 'Green';
-    if (b >= max && r > 120) return 'Purple';
-    return 'Blue';
-  };
 
   const ages = players.map(getAgeValue).filter(v => v !== null);
   const heights = players.map(p => getNumValue(p, 'height_cm') || getNumValue(p, 'height')).filter(v => v !== null);
@@ -584,18 +505,6 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
     height: computeStats(heights),
     spike: computeStats(spikes),
     block: computeStats(blocks)
-  };
-
-  // Helper row renderer for Staff Table
-  const renderStaffRow = (label, roleName, index = 0) => {
-    const s = getStaffMember(roleName, index);
-    return (
-      <View style={styles.footerTableRow}>
-        <Text style={[styles.footerTableCell, { width: '28%', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#F3F4F6' }]}>{label}</Text>
-        <Text style={[styles.footerTableCell, { width: '62%', textAlign: 'left' }]}>{s ? getStaffName(s) : ''}</Text>
-        <Text style={[styles.footerTableCell, styles.lastCell, { width: '10%' }]}>{s ? getStaffCountry(s) : ''}</Text>
-      </View>
-    );
   };
 
   const teamCode = valueOrBlank(teamInfo?.code);
@@ -728,12 +637,19 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
           {/* ส่วน OFFICIAL STAFF */}
           <View style={styles.staffTable}>
             <Text style={styles.footerSectionHeader}>OFFICIALS</Text>
-            {renderStaffRow('Team Manager:', 'Team Manager')}
-            {renderStaffRow('Head Coach:', 'Head Coach')}
-            {renderStaffRow('Assistant Coach:', 'Assistant Coach', 0)}
-            {renderStaffRow('2nd Assistant Coach:', 'Assistant Coach 2')}
-            {renderStaffRow('Physiotherapist:', 'Physiotherapist')}
-            {renderStaffRow('Statistician:', 'Statistician')}
+            {staff.map((official, index) => (
+              <View style={styles.footerTableRow} key={official.id || `${official.role || 'official'}-${index}`}>
+                <Text style={[styles.footerTableCell, { width: '28%', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#F3F4F6' }]}>
+                  {valueOrBlank(official.role) || 'Official'}
+                </Text>
+                <Text style={[styles.footerTableCell, { width: '62%', textAlign: 'left' }]}>
+                  {[valueOrBlank(official.first_name), valueOrBlank(official.last_name)].filter(Boolean).join(' ')}
+                </Text>
+                <Text style={[styles.footerTableCell, styles.lastCell, { width: '10%' }]}>
+                  {getStaffCountry(official)}
+                </Text>
+              </View>
+            ))}
           </View>
 
           {/* ส่วน UNIFORM COLORS */}
@@ -746,9 +662,9 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
               </View>
               {/* Right sub-rows */}
               <View style={{ width: '70%', flexDirection: 'column' }}>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: {formatUniformColor(mainColor)}</Text></View>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {formatUniformColor(secondColor)}</Text></View>
-                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: {formatUniformColor(thirdColor)}</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: {valueOrBlank(mainColor)}</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {valueOrBlank(secondColor)}</Text></View>
+                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: {valueOrBlank(thirdColor)}</Text></View>
               </View>
             </View>
             <View style={{ flexDirection: 'row', flex: 1, borderTopWidth: 0.8, borderTopColor: '#9CA3AF' }}>
@@ -758,9 +674,9 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
               </View>
               {/* Right sub-rows */}
               <View style={{ width: '70%', flexDirection: 'column' }}>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: {formatUniformColor(liberoMainColor)}</Text></View>
-                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {formatUniformColor(liberoSecondColor)}</Text></View>
-                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: {formatUniformColor(liberoThirdColor)}</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>Main: {valueOrBlank(liberoMainColor)}</Text></View>
+                <View style={styles.colorSubRow}><Text style={styles.colorText}>2nd: {valueOrBlank(liberoSecondColor)}</Text></View>
+                <View style={styles.colorSubRowLast}><Text style={styles.colorText}>3rd: {valueOrBlank(liberoThirdColor)}</Text></View>
               </View>
             </View>
           </View>
@@ -816,7 +732,7 @@ const O2FormDocument = ({ teamInfo, players = [], staff = [] }) => {
         <View style={styles.legendRow}>
           <Text>E-scorer Version DEMO 2026.06.11 PLG Volleyball Club</Text>
           <Text></Text>
-          <Text>Printed: {formatThailandDateTime()} {teamInfo?.printed_by || 'Unknown'}</Text>
+          <Text>Printed: {formatThailandDateTime()}</Text>
         </View>
 
       </Page>

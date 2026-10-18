@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { LogOut, User, Edit3, Shield, Menu, X, Trophy } from "lucide-react";
+import { LogOut, User, Edit3, Shield, Menu, X } from "lucide-react";
 import { api } from "../api";
 import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../utils";
 import { getStoredUser } from "../authStorage";
 
 import whistleIcon from "../assets/img/whistle.png";
-import Logo from '../assets/img/logo.png';
+import Logo from '../assets/img/Logo_Phatthalung.png';
 import backgroundImage from '../assets/img/bg.png';
 
 const MatchDetail = () => {
@@ -17,7 +17,7 @@ const MatchDetail = () => {
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
-  // ดึงข้อมูลผู้ใช้จาก localStorage
+  // Read the current user from local storage.
   const user = getStoredUser();
   const username = user?.username || user?.name || "Guest";
 
@@ -82,22 +82,6 @@ const MatchDetail = () => {
     return "";
   };
 
-  const normalizeSportType = () => "indoor";
-
-  const getPlayerSportTypes = (value) => {
-    const sportTypes = Array.isArray(value) ? value : String(value || "indoor").split(",");
-    return sportTypes
-      .map(type => normalizeSportType(type))
-      .filter(Boolean)
-      .filter((type, index, list) => list.indexOf(type) === index);
-  };
-
-  const getSportBadgeClass = () => "border-blue-200 bg-blue-50 text-blue-700";
-
-  const filterPlayersByMatchSport = (players = [], sportType = "indoor") => (
-    normalizeRosterPlayers(players).filter(player => getPlayerSportTypes(player.sport_types).includes(sportType))
-  );
-
   const getMatchScopeLabel = (match = {}) => {
     const ageGroup = normalizeDisplayText(match.age_group_name);
     const gender = normalizeDisplayText(match.competition_gender || match.gender);
@@ -117,7 +101,7 @@ const MatchDetail = () => {
         setData(res.data);
       } catch (err) {
         console.error("Error fetching match detail:", err);
-        setError("ไม่สามารถโหลดข้อมูลแมตช์ได้");
+        setError("ไม่สามารถโหลดข้อมูลการแข่งขันได้");
       } finally {
         setLoading(false);
       }
@@ -127,16 +111,15 @@ const MatchDetail = () => {
 
   if (loading) return <div className="p-10 text-center font-sans text-gray-500">กำลังโหลดข้อมูล...</div>;
   if (error) return <div className="p-10 text-center font-sans text-red-500">{error}</div>;
-  if (!data || !data.match) return <div className="p-10 text-center font-sans text-gray-500">ไม่พบข้อมูลแมตช์</div>;
+  if (!data || !data.match) return <div className="p-10 text-center font-sans text-gray-500">ไม่พบข้อมูลการแข่งขัน</div>;
 
   const { match, home, away } = data;
-  const matchSportType = normalizeSportType(match.competition_sport_type || match.sport_type || match.competition_sport);
-  const homePlayers = filterPlayersByMatchSport(home?.players, matchSportType);
-  const awayPlayers = filterPlayersByMatchSport(away?.players, matchSportType);
+  const homePlayers = normalizeRosterPlayers(home?.players);
+  const awayPlayers = normalizeRosterPlayers(away?.players);
   const matchScopeLabel = getMatchScopeLabel(match);
   const rosterEmptyText = matchScopeLabel
     ? `ยังไม่ได้จัดรายชื่อนักกีฬาสำหรับ ${matchScopeLabel}`
-    : "ยังไม่ได้จัดรายชื่อนักกีฬาสำหรับแมตช์นี้";
+    : "ยังไม่ได้จัดรายชื่อนักกีฬาสำหรับการแข่งขันนี้";
 
   const goToScorerConsole = () => {
     navigate(`/scorer/${matchId}`, {
@@ -227,18 +210,12 @@ const MatchDetail = () => {
             onClick={() => navigate(-1)} 
             className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-xl transition-all font-bold text-sm border border-gray-200 shadow-sm"
           >
-            <ChevronLeft size={18} /> ย้อนกลับ
+            ย้อนกลับ
           </button>
         </div>
           */}
         <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-5 sm:p-7">
           <h2 className="text-center text-xl font-bold text-blue-950 mb-2">{cleanCompetitionTitle(match.competition_title || match.competition_name) || "รายการแข่งขัน"}</h2>
-          <div className="flex justify-center">
-            <span className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-semibold ${getSportBadgeClass(matchSportType)}`}>
-              <Trophy size={14} />
-              Indoor Volleyball
-            </span>
-          </div>
           <div className="flex items-center justify-center gap-6 my-7 flex-wrap">
             <div className="flex items-center justify-end gap-4 text-right flex-1 min-w-[200px]">
               <span className="text-xl font-bold text-slate-800">{match.home_team_name}</span>
@@ -451,7 +428,7 @@ const MatchDetail = () => {
                         <td className="py-2.5 px-4 text-gray-500">{s.role}</td>
                         <td className="py-2.5 px-4 text-gray-800 font-medium">{s.first_name} {s.last_name}</td>
                       </tr>
-                    )) : <tr><td colSpan="2" className="py-6 text-center text-gray-400 italic">ไม่มีข้อมูลสตาฟ</td></tr>}
+                    )) : <tr><td colSpan="2" className="py-6 text-center text-gray-400 italic">ไม่มีข้อมูลเจ้าหน้าที่</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -476,7 +453,7 @@ const MatchDetail = () => {
                         <td className="py-2.5 px-4 text-gray-500">{s.role}</td>
                         <td className="py-2.5 px-4 text-gray-800 font-medium">{s.first_name} {s.last_name}</td>
                       </tr>
-                    )) : <tr><td colSpan="2" className="py-6 text-center text-gray-400 italic">ไม่มีข้อมูลสตาฟ</td></tr>}
+                    )) : <tr><td colSpan="2" className="py-6 text-center text-gray-400 italic">ไม่มีข้อมูลเจ้าหน้าที่</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -496,4 +473,3 @@ const MatchDetail = () => {
 };
 
 export default MatchDetail;
-

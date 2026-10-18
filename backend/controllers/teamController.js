@@ -1,6 +1,44 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { writeAuditLog } = require('../utils/auditLogger');
+const { normalizeTeamGender } = require('../utils/teamGender');
+const fs = require('fs');
+const path = require('path');
+
+exports.getMyPlayerDocument = async (req, res) => {
+  const { filename, category } = req.params;
+  const documentFolders = {
+    identity_document_url: 'identity-documents',
+    student_certificate_url: 'student-certificates',
+    guardian_consent_url: 'guardian-consents'
+  };
+  const folder = category ? documentFolders[category] : null;
+  if (category && !folder) return res.status(400).json({ error: 'Invalid document category' });
+  if (!/^player-doc-[a-f0-9-]+\.(?:jpg|png|webp|pdf)$/i.test(filename)) {
+    return res.status(400).json({ error: 'Invalid document name' });
+  }
+  try {
+    const documentUrl = category
+      ? `/api/player-documents/${category}/${filename}`
+      : `/api/player-documents/${filename}`;
+    const ownedPlayer = await db.query(
+      `SELECT p.id FROM players p
+       JOIN users u ON u.team_id = p.team_id
+       WHERE u.id = ? AND (p.identity_document_url = ? OR p.student_certificate_url = ? OR p.guardian_consent_url = ?)
+       LIMIT 1`,
+      [req.user.id, documentUrl, documentUrl, documentUrl]
+    );
+    if (!ownedPlayer.rows.length) return res.status(404).json({ error: 'Document not found' });
+    const documentPath = folder
+      ? path.join(__dirname, '..', 'private_player_documents', folder, filename)
+      : path.join(__dirname, '..', 'private_player_documents', filename);
+    if (!fs.existsSync(documentPath)) return res.status(404).json({ error: 'Document file not found' });
+    return res.sendFile(documentPath);
+  } catch (err) {
+    console.error('Player document retrieval failed:', err);
+    return res.status(500).json({ error: 'Document retrieval failed' });
+  }
+};
 
 const getColumnName = (row) => row.column_name ?? row.COLUMN_NAME;
 
@@ -50,31 +88,6 @@ const isDuplicateKeyError = (err) => (
   || /duplicate entry/i.test(err?.message || '')
 );
 
-const VALID_SPORT_TYPES = new Set(['indoor']);
-
-const normalizePlayerSportTypes = (value) => {
-  const rawValues = Array.isArray(value)
-    ? value
-    : String(value || 'indoor').split(',');
-  const normalized = [...new Set(
-    rawValues
-      .map((sportType) => String(sportType || '').trim().toLowerCase())
-      .filter((sportType) => VALID_SPORT_TYPES.has(sportType))
-  )];
-  return normalized.length > 0 ? normalized : ['indoor'];
-};
-
-const syncPlayerSportEligibilities = async (client, playerId, sportTypes) => {
-  const cleanSportTypes = normalizePlayerSportTypes(sportTypes);
-  await client.query('DELETE FROM player_sport_eligibilities WHERE player_id = ?', [playerId]);
-  for (const sportType of cleanSportTypes) {
-    await client.query(
-      'INSERT INTO player_sport_eligibilities (player_id, sport_type) VALUES (?, ?)',
-      [playerId, sportType]
-    );
-  }
-};
-
 const getOwnedTeamIds = async (userId) => {
   const result = await db.query(
     `SELECT id FROM teams WHERE user_id = ?
@@ -89,29 +102,25 @@ const getOwnedTeamIds = async (userId) => {
 exports.getTeamDetails = async (req, res) => {
   try {
     const teamId = req.params.teamId || req.params.id;
-    console.log("Team ID requested:", teamId);
     if (!teamId) {
       return res.status(400).json({ error: 'Team ID is required' });
     }
 
-
     // 1. ดึงข้อมูลทีม
     const teamRes = await db.query('SELECT * FROM teams WHERE id = ?', [teamId]);
     if (teamRes.rows.length === 0) {
-        // เพิ่ม log เพื่อดูว่าหา ID อะไรไม่เจอ
-        console.log(`Searching for team ${teamId} but not found.`);
         return res.status(404).json({ error: 'Team not found' });
     }
 
     // 2. ดึงนักกีฬา
     const playersRes = await db.query(
-      'SELECT * FROM players WHERE team_id = ? ORDER BY number ASC', 
+      'SELECT * FROM players WHERE team_id = ? ORDER BY number ASC',
       [teamId]
     );
 
     // 3. ดึงสตาฟ
     const staffRes = await db.query(
-      'SELECT * FROM team_staff WHERE team_id = ? ORDER BY role ASC', 
+      'SELECT * FROM team_staff WHERE team_id = ? ORDER BY role ASC',
       [teamId]
     );
 
@@ -128,7 +137,7 @@ exports.getTeamDetails = async (req, res) => {
 
 exports.createMyTeam = async (req, res) => {
   const client = await db.pool.connect();
-  
+
   try {
     const {
       name,
@@ -144,15 +153,28 @@ exports.createMyTeam = async (req, res) => {
       third_color,
       libero_main_color,
       libero_second_color,
-      libero_third_color
+      libero_third_color,
+      gender
     } = req.body;
     const userId = req.user.id; // ได้จาก authMiddleware
+    const teamGender = normalizeTeamGender(gender);
 
     if (!name || !code) {
       return res.status(400).json({ error: "Team name and code are required." });
     }
+    if (!teamGender) return res.status(400).json({ error: 'Select one team type: Male or Female.' });
 
     await client.query('BEGIN');
+    const userRes = await client.query('SELECT team_id FROM users WHERE id = ? FOR UPDATE', [userId]);
+    if (!userRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    const ownedTeam = await client.query('SELECT id FROM teams WHERE user_id = ? LIMIT 1', [userId]);
+    if (userRes.rows[0].team_id || ownedTeam.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This account already has a team. One account can manage one team and one gender only.' });
+    }
 
     // 1. ตรวจสอบว่า User นี้มีทีมอยู่แล้วหรือยัง (เช็คจากตาราง teams โดยตรง)
     // 2. สร้างทีมใหม่ พร้อมใส่ user_id และ code
@@ -174,6 +196,7 @@ exports.createMyTeam = async (req, res) => {
     addTeamField('code', code);
     addTeamField('logo_url', logo_url);
     addTeamField('user_id', userId);
+    addTeamField('gender', teamGender);
     addTeamField('coach', coach);
     addTeamField('manager_name', manager_name);
     addTeamField('phone', phone);
@@ -223,6 +246,7 @@ exports.createMyTeam = async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error("Error creating team:", err);
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'This account already has a team.' });
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
@@ -266,6 +290,11 @@ exports.switchMyTeam = async (req, res) => {
     const teamRes = await db.query('SELECT * FROM teams WHERE id = ? AND user_id = ?', [teamId, userId]);
     if (teamRes.rows.length === 0) {
       return res.status(404).json({ error: 'Team not found for this user.' });
+    }
+
+    const userRes = await db.query('SELECT team_id FROM users WHERE id = ?', [userId]);
+    if (userRes.rows[0]?.team_id && String(userRes.rows[0].team_id) !== String(teamId)) {
+      return res.status(409).json({ error: 'One account can manage one team only. Team switching is disabled.' });
     }
 
     await db.query('UPDATE users SET team_id = ? WHERE id = ?', [teamId, userId]);
@@ -327,7 +356,10 @@ exports.updateMyTeam = async (req, res) => {
       third_color,
       libero_main_color,
       libero_second_color,
-      libero_third_color
+      libero_third_color,
+      gender,
+      district, office_phone, mobile_phone, fax, line_id, address_number, building, moo, soi, road,
+      address_province, address_district, subdistrict, postal_code
     } = req.body;
 
     const userRes = await db.query('SELECT team_id FROM users WHERE id = ?', [userId]);
@@ -335,6 +367,33 @@ exports.updateMyTeam = async (req, res) => {
 
     if (!teamId) {
       return res.status(400).json({ error: 'You do not belong to any team.' });
+    }
+    const normalizedGender = gender === undefined || gender === '' ? null : normalizeTeamGender(gender);
+    if (gender !== undefined && gender !== '' && !normalizedGender) {
+      return res.status(400).json({ error: 'Team type must be Male or Female.' });
+    }
+    const currentTeamRes = await db.query('SELECT gender, category FROM teams WHERE id = ?', [teamId]);
+    if (!currentTeamRes.rows.length) return res.status(404).json({ error: 'Team not found.' });
+    const currentGender = normalizeTeamGender(currentTeamRes.rows[0]?.gender || currentTeamRes.rows[0]?.category);
+    if (normalizedGender && currentGender && normalizedGender !== currentGender) {
+      return res.status(409).json({ error: 'A team cannot change its gender after it has been set.' });
+    }
+    if (normalizedGender && !currentGender) {
+      const previousRegistrations = await db.query(`
+        SELECT c.gender FROM team_entries te
+        JOIN competitions c ON c.id = te.competition_id
+        WHERE te.team_id = ?
+        UNION
+        SELECT c.gender FROM team_competitions tc
+        JOIN competitions c ON c.id = tc.competition_id
+        WHERE tc.team_id = ?
+        UNION
+        SELECT p.gender FROM players p WHERE p.team_id = ?
+      `, [teamId, teamId, teamId]);
+      const historicalGenders = new Set(previousRegistrations.rows.map((row) => normalizeTeamGender(row.gender)).filter(Boolean));
+      if (historicalGenders.size > 1 || (historicalGenders.size === 1 && !historicalGenders.has(normalizedGender))) {
+        return res.status(409).json({ error: 'This team has existing competition registrations for a different gender and cannot change type.' });
+      }
     }
 
     const columnsRes = await db.query(
@@ -359,6 +418,10 @@ exports.updateMyTeam = async (req, res) => {
     addUpdateField('phone', phone);
     addUpdateField('email', email);
     addUpdateField('province', province);
+    for (const [field, value] of Object.entries({ district, office_phone, mobile_phone, fax, line_id, address_number, building, moo, soi, road, address_province, address_district, subdistrict, postal_code })) {
+      addUpdateField(field, value);
+    }
+    if (normalizedGender && !currentGender) addUpdateField('gender', normalizedGender);
     addUpdateField('main_color', main_color);
     addUpdateField('second_color', second_color);
     addUpdateField('third_color', third_color);
@@ -407,12 +470,15 @@ exports.createTeam = async (req, res) => {
       third_color,
       libero_main_color,
       libero_second_color,
-      libero_third_color
+      libero_third_color,
+      gender
     } = req.body;
 
     if (!name || !code) {
       return res.status(400).json({ error: "Team name and code are required." });
     }
+    const teamGender = normalizeTeamGender(gender);
+    if (!teamGender) return res.status(400).json({ error: 'Select one team type: Male or Female.' });
     if ((create_account || username || password) && (!username || !password)) {
       return res.status(400).json({ error: "Username and password are required when creating a team account." });
     }
@@ -428,9 +494,11 @@ exports.createTeam = async (req, res) => {
       }
 
       const hashedPassword = await bcrypt.hash(password, 8);
+      const requestedUserStatus = String(status || 'active').trim().toLowerCase();
+      const userStatus = requestedUserStatus === 'approved' ? 'active' : requestedUserStatus;
       const userResult = await client.query(
         'INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)',
-        [username, hashedPassword, 'team_staff', status || 'approved']
+        [username, hashedPassword, 'team_staff', userStatus]
       );
       userId = userResult.insertId;
     }
@@ -457,6 +525,7 @@ exports.createTeam = async (req, res) => {
     addTeamField('email', email);
     addTeamField('province', province);
     addTeamField('user_id', userId);
+    addTeamField('gender', teamGender);
     addTeamField('main_color', main_color);
     addTeamField('second_color', second_color);
     addTeamField('third_color', third_color);
@@ -487,6 +556,7 @@ exports.createTeam = async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error("Error creating team (admin):", err);
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'This account already has a team.' });
     res.status(500).json({ error: err.message });
   } finally {
     client.release();
@@ -497,10 +567,17 @@ exports.createTeam = async (req, res) => {
 exports.updateTeam = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, code, logo_url } = req.body;
+    const { name, code, logo_url, gender } = req.body;
+    const normalizedGender = gender === undefined ? undefined : normalizeTeamGender(gender);
+    if (gender !== undefined && !normalizedGender) return res.status(400).json({ error: 'Team type must be Male or Female.' });
+    const currentTeamRes = await db.query('SELECT gender FROM teams WHERE id = ?', [id]);
+    const currentGender = normalizeTeamGender(currentTeamRes.rows[0]?.gender);
+    if (currentGender && normalizedGender && currentGender !== normalizedGender) {
+      return res.status(409).json({ error: 'A team cannot change its gender after it has been set.' });
+    }
     await db.query(
-      'UPDATE teams SET name = COALESCE(?, name), code = COALESCE(?, code), logo_url = COALESCE(?, logo_url) WHERE id = ?',
-      [name, code, logo_url, id]
+      'UPDATE teams SET name = COALESCE(?, name), code = COALESCE(?, code), logo_url = COALESCE(?, logo_url), gender = COALESCE(?, gender) WHERE id = ?',
+      [name, code, logo_url, normalizedGender, id]
     );
     const updatedTeamRes = await db.query('SELECT * FROM teams WHERE id = ?', [id]);
     if (updatedTeamRes.rows.length === 0) return res.status(404).json({ error: "Team not found" });
@@ -518,7 +595,7 @@ exports.getMyTeamStaff = async (req, res) => {
 
     // 1. หา team_id ของ User คนนี้ก่อน
     const userRes = await db.query('SELECT team_id FROM users WHERE id = ?', [userId]);
-    
+
     if (userRes.rows.length === 0 || !userRes.rows[0].team_id) {
       return res.status(400).json({ error: 'You do not belong to any team.' });
     }
@@ -570,9 +647,9 @@ exports.getMyTeamStaff = async (req, res) => {
 exports.addStaffToMyTeam = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // 1. รับค่าจากหน้าบ้าน (รับมารอไว้ทุกตัวเผื่อหน้าบ้านส่งมาแบบไหน)
-    const { name, first_name, last_name, role, gender } = req.body; 
+    const { name, first_name, last_name, role, gender } = req.body;
 
     // ตัวแปรสำหรับเก็บค่าที่จะบันทึกลง DB
     let dbFirstName = '';
@@ -590,8 +667,8 @@ exports.addStaffToMyTeam = async (req, res) => {
       dbLastName = nameParts.slice(1).join(' ') || '-';
     } else {
       // กรณีไม่ส่งอะไรมาเลย หรือส่งผิดชื่อ
-      return res.status(400).json({ 
-        error: "ข้อมูลไม่ครบ! กรุณาส่ง 'first_name' และ 'last_name' หรือ 'name'" 
+      return res.status(400).json({
+        error: "ข้อมูลไม่ครบ! กรุณาส่ง 'first_name' และ 'last_name' หรือ 'name'"
       });
     }
 
@@ -654,7 +731,7 @@ exports.updateStaff = async (req, res) => {
 
     // 4. อัปเดตข้อมูลใน DB
     await db.query(
-      `UPDATE team_staff 
+      `UPDATE team_staff
        SET first_name = ?, last_name = ?, role = ?, gender = ?
        WHERE id = ? AND team_id = ?`,
       [dbFirstName, dbLastName, role, gender, id, teamId]
@@ -767,7 +844,6 @@ exports.getMyPlayers = async (req, res) => {
     const playersRes = await db.query(`
       SELECT
         p.*,
-        COALESCE(eligibility.sport_types, 'indoor') as sport_types,
         assigned.team_entry_id,
         assigned.competition_id,
         assigned.competition_title,
@@ -776,11 +852,6 @@ exports.getMyPlayers = async (req, res) => {
         assigned.age_group_name,
         assigned.entry_number
       FROM players p
-      LEFT JOIN (
-        SELECT player_id, GROUP_CONCAT(sport_type ORDER BY sport_type SEPARATOR ',') as sport_types
-        FROM player_sport_eligibilities
-        GROUP BY player_id
-      ) eligibility ON eligibility.player_id = p.id
       LEFT JOIN (
         SELECT
           tep.player_id,
@@ -810,17 +881,28 @@ exports.getMyPlayers = async (req, res) => {
 exports.addPlayerToMyTeam = async (req, res) => {
   try {
     const userId = req.user.id;
+    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, title, middle_name, jersey_name, national_id, fivb_id, hometown, school_affiliation, grade_level, contact_phone, identity_document_url, student_certificate_url, guardian_consent_url } = req.body;
     // หา team_id ของ user คนนี้
-    const userRes = await db.query('SELECT team_id FROM users WHERE id = ?', [userId]);
+    const userRes = await db.query('SELECT u.team_id, COALESCE(t.gender, t.category) AS team_gender FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.id = ?', [userId]);
     const teamId = userRes.rows[0]?.team_id;
 
     if (!teamId) return res.status(400).json({ error: "User has no team." });
 
-    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, sport_types } = req.body;
+    const requestedPlayerGender = normalizeTeamGender(gender);
+    const registeredTeamGender = normalizeTeamGender(userRes.rows[0]?.team_gender);
+    if (!registeredTeamGender) {
+      return res.status(409).json({ error: 'Set the team type to Male or Female before adding players.' });
+    }
+    if (requestedPlayerGender !== registeredTeamGender) {
+      return res.status(400).json({ error: `Players on this team must be registered as ${registeredTeamGender}.` });
+    }
 
     // Validation: number is required
     if (!number || number === '' || number === null || number === undefined) {
       return res.status(400).json({ error: 'Player number is required' });
+    }
+    if (national_id && !/^\d{13}$/.test(national_id)) {
+      return res.status(400).json({ error: 'National ID must contain exactly 13 digits' });
     }
 
     // --- [เพิ่มส่วนนี้] Logic: ถ้าตั้งคนนี้เป็นกัปตัน ให้ปลดกัปตันคนเก่าออก ---
@@ -851,8 +933,8 @@ exports.addPlayerToMyTeam = async (req, res) => {
     // ---------------------
 
     const result = await db.query(
-      `INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, title, middle_name, jersey_name, national_id, fivb_id, hometown, school_affiliation, grade_level, contact_phone, identity_document_url, student_certificate_url, guardian_consent_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         teamId,
         parseNullablePersonName(first_name),
@@ -868,14 +950,15 @@ exports.addPlayerToMyTeam = async (req, res) => {
         parseNullableString(nationality),
         parseNullableString(photo),
         cleanIsLibero1,
-        cleanIsLibero2
+        cleanIsLibero2,
+        parseNullableString(title), parseNullablePersonName(middle_name), parseNullablePersonName(jersey_name),
+        national_id || null,
+        parseNullableString(fivb_id), parseNullableString(hometown), parseNullableString(school_affiliation),
+        parseNullableString(grade_level), parseNullableString(contact_phone), parseNullableString(identity_document_url),
+        parseNullableString(student_certificate_url), parseNullableString(guardian_consent_url)
       ]
     );
-    const cleanSportTypes = normalizePlayerSportTypes(sport_types);
-    await syncPlayerSportEligibilities(db, result.insertId, cleanSportTypes);
-
     const insertedPlayer = await db.query('SELECT * FROM players WHERE id = ?', [result.insertId]);
-    insertedPlayer.rows[0].sport_types = cleanSportTypes.join(',');
 
     res.json(insertedPlayer.rows[0]);
   } catch (err) {
@@ -892,7 +975,7 @@ exports.addPlayerToMyTeam = async (req, res) => {
 exports.updatePlayer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, is_playing, sport_types } = req.body;
+    const { first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, is_playing, title, middle_name, jersey_name, national_id, fivb_id, hometown, school_affiliation, grade_level, contact_phone, identity_document_url, student_certificate_url, guardian_consent_url } = req.body;
     const userId = req.user.id;
 
     // Validation: number is required ONLY if being updated
@@ -900,10 +983,15 @@ exports.updatePlayer = async (req, res) => {
       return res.status(400).json({ error: 'Player number is required' });
     }
 
-    const userRes = await db.query('SELECT team_id FROM users WHERE id = ?', [userId]);
+    const userRes = await db.query('SELECT u.team_id, COALESCE(t.gender, t.category) AS team_gender FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.id = ?', [userId]);
     const userTeamId = userRes.rows[0]?.team_id;
     if (!userTeamId) {
       return res.status(400).json({ error: 'You do not belong to any team.' });
+    }
+    const requestedPlayerGender = gender === undefined ? null : normalizeTeamGender(gender);
+    const registeredTeamGender = normalizeTeamGender(userRes.rows[0]?.team_gender);
+    if (registeredTeamGender && gender !== undefined && requestedPlayerGender !== registeredTeamGender) {
+      return res.status(400).json({ error: `Players on this team must be registered as ${registeredTeamGender}.` });
     }
 
     const currentPlayerRes = await db.query('SELECT * FROM players WHERE id = ? AND team_id = ?', [id, userTeamId]);
@@ -918,7 +1006,7 @@ exports.updatePlayer = async (req, res) => {
     if (is_captain !== undefined && (is_captain === true || is_captain === 'true')) {
         // 1. หา team_id ของนักกีฬาคนนี้ก่อน เพื่อจะได้รีเซ็ตถูกทีม
         const playerCheck = await db.query('SELECT team_id FROM players WHERE id = ?', [id]);
-        
+
         if (playerCheck.rows.length > 0) {
             const teamId = playerCheck.rows[0].team_id;
             // 2. ปลดกัปตันทุกคนในทีมนี้ออก
@@ -947,16 +1035,10 @@ exports.updatePlayer = async (req, res) => {
     const cleanWeight = parsePositiveNullableInt(weight);
     const cleanBirthDate = parseNullableString(birth_date);
     const cleanIsCaptain = is_captain !== undefined ? (is_captain === true || is_captain === 'true') : undefined;
-    // Normalize is_playing reliably and log for debugging
     const cleanIsPlaying = is_playing !== undefined ? (String(is_playing) === 'true') : undefined;
-
-    // Debug logging to trace toggle issues (remove in production)
-    console.log(`[teamController.updatePlayer] id=${id} received is_playing=${is_playing} normalized=${cleanIsPlaying}`);
-
-    // Build dynamic UPDATE query - only include fields that were provided
     const updateFields = [];
     const updateValues = [];
-    
+
     if (number !== undefined && (!cleanNumber || Number.isNaN(cleanNumber))) {
       return res.status(400).json({ error: 'Player number must be a valid number' });
     }
@@ -997,12 +1079,18 @@ exports.updatePlayer = async (req, res) => {
     if (is_libero1 !== undefined) { updateFields.push('is_libero1=?'); updateValues.push(cleanIsLibero1); }
     if (is_libero2 !== undefined) { updateFields.push('is_libero2=?'); updateValues.push(cleanIsLibero2); }
     if (is_playing !== undefined) { updateFields.push('is_playing=?'); updateValues.push(cleanIsPlaying); }
-
-    if (updateFields.length > 0) {
-      console.log(`[teamController.updatePlayer] id=${id} updateFields=${updateFields.join(', ')} updateValues=${JSON.stringify(updateValues)}`);
+    for (const [column, value] of Object.entries({ title, middle_name, jersey_name, fivb_id, hometown, school_affiliation, grade_level, contact_phone, identity_document_url, student_certificate_url, guardian_consent_url })) {
+      if (value !== undefined) {
+        updateFields.push(`${column}=?`);
+        updateValues.push(parseNullableString(value));
+      }
+    }
+    if (national_id !== undefined) {
+      if (national_id && !/^\d{13}$/.test(national_id)) return res.status(400).json({ error: 'National ID must contain exactly 13 digits' });
+      updateFields.push('national_id=?'); updateValues.push(national_id || null);
     }
 
-    if (updateFields.length === 0 && sport_types === undefined) {
+    if (updateFields.length === 0) {
       return res.status(400).json({ error: "No fields provided to update" });
     }
 
@@ -1022,20 +1110,7 @@ exports.updatePlayer = async (req, res) => {
       await db.query('UPDATE team_entry_players SET number = ? WHERE player_id = ?', [cleanNumber, id]);
     }
 
-    if (sport_types !== undefined) {
-      await syncPlayerSportEligibilities(db, id, sport_types);
-    }
-
-    const updatedPlayer = await db.query(`
-      SELECT p.*, COALESCE(eligibility.sport_types, 'indoor') as sport_types
-      FROM players p
-      LEFT JOIN (
-        SELECT player_id, GROUP_CONCAT(sport_type ORDER BY sport_type SEPARATOR ',') as sport_types
-        FROM player_sport_eligibilities
-        GROUP BY player_id
-      ) eligibility ON eligibility.player_id = p.id
-      WHERE p.id = ?
-    `, [id]);
+    const updatedPlayer = await db.query('SELECT * FROM players WHERE id = ?', [id]);
     if (updatedPlayer.rows.length === 0) return res.status(404).json({ error: "Player not found" });
 
     res.json(updatedPlayer.rows[0]);
@@ -1073,8 +1148,8 @@ exports.getAllTeams = async (req, res) => {
   try {
     // ดึงจำนวนสมาชิกในทีมมาโชว์ด้วยก็ได้
     const result = await db.query(`
-      SELECT t.*, 
-      (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) as player_count 
+      SELECT t.*,
+      (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) as player_count
       FROM teams t ORDER BY t.id ASC
     `);
     res.json(result.rows);
@@ -1186,7 +1261,7 @@ exports.deleteTeam = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const { id } = req.params;
-    
+
     await client.query('BEGIN');
 
     const teamBeforeResult = await client.query('SELECT * FROM teams WHERE id = ?', [id]);
@@ -1208,7 +1283,7 @@ exports.deleteTeam = async (req, res) => {
     // 4. ค้นหาแมตช์ทั้งหมดที่ทีมนี้เกี่ยวข้อง เพื่อลบข้อมูลที่เชื่อมโยง (Sets, Actions, Events, Lineups)
     const matchesRes = await client.query(
       'SELECT id FROM matches WHERE home_team_id = ? OR away_team_id = ?',
-      [id]
+      [id, id]
     );
     const matchIds = matchesRes.rows.map(m => m.id);
 
@@ -1219,7 +1294,7 @@ exports.deleteTeam = async (req, res) => {
       await client.query(`DELETE FROM match_actions WHERE match_id IN (${matchIdPlaceholders})`, matchIds);
       await client.query(`DELETE FROM match_events WHERE match_id IN (${matchIdPlaceholders})`, matchIds);
       await client.query(`DELETE FROM match_lineups WHERE match_id IN (${matchIdPlaceholders})`, matchIds);
-      
+
       // ลบแมตช์จริง
       await client.query(`DELETE FROM matches WHERE id IN (${matchIdPlaceholders})`, matchIds);
     }
@@ -1251,9 +1326,9 @@ exports.deleteTeam = async (req, res) => {
 exports.getAllPlayers = async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT p.*, t.name as team_name 
-      FROM players p 
-      LEFT JOIN teams t ON p.team_id = t.id 
+      SELECT p.*, t.name as team_name
+      FROM players p
+      LEFT JOIN teams t ON p.team_id = t.id
       ORDER BY p.id DESC
     `);
     res.json(result.rows);
@@ -1266,12 +1341,12 @@ exports.getAllPlayers = async (req, res) => {
 exports.getPlayersByTeam = async (req, res) => {
   try {
     const { id } = req.params; // รับ id จาก url: /admin/teams/:id/players
-    
+
     const result = await db.query(
-      'SELECT * FROM players WHERE team_id = ? ORDER BY number ASC', 
+      'SELECT * FROM players WHERE team_id = ? ORDER BY number ASC',
       [id]
     );
-    
+
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching players by team:", err);
@@ -1283,12 +1358,12 @@ exports.getPlayersByTeam = async (req, res) => {
 exports.getStaffByTeam = async (req, res) => {
   try {
     const { id } = req.params; // รับ id จาก url: /admin/teams/:id/staff
-    
+
     const result = await db.query(
-      'SELECT * FROM team_staff WHERE team_id = ? ORDER BY role ASC', 
+      'SELECT * FROM team_staff WHERE team_id = ? ORDER BY role ASC',
       [id]
     );
-    
+
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching staff by team:", err);
@@ -1430,7 +1505,7 @@ exports.leaveCompetition = async (req, res) => {
     if (!teamId) return res.status(400).json({ error: "You must create a team first." });
 
     await client.query('BEGIN');
-    
+
     const check = await client.query('SELECT * FROM team_competitions WHERE team_id = ? AND competition_id = ?', [teamId, competition_id]);
     if (check.rows.length === 0) {
         await client.query('ROLLBACK');
@@ -1478,7 +1553,7 @@ exports.deleteMyTeam = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const userId = req.user.id;
-    
+
     // 1. หา team_id ของ User
     const userRes = await client.query('SELECT team_id FROM users WHERE id = ?', [userId]);
     const teamId = userRes.rows[0]?.team_id;
@@ -1504,7 +1579,7 @@ exports.deleteMyTeam = async (req, res) => {
     // 5. ค้นหาแมตช์ทั้งหมดที่ทีมนี้เกี่ยวข้อง เพื่อลบข้อมูลที่เชื่อมโยง
     const matchesRes = await client.query(
       'SELECT id FROM matches WHERE home_team_id = ? OR away_team_id = ?',
-      [teamId]
+      [teamId, teamId]
     );
     const matchIds = matchesRes.rows.map(m => m.id);
 
@@ -1549,17 +1624,17 @@ exports.getMyMatches = async (req, res) => {
     const placeholders = teamIds.map(() => '?').join(',');
 
     const result = await db.query(`
-        SELECT 
+        SELECT
             m.id, m.competition_id, c.title as competition_name, m.round_name, m.match_date, m.start_time, m.location, m.status,
             m.match_number, m.pool_name, COALESCE(m.gender, c.gender) as gender,
             COALESCE(m.age_group_id, c.age_group_id) as age_group_id,
             ag.name as age_group_name,
             m.home_set_score, m.away_set_score, m.set_scores,
-            
+
             m.home_team_id,
             t1.name as home_team, t1.code as home_team_code,
             t1.logo_url as home_team_logo_url,
-            
+
             m.away_team_id,
             t2.name as away_team, t2.code as away_team_code,
             t2.logo_url as away_team_logo_url
@@ -1604,15 +1679,15 @@ exports.getMyMatchesByGender = async (req, res) => {
     const placeholders = teamIds.map(() => '?').join(',');
 
     const result = await db.query(`
-        SELECT 
+        SELECT
             m.id, m.competition_id, c.title as competition_name, m.round_name, m.match_date, m.start_time, m.location, m.status,
             m.match_number, m.pool_name, m.gender,
             m.home_set_score, m.away_set_score, m.set_scores,
-            
+
             m.home_team_id,
             t1.name as home_team, t1.code as home_team_code,
             t1.logo_url as home_team_logo_url,
-            
+
             m.away_team_id,
             t2.name as away_team, t2.code as away_team_code,
             t2.logo_url as away_team_logo_url

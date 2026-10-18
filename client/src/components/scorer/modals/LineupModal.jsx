@@ -1,5 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, PenTool, RotateCcw } from 'lucide-react';
+import { getTeamCode, isLineupSetupLocked } from '../../../utils/scorerHelpers';
+import React, { useState, useRef } from 'react';
+import { X, PenTool, Lock } from 'lucide-react';
+import SignaturePad from '../partials/SignaturePad';
 import { getContrastClass } from '../../../utils/colorUtils';
 
 const SHIRT_COLOR_OPTIONS = [
@@ -7,120 +9,6 @@ const SHIRT_COLOR_OPTIONS = [
     '#eab308', '#f97316', '#dc2626', '#be123c', '#9333ea',
     '#334155', '#111827', '#f8fafc'
 ];
-
-const SignaturePad = ({ width = 500, height = 220, onSave, defaultValue }) => {
-    const canvasRef = useRef(null);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [hasDrawn, setHasDrawn] = useState(!!defaultValue);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = '#1e293b'; // slate-800
-
-        if (defaultValue) {
-            const img = new Image();
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0);
-            };
-            img.src = defaultValue;
-        }
-    }, [defaultValue]);
-
-    const getCoordinates = (e) => {
-        const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        if (e.touches && e.touches.length > 0) {
-            return {
-                x: (e.touches[0].clientX - rect.left) * scaleX,
-                y: (e.touches[0].clientY - rect.top) * scaleY
-            };
-        }
-        return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
-        };
-    };
-
-    const startDrawing = (e) => {
-        e.preventDefault();
-        const { x, y } = getCoordinates(e);
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        setIsDrawing(true);
-    };
-
-    const draw = (e) => {
-        if (!isDrawing) return;
-        e.preventDefault();
-        const { x, y } = getCoordinates(e);
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        setHasDrawn(true);
-    };
-
-    const stopDrawing = () => {
-        if (isDrawing) {
-            const ctx = canvasRef.current.getContext('2d');
-            ctx.closePath();
-            setIsDrawing(false);
-            if (onSave && hasDrawn) {
-                onSave(canvasRef.current.toDataURL('image/png'));
-            }
-        }
-    };
-
-    const clearCanvas = () => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        setHasDrawn(false);
-        if (onSave) onSave(null);
-    };
-
-    return (
-        <div className="flex flex-col gap-2 w-full">
-            <div className="relative rounded-2xl border-2 border-slate-200 bg-slate-50 shadow-inner overflow-hidden aspect-[500/220] max-w-full">
-                <canvas
-                    ref={canvasRef}
-                    width={width}
-                    height={height}
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onMouseLeave={stopDrawing}
-                    onTouchStart={startDrawing}
-                    onTouchMove={draw}
-                    onTouchEnd={stopDrawing}
-                    className="cursor-crosshair w-full h-full bg-slate-50/50 relative z-10 touch-none"
-                />
-                {!hasDrawn && (
-                    <div className="absolute inset-0 z-0 flex items-center justify-center font-bold text-slate-350 pointer-events-none select-none uppercase tracking-widest text-sm text-slate-300">
-                        ลงลายมือชื่อที่นี่ (Sign Here)
-                    </div>
-                )}
-                {hasDrawn && (
-                    <button
-                        type="button"
-                        onClick={clearCanvas}
-                        className="absolute top-3 right-3 z-20 bg-white/90 p-2 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-md active:scale-95"
-                        title="Clear Signature"
-                    >
-                        <RotateCcw size={18} />
-                    </button>
-                )}
-            </div>
-        </div>
-    );
-};
 
 const LineupModal = ({ 
     isOpen, 
@@ -139,15 +27,20 @@ const LineupModal = ({
     onSetRoster,
     onColorChange,
     onClearTeamLineup,
+    currentSet = 1,
+    lineupSetup = {},
     signatures = {},
     onSignaturesChange
 }) => {
     const [activeField, setActiveField] = useState(null);
     const [activeColorPicker, setActiveColorPicker] = useState(null);
+    const [hasPendingSignature, setHasPendingSignature] = useState(false);
     const tempSignatureRef = useRef(null);
 
     const handleButtonClick = (field) => {
-        tempSignatureRef.current = signatures[field] || null;
+        if (signatures[field]) return;
+        tempSignatureRef.current = null;
+        setHasPendingSignature(false);
         setActiveField(field);
     };
 
@@ -196,16 +89,22 @@ const LineupModal = ({
     };
 
     // Helper to extract 3-letter code from team name
-    const getTeamCode = (teamName) => {
-        if (!teamName) return '';
-        if (teamName.includes('-')) {
-            return teamName.split('-')[0].trim().toUpperCase();
-        }
-        return teamName.substring(0, 3).toUpperCase();
-    };
 
     const homeColor = teamColors.home || '#1e3a8a';
     const awayColor = teamColors.away || '#eab308';
+
+    const getApprovalButtonStyle = (shirtColor, isSigned) => {
+        const backgroundColor = getContrastClass(shirtColor) === 'text-white'
+            ? shirtColor
+            : '#1e293b';
+
+        return {
+            backgroundColor,
+            borderColor: backgroundColor,
+            color: '#ffffff',
+            boxShadow: isSigned ? '0 0 0 2px rgba(148, 163, 184, 0.35)' : undefined
+        };
+    };
     
     const homeCode = getTeamCode(teamHome);
     const awayCode = getTeamCode(teamAway);
@@ -214,6 +113,7 @@ const LineupModal = ({
     const safeAwayRoster = awayRoster || [];
 
     const selectShirtColor = (side, color) => {
+        if (isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked')) return;
         onColorChange(side, color);
         setActiveColorPicker(null);
     };
@@ -222,14 +122,16 @@ const LineupModal = ({
         <div className="relative flex-1">
             <button
                 type="button"
+                disabled={isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked')}
                 onClick={() => setActiveColorPicker((active) => active === side ? null : side)}
-                className="w-full py-2 border border-slate-200 rounded text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-                aria-expanded={activeColorPicker === side}
+                className="w-full py-2 border border-slate-200 rounded text-xs font-bold text-slate-700 bg-white enabled:hover:bg-slate-50 disabled:bg-slate-100 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shadow-sm"
+                aria-expanded={activeColorPicker === side && !isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked')}
             >
                 <span className="w-4 h-4 rounded-full border border-slate-300 shadow-inner" style={{ backgroundColor: currentColor }} />
                 Shirt color
+                {isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked') && <Lock size={12} aria-label="Locked" />}
             </button>
-            {activeColorPicker === side && (
+            {activeColorPicker === side && !isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked') && (
                 <div className={`absolute bottom-full z-30 mb-2 w-full min-w-[184px] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ${side === 'away' ? 'right-0' : 'left-0'}`}>
                     <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Select shirt color</div>
                     <div className="grid grid-cols-7 gap-2">
@@ -309,10 +211,12 @@ const LineupModal = ({
                             <div className="flex gap-2">
                                 <button 
                                     onClick={() => onSetRoster('home')} 
-                                    className={`flex-1 py-2 text-xs font-bold ${getContrastClass(homeColor)} rounded transition-colors shadow-sm hover:opacity-90 cursor-pointer`}
+                                    disabled={isLineupSetupLocked(currentSet, lineupSetup, 'home', 'rosterLocked')}
+                                    className={`flex-1 py-2 text-xs font-bold ${getContrastClass(homeColor)} rounded transition-colors shadow-sm enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60`}
                                     style={{ backgroundColor: homeColor }}
                                 >
                                     Set roster
+                                    {isLineupSetupLocked(currentSet, lineupSetup, 'home', 'rosterLocked') && <Lock size={12} className="ml-1 inline" aria-label="Locked" />}
                                 </button>
                                 {renderShirtColorPicker('home', homeColor)}
                             </div>
@@ -321,25 +225,21 @@ const LineupModal = ({
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => handleButtonClick('homeCaptain')}
-                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
-                                        signatures.homeCaptain 
-                                        ? `${getContrastClass(homeColor)} border border-transparent shadow-sm` 
-                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                    style={signatures.homeCaptain ? { backgroundColor: homeColor } : { borderColor: homeColor, color: homeColor }}
+                                    disabled={Boolean(signatures.homeCaptain)}
+                                    className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
+                                    style={getApprovalButtonStyle(homeColor, signatures.homeCaptain)}
                                 >
                                     Captain {homeCode}
+                                    {signatures.homeCaptain && <span className="block mt-1 text-[10px]">✓ Signed · Locked</span>}
                                 </button>
                                 <button
                                     onClick={() => handleButtonClick('homeCoach')}
-                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
-                                        signatures.homeCoach 
-                                        ? `${getContrastClass(homeColor)} border border-transparent shadow-sm` 
-                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                    style={signatures.homeCoach ? { backgroundColor: homeColor } : { borderColor: homeColor, color: homeColor }}
+                                    disabled={Boolean(signatures.homeCoach)}
+                                    className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
+                                    style={getApprovalButtonStyle(homeColor, signatures.homeCoach)}
                                 >
                                     Coach {homeCode}
+                                    {signatures.homeCoach && <span className="block mt-1 text-[10px]">✓ Signed · Locked</span>}
                                 </button>
                             </div>
                         </div>
@@ -493,10 +393,12 @@ const LineupModal = ({
                             <div className="flex gap-2">
                                 <button 
                                     onClick={() => onSetRoster('away')} 
-                                    className={`flex-1 py-2 text-xs font-bold ${getContrastClass(awayColor)} rounded transition-colors shadow-sm hover:opacity-90 cursor-pointer`}
+                                    disabled={isLineupSetupLocked(currentSet, lineupSetup, 'away', 'rosterLocked')}
+                                    className={`flex-1 py-2 text-xs font-bold ${getContrastClass(awayColor)} rounded transition-colors shadow-sm enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60`}
                                     style={{ backgroundColor: awayColor }}
                                 >
                                     Set roster
+                                    {isLineupSetupLocked(currentSet, lineupSetup, 'away', 'rosterLocked') && <Lock size={12} className="ml-1 inline" aria-label="Locked" />}
                                 </button>
                                 {renderShirtColorPicker('away', awayColor)}
                             </div>
@@ -505,25 +407,21 @@ const LineupModal = ({
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => handleButtonClick('awayCaptain')}
-                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
-                                        signatures.awayCaptain 
-                                        ? `${getContrastClass(awayColor)} border border-transparent shadow-sm` 
-                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                    style={signatures.awayCaptain ? { backgroundColor: awayColor } : { borderColor: awayColor, color: awayColor }}
+                                    disabled={Boolean(signatures.awayCaptain)}
+                                    className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
+                                    style={getApprovalButtonStyle(awayColor, signatures.awayCaptain)}
                                 >
                                     Captain {awayCode}
+                                    {signatures.awayCaptain && <span className="block mt-1 text-[10px]">✓ Signed · Locked</span>}
                                 </button>
                                 <button
                                     onClick={() => handleButtonClick('awayCoach')}
-                                    className={`flex-1 py-2.5 text-xs font-bold rounded transition-all text-center cursor-pointer ${
-                                        signatures.awayCoach 
-                                        ? `${getContrastClass(awayColor)} border border-transparent shadow-sm` 
-                                        : 'bg-white border text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                    style={signatures.awayCoach ? { backgroundColor: awayColor } : { borderColor: awayColor, color: awayColor }}
+                                    disabled={Boolean(signatures.awayCoach)}
+                                    className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
+                                    style={getApprovalButtonStyle(awayColor, signatures.awayCoach)}
                                 >
                                     Coach {awayCode}
+                                    {signatures.awayCoach && <span className="block mt-1 text-[10px]">✓ Signed · Locked</span>}
                                 </button>
                             </div>
                         </div>
@@ -548,7 +446,7 @@ const LineupModal = ({
             </div>
 
             {/* 📝 LARGE SIGNATURE OVERLAY DIALOG 📝 */}
-            {activeField && (
+            {activeField && !signatures[activeField] && (
                 <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="bg-white p-6 rounded-[2rem] max-w-xl w-full flex flex-col gap-6 shadow-2xl border border-slate-100 animate-in zoom-in duration-200">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -575,6 +473,7 @@ const LineupModal = ({
                                 height={220}
                                 onSave={(data) => {
                                     tempSignatureRef.current = data;
+                                    setHasPendingSignature(Boolean(data));
                                 }}
                                 defaultValue={signatures[activeField]}
                             />
@@ -593,14 +492,14 @@ const LineupModal = ({
                             </button>
                             <button
                                 type="button"
+                                disabled={!hasPendingSignature}
                                 onClick={() => {
-                                    if (onSignaturesChange) {
-                                        onSignaturesChange(prev => ({ ...prev, [activeField]: tempSignatureRef.current }));
-                                    }
+                                    if (!tempSignatureRef.current || signatures[activeField]) return;
+                                    onSignaturesChange?.(activeField, tempSignatureRef.current);
                                     setActiveField(null);
                                     tempSignatureRef.current = null;
                                 }}
-                                className="py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl uppercase tracking-wider text-sm transition-all shadow-md shadow-indigo-200 active:scale-95 cursor-pointer text-center"
+                                className="py-3.5 bg-indigo-600 enabled:hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl uppercase tracking-wider text-sm transition-all shadow-md shadow-indigo-200 enabled:active:scale-95 text-center"
                             >
                                 Save
                             </button>

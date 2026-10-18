@@ -1,14 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import Swal from 'sweetalert2';
 import {
     Plus, Search, Edit2, Trash2, X, Save,
     User, Shield, Key, CheckCircle, AlertCircle, Loader2
 } from 'lucide-react';
 
+const USER_ROLES = [
+    { value: 'user', label: 'User' },
+    { value: 'team_staff', label: 'Team staff' },
+    { value: 'score', label: 'Scorekeeper' },
+    { value: 'scorer', label: 'Scorekeeper (legacy role)' },
+    { value: 'statistician', label: 'Statistician' },
+    { value: 'referee', label: 'Referee' },
+    { value: 'organizer', label: 'Organizer' },
+    { value: 'staff', label: 'Staff (legacy)' },
+    { value: 'admin', label: 'Administrator' },
+];
+const USER_ROLE_LABELS = Object.fromEntries(USER_ROLES.map(({ value, label }) => [value, label]));
+const getOfficialKind = (role) => ['score', 'scorer', 'statistician'].includes(role)
+    ? 'scorer'
+    : role === 'referee' ? 'referee' : null;
+
 const AccountsTab = () => {
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [officialRecords, setOfficialRecords] = useState({ scorer: [], referee: [] });
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,7 +38,12 @@ const AccountsTab = () => {
         username: '',
         password: '',
         role: 'user', // user, admin, staff
-        status: 'active'
+        status: 'active',
+        firstname: '',
+        lastname: '',
+        country: '',
+        code: '',
+        official_id: ''
     });
 
     // Fetch Users
@@ -32,8 +55,10 @@ const AccountsTab = () => {
             setUsers(response.data || []);
         } catch (error) {
             console.error("Failed to fetch users", error);
-            // Fallback/Mock data for demonstration if backend isn't ready
-            // setUsers([]); 
+            Swal.fire({
+                icon: 'error',
+                title: error.response?.data?.error || 'Failed to load user accounts'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -52,18 +77,46 @@ const AccountsTab = () => {
                 username: user.username,
                 password: '', // Leave blank to keep unchanged
                 role: user.role || 'user',
-                status: user.status || 'active'
+                status: user.status || 'active',
+                firstname: user.firstname || '',
+                lastname: user.lastname || '',
+                country: user.country || '',
+                code: user.code || '',
+                official_id: user.referee_id || user.scorer_id || ''
             });
         } else {
             setFormData({
                 username: '',
                 password: '',
                 role: 'user',
-                status: 'active'
+                status: 'active',
+                firstname: '',
+                lastname: '',
+                country: '',
+                code: '',
+                official_id: ''
             });
         }
         setIsModalOpen(true);
     };
+
+    useEffect(() => {
+        if (!isModalOpen || !getOfficialKind(formData.role)) return undefined;
+        let isCurrent = true;
+        Promise.all([api.getAllScorers(), api.getAllReferees()])
+            .then(([scorersResponse, refereesResponse]) => {
+                if (!isCurrent) return;
+                setOfficialRecords({
+                    scorer: scorersResponse.data || [],
+                    referee: refereesResponse.data || []
+                });
+            })
+            .catch((error) => {
+                console.error('Failed to load official records', error);
+                Swal.fire({ icon: 'error', title: error.response?.data?.error || 'Failed to load official records' });
+            });
+        return () => { isCurrent = false; };
+    }, [isModalOpen, formData.role]);
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
@@ -72,6 +125,26 @@ const AccountsTab = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'role') {
+            setFormData((prev) => getOfficialKind(prev.role) === getOfficialKind(value)
+                ? { ...prev, role: value }
+                : { ...prev, role: value, firstname: '', lastname: '', country: '', code: '', official_id: '' });
+            return;
+        }
+        if (name === 'official_id') {
+            const kind = getOfficialKind(formData.role);
+            const records = officialRecords[kind] || [];
+            const selectedRecord = records.find((record) => String(record.id) === value);
+            setFormData((prev) => ({
+                ...prev,
+                official_id: value,
+                firstname: selectedRecord?.firstname || '',
+                lastname: selectedRecord?.lastname || '',
+                country: selectedRecord?.country || '',
+                code: selectedRecord?.code || ''
+            }));
+            return;
+        }
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -85,21 +158,42 @@ const AccountsTab = () => {
                 if (!dataToSend.password) delete dataToSend.password;
                 await api.updateUser(selectedUser.id, dataToSend);
             }
-            fetchUsers();
+            await fetchUsers();
             handleCloseModal();
+            Swal.fire({
+                icon: 'success',
+                title: modalMode === 'create' ? 'User account created' : 'User account updated'
+            });
         } catch (error) {
             console.error("Operation failed", error);
-            alert("Failed to save user. Please try again.");
+            Swal.fire({
+                icon: 'error',
+                title: error.response?.data?.error || 'Failed to save user account'
+            });
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this user?")) {
+        const confirmation = await Swal.fire({
+            icon: 'warning',
+            title: 'Delete this user?',
+            text: 'This action cannot be undone.',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#dc2626'
+        });
+        if (confirmation.isConfirmed) {
             try {
                 await api.deleteUser(id);
-                fetchUsers();
+                await fetchUsers();
+                Swal.fire({ icon: 'success', title: 'User account deleted' });
             } catch (error) {
                 console.error("Delete failed", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: error.response?.data?.error || 'Failed to delete user account'
+                });
             }
         }
     };
@@ -107,7 +201,8 @@ const AccountsTab = () => {
     // Filter users
     const filteredUsers = users.filter(user =>
         (user.username?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (user.team_name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+        (user.team_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        ([user.firstname, user.lastname].filter(Boolean).join(' ').toLowerCase()).includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -178,7 +273,7 @@ const AccountsTab = () => {
                                             </div>
                                             <div>
                                                 <div className="font-medium">{user.username}</div>
-                                                <div className="text-sm text-gray-500">{user.team_name || '-'}</div>
+                                                <div className="text-sm text-gray-500">{user.team_name || [user.firstname, user.lastname].filter(Boolean).join(' ') || '-'}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -188,7 +283,7 @@ const AccountsTab = () => {
                                                 ? 'bg-purple-100 text-purple-800'
                                                 : 'bg-blue-100 text-blue-800'
                                             }`}>
-                                            {user.role}
+                                            {USER_ROLE_LABELS[user.role] || user.role}
                                         </span>
                                     </td>
                                     <td className="p-4">
@@ -226,11 +321,29 @@ const AccountsTab = () => {
                             <h3 className="text-xl font-bold">{modalMode === 'create' ? 'Add New User' : 'Edit User'}</h3>
                             <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
                         </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                             <div><label className="block text-sm font-medium mb-1">Username</label><div className="relative"><User className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="text" name="username" required value={formData.username} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="johndoe" /></div></div>
                             <div><label className="block text-sm font-medium mb-1">Password {modalMode === 'edit' && <span className="text-xs font-normal text-gray-500">(Leave blank to keep)</span>}</label><div className="relative"><Key className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="password" name="password" required={modalMode === 'create'} value={formData.password} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="••••••••" /></div></div>
+                            {['score', 'scorer', 'statistician', 'referee'].includes(formData.role) && (
+                                <div className="grid grid-cols-2 gap-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+                                    <div className="col-span-2 text-sm font-semibold text-blue-900">Official profile (linked to this account)</div>
+                                    <label className="col-span-2 text-sm font-medium">Existing official record
+                                        <select name="official_id" value={formData.official_id} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2">
+                                            <option value="">Create a new official record</option>
+                                            {(officialRecords[getOfficialKind(formData.role)] || [])
+                                                .filter((record) => !record.user_id || String(record.user_id) === String(selectedUser?.id))
+                                                .map((record) => <option key={record.id} value={record.id}>{record.firstname} {record.lastname}{record.country ? ` · ${record.country}` : ''}</option>)}
+                                        </select>
+                                    </label>
+                                    <label className="text-sm font-medium">First name<input name="firstname" required value={formData.firstname} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                                    <label className="text-sm font-medium">Last name<input name="lastname" required value={formData.lastname} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                                    <label className="text-sm font-medium">Country<input name="country" value={formData.country} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                                    {formData.role === 'referee' && <label className="text-sm font-medium">Referee code<input name="code" value={formData.code} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>}
+                                    <p className="col-span-2 text-xs text-gray-600">This profile will also appear in Officials and match assignment lists.</p>
+                                </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium mb-1">Role</label><div className="relative"><Shield className="absolute left-3 top-2.5 text-gray-400" size={18} /><select name="role" value={formData.role} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-gray-50 border-gray-300"><option value="user">User</option><option value="staff">Staff</option><option value="admin">Admin</option></select></div></div>
+                                <div><label className="block text-sm font-medium mb-1">Role</label><div className="relative"><Shield className="absolute left-3 top-2.5 text-gray-400" size={18} /><select name="role" value={formData.role} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-gray-50 border-gray-300">{USER_ROLES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select></div></div>
                                 <div><label className="block text-sm font-medium mb-1">Status</label><select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300"><option value="active">Active</option><option value="inactive">Inactive</option><option value="banned">Banned</option></select></div>
                             </div>
                             <div className="flex justify-end gap-3 mt-6">

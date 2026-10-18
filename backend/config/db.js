@@ -98,7 +98,19 @@ function wrapConnection(connection) {
 
     connection.query = async (sql, params) => {
         const normalizedSql = normalizeSql(sql);
-        const [rows, fields] = await originalQuery(normalizedSql, params);
+        let rows;
+        let fields;
+        try {
+            [rows, fields] = await originalQuery(normalizedSql, params);
+        } catch (error) {
+            console.error("MySQL transaction query failed:", {
+                code: error.code,
+                message: error.message,
+                sql: normalizedSql,
+                parameterCount: Array.isArray(params) ? params.length : params === undefined ? 0 : 1,
+            });
+            throw error;
+        }
 
         const metadata = {
             sql: normalizedSql,
@@ -115,7 +127,21 @@ function wrapConnection(connection) {
 
 async function query(sql, params) {
     const normalizedSql = normalizeSql(sql);
-    const [rows, fields] = await pool.query(normalizedSql, params);
+    let rows;
+    let fields;
+    try {
+        [rows, fields] = await pool.query(normalizedSql, params);
+    } catch (error) {
+        // Keep bind values out of logs, but include the statement so MySQL errors
+        // such as "near '?'" can be traced to the exact API query.
+        console.error("MySQL query failed:", {
+            code: error.code,
+            message: error.message,
+            sql: normalizedSql,
+            parameterCount: Array.isArray(params) ? params.length : params === undefined ? 0 : 1,
+        });
+        throw error;
+    }
 
     const metadata = {
         sql: normalizedSql,
