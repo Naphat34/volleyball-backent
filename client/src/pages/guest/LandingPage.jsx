@@ -1,6 +1,5 @@
 import { calculateStandings } from '../../utils/standings';
 import { Feedback, StatusBadge } from '../../components/ui/SystemUI';
-import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
 import PublicHeader from '../../components/PublicHeader';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,11 +7,6 @@ import client from '../../api';
 import { Activity, ArrowRight, BarChart3, CalendarDays, Clock, MapPin, Shield, Star, Target, Trophy, Users, Zap } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatThaiDate, formatThaiTime } from '../../utils';
-import {
-    findCompetitionGroupById,
-    getPublicCompetitionVariantLabel,
-    groupPublicCompetitions
-} from '../../utils/publicCompetitionGrouping';
 
 const statusIsLive = (status) => ['live', 'set_playing', 'in_progress'].includes(String(status || '').toLowerCase());
 const statusIsFinished = (status) => ['completed', 'finished', 'match_finished'].includes(String(status || '').toLowerCase());
@@ -46,7 +40,6 @@ export default function LandingPage() {
     const navigate = useNavigate();
     const { language, t } = useLanguage();
     const [competitions, setCompetitions] = useState([]);
-    const [selectedCompetitionId, setSelectedCompetitionId] = useState('');
     const [matches, setMatches] = useState([]);
     const [teams, setTeams] = useState([]);
     const [stats, setStats] = useState(null);
@@ -56,14 +49,9 @@ export default function LandingPage() {
     const [statisticsError, setStatisticsError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [lastUpdated, setLastUpdated] = useState(null);
-    useEffect(() => { if (selectedCompetitionId) writeViewPreference('publicCompetition', selectedCompetitionId); }, [selectedCompetitionId]);
 
 
     const isThai = language === 'THA';
-    const competitionGroups = useMemo(() => groupPublicCompetitions(competitions), [competitions]);
-    const selectedGroup = findCompetitionGroupById(competitionGroups, selectedCompetitionId);
-    const selectedTitle = selectedGroup?.title || (isThai ? 'รายการแข่งขัน' : 'Competition');
-
     useEffect(() => {
         let cancelled = false;
 
@@ -76,9 +64,6 @@ export default function LandingPage() {
                 ));
                 if (cancelled) return;
                 setCompetitions(openCompetitions);
-                const remembered = readViewPreference('publicCompetition');
-                const selected = openCompetitions.find(item => String(item.id) === String(remembered)) || openCompetitions[0];
-                setSelectedCompetitionId(selected?.id ? String(selected.id) : '');
             } catch (error) {
                 console.error('Error fetching competitions:', error);
                 if (!cancelled) setCompetitionError(true);
@@ -100,18 +85,24 @@ export default function LandingPage() {
             setStatisticsError(false);
             setStats(null);
             try {
-                const [matchesRes, teamsRes, statsRes] = await Promise.all([
-                    selectedCompetitionId ? client.get(`/public/matches?competitionId=${selectedCompetitionId}`) : client.get('/public/matches'),
-                    selectedCompetitionId ? client.get(`/public/competitions/${selectedCompetitionId}/teams`) : Promise.resolve({ data: [] }),
-                    selectedCompetitionId ? client.get(`/public/statistics/${selectedCompetitionId}`).catch(() => ({ data: null, unavailable: true })) : Promise.resolve({ data: null })
+                const competitionIds = competitions.map((item) => item.id).filter(Boolean);
+                const [matchResults, teamResults, statsResults] = await Promise.all([
+                    Promise.all(competitionIds.map((id) => client.get(`/public/matches?competitionId=${id}`))),
+                    Promise.all(competitionIds.map((id) => client.get(`/public/competitions/${id}/teams`))),
+                    Promise.all(competitionIds.map((id) => client.get(`/public/statistics/${id}`).catch(() => ({ data: null, unavailable: true }))))
                 ]);
-
                 if (cancelled) return;
-                setMatches(matchesRes.data || []);
+                setMatches(matchResults.flatMap((result) => result.data || []));
                 setLastUpdated(new Date());
-                setTeams(teamsRes.data || []);
-                setStats(statsRes.data || null);
-                setStatisticsError(Boolean(statsRes.unavailable));
+                const uniqueTeams = new Map();
+                teamResults.flatMap((result) => result.data || []).forEach((team) => uniqueTeams.set(String(team.id), team));
+                setTeams(Array.from(uniqueTeams.values()));
+                const statRows = statsResults.flatMap((result) => result.data?.best_scorers || []);
+                const scorers = new Map();
+                statRows.forEach((player) => { const key = String(player.player_id || player.id || player.name); const current = scorers.get(key); if (current) current.value += Number(player.value) || 0; else scorers.set(key, { ...player, value: Number(player.value) || 0 }); });
+                const mergedStats = Object.fromEntries(['best_scorers','best_spikers','best_blockers','best_servers'].map((key) => [key, key === 'best_scorers' ? Array.from(scorers.values()).sort((a,b) => (Number(b.value)||0)-(Number(a.value)||0)) : statsResults.flatMap((result) => result.data?.[key] || [])]));
+                setStats(mergedStats);
+                setStatisticsError(statsResults.every((result) => result.unavailable));
             } catch (error) {
                 console.error('Error fetching landing data:', error);
                 if (!cancelled) {
@@ -129,7 +120,7 @@ export default function LandingPage() {
         return () => {
             cancelled = true;
         };
-    }, [selectedCompetitionId, reloadKey]);
+    }, [competitions, reloadKey]);
 
     const liveMatches = matches.filter((match) => statusIsLive(match.status));
     const finishedMatches = matches.filter((match) => statusIsFinished(match.status));
@@ -156,10 +147,7 @@ export default function LandingPage() {
         { label: t('nav.stats'), icon: <Activity size={18} />, path: '/stats' }
     ];
 
-    const selectCompetitionGroup = (groupKey) => {
-        const group = competitionGroups.find((item) => item.key === groupKey);
-        setSelectedCompetitionId(group?.items[0]?.id ? String(group.items[0].id) : '');
-    };
+
 
     const MatchCard = ({ match, compact = false }) => {
         if (!match) {
@@ -248,7 +236,7 @@ export default function LandingPage() {
                         <div className="mb-3 flex items-center justify-between">
                             <div>
                                 <div className="flex flex-wrap items-center gap-2"><StatusBadge tone={liveMatches.length ? 'live' : 'info'} dot>{liveMatches.length ? 'LIVE' : (isThai ? 'แมตช์เด่น' : 'Featured')}</StatusBadge>{lastUpdated && <span className="text-xs text-blue-100">{isThai ? 'อัปเดต' : 'Updated'} {lastUpdated.toLocaleTimeString(isThai ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}</div>
-                                <div className="mt-1 text-lg font-black">{selectedTitle}</div>
+                                <div className="mt-1 text-lg font-black">{isThai ? '\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e17\u0e35\u0e48\u0e40\u0e1b\u0e34\u0e14' : 'Open competitions'}</div>
                             </div>
                             {featuredMatch && (
                                 <button onClick={() => navigate(`/match-centre/${featuredMatch.id}`)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-950 hover:bg-blue-50">
@@ -256,73 +244,12 @@ export default function LandingPage() {
                                 </button>
                             )}
                         </div>
-                        <MatchCard match={featuredMatch} />
+                        {MatchCard({ match: featuredMatch })}
                     </div>
                 </div>
             </section>
 
             <main id="main-content" tabIndex={-1} className="mx-auto max-w-[1400px] space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-                <section className="rounded-xl border border-slate-200 bg-white p-5">
-                    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                        <div>
-                            <h2 className="flex items-center gap-2 text-xl font-black text-blue-950">
-                                <Trophy size={22} /> {isThai ? 'เลือกรายการแข่งขัน' : 'Choose Competition'}
-                            </h2>
-                            <p className="mt-1 text-sm text-slate-500">
-                                {isThai ? 'เลือกชื่อรายการหลัก แล้วเลือกประเภทหรือรุ่นการแข่งขันด้านล่าง' : 'Choose a competition, then select a category below.'}
-                            </p>
-                        </div>
-                        <select
-                            value={selectedGroup?.key || ''}
-                            onChange={(event) => selectCompetitionGroup(event.target.value)}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:max-w-sm"
-                        >
-                            {competitionGroups.length === 0 ? (
-                                <option>{isThai ? 'ไม่มีรายการแข่งขัน' : 'No competition'}</option>
-                            ) : competitionGroups.map((group) => (
-                                <option key={group.key} value={group.key}>{group.title}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                        {competitionGroups.map((group) => {
-                            const isSelected = group.key === selectedGroup?.key;
-                            return (
-                                <button
-                                    key={group.key}
-                                    type="button"
-                                    onClick={() => setSelectedCompetitionId(String(group.items[0]?.id || ''))}
-                                    className={`flex min-h-[86px] items-center gap-3 rounded-xl border p-3 text-left transition ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-white hover:border-blue-300'}`}
-                                >
-                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                        {group.logo_url ? <img src={group.logo_url} alt={group.title} className="h-full w-full object-contain p-1" /> : <Trophy size={22} className="text-slate-300" />}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="truncate text-sm font-black text-slate-900">{group.title}</div>
-                                        <div className="mt-1 text-xs text-slate-500">{group.items.length} {isThai ? 'รุ่น/ประเภท' : 'categories'}</div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {selectedGroup?.items.length > 1 && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            {selectedGroup.items.map((competition) => (
-                                <button
-                                    key={competition.id}
-                                    type="button"
-                                    onClick={() => setSelectedCompetitionId(String(competition.id))}
-                                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${String(selectedCompetitionId) === String(competition.id) ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'}`}
-                                >
-                                    {getPublicCompetitionVariantLabel(competition, language)}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </section>
-
                 <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.25fr_0.75fr]">
                     <div className="space-y-6">
                         <div className="rounded-xl border border-slate-200 bg-white">

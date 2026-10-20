@@ -1,37 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
-import { useNavigate, Link } from 'react-router-dom';
-import Swal from 'sweetalert2';
-import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import Logo from '../assets/img/Logo_Phatthalung.png';
-import { clearAuthSession, getAuthToken, getStoredUser, setAuthSession } from '../authStorage';
+import LoginLayout from './LoginLayout';
+import { clearAuthSession, getStoredUser, setAuthSession, getAccessSession } from '../authStorage';
+import { OfflineUnlock } from '../components/vis/VisOfflinePanel';
+import { workspaceIntent, workspacesFor } from '../offline/workspaceRouting';
+import { resolveAccess, navigateAccess } from '../offline/accessRouting';
 
-export default function Login() {
+export default function Login({ workspace = null }) {
   const { language, setLanguage, t } = useLanguage();
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const attempt = useRef(false);
   const navigate = useNavigate();
+  const { search } = useLocation();
 
   useEffect(() => {
-    const token = getAuthToken();
-    const user = getStoredUser();
-    if (token && user) {
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else if (['score', 'scorer', 'statistician'].includes(user.role)) {
-        navigate('/adminscorer');
-      } else if (user.role === 'referee') {
-        navigate('/adminscorer');
-      } else if (user.team_id) {
-        navigate('/team-dashboard');
-      } else {
-        navigate('/create-team');
-      }
-    }
-  }, [navigate]);
+    const params = new URLSearchParams(search);
+    if (params.get('reauth') === '1' || params.get('vis-sync') === '1' || params.get('scorer-offline') === '1') return;
+    let active = true;
+    void resolveAccess({ workspace, search }).then(result => {
+      if (!active) return;
+      if (result.kind === 'ready') navigateAccess(navigate, result);
+      else if (result.message) setFormError(result.message);
+    }).catch(error => { if (active) setFormError(error.message); });
+    return () => { active = false; };
+  }, [navigate, search, workspace]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -39,217 +36,37 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (submitting) return;
+    if (attempt.current) return;
+    attempt.current = true;
     setSubmitting(true);
     setFormError('');
-
     try {
-      const response = await api.login({
-        username: formData.username,
-        password: formData.password,
-      });
-
+      const response = await api.login({ username: formData.username, password: formData.password });
       const { user, token } = response.data;
-      const { role, status, team_id } = user;
-      const normalizedStatus = String(status || '').trim().toLowerCase();
-
-      setAuthSession({ token, user });
-
-
-      if (role === "admin") {
-        await Swal.fire({
-          icon: "success",
-          title: t('login.successTitle'),
-          text: t('login.successAdmin'),
-          timer: 1500,
-          showConfirmButton: false,
-        });
-        navigate("/admin");
-        return;
-      }
-
-      // เพิ่ม redirect สำหรับ scorer
-      if (["score", "scorer", "statistician"].includes(role)) {
-        await Swal.fire({
-          icon: "success",
-          title: t('login.successTitle'),
-          text: t('login.successScorer'),
-          timer: 1500,
-          showConfirmButton: false,
-        });
-        navigate("/adminscorer");
-        return;
-      }
-
-      if (normalizedStatus !== 'active') {
-        await Swal.fire({
-          icon: "warning",
-          title: t('login.pendingTitle'),
-          text: t('login.pendingText'),
-        });
-
-        await api.logout();
+      if (!['admin', 'score', 'scorer', 'statistician'].includes(user.role) && String(user.status || '').toLowerCase() !== 'active') {
         clearAuthSession();
+        setFormError(t('login.pendingText'));
         return;
       }
-
-      await Swal.fire({
-        icon: "success",
-        title: t('login.successTitle'),
-        text: t('login.successUser'),
-        timer: 1500,
-        showConfirmButton: false,
-      });
-
-      if (role === 'referee') {
-        navigate('/adminscorer');
-        return;
-      }
-
-      if (team_id) {
-        navigate("/team-dashboard");
-      } else {
-        navigate("/create-team");
-      }
+      setAuthSession({ token, user });
+      const result = await resolveAccess({ workspace, search }, getAccessSession());
+      if (result.kind !== 'ready') { setFormError(result.message); return; }
+      navigateAccess(navigate, result);
     } catch (err) {
-      setFormError(err.response?.data?.error || t('login.failText'));
+      setFormError(err.response?.data?.error || err.message || t('login.failText'));
     } finally {
+      attempt.current = false;
       setSubmitting(false);
     }
   };
 
-  return (
-    <div className="relative min-h-screen flex flex-col justify-between bg-[#122b52] overflow-hidden font-sans pb-24">
-      {/* Language Switcher */}
-      <div className="absolute top-4 right-4 z-25 flex gap-2">
-        <button
-          onClick={() => setLanguage('THA')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            language === 'THA'
-              ? 'bg-white text-blue-600 shadow-md scale-105'
-              : 'bg-white/20 text-white hover:bg-white/30'
-          }`}
-        >
-          TH
-        </button>
-        <button
-          onClick={() => setLanguage('ENG')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            language === 'ENG'
-              ? 'bg-white text-blue-600 shadow-md scale-105'
-              : 'bg-white/20 text-white hover:bg-white/30'
-          }`}
-        >
-          EN
-        </button>
-      </div>
-
-      {/* Background decoration elements */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-blue-400/20 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-indigo-400/20 blur-3xl pointer-events-none" />
-
-      {/* Main Container */}
-      <div className="flex-grow flex items-center justify-center px-4 py-12 relative z-10">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_rgba(30,64,175,0.3)] border border-white/20 p-8 md:p-10 transition-all duration-300 hover:shadow-[0_25px_60px_rgba(30,64,175,0.4)]">
-
-          {/* Logo & Header */}
-          <div className="mb-8">
-            <div className="mb-6 flex items-center justify-center gap-4">
-              <img src={Logo} alt="Phatthalung Volleyball Club" className="h-24 w-16 shrink-0 object-contain" />
-              <div className="text-left">
-                <p className="text-xl font-extrabold tracking-tight text-slate-950">Volley Manager</p>
-                <p className="mt-1 text-sm font-semibold text-slate-600">ระบบจัดการแข่งขันวอลเลย์บอล</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5" aria-busy={submitting}>
-            {formError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{formError}</p>}
-            <div>
-              <label htmlFor="auth-username" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                {t('login.username')}
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
-                </span>
-                <input
-                  id="auth-username"
-                  autoComplete="username"
-                  name="username"
-                  type="text"
-                  required
-                  placeholder={t('login.usernamePlaceholder')}
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200"
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="auth-password" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                {t('login.password')}
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </span>
-                <input
-                  id="auth-password"
-                  autoComplete="current-password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  placeholder={t('login.passwordPlaceholder')}
-                  className="w-full pl-11 pr-11 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200"
-                  onChange={handleChange}
-                />
-                <button
-                  type="button"
-                  aria-label={language === 'THA' ? (showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน') : (showPassword ? 'Hide password' : 'Show password')}
-                  aria-pressed={showPassword}
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-blue-500 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <LogIn className="w-5 h-5" />
-              {submitting ? (language === 'THA' ? 'กำลังเข้าสู่ระบบ…' : 'Signing in…') : t('login.signIn')}
-            </button>
-          </form>
-
-          {/* Registration Link */}
-          <div className="mt-8 text-center border-t border-gray-100 pt-6">
-            <p className="text-sm text-gray-500">
-              {t('login.noAccount')}&nbsp;
-              <Link
-                to="/register"
-                className="font-bold text-blue-600 hover:text-indigo-600 hover:underline transition-colors"
-              >
-                {t('login.registerHere')}
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="fixed bottom-0 left-0 w-full bg-black/20 backdrop-blur-md border-t border-white/10 py-4 px-4 z-20 text-center">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-white/90 text-sm font-medium">
-            © {new Date().getFullYear()} Volley Manager. All rights reserved.
-          </p>
-        </div>
-      </footer>
-    </div>
-  );
+  return <LoginLayout workspace={workspace} language={language} setLanguage={setLanguage} t={t}
+    formError={formError} recoveryPath={workspacesFor(getStoredUser()).length ? '/workspaces' : '/login?reauth=1'}
+    submitting={submitting} showPassword={showPassword} setShowPassword={setShowPassword}
+    handleChange={handleChange} handleSubmit={handleSubmit}
+    offlineForm={<OfflineUnlock compact workspace={workspace || workspaceIntent(search).workspace} disabled={submitting}
+      beginAttempt={() => { if (attempt.current) return false; attempt.current = true; setSubmitting(true); return true; }}
+      endAttempt={() => { attempt.current = false; setSubmitting(false); }}
+      onUnlocked={async () => navigateAccess(navigate, await resolveAccess({ workspace, search }))} />}
+  />;
 }

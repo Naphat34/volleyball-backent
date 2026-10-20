@@ -35,6 +35,24 @@ export const getPublicCompetitionVariantLabel = (competition, language = 'THA') 
     : (language === 'THA' ? 'ทุกรุ่น/ทุกประเภท' : 'All categories');
 };
 
+export const groupPublicCompetitionCategories = (competitions = [], language = 'THA') => {
+  const groups = new Map();
+  competitions.forEach((competition) => {
+    const ageGroup = String(getPublicAgeGroupLabel(competition) || '').trim();
+    const gender = normalizePublicGender(competition?.gender);
+    const key = `${ageGroup.toLocaleLowerCase()}|${gender.toLocaleLowerCase()}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        label: getPublicCompetitionVariantLabel(competition, language),
+        items: []
+      });
+    }
+    groups.get(key).items.push(competition);
+  });
+  return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label, language === 'THA' ? 'th' : 'en'));
+};
+
 export const groupPublicCompetitions = (competitions = []) => {
   const groups = new Map();
 

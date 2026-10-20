@@ -1,0 +1,336 @@
+.vis-history {
+    min-height:0;
+    overflow:hidden;
+    border-left:1px solid #334155;
+    background:#1e293b;
+    color:#cbd5e1;
+    font-size:12px
+}
+
+.vis-history-inner {
+    height:100%;
+    display:flex;
+    min-height:0;
+    flex-direction:column
+}
+
+.vis-history-header {
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:7px;
+    padding:6px 9px;
+    border-bottom:1px solid #475569;
+    background:#263449;
+    font-size:11px
+}
+
+.vis-history-header strong {
+    font-weight:500;
+    flex:1;
+    white-space:nowrap
+}
+
+.vis-history-grip {
+    color:#38bdf8
+}
+
+.vis-history-count {
+    border:1px solid #475569;
+    border-radius:14px;
+    padding:1px 7px;
+    white-space:nowrap
+}
+
+.vis-history-modes {
+    display:flex;
+    background:#152032;
+    border-radius:6px;
+    padding:2px;
+    white-space:nowrap
+}
+
+.vis-history-modes button {
+    padding:2px 8px;
+    border-radius:5px;
+    color:#94a3b8
+}
+
+.vis-history-modes button[aria-pressed=true] {
+    background:#38bdf8;
+    color:#082f49;
+    font-weight:700
+}
+
+.vis-history-header label {
+    display:flex;
+    align-items:center;
+    gap:4px;
+    white-space:nowrap;
+    color:#94a3b8
+}
+
+.vis-history-header input {
+    accent-color:#60a5fa
+}
+
+.vis-history-body {
+    display:flex;
+    min-height:0;
+    flex:1
+}
+
+.vis-history-rail {
+    width:78px;
+    flex-shrink:0;
+    overflow-y:auto;
+    border-right:1px solid #334155;
+    padding:5px;
+    background:#192536
+}
+
+.vis-history-set {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:3px;
+    font-size:11px;
+    white-space:nowrap
+}
+
+.vis-history-set button {
+    background:#263449;
+    border:1px solid #334155;
+    border-radius:4px;
+    padding:0 4px
+}
+
+.vis-history-set button:disabled {
+    opacity:.3
+}
+
+.vis-history-teamheads {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:3px;
+    text-align:center;
+    font-size:9px;
+    margin:6px 0
+}
+
+.vis-history-teamheads span {
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap
+}
+
+.vis-history-teamheads span:first-child,.vis-history-cardfooter .home {
+    color:#3b82f6
+}
+
+.vis-history-teamheads span:last-child,.vis-history-cardfooter .away {
+    color:#ff454f
+}
+
+.vis-history-scorelink {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    width:100%;
+    padding:2px;
+    border:1px solid #334155;
+    border-left:3px solid #64748b;
+    background:#263449;
+    border-radius:3px;
+    margin-bottom:3px;
+    font:700 11px monospace
+}
+
+.vis-history-scorelink.home {
+    border-left-color:#2563eb
+}
+
+.vis-history-scorelink.away {
+    border-left-color:#ef4444
+}
+
+.vis-history-scorelink span:first-child {
+    color:#60a5fa
+}
+
+.vis-history-scorelink span:last-child {
+    color:#fb7185
+}
+
+.vis-history-scorelink.selected {
+    border-color:#fbbf24;
+    background:#334155
+}
+
+.vis-history-scroll {
+    min-width:0;
+    flex:1;
+    overflow:auto;
+    padding:7px 9px;
+    scrollbar-width:thin;
+    scrollbar-color:#475569 #1e293b
+}
+
+.vis-history-list {
+    list-style:none;
+    margin:0;
+    padding:0
+}
+
+.vis-history-card {
+    border:1px solid #334155;
+    border-left:5px solid #64748b;
+    background:#172233;
+    margin-bottom:8px;
+    scroll-margin:8px
+}
+
+.vis-history-card.home {
+    border-left-color:#2563eb
+}
+
+.vis-history-card.away {
+    border-left-color:#ef4444
+}
+
+.vis-history-card.selected {
+    outline:1px solid #d49b19;
+    outline-offset:0
+}
+
+.vis-history-events {
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding:5px 4px;
+    min-height:28px
+}
+
+.vis-history-event {
+    max-width:100%;
+    align-self:center;
+    min-width:0
+}
+
+.vis-history-event.home {
+    align-self:flex-start
+}
+
+.vis-history-event.away {
+    align-self:flex-end
+}
+
+.vis-history-eventline {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    padding:3px 7px;
+    background:#29364b;
+    line-height:1.5;
+    overflow-wrap:anywhere
+}
+
+.vis-history-event.home .vis-history-eventline {
+    background:#1e365f;
+    border-left:3px solid #2563eb
+}
+
+.vis-history-event.away .vis-history-eventline {
+    background:#482b3c;
+    border-right:3px solid #ef4444
+}
+
+.vis-history-eventline code {
+    font-size:12px;
+    font-weight:700;
+    color:#f1f5f9
+}
+
+.vis-history-eventline small {
+    font-size:10px;
+    font-weight:700
+}
+
+.vis-history-eventline .positive {
+    color:#22c55e
+}
+
+.vis-history-eventline .negative {
+    color:#fb7185
+}
+
+.vis-history-cardfooter {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    border-top:1px dashed #334155;
+    padding:4px 8px;
+    color:#94a3b8;
+    font-size:11px
+}
+
+.vis-history-cardfooter>div {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    flex:1;
+    min-width:0
+}
+
+.vis-history-cardfooter>div>span {
+    overflow-wrap:anywhere
+}
+
+.vis-history-warning {
+    font-size:10px;
+    color:#fbbf24;
+    padding:3px 7px
+}
+
+.vis-history-detail {
+    font-size:10px;
+    padding:2px 7px;
+    color:#94a3b8
+}
+
+.vis-history-empty {
+    text-align:center;
+    color:#64748b;
+    padding:24px 8px
+}
+
+.vis-history button {
+    cursor:pointer
+}
+
+.vis-history button:disabled {
+    cursor:default
+}
+
+.vis-history button:focus-visible {
+    outline:2px solid #38bdf8;
+    outline-offset:2px
+}
+
+@media(max-width:1023px) {
+    .vis-history {
+        min-height:240px;
+        max-height:440px
+    }
+
+    .vis-history-header {
+        gap:5px
+    }
+
+    .vis-history-rail {
+        width:70px
+    }
+
+    
+}

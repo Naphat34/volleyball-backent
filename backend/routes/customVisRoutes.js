@@ -1,0 +1,16 @@
+const router = require('express').Router();
+const auth = require('../middleware/authMiddleware');
+const controller = require('../controllers/customVisController');
+router.get('/public/:token', controller.publicView);
+router.use(auth.verifyApprovedToken, auth.canScoreMatches);
+router.get('/offline-permit', controller.offlinePermit);
+router.get('/', controller.list);
+router.post('/', controller.create);
+router.get('/:id', controller.read);
+router.post('/:id/offline-checkout', controller.offlineCheckout);
+router.post('/:id/offline-sync', controller.offlineSync);
+router.put('/:id', controller.update);
+router.post('/:id/command', controller.command);
+router.put('/:id/publish', controller.publish);
+router.post('/:id/reopen', controller.reopen);
+module.exports = router;

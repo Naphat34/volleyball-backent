@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { visStatisticsSource } = require('../utils/visStatistics');
 
 const hasTableColumn = async (tableName, columnName) => {
     const result = await db.query(`
@@ -317,14 +318,14 @@ module.exports = {
                         p.photo as image_url,
                         t.name as team_name,
                         ${valueExpression} as value
-                    FROM match_events me
+                    FROM (${visStatisticsSource}) me
                     JOIN matches m ON m.id = me.match_id
                     LEFT JOIN players p ON p.id = me.player_id
                     LEFT JOIN teams t ON t.id = p.team_id
                     WHERE m.competition_id = ?
                       AND me.player_id IS NOT NULL
                       ${extraWhere}
-                    GROUP BY p.id, p.first_name, p.last_name, p.number, t.name
+                    GROUP BY p.id, p.first_name, p.last_name, p.number, p.photo, t.name
                     ORDER BY value DESC, p.number ASC
                     LIMIT 10
                 `, [competitionId]);
@@ -336,7 +337,8 @@ module.exports = {
             res.json({
                 best_scorers: await getTopPlayers(`
                     AND (
-                        UPPER(COALESCE(me.grade, '')) IN ('#', 'ACE', 'KILL', 'POINT', 'SUCCESS')
+                        (UPPER(COALESCE(me.skill, '')) IN ('A', 'ATTACK', 'SPIKE', 'S', 'SERVE', 'SERVICE', 'B', 'BLOCK')
+                         AND UPPER(COALESCE(me.grade, '')) IN ('#', 'ACE', 'KILL', 'POINT', 'SUCCESS'))
                         OR UPPER(COALESCE(me.skill, '')) IN ('POINT', 'ATTACK_POINT', 'BLOCK_POINT', 'SERVE_ACE')
                     )
                 `),
@@ -344,7 +346,7 @@ module.exports = {
                 best_blockers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('B', 'BLOCK') ${successGrade}`),
                 best_servers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('S', 'SERVE', 'SERVICE') ${successGrade}`),
                 best_setters: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('E', 'SET', 'SETTING') ${successGrade}`),
-                best_diggers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('D', 'DIG', 'DEFENSE', 'R', 'RECEPTION') ${successGrade}`)
+                best_diggers: await getTopPlayers(`AND UPPER(COALESCE(me.skill, '')) IN ('D', 'DIG', 'DEFENSE', 'R', 'RECEPTION') AND me.grade IN ('#', '+')`)
             });
         } catch (err) {
             console.error("Public: Get Statistics Error", err);

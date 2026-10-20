@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Trophy, Flag, ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 
 export default function CoinTossModal({
@@ -6,8 +6,11 @@ export default function CoinTossModal({
     teamHome,
     teamAway,
     teamColors,
-    onConfirm
+    onConfirm,
+    setNumber = 1
 }) {
+    const savingRef = useRef(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [step, setStep] = useState(1);
     const [tossWinner, setTossWinner] = useState(null);
     const [courtLeft, setCourtLeft] = useState(null);
@@ -95,7 +98,7 @@ export default function CoinTossModal({
                                         </div>
                                         <div>
                                             <p className="text-xl font-semibold">{getTeamName(teamKey)}</p>
-                                            <p className="text-xs text-slate-500 mt-1">Left side for first set</p>
+                                            <p className="text-xs text-slate-500 mt-1">Left side for set {setNumber}</p>
                                         </div>
                                         {selected && (
                                             <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
@@ -108,7 +111,7 @@ export default function CoinTossModal({
                         </div>
 
                         <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-center text-slate-600">
-                            The toss winner chooses which court side to take. The other team receives the remaining side automatically.
+                            Record the court sides agreed by the referee and both captains.
                         </div>
                     </div>
                 );
@@ -173,14 +176,22 @@ export default function CoinTossModal({
         }
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
+        if (savingRef.current) return;
         if (tossWinner && courtLeft && servingTeam) {
-            onConfirm({
-                colors: teamColors,
-                tossWinner,
-                servingTeam,
-                isHomeLeft: courtLeft === 'home'
-            });
+            savingRef.current = true;
+            setIsSaving(true);
+            try {
+                await onConfirm({
+                    colors: teamColors,
+                    tossWinner,
+                    servingTeam,
+                    isHomeLeft: courtLeft === 'home'
+                });
+            } finally {
+                savingRef.current = false;
+                setIsSaving(false);
+            }
         }
     };
 
@@ -197,10 +208,17 @@ export default function CoinTossModal({
 
                 <div className="mt-10">{renderStepContent()}</div>
 
+                {step === 3 && (
+                    <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                        <p>Set {setNumber} | Toss winner: {getTeamName(tossWinner)}</p>
+                        <p>Left: {getTeamName(courtLeft)} | Right: {getTeamName(courtLeft === 'home' ? 'away' : 'home')}</p>
+                        <p>First serve: {servingTeam ? getTeamName(servingTeam) : 'Please select'}</p>
+                    </div>
+                )}
                 <div className="pt-6 border-t border-slate-200 mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
                     <button
                         onClick={handleBack}
-                        disabled={step === 1}
+                        disabled={step === 1 || isSaving}
                         className="flex-1 py-3.5 rounded-2xl border border-slate-300 text-slate-700 font-semibold transition hover:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                     >
                         Back
@@ -220,10 +238,10 @@ export default function CoinTossModal({
                     ) : (
                         <button
                             onClick={handleConfirm}
-                            disabled={!servingTeam}
+                            disabled={!servingTeam || isSaving}
                             className="flex-1 py-3.5 rounded-2xl bg-emerald-500 text-white font-semibold transition hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400"
                         >
-                            Confirm
+                            {isSaving ? 'Saving...' : 'Confirm'}
                         </button>
                     )}
                 </div>

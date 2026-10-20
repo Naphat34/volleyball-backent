@@ -1,16 +1,11 @@
 import { calculateStandings as buildStandings } from '../../utils/standings';
 import { Feedback } from '../../components/ui/SystemUI';
-import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
 import PublicHeader from '../../components/PublicHeader';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import client from '../../api';
 import { Trophy, Filter, X } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
-import {
-    findCompetitionGroupById,
-    getPublicCompetitionVariantLabel,
-    groupPublicCompetitions
-} from '../../utils/publicCompetitionGrouping';
+import { groupPublicCompetitionCategories } from '../../utils/publicCompetitionGrouping';
 
 export default function PublicStandings() {
 
@@ -18,8 +13,7 @@ export default function PublicStandings() {
     const [competitions, setCompetitions] = useState([]);
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
-    const [selectedCompId, setSelectedCompId] = useState('');
-    useEffect(() => { if (selectedCompId) writeViewPreference('publicCompetition', selectedCompId); }, [selectedCompId]);
+    const [selectedCategory, setSelectedCategory] = useState('all');
     const [standings, setStandings] = useState([]);
     const [loading, setLoading] = useState(false);
     const [allMatches, setAllMatches] = useState([]);
@@ -32,10 +26,7 @@ export default function PublicStandings() {
                 const res = await client.get('/public/competitions');
                 const openComps = res.data.filter(c => c.status?.toLowerCase() === 'open');
                 setCompetitions(openComps);
-                if (openComps.length > 0) {
-                    const remembered = readViewPreference('publicCompetition');
-                    setSelectedCompId((openComps.find(item => String(item.id) === String(remembered)) || openComps[0]).id);
-                }
+                setSelectedCategory('all');
             } catch (err) {
                 console.error("Error fetching competitions:", err);
                 setLoadError(true);
@@ -45,14 +36,13 @@ export default function PublicStandings() {
     }, [reloadKey]);
 
     // 2. คำนวณตารางคะแนนเมื่อเลือกรายการแข่งขัน
-    const calculateStandings = useCallback(async (compId) => {
+    const calculateStandings = useCallback(async (categoryKey) => {
         setLoading(true);
         try {
-            const competitionIds = compId
-                ? [compId]
-                : competitions
-                    .map((competition) => competition.id)
-                    .filter((id) => id !== undefined && id !== null && id !== '');
+            const categoryGroup = categoryKey === 'all' ? null : groupPublicCompetitionCategories(competitions, language).find((item) => item.key === categoryKey);
+            const competitionIds = (categoryGroup?.items || competitions)
+                .map((competition) => competition.id)
+                .filter((id) => id !== undefined && id !== null && id !== '');
 
             if (competitionIds.length === 0) {
                 setAllMatches([]);
@@ -60,12 +50,12 @@ export default function PublicStandings() {
                 return;
             }
 
-            const [matchesRes, teamResults] = await Promise.all([
-                client.get(compId ? `/public/matches?competitionId=${compId}` : '/public/matches'),
+            const [matchResults, teamResults] = await Promise.all([
+                Promise.all(competitionIds.map((id) => client.get(`/public/matches?competitionId=${id}`))),
                 Promise.all(competitionIds.map((id) => client.get(`/public/competitions/${id}/teams`)))
             ]);
 
-            const matches = matchesRes.data;
+            const matches = matchResults.flatMap((result) => result.data || []);
             setAllMatches(matches);
             const teamsByKey = new Map();
             teamResults.flatMap((result) => result.data).forEach((team) => {
@@ -84,19 +74,18 @@ export default function PublicStandings() {
         } finally {
             setLoading(false);
         }
-    }, [competitions]);
+    }, [competitions, language]);
 
     useEffect(() => {
         if (competitions.length === 0) return;
-        calculateStandings(selectedCompId);
-    }, [calculateStandings, competitions.length, selectedCompId, reloadKey]);
+        calculateStandings(selectedCategory);
+    }, [calculateStandings, competitions.length, selectedCategory, reloadKey]);
 
     const getTeamName = (id) => {
         const t = standings.find(s => s.id === id);
         return t ? t.name : 'Unknown Team';
     };
-    const competitionGroups = useMemo(() => groupPublicCompetitions(competitions), [competitions]);
-    const selectedCompetitionGroup = findCompetitionGroupById(competitionGroups, selectedCompId);
+    const categories = useMemo(() => groupPublicCompetitionCategories(competitions, language), [competitions, language]);
 
     return (
         <div className="app-page min-h-screen text-gray-800 font-sans pb-20">
@@ -115,57 +104,22 @@ export default function PublicStandings() {
                 </div>
             </div>
 
-            {/* Filter */}
+            {/* Category filter */}
             <div className="w-full max-w-[1400px] mx-auto px-4 mb-8">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <label className="font-bold text-gray-700 flex items-center gap-2">
-                        <Filter size={18} className="text-blue-600"/> {language === 'THA' ? 'เลือกรายการแข่งขัน:' : 'Select Competition:'}
-                    </label>
-                    <select
-                        value={selectedCompId ? (selectedCompetitionGroup?.key || '') : '__all__'}
-                        onChange={(e) => {
-                            if (e.target.value === '__all__') {
-                                setSelectedCompId('');
-                                return;
-                            }
-                            const group = competitionGroups.find((item) => item.key === e.target.value);
-                            setSelectedCompId(group?.items[0]?.id || '');
-                        }}
-                        className="w-full md:w-1/2 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium"
-                    >
-                        <option value="__all__">{language === 'THA' ? 'ทั้งหมด' : 'All competitions'}</option>
-                        {competitionGroups.map((group) => (
-                            <option key={group.key} value={group.key}>
-                                {group.title}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                {selectedCompId && selectedCompetitionGroup?.items.length > 1 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {selectedCompetitionGroup.items.map((competition) => (
-                            <button
-                                key={competition.id}
-                                type="button"
-                                onClick={() => setSelectedCompId(competition.id)}
-                                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-                                    String(selectedCompId) === String(competition.id)
-                                        ? 'border-blue-600 bg-blue-600 text-white'
-                                        : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
-                                }`}
-                            >
-                                {getPublicCompetitionVariantLabel(competition, language)}
-                            </button>
-                        ))}
+                    <label className="font-bold text-gray-700 flex items-center gap-2"><Filter size={18} className="text-blue-600"/> {language === 'THA' ? '\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17:' : 'Category:'}</label>
+                    <div className="flex w-full flex-wrap gap-2 md:justify-end">
+                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? '\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14' : 'All'}</button>
+                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{category.label}</button>)}
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Match History Modal */}
             {selectedTeam && (
                 <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={() => setSelectedTeam(null)}>
                     <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
-                        
+
                         {/* Modal Header */}
                         <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <div className="flex items-center gap-3">
@@ -204,7 +158,7 @@ export default function PublicStandings() {
                                             const myScore = isHome ? match.home_set_score : match.away_set_score;
                                             const opScore = isHome ? match.away_set_score : match.home_set_score;
                                             const isWin = parseInt(myScore) > parseInt(opScore);
-                                            
+
                                             return (
                                                 <div key={idx} className="p-4 hover:bg-gray-50 transition flex items-center justify-between">
                                                     <div className="flex items-center gap-4 flex-1">
@@ -251,7 +205,7 @@ export default function PublicStandings() {
                                     <tr>
                                         <th className="px-4 py-3 text-center w-16">Rank</th>
                                         <th className="px-4 py-3">Team</th>
-                                        <th className="px-2 py-3 text-center">Played</th>
+                                        <th className="px-2 py-3 text-center">Totals</th>
                                         <th className="px-2 py-3 text-center text-green-600">Won</th>
                                         <th className="px-2 py-3 text-center text-red-500">Lost</th>
                                         <th className="px-4 py-3 text-center bg-blue-50 text-indigo-700 text-base">Points</th>

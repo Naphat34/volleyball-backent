@@ -705,10 +705,10 @@ export default function TeamStaffConsole() {
         // Fallback: if player has no originalPos, use idx
         const originalPos = player.originalPos !== undefined ? player.originalPos : idx;
         
-        // Check if team sub limit reached (FIVB allows max 6 substitutions per set)
+        // Check if team substitution limit reached (maximum 8 per set)
         const totalSubs = (stats.substitutions || 0) + pendingSubstitutions.length;
-        if (totalSubs >= 6) {
-            return { eligible: false, reason: 'ทีมเปลี่ยนตัวครบ 6 ครั้งในเซตนี้แล้วตามกฎ FIVB' };
+        if (totalSubs >= 8) {
+            return { eligible: false, reason: 'ทีมเปลี่ยนตัวครบ 8 ครั้งในเซตนี้แล้ว' };
         }
         
         // Check if player is a Libero (Liberos cannot be formally substituted)
@@ -1664,12 +1664,12 @@ export default function TeamStaffConsole() {
                             </button>
                         ) : (
                             <>
-                                <button onClick={() => setIsSubstitutionMode(true)} disabled={stats.substitutions >= 6 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-amber-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.substitutions >= 6 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                <button onClick={() => setIsSubstitutionMode(true)} disabled={stats.substitutions >= 8 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-amber-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.substitutions >= 8 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
                                     <div className="flex-1 p-6 flex items-center border-l-4 border-amber-500">
                                         <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight">Substitution</span>
                                     </div>
                                     <div className="w-24 bg-amber-50 p-6 flex flex-col items-center justify-center border-l border-amber-100">
-                                        <span className="text-amber-700 text-4xl md:text-5xl font-black leading-none">{6 - (stats.substitutions || 0)}</span>
+                                        <span className="text-amber-700 text-4xl md:text-5xl font-black leading-none">{8 - (stats.substitutions || 0)}</span>
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mt-1">left</span>
                                     </div>
                                 </button>

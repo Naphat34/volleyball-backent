@@ -3,6 +3,7 @@ import api from '../api';
 import { Swords, Calendar, MapPin, PlayCircle, Trophy } from 'lucide-react';
 import LiveMatchScorer from './LiveMatchScorer';
 import { EmptyState } from './AdminShared';
+import { Link } from 'react-router-dom';
 
 export default function EScoreTab() {
     const [competitions, setCompetitions] = useState([]);
@@ -136,6 +137,7 @@ export default function EScoreTab() {
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                     <Swords className="text-blue-600" /> E-Score Console
                 </h1>
+                <Link to="/adminvis" className="rounded-lg bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-900">Statistician workspace</Link>
 
                 <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
                     <div className="w-full md:w-64">

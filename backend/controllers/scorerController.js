@@ -380,6 +380,7 @@ module.exports = {
                        created_at
                 FROM match_events 
                 WHERE match_id = ? 
+                  AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details), details, '{}'), '$.vis')), 'false') <> 'true'
                 ORDER BY id DESC
             `, [matchId]);
             res.json(result.rows);
@@ -470,13 +471,22 @@ module.exports = {
                 return res.status(400).json({ error: 'Invalid state data provided.' });
             }
 
-            const statePayload = typeof state === 'string' ? state : JSON.stringify(state);
+            // eScoreControl owns official state. Drop legacy VIS snapshots;
+            // statistician retries/history live separately in matches.vis_state.
+            const { vis: _legacyVis, visOperations: _legacyOperations, ...officialState } = state;
+            officialState.scoringSource = 'escore';
+            officialState.serverUpdatedAt = new Date().toISOString();
+            const persisted = await db.query('SELECT live_state FROM matches WHERE id=?', [matchId]);
+            let savedState = persisted.rows[0]?.live_state;
+            try { if (typeof savedState === 'string') savedState = JSON.parse(savedState); } catch { savedState = null; }
+            if (savedState?.offlineAwaitingConfirmation) officialState.offlineAwaitingConfirmation = true;
+            const statePayload = JSON.stringify(officialState);
             await db.query(
                 'UPDATE matches SET live_state = ? WHERE id = ?',
                 [statePayload, matchId]
             );
 
-            if (state.workflowStep === 'MATCH_FINISHED') {
+            if (state.workflowStep === 'MATCH_FINISHED' && !officialState.offlineAwaitingConfirmation) {
                 const setsWonHome = Number(state.setsWon?.home) || 0;
                 const setsWonAway = Number(state.setsWon?.away) || 0;
                 let winnerTeamId = null;
@@ -503,7 +513,7 @@ module.exports = {
 
             const io = req.app.get('io');
             if (io) {
-                io.to(`match_${matchId}`).emit('live_state_updated', state);
+                io.to(`match_${matchId}`).emit('live_state_updated', officialState);
             }
 
             res.json({ success: true, message: 'State updated.' });
@@ -519,10 +529,28 @@ module.exports = {
             const { matchId } = req.params;
             const { first_serve_team_id, left_side_team_id } = req.body;
 
-            await db.query(
-                `UPDATE matches SET first_serve_team_id = ?, left_side_team_id = ? WHERE id = ?`,
-                [first_serve_team_id || null, left_side_team_id || null, matchId]
+            const validId = value => /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value));
+            if (![matchId, first_serve_team_id, left_side_team_id].every(validId)) {
+                return res.status(400).json({ error: 'Match and both team IDs must be positive integers' });
+            }
+            const result = await db.query('SELECT home_team_id, away_team_id, status, first_serve_team_id, left_side_team_id FROM matches WHERE id = ?', [matchId]);
+            const match = result.rows[0];
+            if (!match) return res.status(404).json({ error: 'Match not found' });
+            const teams = [match.home_team_id, match.away_team_id].map(String);
+            if (![first_serve_team_id, left_side_team_id].every(id => teams.includes(String(id)))) {
+                return res.status(400).json({ error: 'Selected teams must belong to this match' });
+            }
+            const unchanged = String(match.first_serve_team_id) === String(first_serve_team_id)
+                && String(match.left_side_team_id) === String(left_side_team_id);
+            if (unchanged) return res.json({ success: true });
+
+            const update = await db.query(
+                `UPDATE matches SET first_serve_team_id = ?, left_side_team_id = ? WHERE id = ?
+                 AND (status IS NULL OR status NOT IN ('live', 'completed', 'cancelled', 'finished'))
+                 AND home_team_id = ? AND away_team_id = ?`,
+                [first_serve_team_id, left_side_team_id, matchId, match.home_team_id, match.away_team_id]
             );
+            if (!update.affectedRows) return res.status(409).json({ error: 'Match has started or changed; refresh before saving the toss' });
 
             const io = req.app.get('io');
             if (io) {
@@ -695,6 +723,8 @@ module.exports = {
             if (eventDetails && typeof eventDetails === 'object') {
                 eventDetails = {
                     ...eventDetails,
+                    vis: false,
+                    scoringSource: 'escore',
                     event_type: event_type || explicitSkill || eventDetails.event_type || null,
                     local_event_id: local_event_id || eventDetails.local_event_id || eventDetails.localEventId || null
                 };
@@ -894,7 +924,7 @@ module.exports = {
                 scorer_name, scorer_country, scorer_code,
 
                 // Match settings from Confirm Setup
-                has_challenge, match_number, pool_name, round_name, city, location, country
+                has_challenge, match_number, age_group_id, category, pool_name, round_name, city, location, country
             } = req.body;
 
             await db.query(`
@@ -916,6 +946,8 @@ module.exports = {
 
                     has_challenge = ?,
                     match_number = ?,
+                    age_group_id = COALESCE(?, age_group_id),
+                    category = COALESCE(?, category),
                     pool_name = ?,
                     round_name = ?,
                     city = ?,
@@ -940,6 +972,8 @@ module.exports = {
 
                 has_challenge !== undefined ? has_challenge : null,
                 match_number !== undefined ? match_number : null,
+                age_group_id || null,
+                category || null,
                 pool_name || null,
                 round_name || null,
                 city || null,
@@ -1110,16 +1144,17 @@ module.exports = {
         try {
             const { matchId } = req.params;
             const { setNumber } = req.body;
+            const normalizedSetNumber = Number(setNumber);
 
-            if (!setNumber) {
-                return res.status(400).json({ error: "Missing set number" });
+            if (!Number.isInteger(normalizedSetNumber) || normalizedSetNumber < 1) {
+                return res.status(400).json({ error: "Valid set number is required" });
             }
 
             const hasStartTime = await hasTableColumn('match_sets', 'start_time');
             if (hasStartTime) {
                 const existingSet = await db.query(
                     'SELECT id, start_time FROM match_sets WHERE match_id = ? AND set_number = ? LIMIT 1',
-                    [matchId, setNumber]
+                    [matchId, normalizedSetNumber]
                 );
 
                 if (existingSet.rows.length > 0) {
@@ -1131,7 +1166,7 @@ module.exports = {
                     try {
                         await db.query(
                             'INSERT INTO match_sets (match_id, set_number, start_time) VALUES (?, ?, NOW())',
-                            [matchId, setNumber]
+                            [matchId, normalizedSetNumber]
                         );
                     } catch (insertErr) {
                         console.warn('Unable to persist set start row; continuing without start_time:', insertErr.message);
@@ -1139,11 +1174,16 @@ module.exports = {
                 }
             }
 
+            const hasCurrentSetColumn = await hasTableColumn('matches', 'current_set');
+            const currentSetSql = hasCurrentSetColumn ? ', current_set = ?' : '';
+            const currentSetParams = hasCurrentSetColumn
+                ? [normalizedSetNumber, matchId]
+                : [matchId];
             await db.query(
                 `UPDATE matches
-                 SET status = 'live'
+                 SET status = 'live'${currentSetSql}
                  WHERE id = ? AND (status IS NULL OR status IN ('scheduled', 'live'))`,
-                [matchId]
+                currentSetParams
             );
 
             const io = req.app.get('io');
@@ -1328,6 +1368,7 @@ module.exports = {
                     c.gender as competition_gender, c.sport as competition_sport,
                     c.start_date as start_date, c.end_date as end_date,
                     COALESCE(c.max_sets, 5) as max_sets,
+                    COALESCE(c.max_players, 14) as competition_max_players,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     ag.name as age_group_name
                 FROM matches m
@@ -1506,6 +1547,7 @@ module.exports = {
                     t2.name as away_team_name, t2.code as away_team_code,
                     c.title as competition_name, c.title as competition_title, c.gender as competition_gender, c.gender as competition_category,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
+                    ag.name as age_group_name,
                     COALESCE(c.max_sets, 5) as max_sets,
                     
                     -- Officials
@@ -1527,6 +1569,7 @@ module.exports = {
                 LEFT JOIN line_judges l2 ON m.line_judge_2_id = l2.id
                 LEFT JOIN line_judges l3 ON m.line_judge_3_id = l3.id
                 LEFT JOIN line_judges l4 ON m.line_judge_4_id = l4.id
+                LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
                 WHERE m.id = ?
             `, [matchId]);
 
@@ -1577,6 +1620,13 @@ module.exports = {
                 WHERE me.match_id = ?
                 ORDER BY me.id ASC
             `, [matchId]);
+            const visActionsResult = await db.query(`
+                SELECT ma.*, ma.skill AS event_type, ma.set_number,
+                    ma.details
+                FROM match_actions ma
+                WHERE ma.match_id = ? AND ma.action_type = 'VIS_STAT'
+                ORDER BY ma.id ASC
+            `, [matchId]);
 
             res.json({
                 match,
@@ -1584,7 +1634,8 @@ module.exports = {
                 lineups: lineupsResult.rows,
                 homePlayers: homePlayers.rows,
                 awayPlayers: awayPlayers.rows,
-                events: eventsResult.rows
+                events: eventsResult.rows,
+                visActions: visActionsResult.rows
             });
 
         } catch (err) {

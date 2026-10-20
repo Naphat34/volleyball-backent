@@ -96,7 +96,7 @@ const phrases = [
   ['Invalid Substitution', 'การเปลี่ยนตัวไม่ถูกต้อง'],
   ['Please select both players', 'กรุณาเลือกผู้เล่นทั้งสองคน'],
   ['Limit Reached', 'ครบจำนวนที่กำหนดแล้ว'],
-  ['Maximum 6 substitutions per set allowed.', 'เปลี่ยนตัวได้สูงสุด 6 ครั้งต่อเซต'],
+  ['Maximum 8 substitutions per set allowed.', 'เปลี่ยนตัวได้สูงสุด 8 ครั้งต่อเซต'],
   ['Maximum 2 timeouts per set.', 'ขอเวลานอกได้สูงสุด 2 ครั้งต่อเซต'],
   ['Invalid Sanction', 'บทลงโทษไม่ถูกต้อง'],
   ['Please select a player', 'กรุณาเลือกผู้เล่น'],

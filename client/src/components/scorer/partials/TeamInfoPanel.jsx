@@ -6,7 +6,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
     const { lineup = [], roster = [], liberos = {}, color = '#1d4ed8', subTracker } = team;
 
-    // 1. ดึงข้อมูลนักกีฬาที่อยู่ในสนาม 
+    // 1. ดึงข้อมูลนักกีฬาที่อยู่ในสนาม
     const validLineup = lineup
         .map((p, index) => p ? { ...p, posIndex: index } : null)
         .filter(Boolean);
@@ -31,7 +31,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                 style={{ borderBottom: `3px solid ${color}`, color: '#000000' }}
             >
                 <span className="w-full truncate" title={team.name}>{team.name}</span>
-                
+
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -57,14 +57,26 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                             else if (isLibero) liberoLabel = 'L';
 
                             if (subTracker && subTracker.positions) {
-                                const activeSub = Object.values(subTracker.positions).find(
-                                    data => data.currentOnCourt == pId && !data.returned
-                                );
+                                const currentSub = Object.values(subTracker.positions).find(data => {
+                                    if (!data) return false;
+                                    const currentOnCourt = data.currentOnCourt
+                                        ?? (data.returned ? data.starterId : data.subId);
+                                    return currentOnCourt != null && String(currentOnCourt) === String(pId);
+                                });
 
-                                if (activeSub && activeSub.starterId) {
-                                    const starter = roster.find(r => (r.id || r.player_id) == activeSub.starterId);
-                                    if (starter) {
-                                        subbedOutNum = `(${starter.number})`;
+                                if (currentSub) {
+                                    const counterpartId = currentSub.returned
+                                        ? currentSub.subId
+                                        : currentSub.starterId;
+                                    const counterpartNumber = currentSub.returned
+                                        ? currentSub.subNumber
+                                        : currentSub.starterNumber;
+                                    const counterpart = roster.find(r =>
+                                        String(r.id ?? r.player_id) === String(counterpartId)
+                                    );
+                                    const number = counterpartNumber ?? counterpart?.number;
+                                    if (number !== undefined && number !== null && number !== '') {
+                                        subbedOutNum = `(${number})`;
                                     }
                                 }
                             }
@@ -79,11 +91,11 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                                     className="flex items-center px-3 py-2 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                                 >
                                     {/* หมายเลขผู้เล่นปัจจุบัน + (หมายเลขเดิม) */}
-                                    <div className="w-8 flex items-baseline justify-start gap-1 shrink-0">
-                                        <span className="font-bold text-[14px] text-slate-700 leading-none">
+                                    <div className="w-[48px] flex items-baseline justify-start gap-1 shrink-0 whitespace-nowrap">
+                                        <span className="font-bold text-[14px] text-slate-700 leading-none tabular-nums">
                                             {p.number}
                                         </span>
-                                        
+
                                         {subbedOutNum && (
                                             <span className="text-[11px] text-slate-400 font-normal tracking-tighter">
                                                 {subbedOutNum}
@@ -139,19 +151,50 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
                             // ตรวจสอบและดึงข้อมูลคนที่ไปเล่นแทน (สำหรับตัวจริงที่มานั่งพักอยู่ม้านั่งสำรอง)
                             let subbedInNum = null;
-                            let subScoreText = null;
+                            let subScoreTexts = [];
 
                             if (subTracker && subTracker.positions) {
                                 // หากรณีที่คนนี้คือตัวจริง (starterId) และยังมีตัวสำรองอยู่ในสนาม (!returned)
-                                const activeSubOut = Object.values(subTracker.positions).find(
-                                    data => data.starterId == pId && !data.returned
-                                );
+                                const benchedPair = Object.values(subTracker.positions).find(data => {
+                                    if (!data) return false;
+                                    const playerIsInPair = [data.starterId, data.subId].some(id =>
+                                        id != null && String(id) === String(pId)
+                                    );
+                                    const currentOnCourt = data.currentOnCourt
+                                        ?? (data.returned ? data.starterId : data.subId);
+                                    return playerIsInPair
+                                        && currentOnCourt != null
+                                        && String(currentOnCourt) !== String(pId);
+                                });
 
-                                if (activeSubOut) {
-                                    const subPlayer = roster.find(r => (r.id || r.player_id) == activeSubOut.subId);
-                                    if (subPlayer) {
-                                        subbedInNum = `(${subPlayer.number})`;
-                                        subScoreText = activeSubOut.subScore; // เช่น "2-1"
+                                if (benchedPair) {
+                                    const isStarter = String(benchedPair.starterId) === String(pId);
+                                    const counterpartId = isStarter ? benchedPair.subId : benchedPair.starterId;
+                                    const counterpartNumber = isStarter
+                                        ? benchedPair.subNumber
+                                        : benchedPair.starterNumber;
+                                    const counterpart = roster.find(r =>
+                                        String(r.id ?? r.player_id) === String(counterpartId)
+                                    );
+                                    const number = counterpartNumber ?? counterpart?.number;
+                                    if (number !== undefined && number !== null && number !== '') {
+                                        subbedInNum = `(${number})`;
+                                    }
+                                    const recordedScores = Array.isArray(benchedPair.substitutionHistory)
+                                        ? benchedPair.substitutionHistory
+                                            .filter(entry => String(entry?.outId) === String(pId))
+                                            .map(entry => entry?.score)
+                                            .filter(score => score != null && score !== '')
+                                        : [];
+                                    if (recordedScores.length) {
+                                        subScoreTexts = recordedScores;
+                                    } else {
+                                        const legacyScore = isStarter
+                                            ? benchedPair.subScore
+                                            : benchedPair.returnScore;
+                                        if (legacyScore != null && legacyScore !== '') {
+                                            subScoreTexts = [legacyScore];
+                                        }
                                     }
                                 }
                             }
@@ -160,8 +203,8 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                                 <div key={p.id || p.number} className="flex items-center px-3 py-2 bg-[#f8fafc] border-b border-gray-100 hover:bg-slate-100 transition-colors">
 
                                     {/* หมายเลขตัวจริงที่นั่งอยู่ + (หมายเลขตัวสำรองที่เล่นแทน) */}
-                                    <div className="w-8 flex items-baseline justify-start gap-1 shrink-0">
-                                        <span className="font-bold text-[14px] text-slate-700">
+                                    <div className="w-[48px] flex items-baseline justify-start gap-1 shrink-0 whitespace-nowrap">
+                                        <span className="font-bold text-[14px] text-slate-700 tabular-nums">
                                             {p.number}
                                         </span>
                                         {subbedInNum && (
@@ -177,9 +220,16 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                                             {p.first_name || p.name}
                                         </span>
 
-                                        {subScoreText && (
-                                            <span className="text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded shrink-0 shadow-sm border border-slate-200 tracking-wider ml-2">
-                                                {subScoreText.replace('-', ' - ')}
+                                        {subScoreTexts.length > 0 && (
+                                            <span className="ml-2 flex flex-wrap justify-end gap-1 shrink-0">
+                                                {subScoreTexts.map((scoreAtSub, index) => (
+                                                    <span
+                                                        key={`${pId}-${index}-${scoreAtSub}`}
+                                                        className="min-w-[48px] text-center text-[11px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded shadow-sm border border-slate-200 tracking-wider tabular-nums"
+                                                    >
+                                                        {String(scoreAtSub).replace('-', ' - ')}
+                                                    </span>
+                                                ))}
                                             </span>
                                         )}
                                     </div>

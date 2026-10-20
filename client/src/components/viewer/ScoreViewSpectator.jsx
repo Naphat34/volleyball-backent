@@ -4,6 +4,7 @@ import { api } from '../../api';
 
 export default function ScoreViewSpectator() {
     const { matchId } = useParams();
+    const [received, setReceived] = useState(false), [stale, setStale] = useState(false), [serverTime, setServerTime] = useState(null), [review, setReview] = useState(false);
 
     // --- LOCAL STORAGE HELPER ---
     const loadState = (key, defaultValue) => {
@@ -29,6 +30,8 @@ export default function ScoreViewSpectator() {
         try {
             const res = await api.getLiveState(matchId);
             const state = res.data;
+            if (!state) throw Error('No server state');
+            setReceived(true); setStale(false); setServerTime(state.serverUpdatedAt || state.offlineSyncedAt || state.updatedAt || null); setReview(Boolean(state.offlineAwaitingConfirmation));
 
             setMatchData(state.matchData || { teamHome: "HOME", teamAway: "AWAY", currentSet: 1 });
             setScore(state.score || { home: 0, away: 0 });
@@ -39,6 +42,7 @@ export default function ScoreViewSpectator() {
             setIsHomeLeft(state.isHomeLeft !== undefined ? state.isHomeLeft : true);
             setTeamColors(state.teamColors || { home: '#4f46e5', away: '#e11d48' });
         } catch (error) {
+            setStale(true);
             console.error("Failed to refresh data from server:", error);
         }
     }, [matchId]);
@@ -83,8 +87,10 @@ export default function ScoreViewSpectator() {
         return dots;
     }
 
+    if (!received) return <main className="flex min-h-screen items-center justify-center bg-black text-white">{stale ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ · ยังไม่มีคะแนนที่ยืนยันจากเซิร์ฟเวอร์' : 'กำลังโหลดคะแนนจากเซิร์ฟเวอร์…'}</main>;
     return (
         <div className="h-screen w-screen bg-black text-white flex flex-col overflow-hidden font-sans relative selection:bg-transparent cursor-default">
+            <p className="absolute bottom-1 left-0 right-0 z-20 text-center text-xs text-slate-400">{stale ? 'ขาดการเชื่อมต่อ · ' : ''}ข้อมูลบนเซิร์ฟเวอร์ล่าสุด {serverTime ? new Date(serverTime).toLocaleString('th-TH') : 'ไม่ระบุเวลา'}{review ? ' · รอตรวจสอบผลทางการ' : ''} · ไม่รวมรายการ Offline ที่ยังไม่ซิงค์</p>
             
             {/* Background design */}
             <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black pointer-events-none" />

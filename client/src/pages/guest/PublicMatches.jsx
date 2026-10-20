@@ -1,17 +1,13 @@
 import { Feedback } from '../../components/ui/SystemUI';
 import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
 import PublicHeader from '../../components/PublicHeader';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api';
 import { Calendar, Clock, MapPin, Trophy, Filter, Activity } from 'lucide-react';
 import { formatThaiDate, formatThaiTime } from '../../utils';
 import { useLanguage } from '../../context/LanguageContext';
-import {
-    findCompetitionGroupById,
-    getPublicCompetitionVariantLabel,
-    groupPublicCompetitions
-} from '../../utils/publicCompetitionGrouping';
+import { groupPublicCompetitionCategories } from '../../utils/publicCompetitionGrouping';
 
 export default function PublicMatches() {
     const navigate = useNavigate();
@@ -19,8 +15,7 @@ export default function PublicMatches() {
     const [competitions, setCompetitions] = useState([]);
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
-    const [selectedComp, setSelectedComp] = useState('');
-    useEffect(() => { if (selectedComp) writeViewPreference('publicCompetition', selectedComp); }, [selectedComp]);
+    const [selectedCategory, setSelectedCategory] = useState('all');
     const [matches, setMatches] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState(() => readViewPreference('matchStatus', 'all'));
@@ -34,10 +29,7 @@ export default function PublicMatches() {
                 const res = await client.get('/public/competitions');
                 const openComps = res.data.filter(c => c.status?.toLowerCase() === 'open');
                 setCompetitions(openComps);
-                if (openComps.length > 0) {
-                    const remembered = readViewPreference('publicCompetition');
-                    setSelectedComp((openComps.find(item => String(item.id) === String(remembered)) || openComps[0]).id); // Default เลือกอันแรก
-                }
+                setSelectedCategory('all');
             } catch (err) {
                 console.error("Error fetching competitions:", err);
                 setLoadError(true);
@@ -51,10 +43,13 @@ export default function PublicMatches() {
         const fetchMatches = async () => {
             setLoading(true);
             try {
-                // ส่ง params competitionId ไป
-                const url = selectedComp ? `/public/matches?competitionId=${selectedComp}` : '/public/matches';
-                const res = await client.get(url);
-                setMatches(res.data);
+                if (!competitions.length) { setMatches([]); return; }
+                const category = groupPublicCompetitionCategories(competitions, language).find((item) => item.key === selectedCategory);
+                const selectedIds = selectedCategory === 'all'
+                    ? competitions.map((item) => item.id)
+                    : (category?.items || []).map((item) => item.id);
+                const results = await Promise.all(selectedIds.map((id) => client.get(`/public/matches?competitionId=${id}`)));
+                setMatches(results.flatMap((result) => result.data || []));
             } catch (err) {
                 console.error("Error fetching matches:", err);
                 setLoadError(true);
@@ -63,7 +58,7 @@ export default function PublicMatches() {
             }
         };
         fetchMatches();
-    }, [selectedComp, reloadKey]);
+    }, [competitions, selectedCategory, reloadKey, language]);
 
     // ฟังก์ชันจัดกลุ่มแมตช์ตามวันที่ (Group by Date)
     const groupMatchesByDate = () => {
@@ -85,8 +80,7 @@ export default function PublicMatches() {
     };
 
     const groupedMatches = groupMatchesByDate();
-    const competitionGroups = useMemo(() => groupPublicCompetitions(competitions), [competitions]);
-    const selectedCompetitionGroup = findCompetitionGroupById(competitionGroups, selectedComp);
+    const categories = groupPublicCompetitionCategories(competitions, language);
     const normalizeStatus = (status) => String(status || '').toLowerCase();
     const isLive = (status) => ['live', 'set_playing', 'in_progress'].includes(normalizeStatus(status));
     const isFinished = (status) => ['finished', 'completed', 'match_finished'].includes(normalizeStatus(status));
@@ -130,45 +124,12 @@ export default function PublicMatches() {
             {/* Filter Section */}
             <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
                 <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col md:flex-row items-center gap-4">
-                    <div className="flex items-center gap-2 text-indigo-700 font-bold whitespace-nowrap">
-                        <Trophy size={20} /> {language === 'THA' ? 'เลือกรายการ:' : 'Select Tournament:'}
+                    <div className="flex items-center gap-2 text-indigo-700 font-bold whitespace-nowrap"><Trophy size={20} /> {language === 'THA' ? 'ประเภท:' : 'Category:'}</div>
+                    <div className="flex w-full flex-wrap gap-2">
+                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? 'ทั้งหมด' : 'All'}</button>
+                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{category.label}</button>)}
                     </div>
-                    <select
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium"
-                        value={selectedComp ? (selectedCompetitionGroup?.key || '') : '__all__'}
-                        onChange={(e) => {
-                            if (e.target.value === '__all__') {
-                                setSelectedComp('');
-                                return;
-                            }
-                            const group = competitionGroups.find((item) => item.key === e.target.value);
-                            setSelectedComp(group?.items[0]?.id || '');
-                        }}
-                    >
-                        <option value="__all__">{language === 'THA' ? 'ทั้งหมด' : 'All competitions'}</option>
-                        {competitionGroups.map((group) => (
-                            <option key={group.key} value={group.key}>{group.title}</option>
-                        ))}
-                    </select>
                 </div>
-                {selectedComp && selectedCompetitionGroup?.items.length > 1 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {selectedCompetitionGroup.items.map((competition) => (
-                            <button
-                                key={competition.id}
-                                type="button"
-                                onClick={() => setSelectedComp(competition.id)}
-                                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-                                    String(selectedComp) === String(competition.id)
-                                        ? 'border-blue-600 bg-blue-600 text-white'
-                                        : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
-                                }`}
-                            >
-                                {getPublicCompetitionVariantLabel(competition, language)}
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
 
             <div className="mx-auto mt-5 grid max-w-[1400px] gap-3 px-4 sm:grid-cols-[1fr_auto] sm:px-6 lg:px-8">
@@ -198,7 +159,7 @@ export default function PublicMatches() {
                                 {groupedMatches[dateKey].map((m) => (
                                     <div
                                         key={m.id}
-                                        onClick={() => navigate(`/match/${m.id}`)}
+                                        onClick={() => navigate(`/match-centre/${m.id}`)}
                                         className="bg-white/95 rounded-3xl shadow-sm border border-white overflow-hidden hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
                                         {/* Card Header: Time & Stadium */}
                                         <div className="bg-gray-50 px-4 py-2 flex justify-between items-center text-sm text-gray-500 border-b border-gray-100">

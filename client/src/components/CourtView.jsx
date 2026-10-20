@@ -47,18 +47,21 @@ const PlayerToken = ({
     if (!isLiberoSwap && currentTracker && currentTracker.positions && pId != null) {
         const trackedPair = Object.values(currentTracker.positions).find(posData => {
             if (!posData) return false;
-            const starterId = posData.starterId;
-            const subId = posData.subId;
-            return [starterId, subId].some(id => id != null && String(id) === String(pId));
+            const currentOnCourt = posData.currentOnCourt
+                ?? (posData.returned ? posData.starterId : posData.subId);
+            return currentOnCourt != null && String(currentOnCourt) === String(pId);
         });
 
         if (trackedPair) {
-            const isStarterOnCourt = String(trackedPair.starterId) === String(pId);
+            const isStarterOnCourt = trackedPair.returned === true
+                || String(trackedPair.starterId) === String(pId);
             const counterpartId = isStarterOnCourt ? trackedPair.subId : trackedPair.starterId;
             starterNumber = isStarterOnCourt ? trackedPair.subNumber : trackedPair.starterNumber;
 
             if (!starterNumber && counterpartId != null) {
-                const counterpart = currentRoster?.find(r => String(r.id || r.player_id) === String(counterpartId));
+                const counterpart = currentRoster?.find(r =>
+                    String(r.id ?? r.player_id) === String(counterpartId)
+                );
                 if (counterpart) starterNumber = counterpart.number;
             }
         }

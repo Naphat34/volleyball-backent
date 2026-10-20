@@ -1,0 +1,60 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm');
+const {createRequire}=require('node:module');
+const {randomUUID}=require('node:crypto');
+test('official offline MySQL batch is atomic, rejects conflicts and does not duplicate points',{skip:process.env.RUN_MYSQL_SCORER_OFFLINE!=='1'},async t=>{
+ const db=require('../config/db'), connection=await db.connect();
+ const tables=['matches','match_events','match_sets','match_lineups','scorer_offline_sessions'];
+ try {
+  for(const table of tables)await connection.query(`CREATE TEMPORARY TABLE scorer_test_${table} LIKE ${table}`);
+  await connection.query('INSERT INTO scorer_test_matches SELECT * FROM matches LIMIT 1');
+  const source=(await connection.query('SELECT * FROM scorer_test_matches')).rows[0];
+  if(!source){t.skip('Requires one existing match as a read-only roster fixture');return;}
+  const id=source.id,initial={score:{home:0,away:0},matchData:{currentSet:1},workflowStep:'SERVING',setsWon:{home:0,away:0}};
+  await connection.query("UPDATE scorer_test_matches SET status='scheduled',live_state=?,team_a_score=0,team_b_score=0,home_set_score=0,away_set_score=0 WHERE id=?",[JSON.stringify(initial),id]);
+  const proxy={query:(sql,args)=>connection.query(sql.replace(/\b(matches|match_events|match_sets|match_lineups|scorer_offline_sessions)\b/g,name=>`scorer_test_${name}`),args),beginTransaction:()=>connection.beginTransaction(),commit:()=>connection.commit(),rollback:()=>connection.rollback(),release(){}};
+  const file=require.resolve('../controllers/scorerOfflineController'), localRequire=createRequire(file);
+  const wrapped=name=>name==='../config/db'?{connect:async()=>proxy,query:proxy.query}:localRequire(name);wrapped.resolve=localRequire.resolve;
+  const scope={exports:{},require:wrapped,console};vm.runInNewContext(fs.readFileSync(file,'utf8'),scope,{filename:file});
+  const call=async(method,body,owner=7)=>{const res={code:200,status(code){this.code=code;return this;},json(data){this.data=data;}};await (typeof method==='function'?method:scope.exports[method])({params:{matchId:id},body,user:{id:owner,role:'scorer'},app:{get:()=>null}},res);return res;};
+  const deviceId=randomUUID(),checked=await call('checkout',{deviceId});assert.equal(checked.code,200,JSON.stringify(checked.data));
+  assert.equal((await call('checkout',{deviceId:randomUUID()},8)).code,409);
+  assert.equal((await call(scope.exports.online('updateLiveState'),{state:initial})).code,409);
+  const op={id:randomUUID(),method:'POST',path:'event',at:Date.now(),body:{event_type:'POINT',set_number:1,team_id:source.home_team_id,score_home:1,score_away:0,local_event_id:randomUUID(),details:{}}};
+  const state={id:randomUUID(),method:'PUT',path:'state',body:{state:{...initial,score:{home:1,away:0}}}};
+  const request={deviceId,fingerprint:checked.data.fingerprint,operations:[op,state]};
+  const synced=await call('sync',request);assert.equal(synced.code,200,JSON.stringify(synced.data));
+  assert.equal((await call('sync',request)).code,200);
+  const tail={...state,id:randomUUID(),body:{state:{...state.body.state,updatedAt:Date.now()}}};
+  const resumed=await call('sync',{...request,operations:[...request.operations,tail]});assert.equal(resumed.code,200,JSON.stringify(resumed.data));
+  synced.data=resumed.data;
+  assert.equal((await connection.query('SELECT * FROM scorer_test_match_events')).rows.length,1);
+  assert.equal((await call('sync',{...request,deviceId:randomUUID()})).code,409);
+  const bad={...op,id:randomUUID(),body:{...op.body,score_home:9}};
+  assert.equal((await call('sync',{...request,fingerprint:synced.data.fingerprint,operations:[bad]})).code,400);
+  assert.equal((await connection.query('SELECT * FROM scorer_test_match_events')).rows.length,1);
+  const undo={id:randomUUID(),method:'POST',path:'undo',body:{state:initial,keepLocalIds:[]}};
+  const undone=await call('sync',{deviceId,fingerprint:synced.data.fingerprint,operations:[undo],release:true});
+  assert.equal(undone.code,200,JSON.stringify(undone.data));assert.equal((await connection.query('SELECT * FROM scorer_test_match_events')).rows.length,0);
+  const restored=(await connection.query('SELECT team_a_score FROM scorer_test_matches WHERE id=?',[id])).rows[0];assert.equal(restored.team_a_score,0);
+  assert.equal((await call(scope.exports.online('updateLiveState'),{state:initial})).code,200);
+  const second=await call('checkout',{deviceId});assert.equal(second.code,200);
+  const savedCheckpoint=(await connection.query('SELECT checkpoint FROM scorer_test_scorer_offline_sessions')).rows[0].checkpoint;
+  const checkpoint=typeof savedCheckpoint==='string'?JSON.parse(savedCheckpoint):savedCheckpoint;
+  const full=[];const make=(method,path,body)=>full.push({id:randomUUID(),method,path,body,at:Date.now()});
+  for(let set=1;set<=Math.ceil(checkpoint.maxSets/2);set++){
+   if(set>1)make('PUT','state',{state:{...initial,matchData:{currentSet:set},score:{home:0,away:0}}});
+   for(let score=1;score<=25;score++)make('POST','event',{event_type:'POINT',set_number:set,team_id:source.home_team_id,score_home:score,score_away:0,local_event_id:randomUUID(),details:{}});
+   make('POST','end-set',{setNumber:set,homeScore:25,awayScore:0,duration:10});
+  }
+  make('PUT','state',{state:{...initial,matchData:{currentSet:Math.ceil(checkpoint.maxSets/2)},workflowStep:'MATCH_FINISHED',score:{home:25,away:0},setsWon:{home:Math.ceil(checkpoint.maxSets/2),away:0}}});
+  const finished={deviceId,fingerprint:second.data.fingerprint,operations:full,release:true};
+  const final=await call('sync',finished);assert.equal(final.code,200,JSON.stringify(final.data));
+  assert.equal((await connection.query('SELECT status FROM scorer_test_matches')).rows[0].status,'live');
+  assert.equal((await call('confirm',{})).code,200);
+  assert.equal((await connection.query('SELECT status FROM scorer_test_matches')).rows[0].status,'completed');
+  assert.equal((await call('sync',finished)).code,200);
+  assert.equal((await connection.query('SELECT status FROM scorer_test_matches')).rows[0].status,'completed');
+ }finally{for(const table of [...tables].reverse())await connection.query(`DROP TEMPORARY TABLE IF EXISTS scorer_test_${table}`);connection.release();await db.pool.end();}
+});

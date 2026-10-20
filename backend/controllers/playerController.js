@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { visStatisticsSource } = require('../utils/visStatistics');
 
 // 5. ดึงสถิติรายบุคคล (Player Stats)
 exports.getPlayerStats = async (req, res) => {
@@ -21,7 +22,7 @@ exports.getPlayerStats = async (req, res) => {
                 SUM(CASE WHEN skill = 'R' THEN 1 ELSE 0 END) as receptions,
                 SUM(CASE WHEN skill = 'R' AND grade = '=' THEN 1 ELSE 0 END) as reception_errors,
                 COUNT(*) as total_actions
-            FROM match_actions
+            FROM (${visStatisticsSource}) vis_actions
             WHERE player_id = ?
         `, [id]);
 

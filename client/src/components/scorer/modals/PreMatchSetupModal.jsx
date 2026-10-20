@@ -72,6 +72,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     // Master list of officials
     const [refereesList, setRefereesList] = useState([]);
     const [lineJudgesList, setLineJudgesList] = useState([]);
+    const [ageGroups, setAgeGroups] = useState([]);
 
     // --- State for Match Rules & Referees ---
     const [rules, setRules] = useState(() => {
@@ -121,6 +122,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
     const [matchDetails, setMatchDetails] = useState({
         matchNo: matchNo || match?.matchNo || match?.match_number || '',
+        ageGroupId: match?.age_group_id || (Number.isInteger(Number(match?.category)) ? match?.category : ''),
         round: match?.round || match?.round_name || '',
         pool: match?.pool || match?.pool_name || '',
         matchDate: match?.matchDate || match?.match_date || '',
@@ -148,6 +150,16 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
         fetchOfficials();
     }, []);
 
+    useEffect(() => {
+        let cancelled = false;
+        api.getAllAgeGroups()
+            .then(({ data }) => {
+                if (!cancelled) setAgeGroups(Array.isArray(data) ? data : []);
+            })
+            .catch((err) => console.warn('Could not fetch age groups for match setup', err));
+        return () => { cancelled = true; };
+    }, []);
+
     // Synchronize rules state when referees prop changes
     useEffect(() => {
         if (referees) {
@@ -164,6 +176,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
             const matchMaxSets = Number(match?.max_sets || match?.maxSets || 5);
             setMatchDetails({
                 matchNo: matchNo || match?.matchNo || match?.match_number || '',
+                ageGroupId: match?.age_group_id || (Number.isInteger(Number(match?.category)) ? match?.category : ''),
                 round: match?.round || match?.round_name || '',
                 pool: match?.pool || match?.pool_name || '',
                 matchDate: match?.matchDate || match?.match_date || '',
@@ -530,13 +543,10 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
         match?.competition_name ||
         match?.title ||
         'Volleyball Competition';
-    const categoryLabel =
-        match?.category ||
-        match?.category_name ||
-        match?.age_group ||
-        match?.division_name ||
-        match?.division ||
-        'Unspecified';
+    const categoryValue = String(matchDetails.ageGroupId ?? '');
+    const selectedAgeGroup = ageGroups.find((group) => String(group.id) === categoryValue);
+    const categoryLabel = selectedAgeGroup?.name || match?.age_group_name || match?.category_name || match?.age_group ||
+        (match?.category && Number.isNaN(Number(match.category)) ? match.category : '') || match?.division_name || 'Unspecified';
     const genderLabel = match?.gender || match?.division || '';
     const dateLabel = matchDetails.matchDate ? String(matchDetails.matchDate).split('T')[0] : '';
     const timeLabel = matchDetails.startTime ? String(matchDetails.startTime).slice(0, 5) : '';
@@ -883,11 +893,27 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                     <MapPin size={16} /> ข้อมูลการแข่งขันและสถานที่ / Match Info & Location
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <InputField
-                                        label="Category"
-                                        value={categoryLabel}
-                                        readOnly
-                                    />
+                                    <div className="flex flex-col gap-1.5">
+                                        <label htmlFor="match-age-group" className="text-xs font-bold text-slate-600 uppercase tracking-wider">Category</label>
+                                        <div className="relative">
+                                            <select
+                                                id="match-age-group"
+                                                value={categoryValue}
+                                                onChange={(event) => {
+                                                    const selected = ageGroups.find((group) => String(group.id) === event.target.value);
+                                                    setMatchDetails((prev) => ({ ...prev, ageGroupId: event.target.value, ageGroupName: selected?.name || '' }));
+                                                }}
+                                                className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-medium text-slate-900 outline-none transition-all appearance-none cursor-pointer hover:border-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                            >
+                                                {!categoryValue && <option value="">Select category</option>}
+                                                {categoryValue && !selectedAgeGroup && <option value={categoryValue}>{categoryLabel}</option>}
+                                                {ageGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <InputField
                                         label="Gender"
                                         value={genderLabel}

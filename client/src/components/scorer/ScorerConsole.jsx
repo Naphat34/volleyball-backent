@@ -17,6 +17,8 @@ import { formatThaiFullDateTime } from '../../utils';
 import EventQueue from '../../utils/eventQueue';
 import { isPlayerLibero, isPlayingPlayer } from '../../utils/playerFilters';
 import { getAuthToken, getStoredUser } from '../../authStorage';
+import { scorerOfflineActive } from '../../offline/scorerOffline';
+import ScorerOfflineControls from './ScorerOfflineControls';
 
 // --- Imported Modals ---
 import ChallengeModal from './modals/ChallengeModal';
@@ -193,7 +195,9 @@ export default function ScorerConsole() {
     const workflowStepRef = useRef('LINEUP');
 
     const markLocalStateUpdate = useCallback(() => {
-        const now = Date.now();
+        // Keep versions strictly increasing so same-millisecond updates and
+        // stale socket echoes cannot replace a more recent local state.
+        const now = Math.max(Date.now(), (Number(localStateUpdateTsRef.current) || 0) + 1);
         localStateUpdateTsRef.current = now;
         localStorage.setItem(`match_${matchId}_updatedAt`, JSON.stringify(now));
     }, [matchId]);
@@ -772,6 +776,7 @@ export default function ScorerConsole() {
 
     // --- EFFECT: SOCKET.IO FOR STAFF REQUESTS ---
     useEffect(() => {
+        if (scorerOfflineActive(matchId)) return;
         // เชื่อมต่อกับ Socket Server (ใช้ URL เดียวกับ API)
         const socketUrl = getSocketServerUrl();
         const socket = io(socketUrl, {
@@ -901,7 +906,9 @@ export default function ScorerConsole() {
         let isWorkerActive = true;
 
         const syncQueue = async () => {
+            if (scorerOfflineActive(matchId)) return;
             const nextEvent = EventQueue.peek();
+            if (nextEvent && scorerOfflineActive(nextEvent.matchId)) return;
             if (!nextEvent || isSyncing) {
                 setQueueCount(EventQueue.getQueue().length);
                 return;
@@ -950,13 +957,13 @@ export default function ScorerConsole() {
         servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup,
         homeLiberos, awayLiberos, homeLiberoSwaps, awayLiberoSwaps, teamColors,
         showTimeoutTimer, timeoutStartTime, matchDuration, isTimerRunning, setTimerStartedAt,
-        subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup
+        subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup, completedSets, matchEvents
     }, overrides), [
         matchData, workflowStep, score, setsWon, timeouts, challenges, substitutions,
         servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup,
         homeLiberos, awayLiberos, homeLiberoSwaps, awayLiberoSwaps, teamColors,
         showTimeoutTimer, timeoutStartTime, matchDuration, isTimerRunning, setTimerStartedAt,
-        subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup
+        subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup, completedSets, matchEvents
     ]);
 
     // --- EFFECT: SAVE STATE ---
@@ -1258,6 +1265,17 @@ export default function ScorerConsole() {
                 try {
                     const liveRes = await api.getLiveState(matchId);
                     const live = liveRes.data;
+                    const liveCurrentSet = Number(live?.matchData?.currentSet ?? live?.matchData?.current_set);
+                    const liveUpdatedAt = Number(live?.updatedAt) || 0;
+                    const localUpdatedAt = Number(localStateUpdateTsRef.current) || 0;
+                    if (
+                        Number.isInteger(liveCurrentSet)
+                        && liveCurrentSet > 0
+                        && (!localUpdatedAt || liveUpdatedAt >= localUpdatedAt)
+                    ) {
+                        // Restore the selected set even while workflow is LINEUP.
+                        setMatchData(prev => ({ ...prev, currentSet: liveCurrentSet }));
+                    }
                     if (live && live.workflowStep && live.workflowStep !== 'LINEUP') {
                         const fallbackIsHomeLeft = hasLocalCourtSide ? undefined : restoredIsHomeLeft;
                         const liveWithMatchFallback = {
@@ -1271,7 +1289,6 @@ export default function ScorerConsole() {
                         const normalizedWorkflowStep = normalizeWorkflowStepForMatch(live.workflowStep, liveWithMatchFallback);
                         const serverStepRank = getWorkflowStepRank(normalizedWorkflowStep);
                         const serverUpdatedAt = Number(live.updatedAt) || 0;
-                        const localUpdatedAt = Number(localStateUpdateTsRef.current) || 0;
                         const hasLocalState = localUpdatedAt > 0 || workflowStepRef.current !== 'LINEUP';
 
                         const shouldRestoreLiveState = (
@@ -1441,6 +1458,8 @@ export default function ScorerConsole() {
             local_event_id: localEventId,
             details: {
                 ...details,
+                lineups: { home: homeLineup.map(player => player.id), away: awayLineup.map(player => player.id) },
+                isHomeLeft,
                 set_number: currentSetNum,
                 team_id: teamId,
                 score_home: currentScore.home,
@@ -1451,7 +1470,9 @@ export default function ScorerConsole() {
             timestamp: new Date().toISOString()
         };
 
-        EventQueue.push(eventData);
+        if (scorerOfflineActive(matchId)) {
+            await api.saveMatchEvent(matchId, { ...eventData.details, details: eventData.details, event_type: eventType, local_event_id: localEventId });
+        } else EventQueue.push(eventData);
         setQueueCount(EventQueue.getQueue().length);
 
         let description = eventType;
@@ -2098,6 +2119,7 @@ export default function ScorerConsole() {
 
         setPendingSetWinner(null);
         setIsEndingSet(false);
+        markLocalStateUpdate();
     };
 
     const handleUndo = () => {
@@ -2112,9 +2134,13 @@ export default function ScorerConsole() {
             cancelButtonColor: '#d33',
             confirmButtonText: 'Yes, Undo',
             cancelButtonText: 'Cancel'
-        }).then((result) => {
+        }).then(async (result) => {
             if (result.isConfirmed) {
                 const lastState = history[history.length - 1];
+                if (scorerOfflineActive(matchId)) {
+                    try { await client.post(`/scorer/match/${matchId}/undo`, { state: createLiveState(lastState), keepLocalIds: (lastState.matchEvents || []).map(event => event.local_event_id || event.id) }); }
+                    catch (error) { await Swal.fire('ย้อนรายการไม่สำเร็จ', error.message, 'error'); return; }
+                }
 
                 setScore(lastState.score);
                 setSetsWon(lastState.setsWon);
@@ -2255,6 +2281,8 @@ export default function ScorerConsole() {
 
                 // General match info fields (optionally editable by scorer in PreMatchSetupModal)
                 match_number: data.matchDetails?.matchNo || null,
+                age_group_id: data.matchDetails?.ageGroupId || null,
+                category: data.matchDetails?.ageGroupId || null,
                 pool_name: data.matchDetails?.pool || null,
                 round_name: data.matchDetails?.round || null,
                 city: data.matchDetails?.city || null,
@@ -2330,11 +2358,32 @@ export default function ScorerConsole() {
 
     // --- CONFIRM HANDLERS ---
     const handleCoinTossConfirm = async (data) => {
+        // 2. บันทึกผลเสี่ยงทายลงฐานข้อมูล (เฉพาะเซต 1 เพื่อใช้กำหนด Team A/B ใน Scoresheet)
+        if (Number(matchData.currentSet) === 1) {
+            try {
+                // หา ID ของทีมที่ได้เสิร์ฟก่อน (เช็คจากค่า string 'home' หรือ 'away')
+                const firstServeId = data.servingTeam === 'home' ? matchData.teamHomeId : matchData.teamAwayId;
+                // หา ID ของทีมที่อยู่ด้านซ้าย
+                const leftSideId = data.isHomeLeft ? matchData.teamHomeId : matchData.teamAwayId;
+
+                // ยิง API ไปบันทึกในตาราง matches
+                await api.saveCoinToss(matchId, {
+                    first_serve_team_id: firstServeId,
+                    left_side_team_id: leftSideId
+                });
+
+                console.log("Coin toss saved to database.");
+            } catch (error) {
+                await Swal.fire('Save failed', error.response?.data?.error || 'Check your connection and try again.', 'error');
+                return;
+            }
+        }
+
         setShowCoinTossModal(false);
         // 1. อัปเดต State ในหน้าจอตามปกติ
         setTeamColors(data.colors);
         setServingTeam(data.servingTeam);
-        if (matchData.currentSet === 1) {
+        if (Number(matchData.currentSet) === 1) {
             setFirstServeSet1(data.servingTeam);
         }
         if (data.tossWinner) {
@@ -2353,27 +2402,6 @@ export default function ScorerConsole() {
         }
         if (data.servingTeam) {
             await saveEventToBackend('FIRST_SERVE', data.servingTeam);
-        }
-
-        // 2. บันทึกผลเสี่ยงทายลงฐานข้อมูล (เฉพาะเซต 1 เพื่อใช้กำหนด Team A/B ใน Scoresheet)
-        if (matchData.currentSet === 1) {
-            try {
-                // หา ID ของทีมที่ได้เสิร์ฟก่อน (เช็คจากค่า string 'home' หรือ 'away')
-                const firstServeId = data.servingTeam === 'home' ? matchData.teamHomeId : matchData.teamAwayId;
-                // หา ID ของทีมที่อยู่ด้านซ้าย
-                const leftSideId = data.isHomeLeft ? matchData.teamHomeId : matchData.teamAwayId;
-
-                // ยิง API ไปบันทึกในตาราง matches
-                await api.saveCoinToss(matchId, {
-                    first_serve_team_id: firstServeId,
-                    left_side_team_id: leftSideId
-                });
-
-                console.log("Coin toss saved to database.");
-            } catch (error) {
-                console.error("Failed to save toss:", error);
-                // Swal.fire('Error', 'Failed to save coin toss to database.', 'error'); // (ใส่แจ้งเตือนเพิ่มได้ถ้าต้องการ)
-            }
         }
 
         // 3. ไปยังขั้นตอนถัดไป
@@ -2470,6 +2498,8 @@ export default function ScorerConsole() {
                 rd_country: data.referees.rd_country || null,
                 rd_code: data.referees.rd_code || null,
                 match_number: data.matchDetails?.matchNo || null,
+                age_group_id: data.matchDetails?.ageGroupId || null,
+                category: data.matchDetails?.ageGroupId || null,
                 pool_name: data.matchDetails?.pool || null,
                 round_name: data.matchDetails?.round || null,
                 city: data.matchDetails?.city || null,
@@ -2514,6 +2544,9 @@ export default function ScorerConsole() {
                 ...prev,
                 matchNo: data.matchDetails.matchNo,
                 match_number: data.matchDetails.matchNo,
+                age_group_id: data.matchDetails.ageGroupId,
+                category: data.matchDetails.ageGroupId,
+                age_group_name: data.matchDetails.ageGroupName || prev.age_group_name,
                 round: data.matchDetails.round,
                 round_name: data.matchDetails.round,
                 pool: data.matchDetails.pool,
@@ -2890,7 +2923,7 @@ export default function ScorerConsole() {
         matchData?.hasChallenge === 'true' ||
         matchData?.hasChallenge === 1 ||
         matchData?.hasChallenge === '1'
-    ), [matchData?.has_challenge, matchData?.hasChallenge]);
+    ), [matchData]);
 
     const openChallengeForTeam = useCallback((team) => {
         if (!isChallengeEnabledForMatch()) {
@@ -3530,7 +3563,7 @@ export default function ScorerConsole() {
         });
 
         if (actionType === 'IN') {
-            // 3. บันทึก Log ลงระบบหลังบ้าน (ไม่นับเป็นโควต้า 6 ครั้ง)
+            // 3. บันทึก Log ลงระบบหลังบ้าน (ไม่นับเป็นโควต้าเปลี่ยนตัวปกติ)
             await saveEventToBackend('LIBERO_REPLACEMENT', team, {
                 player_id: playerIn.id,
                 details: { out: playerOut.id, isLiberoAction: true }
@@ -3697,11 +3730,11 @@ export default function ScorerConsole() {
         if (!isExceptional) {
             setSubstitutions(prev => {
                 const newCount = prev[team] + 1;
-                if (newCount === 5) {
+                if (newCount === 7) {
                     setTimeout(() => {
                         Swal.fire({
                             title: '⚠️ แจ้งเตือนโควต้า',
-                            text: `ทีม ${team === 'home' ? matchData.teamHome : matchData.teamAway} เปลี่ยนตัวไปแล้ว 5 ครั้ง (เหลือโควต้าอีก 1 ครั้ง)`,
+                            text: `ทีม ${team === 'home' ? matchData.teamHome : matchData.teamAway} เปลี่ยนตัวไปแล้ว 7 ครั้ง (เหลือโควต้าอีก 1 ครั้ง)`,
                             icon: 'warning',
                             confirmButtonColor: '#f59e0b',
                             confirmButtonText: 'รับทราบ'
@@ -3726,6 +3759,22 @@ export default function ScorerConsole() {
                 // 🌟 สร้างข้อความคะแนน ณ ขณะที่เปลี่ยนตัว (ทีมเราขึ้นก่อน)
                 const opponent = team === 'home' ? 'away' : 'home';
                 const currentScoreText = `${score[team]}-${score[opponent]}`;
+                const priorSubstitutionHistory = posData?.substitutionHistory || [
+                    ...(posData?.subScore ? [{
+                        outId: posData.starterId,
+                        inId: posData.subId,
+                        score: posData.subScore
+                    }] : []),
+                    ...(posData?.returnScore ? [{
+                        outId: posData.subId,
+                        inId: posData.starterId,
+                        score: posData.returnScore
+                    }] : [])
+                ];
+                const substitutionHistory = [
+                    ...priorSubstitutionHistory,
+                    { outId: pOutId, inId: pInId, score: currentScoreText }
+                ];
 
                 teamTracker.count += 1;
 
@@ -3735,7 +3784,8 @@ export default function ScorerConsole() {
                         ...posData,
                         currentOnCourt: pInId,
                         returned: true,
-                        returnScore: currentScoreText // 🌟 บันทึกสกอร์ตอนเปลี่ยนตัวกลับ
+                        returnScore: currentScoreText,
+                        substitutionHistory
                     };
                 } else {
                     // เปลี่ยนครั้งแรก (Sub-in)
@@ -3746,7 +3796,8 @@ export default function ScorerConsole() {
                         subNumber: playerIn.number,     // 🌟 บันทึกหมายเลขไว้เลย
                         currentOnCourt: pInId,
                         returned: false,
-                        subScore: currentScoreText
+                        subScore: currentScoreText,
+                        substitutionHistory
                     };
 
                     if (!teamTracker.usedPlayers.includes(pInId)) teamTracker.usedPlayers.push(pInId);
@@ -3763,6 +3814,10 @@ export default function ScorerConsole() {
         setLineup(prev => replaceLineupPlayer(prev, posIndex, playerIn, originalPos));
 
         // --- 3. บันทึก Event ลง Backend ---
+        // Version this local change before event/live-state sync can deliver
+        // an older snapshot and clear the on-court substitution badge.
+        markLocalStateUpdate();
+
         await saveEventToBackend('SUBSTITUTION', team, {
             player_id: playerIn.id || playerIn.player_id,
             details: {
@@ -3830,10 +3885,11 @@ export default function ScorerConsole() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <ScorerOfflineControls matchId={matchId} flushState={() => api.updateLiveState(matchId, createLiveState())} />
                     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
-                        <StatusBadge tone={realtimeConnected ? 'success' : 'warning'} dot>{realtimeConnected ? 'เชื่อมต่อสด / Live' : 'กำลังเชื่อมต่อใหม่ / Reconnecting'}</StatusBadge>
+                        <StatusBadge tone={realtimeConnected ? 'success' : 'warning'} dot>{scorerOfflineActive(matchId) ? 'Offline · เครื่องหลัก' : realtimeConnected ? 'เชื่อมต่อสด / Live' : 'กำลังเชื่อมต่อใหม่ / Reconnecting'}</StatusBadge>
                         <StatusBadge tone={liveSyncStatus === 'error' ? 'error' : liveSyncStatus === 'saved' && queueCount === 0 ? 'success' : 'warning'}>
-                            {liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}
+                            {liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · กด Offline เพื่อซิงค์' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}
                         </StatusBadge>
                         {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary"><RefreshCcw size={15} />ลองใหม่ / Retry</button>}
                     </div>
@@ -4261,6 +4317,7 @@ export default function ScorerConsole() {
                 teamHome={matchData.teamHome}
                 teamAway={matchData.teamAway}
                 teamColors={teamColors}
+                setNumber={matchData.currentSet}
                 onConfirm={handleCoinTossConfirm}
             />
 

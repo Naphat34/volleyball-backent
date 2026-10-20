@@ -1,11 +1,29 @@
 import { io } from 'socket.io-client';
-import { Feedback, Panel, StatusBadge } from '../../components/ui/SystemUI';
+import { Feedback, StatusBadge } from '../../components/ui/SystemUI';
 import PublicHeader from '../../components/PublicHeader';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CalendarDays, Clock, MapPin, ArrowLeft, LayoutGrid, Users } from 'lucide-react';
 import { api, getSocketServerUrl } from '../../api';
 import { useLanguage } from '../../context/LanguageContext';
+
+const TeamLogo = ({ name, logoUrl, size = "md" }) => {
+    const sizeClasses = size === "lg" ? "w-16 h-16 text-lg" : size === "sm" ? "w-6 h-6 text-[8px]" : "w-10 h-10 text-xs";
+
+    if (logoUrl) {
+        return (
+            <div className={`${sizeClasses} rounded-full bg-white border border-gray-200 shrink-0 flex items-center justify-center overflow-hidden shadow-sm`}>
+                <img src={logoUrl} alt={name || "Team"} className="w-full h-full object-cover" />
+            </div>
+        );
+    }
+    const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : "??";
+    return (
+        <div className={`${sizeClasses} rounded-full bg-white border border-gray-200 shrink-0 flex items-center justify-center font-bold text-gray-500 shadow-sm`}>
+            {initials}
+        </div>
+    );
+};
 
 export default function MatchCentrePage() {
     const { matchId } = useParams();
@@ -17,8 +35,6 @@ export default function MatchCentrePage() {
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [liveState, setLiveState] = useState(null);
-    const [events, setEvents] = useState([]);
-    const [realtimeConnected, setRealtimeConnected] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
 
 
@@ -33,14 +49,13 @@ export default function MatchCentrePage() {
         const refresh = async (initial = false) => {
             if (refreshing) return;
             refreshing = true;
-            if (initial) { setLoading(true); setMatch(null); setLiveState(null); setEvents([]); setTeamPlayers({ home: [], away: [] }); }
+            if (initial) { setLoading(true); setMatch(null); setLiveState(null); setTeamPlayers({ home: [], away: [] }); }
             try {
-                const [res, state, eventRes] = await Promise.all([api.getPublicMatches(), api.getLiveState(matchId), api.getMatchEvents(matchId)]);
+                const [res, state] = await Promise.all([api.getPublicMatches(), api.getLiveState(matchId)]);
                 if (cancelled) return;
                 const found = res.data.find(item => String(item.id) === String(matchId));
                 setMatch(found || null);
                 applyState(state.data);
-                setEvents((eventRes.data || []).slice().sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 20));
                 setLoadError(false);
                 if (initial && found) {
                     const [home, away] = await Promise.all([
@@ -62,14 +77,9 @@ export default function MatchCentrePage() {
         const onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
         document.addEventListener('visibilitychange', onVisibility);
         const socket = io(getSocketServerUrl(), { withCredentials: true });
-        socket.on('connect', () => { setRealtimeConnected(true); socket.emit('join_match', { matchId, role: 'viewer' }); refresh(); });
-        socket.on('disconnect', () => setRealtimeConnected(false));
-        socket.on('connect_error', () => setRealtimeConnected(false));
+        socket.on('connect', () => { socket.emit('join_match', { matchId, role: 'viewer' }); refresh(); });
         socket.on('live_state_updated', applyState);
         socket.on('match_updated', () => refresh());
-        socket.on('match_event', event => {
-            if (!cancelled) setEvents(previous => [event, ...previous.filter(item => item.id !== event.id)].slice(0, 20));
-        });
         return () => { cancelled = true; window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisibility); socket.disconnect(); };
     }, [matchId, reloadKey]);
 
@@ -93,24 +103,6 @@ export default function MatchCentrePage() {
             </div>
         );
     }
-
-    const TeamLogo = ({ name, logoUrl, size = "md" }) => {
-        const sizeClasses = size === "lg" ? "w-16 h-16 text-lg" : size === "sm" ? "w-6 h-6 text-[8px]" : "w-10 h-10 text-xs";
-
-        if (logoUrl) {
-            return (
-                <div className={`${sizeClasses} rounded-full bg-white border border-gray-200 shrink-0 flex items-center justify-center overflow-hidden shadow-sm`}>
-                    <img src={logoUrl} alt={name || "Team"} className="w-full h-full object-cover" />
-                </div>
-            );
-        }
-        const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : "??";
-        return (
-            <div className={`${sizeClasses} rounded-full bg-white border border-gray-200 shrink-0 flex items-center justify-center font-bold text-gray-500 shadow-sm`}>
-                {initials}
-            </div>
-        );
-    };
 
     const normalizeStatus = (status) => String(status || '').toLowerCase();
     const isCompleted = ['completed', 'finished', 'match_finished'].includes(normalizeStatus(match.status));
@@ -213,7 +205,7 @@ export default function MatchCentrePage() {
             </div>
 
             <main id="main-content" tabIndex={-1} className="max-w-[1100px] mx-auto px-4 mt-8 space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-3"><StatusBadge dot tone={realtimeConnected ? 'success' : 'warning'}>{language === 'THA' ? (realtimeConnected ? 'เชื่อมต่อข้อมูลสด' : 'กำลังเชื่อมต่อใหม่') : (realtimeConnected ? 'Live updates connected' : 'Reconnecting')}</StatusBadge><span className="text-xs text-slate-500">{lastUpdated && (language === 'THA' ? 'อัปเดตล่าสุด ' : 'Last updated ') + lastUpdated.toLocaleTimeString(language === 'THA' ? 'th-TH' : 'en-GB')}</span></div>
+                <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-slate-500">{lastUpdated && (language === 'THA' ? 'อัปเดตล่าสุด ' : 'Last updated ') + lastUpdated.toLocaleTimeString(language === 'THA' ? 'th-TH' : 'en-GB')}</span></div>
                 {loadError && <Feedback error title={language === 'THA' ? 'ข้อมูลล่าสุดยังโหลดไม่สำเร็จ' : 'Latest update unavailable'} onRetry={() => setReloadKey(key => key + 1)} />}
 
                 {/* MATCH HEADER CARD */}
@@ -378,9 +370,6 @@ export default function MatchCentrePage() {
                     </div>
                 </div>
 
-                <Panel title={language === 'THA' ? 'เหตุการณ์ล่าสุด' : 'Recent events'} description={language === 'THA' ? 'ประวัติการแข่งขันจากผู้บันทึกคะแนน' : 'Match events recorded by the scorer'}>
-                    <ol className="divide-y divide-slate-100 px-5">{events.length ? events.map((event, index) => <li key={event.id || index} className="flex items-start justify-between gap-4 py-4 text-sm"><div><StatusBadge tone="info">{language === 'THA' ? 'เซต ' : 'Set '}{event.set_number || event.set || '-'}</StatusBadge><p className="mt-2 font-medium text-slate-700">{event.description || event.event_type || event.type || '-'}</p></div><span className="score-number shrink-0 font-semibold text-slate-600">{event.score || (event.score_home != null ? `${event.score_home} : ${event.score_away}` : '')}</span></li>) : <li className="py-8 text-center text-sm text-slate-500">{language === 'THA' ? 'ยังไม่มีเหตุการณ์บันทึก' : 'No events recorded yet.'}</li>}</ol>
-                </Panel>
             </main>
 
             {/* --- Footer --- */}

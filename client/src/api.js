@@ -1,5 +1,8 @@
 import axios from 'axios';
 import { getAuthToken } from './authStorage';
+import { offlineMode } from './offline/offlineAuth';
+import { installScorerOffline } from './offline/scorerOffline';
+import { isLocalVis, getLocal, listLocal, localView, createLocal, editLocal, saveLocal } from './offline/offlineStore';
 
 // ดึงค่าจาก VITE_API_URL ก่อน หากไม่มีค่อย Fallback ไปที่ http://localhost:3000
 const API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -62,7 +65,20 @@ apiClient.interceptors.response.use(
   }
 );
 
+const customVis = id => String(id).startsWith('custom-') || isLocalVis(id);
+installScorerOffline(apiClient);
+const readCustomVis = async id => isLocalVis(id) ? { data: localView(await getLocal(id)) } : apiClient.get(`/vis-custom/${id}`);
 export const api = {
+  getScorerMatches: () => apiClient.get('/scorer/matches'),
+  getOfflinePermit: () => apiClient.get('/vis-custom/offline-permit'),
+  checkoutOfflineVis: (id, deviceId) => apiClient.post(`/vis-custom/${id}/offline-checkout`, { deviceId }),
+  syncOfflineVis: (id, data) => apiClient.post(`/vis-custom/${id}/offline-sync`, data, { timeout: 60000 }),
+  createCustomVis: async data => offlineMode() || !navigator.onLine ? { data: localView(await createLocal(data)) } : apiClient.post('/vis-custom', data),
+  getCustomVis: readCustomVis,
+  updateCustomVis: async (id, data) => isLocalVis(id) ? { data: localView(await editLocal(id, data)) } : apiClient.put(`/vis-custom/${id}`, data),
+  publishCustomVis: (id, published) => apiClient.put(`/vis-custom/${id}/publish`, { published }),
+  reopenCustomVis: id => apiClient.post(`/vis-custom/${id}/reopen`),
+  getPublicVis: token => apiClient.get(`/vis-custom/public/${token}`),
   // Auth
   login: (credentials) => apiClient.post('/auth/login', credentials),
   register: (data) => apiClient.post('/auth/register', data),
@@ -156,6 +172,17 @@ export const api = {
   getAllCategories: () => apiClient.get('/categories'),
 
   saveCoinToss: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/toss`, data),
+  getVisState: matchId => customVis(matchId) ? readCustomVis(matchId) : apiClient.get(`/scorer/match/${matchId}/vis`),
+  getVisMatches: async () => {
+    let local = [];
+    try { local = (await listLocal()).map(item => localView(item).match); } catch (error) { if (offlineMode()) throw error; }
+    if (offlineMode()) return { data: local };
+    const [regular, custom] = await Promise.allSettled([apiClient.get('/scorer/matches'), apiClient.get('/vis-custom')]);
+    if (regular.status === 'rejected' && custom.status === 'rejected') throw regular.reason;
+    const activeServers = new Set(local.filter(m => !m.offline_released).map(m => m.server_id));
+    return { data: [...(regular.status === 'fulfilled' ? regular.value.data : []), ...(custom.status === 'fulfilled' ? custom.value.data.filter(m => !activeServers.has(m.id)) : []), ...local] };
+  },
+  saveVisCommand: async (matchId, data) => isLocalVis(matchId) ? { data: await saveLocal(matchId, data) } : apiClient.post(customVis(matchId) ? `/vis-custom/${matchId}/command` : `/scorer/match/${matchId}/vis`, data),
 
   // --- Stadiums Management ---
   getStadiums: () => apiClient.get('/admin/stadiums'),
@@ -216,8 +243,17 @@ export const api = {
   updateMatchOfficials: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/officials`, data),
   endSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/end-set`, data),
   startSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/start-set`, data),
-  getMatchScoresheetData: (matchId) => apiClient.get(`/scorer/match/${matchId}/scoresheet`),
-  getMatchRosterData: (matchId) => apiClient.get(`/scorer/match/${matchId}/roster`),
+  getMatchScoresheetData: async matchId => {
+    if (!customVis(matchId)) return apiClient.get(`/scorer/match/${matchId}/scoresheet`);
+    const response = await readCustomVis(matchId), saved = response.data;
+    return { ...response, data: { match: saved.match, homePlayers: saved.config.home.players, awayPlayers: saved.config.away.players,
+      visActions: saved.events.filter(e => e.action_type === 'VIS_STAT'), events: saved.events.filter(e => e.action_type !== 'VIS_STAT'), sets: [], lineups: [] } };
+  },
+  getMatchRosterData: async matchId => {
+    if (!customVis(matchId)) return apiClient.get(`/scorer/match/${matchId}/roster`);
+    const response = await readCustomVis(matchId);
+    return { ...response, data: { ...response.data.roster, match: response.data.match } };
+  },
   updateMatchRoster: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/roster`, data),
   createMatchTeamPlayer: (matchId, teamId, data) => apiClient.post(`/scorer/match/${matchId}/teams/${teamId}/players`, data),
   updateMatchTeamPlayer: (matchId, teamId, playerId, data) => apiClient.put(`/scorer/match/${matchId}/teams/${teamId}/players/${playerId}`, data),

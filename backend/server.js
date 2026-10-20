@@ -68,6 +68,7 @@ app.get('/api/debug/uploads', (req, res) => {
 // ==========================================
 // 2. Setup Routes SECOND
 // ==========================================
+app.use('/api/vis-custom', require('./routes/customVisRoutes'));
 app.use('/api/scorer', scorerRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
@@ -135,6 +136,14 @@ function createSocketIo(server) {
   };
 
   const canJoinMatchRoom = async ({ socket, matchId, role, side }) => {
+    if (/^custom-[a-f0-9-]{36}$/i.test(String(matchId)) && role === 'viewer') {
+      try {
+        const user = await getSocketUser(socket);
+        if (!user || !roleHasPermission(user.role, 'match.score')) return false;
+        const result = await db.query('SELECT owner_id FROM custom_vis_matches WHERE id = ?', [matchId]);
+        return Boolean(result.rows[0] && (user.role === 'admin' || String(result.rows[0].owner_id) === String(user.id)));
+      } catch { return false; }
+    }
     if (!matchId || !/^\d+$/.test(String(matchId))) return false;
     if (!['viewer', 'referee', 'staff', 'scorer'].includes(String(role || 'viewer'))) return false;
     if (role === 'viewer' || role === 'referee') return true;
@@ -192,9 +201,8 @@ function startServer(port) {
 
   server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
-      const nextPort = port + 1;
-      console.warn(`⚠️ Port ${port} is already in use. Trying ${nextPort}...`);
-      startServer(nextPort);
+      console.error(`Port ${port} is already in use. Use the existing backend or stop it before restarting. The API port must match VITE_API_URL.`);
+      process.exit(1);
       return;
     }
 

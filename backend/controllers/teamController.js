@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { visStatisticsSource } = require('../utils/visStatistics');
 const bcrypt = require('bcryptjs');
 const { writeAuditLog } = require('../utils/auditLogger');
 const { normalizeTeamGender } = require('../utils/teamGender');
@@ -1438,7 +1439,7 @@ exports.getMyPlayersStats = async (req, res) => {
                 SUM(CASE WHEN skill = 'S' AND grade = '=' THEN 1 ELSE 0 END) as serve_errors,
                 SUM(CASE WHEN skill = 'D' THEN 1 ELSE 0 END) as digs,
                 SUM(CASE WHEN skill = 'R' THEN 1 ELSE 0 END) as receptions
-            FROM match_actions
+            FROM (${visStatisticsSource}) vis_actions
             GROUP BY player_id
         ) s ON p.id = s.player_id
         WHERE p.team_id = ?

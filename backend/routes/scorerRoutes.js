@@ -3,6 +3,14 @@ const router = express.Router();
 const scorerController = require('../controllers/scorerController');
 const authMiddleware = require('../middleware/authMiddleware');
 const validateRequest = require('../middleware/validateRequest');
+const visController = require('../controllers/visController');
+const matchController = require('../controllers/matchController');
+const offline = require('../controllers/scorerOfflineController');
+router.get('/offline-permit', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.permit);
+router.post('/match/:matchId/offline-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.checkout);
+router.post('/match/:matchId/offline-sync', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.sync);
+router.post('/match/:matchId/offline-confirm', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.confirm);
+router.use('/match/:matchId', offline.guard);
 
 // Public read endpoints used by scoreboards, score sheets, and viewer screens.
 router.get('/match/:matchId', scorerController.getMatchDetails);
@@ -14,16 +22,19 @@ router.get('/match/:matchId/state', scorerController.getLiveState);
 
 // Mutating scorer endpoints are available to admins and scorer-console users.
 const scorerWriteAccess = [authMiddleware.verifyToken, authMiddleware.canScoreMatches];
-router.post('/match/:matchId/event', scorerWriteAccess, validateRequest('scorerEvent'), scorerController.saveMatchEvent);
-router.post('/match/:matchId/toss', scorerWriteAccess, scorerController.saveCoinToss);
-router.post('/match/:matchId/lineup', scorerWriteAccess, scorerController.saveLineup);
-router.post('/match/:matchId/start-set', scorerWriteAccess, scorerController.startSet);
-router.post('/match/:matchId/end-set', scorerWriteAccess, scorerController.endSet);
-router.put('/match/:matchId/state', scorerWriteAccess, scorerController.updateLiveState);
-router.put('/match/:matchId/officials', scorerWriteAccess, scorerController.updateMatchOfficials);
-router.put('/match/:matchId/roster', scorerWriteAccess, scorerController.updateMatchRoster);
-router.post('/match/:matchId/teams/:teamId/players', scorerWriteAccess, scorerController.createMatchTeamPlayer);
-router.put('/match/:matchId/teams/:teamId/players/:playerId', scorerWriteAccess, scorerController.updateMatchTeamPlayer);
+router.get('/matches', scorerWriteAccess, matchController.getAllMatches);
+router.get('/match/:matchId/vis', scorerWriteAccess, visController.getState);
+router.post('/match/:matchId/vis', scorerWriteAccess, visController.command);
+router.post('/match/:matchId/event', scorerWriteAccess, validateRequest('scorerEvent'), offline.online('saveMatchEvent'));
+router.post('/match/:matchId/toss', scorerWriteAccess, offline.online('saveCoinToss'));
+router.post('/match/:matchId/lineup', scorerWriteAccess, offline.online('saveLineup'));
+router.post('/match/:matchId/start-set', scorerWriteAccess, offline.online('startSet'));
+router.post('/match/:matchId/end-set', scorerWriteAccess, offline.online('endSet'));
+router.put('/match/:matchId/state', scorerWriteAccess, offline.online('updateLiveState'));
+router.put('/match/:matchId/officials', scorerWriteAccess, offline.online('updateMatchOfficials'));
+router.put('/match/:matchId/roster', scorerWriteAccess, offline.online('updateMatchRoster'));
+router.post('/match/:matchId/teams/:teamId/players', scorerWriteAccess, offline.online('createMatchTeamPlayer'));
+router.put('/match/:matchId/teams/:teamId/players/:playerId', scorerWriteAccess, offline.online('updateMatchTeamPlayer'));
 
 const officialController = require('../controllers/officialController');
 

@@ -1,11 +1,9 @@
 import { Feedback } from '../../components/ui/SystemUI';
-import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
 import PublicHeader from '../../components/PublicHeader';
 import React, { useEffect, useState } from 'react';
 import client from '../../api';
 import { Users, ArrowLeft, Filter, Trophy, X, BarChart2, Activity, Shield, Swords } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
-import { cleanCompetitionTitle } from '../../utils';
 import {
     getPublicAgeGroupLabel,
     getPublicCompetitionVariantLabel
@@ -16,16 +14,13 @@ export default function PublicTeams() {
     const { language, t } = useLanguage();
     // --- State ---
     const [groupedComps, setGroupedComps] = useState({}); // เก็บข้อมูลที่จัดกลุ่มแล้ว { "ชื่อรายการ": { Men: id, Women: id } }
-    const [compTitles, setCompTitles] = useState([]);     // รายชื่อรายการ (Unique)
     
-    const [selectedTitle, setSelectedTitle] = useState(() => readViewPreference('teamCompetition'));
+    const [selectedTitle, setSelectedTitle] = useState('__open__');
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [teamSearch, setTeamSearch] = useState('');
     const [selectedVariantKey, setSelectedVariantKey] = useState(''); // ชื่อรายการที่เลือก
-    const [selectedGender, setSelectedGender] = useState(() => readViewPreference('teamGender', 'All'));
-    useEffect(() => { writeViewPreference('teamCompetition', selectedTitle); }, [selectedTitle]);
-    useEffect(() => { writeViewPreference('teamGender', selectedGender); }, [selectedGender]); // เพศที่เลือก (Men/Women/All)
+    const [selectedGender, setSelectedGender] = useState('All');
     
     const [teams, setTeams] = useState([]);
     const [selectedTeam, setSelectedTeam] = useState(null);
@@ -50,7 +45,7 @@ export default function PublicTeams() {
                 rawData.forEach(comp => {
                     // ตัดคำต่อท้ายเช่น (Men), (Women), (Male), (Female) ออกเพื่อให้เหลือแค่ชื่อรายการ
                     // Regex นี้จะลบวงเล็บและคำระบุเพศข้างใน
-                    const baseTitle = cleanCompetitionTitle(comp.title);
+                    const baseTitle = '__open__';
                     const ageGroup = getPublicAgeGroupLabel(comp);
                     const variantKey = ageGroup || '__all__';
                     
@@ -69,17 +64,16 @@ export default function PublicTeams() {
                     if (['women', 'woman', 'female', 'f', 'หญิง'].includes(genderText)) genderKey = 'Women';
                     if (['mixed', 'mix', 'ผสม'].includes(genderText)) genderKey = 'Mixed';
                     
-                    groups[baseTitle].variants[variantKey][genderKey] = comp.id;
+                    groups[baseTitle].variants[variantKey][genderKey] = [...(groups[baseTitle].variants[variantKey][genderKey] || []), comp.id];
                     groups[baseTitle].variants[variantKey][`${genderKey}Label`] = getPublicCompetitionVariantLabel(comp, language);
                 });
 
                 setGroupedComps(groups);
                 const titles = Object.keys(groups);
-                setCompTitles(titles);
 
                 // Default เลือกรายการแรก
                 if (titles.length > 0) {
-                    setSelectedTitle(titles[0]);
+                    setSelectedTitle('__open__');
                     setSelectedVariantKey(Object.keys(groups[titles[0]].variants)[0] || '');
                 }
 
@@ -103,11 +97,9 @@ export default function PublicTeams() {
         let targetIds = [];
 
         if (selectedGender === 'All') {
-            targetIds = ['Men', 'Women', 'Mixed']
-                .map((genderKey) => compIdsMap[genderKey])
-                .filter((id) => id !== undefined && id !== null && id !== '');
+            targetIds = ['Men', 'Women', 'Mixed'].flatMap((genderKey) => compIdsMap[genderKey] || []);
         } else if (compIdsMap[selectedGender]) {
-            targetIds = [compIdsMap[selectedGender]];
+            targetIds = compIdsMap[selectedGender] || [];
         }
 
         if (targetIds.length > 0) {
@@ -224,31 +216,8 @@ export default function PublicTeams() {
                             
                             <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm border border-white/10 shadow-inner">
                                 <div className="flex flex-col md:flex-row gap-6 items-end">
-                                    {/* 1. Competition Dropdown */}
                                     <div className="flex-1 w-full">
-                                        <label className="text-sm font-bold text-indigo-200 mb-2 flex items-center gap-2">
-                                            <Trophy size={16}/> {t('guestTeams.selectTournament')}
-                                        </label>
-                                        <select 
-                                            value={selectedTitle}
-                                            onChange={(e) => {
-                                                const nextTitle = e.target.value;
-                                                const nextVariants = groupedComps[nextTitle]?.variants || {};
-                                                const nextVariantKey = Object.keys(nextVariants)[0] || '';
-                                                setSelectedTitle(nextTitle);
-                                                setSelectedVariantKey(nextVariantKey);
-                                                setSelectedGender('All');
-                                            }}
-                                            className="w-full bg-white text-gray-900 border-none rounded-xl py-3 px-4 focus:ring-4 focus:ring-yellow-400/50 shadow-lg font-medium text-lg"
-                                        >
-                                            {compTitles.length === 0 ? (
-                                                <option>{t('common.noData')}</option>
-                                            ) : (
-                                                compTitles.map((title, index) => (
-                                                    <option key={index} value={title}>{title}</option>
-                                                ))
-                                            )}
-                                        </select>
+                                        <label className="text-sm font-bold text-indigo-200 mb-2 flex items-center gap-2"><Filter size={16}/> {language === 'THA' ? '\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17/\u0e23\u0e38\u0e48\u0e19:' : 'Category / age group:'}</label>
                                         {selectedVariantKeys.length > 1 && (
                                             <div className="mt-3 flex flex-wrap gap-2">
                                                 {selectedVariantKeys.map((variantKey) => (

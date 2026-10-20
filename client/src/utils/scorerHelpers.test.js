@@ -63,6 +63,16 @@ test('start and roster saves support fresh fields and numeric sync timestamps', 
     assert.equal(Number.isFinite(result.updatedAt), true);
 });
 
+test('official rally references follow scorer history, including after Undo', () => {
+    const points = [
+        { id: 'event-1', local_event_id: 'rally-1', metadata: { type: 'POINT' } },
+        { id: 'event-2', metadata: { type: 'TIMEOUT' } },
+        { id: 'event-3', metadata: { type: 'POINT', localEventId: 'rally-3' } },
+    ];
+    assert.deepEqual(buildScorerLiveState({ matchEvents: points }).officialRallyRefs, ['rally-1', 'rally-3']);
+    assert.deepEqual(buildScorerLiveState({ matchEvents: points.slice(0, 2) }).officialRallyRefs, ['rally-1']);
+});
+
 test('multiple substitutions preserve original positions and previous lineup snapshots', () => {
     const lineup = [{ id: 1, originalPos: 4 }, { id: 2, originalPos: 0 }];
     const first = replaceLineupPlayer(lineup, 0, { id: 7, originalPos: 99 }, 4);

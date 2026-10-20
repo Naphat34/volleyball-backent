@@ -1,15 +1,10 @@
 import { Feedback } from '../../components/ui/SystemUI';
-import { readViewPreference, writeViewPreference } from '../../utils/viewPreferences';
 import PublicHeader from '../../components/PublicHeader';
 import React, { useEffect, useMemo, useState } from 'react';
 import client from '../../api';
 import { Trophy, Activity, HandMetal, Shield, Zap, Target, ArrowUp, User } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
-import {
-    findCompetitionGroupById,
-    getPublicCompetitionVariantLabel,
-    groupPublicCompetitions
-} from '../../utils/publicCompetitionGrouping';
+import { groupPublicCompetitionCategories } from '../../utils/publicCompetitionGrouping';
 
 const STAT_CATEGORIES = [
     'best_scorers',
@@ -52,8 +47,7 @@ export default function PublicStatistics() {
     const [competitions, setCompetitions] = useState([]);
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
-    const [selectedCompId, setSelectedCompId] = useState('');
-    useEffect(() => { if (selectedCompId) writeViewPreference('publicCompetition', selectedCompId); }, [selectedCompId]);
+    const [selectedCategory, setSelectedCategory] = useState('all');
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -65,10 +59,7 @@ export default function PublicStatistics() {
                 const openComps = res.data.filter(c => c.status?.toLowerCase() === 'open');
                 setCompetitions(openComps);
                 // ถ้ามีรายการแข่ง ให้เลือกรายการล่าสุดเป็นค่าเริ่มต้น
-                if (openComps.length > 0) {
-                    const remembered = readViewPreference('publicCompetition');
-                    setSelectedCompId((openComps.find(item => String(item.id) === String(remembered)) || openComps[0]).id);
-                }
+                setSelectedCategory('all');
             } catch (err) {
                 console.error("Error fetching competitions:", err);
                 setLoadError(true);
@@ -84,13 +75,8 @@ export default function PublicStatistics() {
         const fetchStats = async () => {
             setLoading(true);
             try {
-                if (selectedCompId) {
-                    const res = await client.get(`/public/statistics/${selectedCompId}`);
-                    setStats(res.data);
-                    return;
-                }
-
-                const competitionIds = competitions
+                const selectedGroup = selectedCategory === 'all' ? null : groupPublicCompetitionCategories(competitions, language).find((item) => item.key === selectedCategory);
+                const competitionIds = (selectedGroup?.items || competitions)
                     .map((competition) => competition.id)
                     .filter((id) => id !== undefined && id !== null && id !== '');
                 const results = await Promise.all(
@@ -107,10 +93,9 @@ export default function PublicStatistics() {
         };
 
         fetchStats();
-    }, [competitions, selectedCompId, reloadKey]);
+    }, [competitions, selectedCategory, language, reloadKey]);
 
-    const competitionGroups = useMemo(() => groupPublicCompetitions(competitions), [competitions]);
-    const selectedCompetitionGroup = findCompetitionGroupById(competitionGroups, selectedCompId);
+    const categories = useMemo(() => groupPublicCompetitionCategories(competitions, language), [competitions, language]);
 
     return (
         <div className="app-page min-h-screen text-gray-800 pb-20">
@@ -129,48 +114,15 @@ export default function PublicStatistics() {
                 </div>
             </div>
 
-            {/* Filter Section */}
+            {/* Category filter */}
             <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <label className="font-bold text-gray-700">{language === 'THA' ? 'เลือกรายการแข่งขัน:' : 'Select Competition:'}</label>
-                    <select
-                        value={selectedCompId ? (selectedCompetitionGroup?.key || '') : '__all__'}
-                        onChange={(e) => {
-                            if (e.target.value === '__all__') {
-                                setSelectedCompId('');
-                                return;
-                            }
-                            const group = competitionGroups.find((item) => item.key === e.target.value);
-                            setSelectedCompId(group?.items[0]?.id || '');
-                        }}
-                        className="w-full md:w-1/2 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium"
-                    >
-                        <option value="__all__">{language === 'THA' ? 'ทั้งหมด' : 'All competitions'}</option>
-                        {competitionGroups.map((group) => (
-                            <option key={group.key} value={group.key}>
-                                {group.title}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                {selectedCompId && selectedCompetitionGroup?.items.length > 1 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {selectedCompetitionGroup.items.map((competition) => (
-                            <button
-                                key={competition.id}
-                                type="button"
-                                onClick={() => setSelectedCompId(competition.id)}
-                                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-                                    String(selectedCompId) === String(competition.id)
-                                        ? 'border-blue-600 bg-blue-600 text-white'
-                                        : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
-                                }`}
-                            >
-                                {getPublicCompetitionVariantLabel(competition, language)}
-                            </button>
-                        ))}
+                    <span className="font-bold text-gray-700">{language === 'THA' ? '\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17:' : 'Category:'}</span>
+                    <div className="flex w-full flex-wrap gap-2 md:justify-end">
+                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? '\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14' : 'All'}</button>
+                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{category.label}</button>)}
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Content Section */}

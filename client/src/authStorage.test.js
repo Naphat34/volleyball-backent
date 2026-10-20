@@ -5,6 +5,7 @@ import {
   getAuthToken,
   getStoredUser,
   setAuthSession,
+  adoptOfflineIdentity,
 } from './authStorage.js';
 
 const createStorage = () => {
@@ -39,6 +40,21 @@ test('setAuthSession stores auth data in sessionStorage only', () => {
   assert.equal(sessionStorage.getItem('token'), 'session-token');
   assert.equal(localStorage.getItem('token'), null);
   assert.deepEqual(getStoredUser(), { id: 1, username: 'admin', role: 'admin' });
+});
+
+test('PIN identity discards another online account and preserves the unlocked grant', () => {
+  setAuthSession({ token: 'other-token', user: { id: 2 } });
+  sessionStorage.setItem('vis_offline_unlocked_v1', '{"user":{"id":1}}');
+  adoptOfflineIdentity({ id: 1 });
+  assert.equal(getAuthToken(), null);
+  assert.equal(sessionStorage.getItem('user'), null);
+  assert.ok(sessionStorage.getItem('vis_offline_unlocked_v1'));
+});
+
+test('PIN identity retains the same account online session', () => {
+  setAuthSession({ token: 'same-token', user: { id: 1 } });
+  adoptOfflineIdentity({ id: '1' });
+  assert.equal(getAuthToken(), 'same-token');
 });
 
 test('getAuthToken migrates legacy localStorage token to sessionStorage', () => {

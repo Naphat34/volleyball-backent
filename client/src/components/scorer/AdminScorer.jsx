@@ -1,367 +1,114 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LogOut, User, Trophy, ChevronLeft, Menu, X } from 'lucide-react';
-import apiClient, { api } from '../../api';
-import Swal from 'sweetalert2';
+import AccessStatus from '../AccessStatus';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { CloudOff, LogOut } from 'lucide-react';
+import { api } from '../../api';
 import { clearAuthSession, getStoredUser } from '../../authStorage';
+import { useLanguage } from '../../context/LanguageContext';
+import { getPublicGenderLabel } from '../../utils/publicCompetitionGrouping';
+import { generateScoresheetPDF } from '../../utils/pdfGenerator';
+import { scorerRecords, backupScorer } from '../../offline/scorerOffline';
+import { OfflineUnlock } from '../vis/VisOfflinePanel';
+import '../vis/VisDashboard.css';
 
-const getServerUrl = () => {
-  const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  return url.replace(/\/api$/, '').replace(/\/$/, '');
-};
+const statuses = { scheduled: ['ยังไม่เริ่ม', 'Scheduled'], live: ['กำลังแข่งขัน', 'Live'], completed: ['จบการแข่งขัน', 'Completed'], cancelled: ['ยกเลิก', 'Cancelled'] };
+const titleOf = competition => String(competition.competition_title || competition.title || competition.competition_name || '').replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
+const normalizeStatus = value => ['finished','match_finished'].includes(String(value).toLowerCase()) ? 'completed' : String(value || 'scheduled').toLowerCase();
 
-const getImageUrl = (url) => {
-  if (!url) return '';
-  if (/^(https?:|data:|blob:)/i.test(url)) return url;
-  if (url.startsWith('/')) return `${getServerUrl()}${url}`;
-  return `${getServerUrl()}/uploads/${url}`;
-};
-import MatchList from '../MatchList';
-
-import databaseIcon from '../../assets/img/database.png';
-import trophyIcon from '../../assets/img/trophy.png';
-import Logo from '../../assets/img/Logo_Phatthalung.png';
-
-
-const getCompetitionBaseTitle = (competition = {}) => {
-  const rawTitle = competition.competition_title || competition.title || '';
-  return rawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
-};
-
-const AdminScorer = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const view = searchParams.get('view') || 'menu';
-  const compId = searchParams.get('compId');
-
-  const [competitions, setCompetitions] = useState([]);
-  const [matches, setMatches] = useState([]);
-  const [selectedCompetition, setSelectedCompetition] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (view === 'champions') {
-        setIsLoading(true);
-        try {
-          const res = await api.getOpenCompetitions();
-          setCompetitions(res.data || []);
-        } catch (error) {
-          console.error("Error fetching competitions:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      } else if (view === 'matches' && compId) {
-        setIsLoading(true);
-        try {
-          const compsRes = await api.getOpenCompetitions();
-          const allComps = compsRes.data || [];
-          setCompetitions(allComps);
-
-          const selected = allComps.find(c => String(c.id) === String(compId));
-          if (selected) {
-            setSelectedCompetition(selected);
-            const selectedRawTitle = selected.competition_title || selected.title || '';
-            const selectedCleanTitle = selectedRawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
-            const matchingComps = allComps.filter((c) => {
-              const cRawTitle = c.competition_title || c.title || '';
-              const cCleanTitle = cRawTitle.replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
-              return cCleanTitle === selectedCleanTitle;
-            });
-
-            const matchPromises = matchingComps.map((c) =>
-              apiClient.get(`/competitions/${c.id}/matches?t=${Date.now()}`)
-            );
-
-            const responses = await Promise.all(matchPromises);
-            const allMatches = responses.flatMap((res) => res.data || []);
-
-            allMatches.sort((a, b) => {
-              const numA = parseInt(a.match_number, 10);
-              const numB = parseInt(b.match_number, 10);
-              if (!isNaN(numA) && !isNaN(numB)) {
-                return numA - numB;
-              }
-              return (a.match_number || '').localeCompare(b.match_number || '');
-            });
-
-            setMatches(allMatches);
-          } else {
-            setSelectedCompetition(null);
-          }
-        } catch (error) {
-          console.error("Error fetching matches:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-    loadInitialData();
-  }, [view, compId]);
-
-  // ดึงข้อมูลผู้ใช้จาก localStorage
-  const user = getStoredUser();
-  const username = user?.username || user?.name || "Guest";
-  const isReferee = String(user?.role || '').trim().toLowerCase() === 'referee';
-
-  // ฟังก์ชัน logout
-  const handleLogout = () => {
-    clearAuthSession();
-    window.location.href = '/login';
-  };
-
-  const handleShowChampions = () => {
-    setSearchParams({ view: 'champions' });
-  };
-
-  const handleShowMatches = (comp) => {
-    setSearchParams({ view: 'matches', compId: comp.id });
-  };
-
-  // กรองรายการที่สถานะเป็น OPEN ล่วงหน้า, รองรับตัวพิมพ์เล็ก/ใหญ่ และกรองรายการซ้ำ โดยไม่แสดงและไม่ซ้ำตามเพศ (Male/Female/ชาย/หญิง)
-  const openCompetitions = [];
-  const seenTitles = new Set();
-  competitions.forEach((c) => {
-    if (c.status?.toUpperCase() === 'OPEN') {
-      const cleanTitle = getCompetitionBaseTitle(c);
-      const uniqueKey = cleanTitle.toLowerCase();
-      if (!seenTitles.has(uniqueKey)) {
-        seenTitles.add(uniqueKey);
-        openCompetitions.push({
-          ...c,
-          display_title: cleanTitle,
-          display_logo_url: c.logo_url || c.logo || c.competition_logo_url || c.image_url || ''
+export default function AdminScorer() {
+    const { language, setLanguage } = useLanguage(), th = language === 'THA';
+    const user = getStoredUser(), role = String(user?.role || '').trim().toLowerCase(), isReferee = role === 'referee';
+    const navigate = useNavigate(), [params, setParams] = useSearchParams();
+    const competition = params.get('compId') || '';
+    const [matches, setMatches] = useState([]), [competitions, setCompetitions] = useState([]);
+    const [loading, setLoading] = useState(true), [error, setError] = useState(''), [reloadKey, setReloadKey] = useState(0), [lastUpdated, setLastUpdated] = useState(null);
+    const [search, setSearch] = useState(''), [status, setStatus] = useState(''), [team, setTeam] = useState('');
+    const [sort, setSort] = useState({ field: 'number', descending: false }), [page, setPage] = useState(1), [pageSize, setPageSize] = useState(10);
+    const [offlineOpen, setOfflineOpen] = useState(false), [localMatches, setLocalMatches] = useState([]), [offlineNotice, setOfflineNotice] = useState('');
+    const [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
+    useEffect(() => {
+        let active = true;
+        const load = async () => {
+            setLoading(true); setError('');
+            try {
+                const response = await api.getOpenCompetitions();
+                const open = (response.data || []).filter(item => String(item.status || 'OPEN').toUpperCase() === 'OPEN');
+                let rows;
+                if (isReferee) {
+                    // Referees keep the existing public competition read path, without scorer write permissions.
+                    const results = await Promise.allSettled(open.map(item => api.getMatchesByCompetition(item.id)));
+                    rows = results.flatMap((result,index) => result.status === 'fulfilled' ? result.value.data.map(match => ({ ...match, competition_id: open[index].id, competition_name: titleOf(open[index]) })) : []);
+                    if (results.some(result => result.status === 'rejected') && active) setError('โหลดบางรายการไม่สำเร็จ กรุณาดึงข้อมูลอีกครั้ง');
+                } else {
+                    rows = (await api.getScorerMatches()).data;
+                }
+                if (!Array.isArray(rows)) throw Error('รูปแบบรายการแมตช์ไม่ถูกต้อง');
+                if (active) {
+                    const available = new Set(open.map(item => String(item.id)));
+                    setCompetitions(open);
+                    setMatches([...new Map(rows.filter(match => available.has(String(match.competition_id))).map(match => [match.id, { ...match, status: normalizeStatus(match.status) }])).values()]);
+                    setLastUpdated(new Date());
+                }
+            } catch (error) { if (active) setError(error.response?.data?.error || error.message || 'โหลดแมตช์ไม่สำเร็จ'); }
+            finally { if (active) setLoading(false); }
+        };
+        void load(); return () => { active = false; };
+    }, [reloadKey, isReferee]);
+    useEffect(() => {
+        if (!offlineOpen || isReferee) return;
+        let active = true;
+        const load = () => scorerRecords().then(rows => { if (active) { setLocalMatches(rows); setOfflineNotice(''); } }).catch(error => { if (active) setOfflineNotice(error.message); });
+        void load(); window.addEventListener('scorer-offline-updated', load);
+        return () => { active = false; window.removeEventListener('scorer-offline-updated', load); };
+    }, [offlineOpen, isReferee]);
+    const competitionOptions = [...new Map(competitions.map(item => [titleOf(item), item])).values()];
+    const selectedCompetition = competitions.find(item => String(item.id) === competition);
+    const teamNames = [...new Set(matches.flatMap(match => [match.home_team,match.away_team]).filter(Boolean))].sort((a,b) => a.localeCompare(b,'th'));
+    const label = match => [match.competition_name,match.age_group_name || match.category,getPublicGenderLabel(match.gender,language)].filter(Boolean).join(' · ');
+    const query = search.trim().toLocaleLowerCase();
+    const filtered = matches.filter(match => (!competition || (selectedCompetition ? titleOf(competitions.find(item => String(item.id) === String(match.competition_id)) || {}) === titleOf(selectedCompetition) : String(match.competition_id) === competition))
+        && (!status || match.status === status) && (!team || [match.home_team,match.away_team].includes(team))
+        && (!query || [match.home_team,match.away_team,match.match_number,label(match),match.location,match.round_name,match.pool_name].some(value => String(value || '').toLocaleLowerCase().includes(query))))
+        .sort((a,b) => {
+            const value = match => sort.field === 'number' ? match.match_number || match.id : sort.field === 'date' ? match.match_date || match.raw_start_time || '' : sort.field === 'match' ? `${match.home_team} ${match.away_team}` : sort.field === 'competition' ? label(match) : sort.field === 'score' ? `${match.home_set_score || 0}:${match.away_set_score || 0}` : match.status;
+            return String(value(a)).localeCompare(String(value(b)),th ? 'th':'en',{numeric:true}) * (sort.descending ? -1:1);
         });
-      }
-    }
-  });
-
-  return (
-    <div
-      className="app-page min-h-screen flex flex-col font-sans text-slate-800"
-
-    >
-      {/* Navbar - Light Theme & Removed Middle Menu */}
-      <nav className="bg-white border-b border-blue-100 w-full sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            {/* Logo Section */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden">
-                <img src={Logo} alt="Logo" className="w-9 h-9 object-contain" />
-              </div>
-              <div className="leading-tight">
-                <div className="text-base font-bold text-blue-950">Volleyball</div>
-                <div className="text-xs font-medium text-slate-500">Scorer Console</div>
-              </div>
+    const pages = Math.max(1,Math.ceil(filtered.length/pageSize)), currentPage = Math.min(page,pages), rows = filtered.slice((currentPage-1)*pageSize,currentPage*pageSize);
+    const reset = () => { setParams({}); setSearch(''); setStatus(''); setTeam(''); setPage(1); };
+    const date = value => { const parsed = value ? new Date(value) : null; const dateOnly = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value); return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toLocaleString(th ? 'th-TH':'en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',year:'2-digit',...(!dateOnly ? {hour:'2-digit',minute:'2-digit'}:{})}) : '—'; };
+    const heading = (field,text) => <button onClick={() => { setSort(old => ({field,descending:old.field === field ? !old.descending:false})); setPage(1); }}>{text}<span className={sort.field === field ? 'vd-sort-active':''}>{sort.field === field ? sort.descending ? ' ▼':' ▲':' ↕'}</span></button>;
+    const run = async action => { setBusy(true); setNotice(''); try { await action(); } catch (error) { setNotice(error.response?.data?.error || error.message); } finally { setBusy(false); } };
+    const logout = () => run(async () => { try { await api.logout(); } catch { /* Local logout remains available offline. */ } finally { clearAuthSession(); navigate('/scorer/login',{replace:true}); } });
+    return <div className="vis-dash">
+        <header className="vd-account-bar"><Link to="/adminscorer" className="vd-brand">VOLLEY <span>/ {isReferee ? 'REFEREE':'SCORER'}</span></Link><div className="vd-account">{!isReferee && <Link to="/workspaces">สลับพื้นที่ทำงาน</Link>}
+            <div className="vd-languages" aria-label="ภาษา">{[['THA','ไทย'],['ENG','EN']].map(([value,text]) => <button key={value} aria-pressed={language === value} className={language === value ? 'is-active':''} onClick={() => setLanguage(value)}>{text}</button>)}</div>
+            <span>{user?.first_name || user?.username || 'Scorer'} <b className="vd-badge">{isReferee ? 'REFEREE':'SCORER'}</b></span>
+            <details className="vd-sync"><summary className={error ? 'vd-error':''}>● {loading ? 'กำลังโหลด':error ? 'โหลดไม่ครบ':'ข้อมูลล่าสุด'}</summary><div><p>ดึงข้อมูลเมื่อ {date(lastUpdated)}</p><p>{matches.length} แมตช์ · {competitionOptions.length} รายการแข่งขัน</p><button disabled={loading} onClick={() => setReloadKey(value => value+1)}>ดึงข้อมูลอีกครั้ง</button></div></details>
+            {['admin','statistician'].includes(user?.role) && <Link to="/adminvis">VIS</Link>}{user?.role === 'admin' && <Link to="/admin">Admin</Link>}<button disabled={busy} onClick={logout} aria-label="ออกจากระบบ"><LogOut size={18} /></button>
+        </div></header>
+        <main className="vd-main"><AccessStatus /><div className="vd-heading"><h1>{th ? 'การแข่งขัน':'Matches'} · {isReferee ? 'Referee':'ScorerControl'}</h1><div className="vd-actions">
+            <div className="vd-split"><button disabled={loading} onClick={() => setReloadKey(value => value+1)}>⇩ {th ? 'ดึงแมตช์จากเซิร์ฟเวอร์':'Fetch matches'}</button><details><summary aria-label="ตัวเลือกดึงข้อมูล">▾</summary><div><button onClick={() => { reset(); setReloadKey(value => value+1); }}>ดึงทั้งหมดและล้างตัวกรอง</button></div></details></div>
+            {!isReferee && <button type="button" className={`vd-offline-toggle ${offlineOpen ? 'is-active':''}`} aria-label="ScorerControl Offline" title="ScorerControl Offline · ข้อมูลในเครื่อง" aria-expanded={offlineOpen} aria-controls="scorer-dashboard-offline" onClick={() => setOfflineOpen(value => !value)}><CloudOff size={21} aria-hidden="true" /></button>}
+        </div></div>
+        {!isReferee && <section id="scorer-dashboard-offline" hidden={!offlineOpen} className="vd-offline-content" onKeyDown={event => { if (event.key === 'Escape') { setOfflineOpen(false); document.querySelector('.vd-offline-toggle')?.focus(); } }}>
+            <div className="mb-4 space-y-3 rounded-xl border border-sky-900 bg-slate-900 p-4"><h2 className="font-bold">ScorerControl Offline</h2><p>ดาวน์โหลดเฉพาะแมตช์ที่เลือกจากปุ่ม Offline ในหน้า ScorerControl แล้วจึงใช้งานโดยไม่มีอินเทอร์เน็ต</p><Link to="/scorer-offline" className="text-sky-300 underline">เปิดรายการแมตช์ในเครื่อง →</Link><OfflineUnlock workspace="scorer" onUnlocked={() => navigate('/scorer-offline')} />
+                {offlineNotice && <p className="text-amber-200">{offlineNotice}</p>}{localMatches.map(record => <div key={record.id} className="flex flex-wrap items-center gap-3 border-t border-slate-700 pt-2"><span className="flex-1">แมตช์ #{record.id} · {record.queue.length} คำสั่งรอซิงค์ · {record.released ? 'คืนสิทธิ์แล้ว':'เครื่องหลัก'}</span><Link to={`/scorer/${record.id}`} className="text-sky-300 underline">เปิดแมตช์</Link><button disabled={busy} onClick={() => run(() => backupScorer(record.id))} className="text-sky-300 underline">สำรอง JSON</button></div>)}
             </div>
-
-            {/* Right Section: User Info + Logout */}
-            <div className="hidden md:flex items-center gap-3">
-              <div className="flex items-center gap-2 text-slate-700 font-medium bg-blue-50/60 px-3 py-1.5 rounded-md border border-blue-100">
-                <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white">
-                  <User size={16} />
-                </div>
-                <span className="text-sm">{username}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-blue-700 hover:bg-blue-50 font-semibold text-sm transition-colors"
-              >
-                <LogOut size={17} />
-                Logout
-              </button>
-            </div>
-
-            {/* Mobile Toggle */}
-            <div className="md:hidden flex items-center">
-              <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="p-2 rounded-md text-blue-700 hover:bg-blue-50 transition-colors"
-                aria-label={isOpen ? 'Close menu' : 'Open menu'}
-              >
-                {isOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {isOpen && (
-          <div className="md:hidden bg-white border-t border-blue-50 px-4 py-4 space-y-3">
-            <div className="flex items-center gap-3 px-3 py-3 bg-blue-50 rounded-md border border-blue-100">
-              <div className="w-9 h-9 rounded-md bg-blue-600 flex items-center justify-center text-white">
-                <User size={20} />
-              </div>
-              <div className="flex flex-col">
-                 <span className="text-blue-950 font-semibold leading-none">{username}</span>
-                 <span className="text-xs text-gray-500 mt-1 uppercase font-semibold">Match Scorer</span>
-              </div>
-            </div>
-            <button 
-              onClick={handleLogout} 
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-blue-700 font-semibold bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
-            >
-              <LogOut size={20} /> Logout
-            </button>
-          </div>
-        )}
-      </nav>
-
-      {/* Main Content Area */}
-      <main className={`flex-1 p-4 sm:p-6 lg:p-8 pb-24 ${view === 'menu' ? 'flex items-center justify-center' : ''}`}>
-        {view === 'menu' ? (
-          <div className="w-full max-w-5xl space-y-5">
-            <div className="rounded-lg border border-blue-100 bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-blue-950">{isReferee ? 'Referee Data' : 'Scorer Data'}</h2>
-                  <p className="text-xs text-slate-500">{isReferee ? 'Choose a competition to view match data' : 'Choose match type before opening competition data'}</p>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {/* Champion Grid */}
-            {!isReferee && <div
-              onClick={handleShowChampions}
-              className="bg-white rounded-lg border border-blue-100 p-8 flex flex-col items-center justify-center text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer group shadow-sm"
-            >
-              <div className="bg-blue-50 p-5 rounded-lg mb-5 border border-blue-100 group-hover:bg-blue-100 transition-colors">
-                 <img src={trophyIcon} alt="Trophy Icon" className="w-16 h-16" />
-              </div>
-              <h2 className="text-xl font-bold text-blue-950 mb-2">Champion</h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                จัดการข้อมูลการแข่งขัน <br/> ผลการแข่งขัน
-              </p>
-            </div>}
-
-            {/* Match Data Grid */}
-            {isReferee && <div onClick={handleShowChampions} className="bg-white rounded-lg border border-blue-100 p-8 flex flex-col items-center justify-center text-center transition-colors hover:border-blue-300 hover:bg-blue-50/30 cursor-pointer group shadow-sm">
-              <div className="bg-blue-50 p-5 rounded-lg mb-5 border border-blue-100 group-hover:bg-blue-100 transition-colors">
-                 <img src={databaseIcon} alt="Database Icon" className="w-16 h-16" />
-              </div>
-              <h2 className="text-xl font-bold text-blue-950 mb-2">Match Data</h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                ข้อมูลการแข่งขัน <br/> และจัดการผลการแข่งทั้งหมด
-              </p>
-            </div>}
-            </div>
-          </div>
-        ) : view === 'champions' ? (
-          <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Header with Back Button */}
-            <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-lg border border-blue-100 shadow-sm">
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => setSearchParams({ view: 'menu' })} 
-                  className="flex items-center gap-2 px-3 py-2 bg-white text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold text-sm border border-blue-200"
-                >
-                  <ChevronLeft size={18} /> ย้อนกลับ
-                </button>
-              </div>
-            </div>
-            
-            {isLoading ? (
-              <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">กำลังโหลดข้อมูล...</div>
-            ) : (
-              <div className="bg-white rounded-lg border border-blue-100 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-blue-50/60 border-b border-blue-100">
-                        <th className="px-6 py-4 text-base font-bold text-blue-950">รายการแข่งขัน</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {openCompetitions.length > 0 ? (
-                        openCompetitions.map(comp => (
-                          <tr 
-                            key={comp.id} 
-                            onClick={() => handleShowMatches(comp)}
-                            className="group hover:bg-blue-50/50 transition-colors cursor-pointer"
-                          >
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-4">
-                                <div className="w-11 h-11 rounded-md bg-white border border-blue-100 overflow-hidden flex-shrink-0 flex items-center justify-center group-hover:border-blue-300 transition-colors">
-                                  {comp.display_logo_url ? (
-                                    <img
-                                      src={getImageUrl(comp.display_logo_url)}
-                                      alt={comp.display_title || comp.competition_title || comp.title}
-                                      className="w-full h-full object-contain p-1"
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                      }}
-                                    />
-                                  ) : null}
-                                  <Trophy className={`${comp.display_logo_url ? 'hidden' : ''} text-slate-300`} size={24} />
-                                </div>
-                                <div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="font-semibold text-slate-800 leading-tight">{comp.display_title || comp.competition_title || comp.title}</p>
-                                  </div>
-                                  <p className="text-xs text-slate-500 mt-1">{comp.location || 'ไม่ได้ระบุสถานที่'}</p>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="4" className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest">ไม่พบรายการแข่งขันที่มีสถานะ "เปิด"</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : view === 'matches' ? (
-          <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-blue-100 shadow-sm">
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => setSearchParams({ view: 'champions' })}
-                  className="flex items-center gap-2 px-3 py-2 bg-white text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold text-sm border border-blue-200"
-                >
-                  <ChevronLeft size={18} /> ย้อนกลับ
-                </button>
-                <h2 className="text-xl font-bold text-blue-950">
-                  {(selectedCompetition?.competition_title || selectedCompetition?.title || '').replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim()}
-                </h2>
-              </div>
-            </div>
-            <div className="flex justify-end rounded-lg border border-blue-100 bg-white px-4 py-3 shadow-sm">
-              <span className="text-xs font-semibold text-slate-500">{matches.length} matches</span>
-            </div>
-            
-            {isLoading ? (
-              <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">กำลังโหลดแมตช์...</div>
-            ) : (
-              <div className="bg-white rounded-lg border border-blue-100 p-4 shadow-sm">
-                <MatchList 
-                  matches={matches} 
-                  isAdmin={!isReferee}
-                  onClick={(m) => window.open(`/match/${m.id}`, '_blank')}
-                  onScore={!isReferee ? (m) => navigate(`/match/${m.id}`) : undefined}
-                />
-              </div>
-            )}
-          </div>
-        ) : null}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-blue-100 py-3 text-center text-xs w-full fixed bottom-0 left-0 z-20">
-        <p className="text-slate-500">
-          Copyright {new Date().getFullYear()} Volley Manager. All rights reserved.
-        </p>
-      </footer>
-    </div>
-  );
-};
-
-export default AdminScorer;
-
+        </section>}
+        {(notice || error) && <div className="vd-notice" role="status"><span>{notice || error}</span>{notice && <button onClick={() => setNotice('')} aria-label="ปิดข้อความ">✕</button>}</div>}
+        <section className="vd-table-panel" aria-label="รายการแมตช์ Scorer"><div className="vd-filters">
+            <input value={search} aria-label="ค้นหาแมตช์" placeholder={th ? 'ค้นหา…':'Search…'} onChange={event => { setSearch(event.target.value); setPage(1); }} />
+            <select value={competition} aria-label="รายการแข่งขัน" onChange={event => { setParams(event.target.value ? {view:'matches',compId:event.target.value}:{}); setPage(1); }}><option value="">{th ? 'ทุกรายการแข่งขัน':'All competitions'}</option>{competitionOptions.map(item => <option key={item.id} value={item.id}>{titleOf(item)}</option>)}{selectedCompetition && !competitionOptions.some(item => String(item.id) === competition) && <option value={competition}>{titleOf(selectedCompetition)}</option>}</select>
+            <select value={status} aria-label="สถานะแมตช์" onChange={event => { setStatus(event.target.value); setPage(1); }}><option value="">{th ? 'ทุกสถานะ':'All statuses'}</option>{Object.entries(statuses).map(([value,text]) => <option key={value} value={value}>{text[th?0:1]}</option>)}</select>
+            <select value={team} aria-label="ทีม" onChange={event => { setTeam(event.target.value); setPage(1); }}><option value="">{th ? 'ทุกทีม':'All teams'}</option>{teamNames.map(name => <option key={name}>{name}</option>)}</select>
+            {(search || competition || status || team) && <button className="vd-muted" onClick={reset}>ล้างตัวกรอง</button>}
+        </div><div className="vd-table-scroll"><table className="vd-table"><thead><tr><th>{heading('date',th?'วันที่':'Date')}</th><th>{heading('number',th?'แมตช์':'Match')}</th><th>{heading('competition',th?'รายการ / สนาม':'Competition / venue')}</th><th>{heading('score',th?'ผล':'Result')}</th><th>{heading('status',th?'สถานะ':'Status')}</th><th aria-label="การจัดการ" /></tr></thead><tbody>
+            {loading || !rows.length ? <tr><td colSpan={6} className="vd-empty" role="status">{loading ? 'กำลังโหลดแมตช์…':error || 'ไม่พบแมตช์ตามเงื่อนไข'}</td></tr> : rows.map(match => <tr key={match.id}>
+                <td className="vd-date">{date(match.match_date || match.raw_start_time)}</td><td className="vd-match"><strong><span>{match.home_team || 'TBA'}</span> <i>vs</i> <span>{match.away_team || 'TBA'}</span></strong><small>#{match.match_number || match.id}</small><small>{[match.round_name,match.pool_name].filter(Boolean).join(' · ') || 'ตารางแข่งขันจาก Admin'}</small></td>
+                <td className="vd-competition"><span>{label(match)}</span><small>{match.location || '—'}</small></td><td className="vd-score">{['live','completed'].includes(match.status) ? `${match.home_set_score || 0} : ${match.away_set_score || 0}`:'—'}</td><td><div className="vd-badges"><span className={`vd-badge vd-${match.status}`}>{statuses[match.status]?.[th?0:1] || match.status}</span><span className="vd-badge">เซิร์ฟเวอร์</span></div></td>
+                <td><div className="vd-row-actions">{!isReferee && !['cancelled','completed'].includes(match.status) && match.home_team_id && match.away_team_id && <Link to={`/scorer/${match.id}`} className="vd-primary">{th?'บันทึกคะแนน':'Score'}</Link>}<Link to={`/match/${match.id}`}>{th?'ข้อมูลแมตช์':'Match details'}</Link><details className="vd-row-menu"><summary aria-label={`เมนูแมตช์ ${match.match_number || match.id}`}>⋯</summary><div><a href={`/match/${match.id}/viewer`} target="_blank" rel="noreferrer">Livescore ↗</a><button disabled={busy} onClick={() => run(async () => { const response = await api.getMatchScoresheetData(match.id); await generateScoresheetPDF(response.data); })}>รายงาน PDF</button><a href={`/match/${match.id}`} target="_blank" rel="noreferrer">เปิดข้อมูลแท็บใหม่ ↗</a></div></details></div></td>
+            </tr>)}
+        </tbody></table></div><footer className="vd-pagination"><span>{th?'แสดง':'Showing'} {filtered.length ? (currentPage-1)*pageSize+1:0}–{Math.min(currentPage*pageSize,filtered.length)} {th?'จาก':'of'} {filtered.length}</span><div>{pages>1 && <><button disabled={currentPage===1} onClick={() => setPage(currentPage-1)}>‹</button><span>{currentPage} / {pages}</span><button disabled={currentPage===pages} onClick={() => setPage(currentPage+1)}>›</button></>}<select aria-label="จำนวนต่อหน้า" value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>{[10,25,50].map(size => <option key={size} value={size}>{size} / {th?'หน้า':'page'}</option>)}</select></div></footer></section>
+        </main>
+    </div>;
+}

@@ -1,6 +1,6 @@
 import { Feedback, Panel, StatusBadge } from '../components/ui/SystemUI';
 import { readViewPreference, writeViewPreference } from '../utils/viewPreferences';
-import { isMatchFinished, isMatchLive } from '../utils/standings';
+import { isMatchFinished } from '../utils/standings';
 import React, { useEffect, useState, useCallback } from 'react';
 import client from '../api';
 import { Calendar, MapPin, Clock, Shield, Filter, Trophy, Users, CheckCircle2, LayoutDashboard, ListFilter } from 'lucide-react';
@@ -8,7 +8,7 @@ import { EmptyState } from './AdminShared';
 import { formatThaiDate, formatThaiTime } from '../utils';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function HomeTab({ onNavigate, pendingUsersCount = 0 }) {
+export default function HomeTab() {
     const { language } = useLanguage();
 
     const formatDate = (date) => {

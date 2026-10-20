@@ -72,9 +72,9 @@ export default function SubstitutionModal({
         eligibleBenchPlayers = availableBench;
     } else {
         if (subTracker && localPlayerOut) {
-            if (subTracker.count >= 6) { 
+            if (subTracker.count >= 8) {
                 isError = true;
-                ruleMessage = "หมดโควต้าเปลี่ยนตัวปกติ 6 ครั้งแล้ว";
+                ruleMessage = "หมดโควต้าเปลี่ยนตัวปกติ 8 ครั้งแล้ว";
             } else if (posData) {
                 if (posData.returned) {
                     isError = true;

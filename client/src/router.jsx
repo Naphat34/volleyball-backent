@@ -1,10 +1,12 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from 'react';
+import { navigateBrowser } from './utils/routerNavigation';
 
 const RouterContext = createContext(null);
 const ParamsContext = createContext({});
@@ -58,18 +60,11 @@ export function BrowserRouter({ children }) {
     return () => window.removeEventListener('popstate', refresh);
   }, []);
 
-  const navigate = (to, options = {}) => {
-    if (typeof to === 'number') {
-      window.history.go(to);
-      return;
-    }
+  const navigate = useCallback((to, options = {}) => {
+    if (navigateBrowser(window, to, options)) setLocation(getLocationSnapshot());
+  }, []);
 
-    const method = options.replace ? 'replaceState' : 'pushState';
-    window.history[method]({ usr: options.state ?? null }, '', to);
-    setLocation(getLocationSnapshot());
-  };
-
-  const value = useMemo(() => ({ location, navigate }), [location]);
+  const value = useMemo(() => ({ location, navigate }), [location, navigate]);
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
 }
 
@@ -151,13 +146,13 @@ export function useSearchParams() {
   const { location, navigate } = useContext(RouterContext);
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
-  const setSearchParams = (nextInit) => {
+  const setSearchParams = useCallback((nextInit) => {
     const nextParams = nextInit instanceof URLSearchParams
       ? nextInit
       : new URLSearchParams(nextInit);
     const query = nextParams.toString();
     navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, { replace: true });
-  };
+  }, [location.pathname, location.hash, navigate]);
 
   return [params, setSearchParams];
 }

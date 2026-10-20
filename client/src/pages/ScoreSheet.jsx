@@ -1,4 +1,3 @@
-import { StatusBadge } from '../components/ui/SystemUI';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
@@ -148,7 +147,7 @@ export default function ScoreSheet({ matchId }) {
                 };
 
                 if (currentMatchData.competition_id && compsRes?.data?.length > 0) {
-                    const targetComp = compsRes.data.find(c => c.id === currentMatchData.competition_id);
+                    const targetComp = compsRes.data.find(c => String(c.id) === String(currentMatchData.competition_id));
                     if (targetComp) {
                         currentMatchData.title = targetComp.title;
                         currentMatchData.age_group_id = targetComp.age_group_id;
@@ -158,8 +157,8 @@ export default function ScoreSheet({ matchId }) {
                 }
 
                 if (teamsRes?.data?.length > 0) {
-                    const homeTeam = teamsRes.data.find(t => t.id === currentMatchData.home_team_id);
-                    const awayTeam = teamsRes.data.find(t => t.id === currentMatchData.away_team_id);
+                    const homeTeam = teamsRes.data.find(t => String(t.id) === String(currentMatchData.home_team_id));
+                    const awayTeam = teamsRes.data.find(t => String(t.id) === String(currentMatchData.away_team_id));
 
                     // ทีม A (Home)
                     if (homeTeam) {
@@ -230,16 +229,15 @@ export default function ScoreSheet({ matchId }) {
     // --- 2. เช็คว่าใครอยู่แดนซ้าย (A) หรือแดนขวา (B) ตามผล Coin Toss ---
     const hasCoinToss = !!matchData.left_side_team_id && !!matchData.first_serve_team_id;
     const showTossLabels = hasCoinToss;
-    const isHomeOnLeft = matchData.left_side_team_id ? matchData.left_side_team_id === matchData.home_team_id : true; // ถ้ายังไม่เสี่ยง ให้ Home อยู่ซ้ายไว้ก่อน
+    const isHomeOnLeft = matchData.left_side_team_id
+        ? String(matchData.left_side_team_id) === String(matchData.home_team_id)
+        : true; // ถ้ายังไม่เสี่ยง ให้ Home อยู่ซ้ายไว้ก่อน
 
     // Team IDs mapped to A (Left) and B (Right)
     const idA = isHomeOnLeft ? matchData.home_team_id : matchData.away_team_id;
     const idB = isHomeOnLeft ? matchData.away_team_id : matchData.home_team_id;
 
     // Team Names
-    const programTeamA = matchData?.home_team_name || matchData?.home_team_code || 'Team A';
-    const programTeamB = matchData?.away_team_name || matchData?.away_team_code || 'Team B';
-
     const teamA = isHomeOnLeft
         ? (matchData?.home_team_name || matchData?.home_team_code || 'Team A')
         : (matchData?.away_team_name || matchData?.away_team_code || 'Team A');
@@ -247,6 +245,9 @@ export default function ScoreSheet({ matchId }) {
     const teamB = !isHomeOnLeft
         ? (matchData?.home_team_name || matchData?.home_team_code || 'Team B')
         : (matchData?.away_team_name || matchData?.away_team_code || 'Team B');
+
+    const programTeamA = teamA;
+    const programTeamB = teamB;
 
     const displayTeamA = hasCoinToss ? teamA : '';
     const displayTeamB = hasCoinToss ? teamB : '';
@@ -306,7 +307,7 @@ export default function ScoreSheet({ matchId }) {
             role === 'L1' || role === 'L2' || role === 'L1+C' || role === 'L2+C';
     };
 
-    // 3. ค้นหา Libero จากโครงสร้าง JSON 
+    // 3. ค้นหา Libero จากโครงสร้าง JSON
     const extractLiberos = (teamKey, rawPlayers) => {
         let libs = [];
 
@@ -317,7 +318,7 @@ export default function ScoreSheet({ matchId }) {
             if (liveLibs.l2 && (liveLibs.l2.id || liveLibs.l2.number)) libs.push(liveLibs.l2);
         }
 
-        // ค้นหาจาก Object rosterData โดยตรง 
+        // ค้นหาจาก Object rosterData โดยตรง
         const teamRoster = rosterData?.[teamKey];
         if (teamRoster && libs.length === 0) {
             if (teamRoster.l1 && (teamRoster.l1.id || teamRoster.l1.number)) libs.push(teamRoster.l1);
@@ -367,10 +368,13 @@ export default function ScoreSheet({ matchId }) {
     const awayNormalPlayers = rawAway.filter(p => !isLibero(p) && p.role !== 'Coach' && !isPlayerInLibs(p, awayLibs));
 
     // 5. แยกนักกีฬาและ Mapping ไปที่ทีม A (ซ้าย) และทีม B (ขวา)
-    const playersA = (isHomeOnLeft ? homeNormalPlayers : awayNormalPlayers).slice(0, 12);
-    const playersB = (isHomeOnLeft ? awayNormalPlayers : homeNormalPlayers).slice(0, 12);
-    const liberosA = isHomeOnLeft ? homeLibs : awayLibs;
-    const liberosB = isHomeOnLeft ? awayLibs : homeLibs;
+    const configuredRosterSize = Math.max(1, Math.trunc(Number(rosterData?.match?.competition_max_players || matchData.competition_max_players) || 14));
+    const liberoSlotCount = Math.min(2, configuredRosterSize);
+    const regularPlayerSlotCount = Math.max(0, configuredRosterSize - liberoSlotCount);
+    const playersA = (isHomeOnLeft ? homeNormalPlayers : awayNormalPlayers).slice(0, regularPlayerSlotCount);
+    const playersB = (isHomeOnLeft ? awayNormalPlayers : homeNormalPlayers).slice(0, regularPlayerSlotCount);
+    const liberosA = (isHomeOnLeft ? homeLibs : awayLibs).slice(0, liberoSlotCount);
+    const liberosB = (isHomeOnLeft ? awayLibs : homeLibs).slice(0, liberoSlotCount);
 
     const normalizeStaffRole = (role) =>
         String(role || '')
@@ -468,7 +472,7 @@ export default function ScoreSheet({ matchId }) {
     const scorerName = joinName(matchData?.scorer_firstname, matchData?.scorer_lastname) || matchData?.scorer_name || '';
     const assistantScorerName = matchData?.assistant_scorer_name || matchData?.asstScorer || '';
 
-    // 4. ฟังก์ชันสำหรับ Lineup และ Score 
+    // 4. ฟังก์ชันสำหรับ Lineup และ Score
     const getPlayerNoById = (playerId) => {
         if (!playerId) return '';
         const player = [...rawHome, ...rawAway].find(p => String(p.id) === String(playerId) || String(p.player_id) === String(playerId));
@@ -488,6 +492,15 @@ export default function ScoreSheet({ matchId }) {
         if (fName && lName) return `${fName} ${lName}`;
         return fullName || lName || fName || '';
     };
+
+    // Keep the competition limits applied above, but do not draw cells for
+    // roster entries that have no usable name.
+    const visiblePlayersA = playersA.filter((player) => getPlayerName(player).trim());
+    const visiblePlayersB = playersB.filter((player) => getPlayerName(player).trim());
+    const visibleLiberoPlayersA = liberosA.filter((player) => getPlayerName(player).trim());
+    const visibleLiberoPlayersB = liberosB.filter((player) => getPlayerName(player).trim());
+    const regularDisplayRowCount = Math.max(visiblePlayersA.length, visiblePlayersB.length);
+    const liberoDisplayRowCount = Math.max(visibleLiberoPlayersA.length, visibleLiberoPlayersB.length);
 
     const parseEventDetails = (event) => {
         if (!event?.details) return {};
@@ -562,7 +575,7 @@ export default function ScoreSheet({ matchId }) {
     const getScoreA = (idx) => isHomeOnLeft ? (Number(results[idx]?.home_score) || 0) : (Number(results[idx]?.away_score) || 0);
     const getScoreB = (idx) => isHomeOnLeft ? (Number(results[idx]?.away_score) || 0) : (Number(results[idx]?.home_score) || 0);
 
-    // 5. ฟังก์ชันสำหรับดึงข้อมูลการเปลี่ยนตัว (Substitutions) 
+    // 5. ฟังก์ชันสำหรับดึงข้อมูลการเปลี่ยนตัว (Substitutions)
     const getSubstitutionsForSet = (setNum, teamId) => {
         if (!teamId || !scoreData?.events) return Array(6).fill(null);
 
@@ -759,8 +772,8 @@ export default function ScoreSheet({ matchId }) {
 
     // ค้นหาเวลาจบการแข่งขันของเซตสุดท้ายที่แข่งจบจริง
     const playedSetsWithEndTime = results.filter(r => r.end_time);
-    const lastPlayedSet = playedSetsWithEndTime.length > 0 
-        ? playedSetsWithEndTime[playedSetsWithEndTime.length - 1] 
+    const lastPlayedSet = playedSetsWithEndTime.length > 0
+        ? playedSetsWithEndTime[playedSetsWithEndTime.length - 1]
         : null;
     const lastSetEndTime = lastPlayedSet ? lastPlayedSet.end_time : null;
     const matchEndTime = lastSetEndTime || matchData.end_time;
@@ -836,12 +849,6 @@ export default function ScoreSheet({ matchId }) {
                 </button>
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">
-                <span className="text-sm font-semibold text-slate-700">ตรวจข้อมูลก่อนพิมพ์ / Review before printing</span>
-                <StatusBadge tone={matchData.home_team_id && matchData.away_team_id ? 'success' : 'warning'}>{matchData.home_team_id && matchData.away_team_id ? 'ระบุทีมแล้ว / Teams assigned' : 'ตรวจสอบทีม / Check teams'}</StatusBadge>
-                <StatusBadge tone={fallbackHomePlayers.length && fallbackAwayPlayers.length ? 'success' : 'warning'}>{fallbackHomePlayers.length && fallbackAwayPlayers.length ? 'มีรายชื่อทั้งสองทีม / Rosters available' : 'รายชื่อยังไม่ครบ / Rosters missing'}</StatusBadge>
-                <StatusBadge tone={matchData.match_date ? 'success' : 'warning'}>{matchData.match_date ? 'ระบุวันแข่งขันแล้ว / Date assigned' : 'ยังไม่ระบุวัน / Date missing'}</StatusBadge>
-            </div>
             {showO4 ? (
                 <MatchResultReportO4 matchData={matchData} scoreData={scoreData} rosterData={rosterData} />
             ) : (
@@ -922,7 +929,7 @@ export default function ScoreSheet({ matchId }) {
                                                 {[matchData.pool_name, matchData.round_name].filter(Boolean).join(' / ')}
                                             </span>
                                         </div>
-                                        <span className="ml-2 mr-2 leading-none pb-[2px] text-[14px]">Match N°</span>
+                                        <span className="ml-2 mr-2 leading-none pb-[2px] text-[14px]">Match No.</span>
                                         <div className="w-12 border border-black border h-[24px] flex items-center justify-center font-bold text-[14px]">
                                             <span className="mb-[2px]">{matchNumber}</span>
                                         </div>
@@ -1112,7 +1119,7 @@ export default function ScoreSheet({ matchId }) {
                                             const TeamMark = ({ label, marked }) => (
                                                 <div className="relative w-[12px] h-[12px] rounded-full border border-black flex items-center justify-center pb-[1px]">
                                                     <span>{label}</span>
-                                                    {marked && <span className="absolute inset-0 flex items-center justify-center text-[15px] leading-none font-black">×</span>}
+                                                    {marked && <span className="absolute inset-0 flex items-center justify-center text-[15px] leading-none font-black">ร—</span>}
                                                 </div>
                                             );
                                             return (
@@ -1167,7 +1174,7 @@ export default function ScoreSheet({ matchId }) {
                                     </tbody>
                                 </table>
                                 <div className="border-t-2 border-black p-1 text-[8px] leading-[1.1] text-justify bg-gray-50 print:bg-white">
-                                    <span className="font-bold underline">To record sanctions:</span> Put the corresponding abbreviation (N° for player, <span className="font-bold">C</span>= Coach, <span className="font-bold">AC<sup>1</sup>/AC<sup>2</sup></span>= Assistant Coaches, <span className="font-bold">T</span>= Team Manager, <span className="font-bold">M</span>= Medical Doctor) or <span className="font-bold">D</span> for Delay sanctions, in the appropriate column and indicate the team, the set and the score at the moment of the sanction.
+                                    <span className="font-bold underline">To record sanctions:</span> Put the corresponding abbreviation (No. for player, <span className="font-bold">C</span>= Coach, <span className="font-bold">AC<sup>1</sup>/AC<sup>2</sup></span>= Assistant Coaches, <span className="font-bold">T</span>= Team Manager, <span className="font-bold">M</span>= Medical Doctor) or <span className="font-bold">D</span> for Delay sanctions, in the appropriate column and indicate the team, the set and the score at the moment of the sanction.
                                 </div>
                             </div>
 
@@ -1355,7 +1362,7 @@ export default function ScoreSheet({ matchId }) {
                                                                      const start = r.start_time || (idx === 0 ? matchData?.start_time : null);
                                                                      const end = r.end_time;
                                                                      if (start && end) {
-                                                                         
+
                                                                          const dur = getCalculatedSetDuration(r, idx === 0 ? matchData?.start_time : null);
                                                                          return `(${dur}')`;
                                                                      } else {
@@ -1385,7 +1392,7 @@ export default function ScoreSheet({ matchId }) {
                                     <div className="flex-1 flex flex-col justify-center leading-tight">Match Ending Time<br /><span className="font-normal text-[12px]">{formatMatchTime(matchEndTime)}</span></div>
                                     <div className="flex-1 flex flex-col justify-center leading-tight">Total Match Duration<br /><span className="font-normal text-[12px]">{totalMatchDuration > 0 ? `${Math.floor(totalMatchDuration / 60)} h ${totalMatchDuration % 60} mn` : '___ h ___ mn'}</span></div>
                                 </div>
-                                <div className="flex items-center px-4 py-1.5 gap-3 font-semibold text-[18px]">
+                                <div className="flex items-center px-4  gap-3 font-semibold text-[18px]">
                                     <span>WINNER</span>
                                     <div className={`flex-1 border-b-2 border-black text-center truncate px-2 ${matchWinner && matchWinner.length > 25 ? 'text-[11px]' :
                                         matchWinner && matchWinner.length > 20 ? 'text-[13px]' :
@@ -1437,50 +1444,48 @@ export default function ScoreSheet({ matchId }) {
                         </div>
 
                         {/* Player List */}
-                        <div className="flex divide-x-2 border-black border-b-2 flex-1">
-                            <div className="flex-1 flex flex-col divide-y border-black">
-                                <div className="flex text-[10px] font-bold text-center bg-gray-50 print:bg-white"><div className="w-8 border-r border-black py-0.5">N°</div><div className="flex-1 py-0.5">Name of the player</div></div>
-                                {[...playersA, ...Array(12 - playersA.length).fill(null)].map((player, i) => (
-                                    <div key={`a-${i}`} className="flex flex-1 divide-x border-black min-h-0">
-                                        <div className="w-8 text-center font-bold text-[12px] flex items-center justify-center bg-gray-50 print:bg-white">
-                                            {player && (player.isCaptain || player.is_captain) && getPlayerNo(player) ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}
-                                        </div>
-                                        <div className="flex-1 px-2 flex items-center text-[11px] font-bold uppercase truncate">{getPlayerName(player)}</div>
+                        <div className="grid grid-cols-2 divide-x-2 border-black border-b-2 flex-1 min-h-0">
+                            {[visiblePlayersA, visiblePlayersB].map((visiblePlayers, teamIndex) => (
+                                <div key={`roster-team-${teamIndex}`} className="min-w-0 flex flex-col">
+                                    <div className="flex text-[10px] font-bold text-center bg-gray-50 print:bg-white border-b border-black"><div className="w-8 border-r border-black py-0.5">No.</div><div className="flex-1 py-0.5">Name of the player</div></div>
+                                    <div className="flex-1 min-h-0 flex flex-col">
+                                        {Array.from({ length: regularDisplayRowCount }, (_, i) => {
+                                            const player = visiblePlayers[i];
+                                            return player ? (
+                                                <div key={`player-${i}`} className="flex flex-1 divide-x border-b border-black min-h-0">
+                                                    <div className="w-8 shrink-0 text-center font-bold text-[12px] flex items-center justify-center bg-gray-50 print:bg-white">
+                                                        {player.isCaptain || player.is_captain ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{getPlayerName(player)}</div>
+                                                </div>
+                                            ) : <div key={`empty-${i}`} className="flex-1 min-h-0" aria-hidden="true" />;
+                                        })}
                                     </div>
-                                ))}
-                            </div>
-                            <div className="flex-1 flex flex-col divide-y border-black">
-                                <div className="flex text-[10px] font-bold text-center bg-gray-50 print:bg-white"><div className="w-8 border-r border-black py-0.5">N°</div><div className="flex-1 py-0.5">Name of the player</div></div>
-                                {[...playersB, ...Array(12 - playersB.length).fill(null)].map((player, i) => (
-                                    <div key={`b-${i}`} className="flex flex-1 divide-x border-black min-h-0">
-                                        <div className="w-8 text-center font-bold text-[12px] flex items-center justify-center bg-gray-50 print:bg-white">
-                                            {player && (player.isCaptain || player.is_captain) && getPlayerNo(player) ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}
-                                        </div>
-                                        <div className="flex-1 px-2 flex items-center text-[11px] font-bold uppercase truncate">{getPlayerName(player)}</div>
-                                    </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
                         </div>
 
                         {/* LIBERO */}
                         <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">LIBERO PLAYERS ("L")</div>
-                        <div className="flex divide-x-2 border-black border-b-2 h-[40px]">
-                            <div className="flex-1 flex flex-col divide-y border-black">
-                                {[...liberosA, ...Array(2 - liberosA.length).fill(null)].map((player, i) => (
-                                    <div key={`la-${i}`} className="flex-1 flex divide-x border-black"><div className="w-8 bg-gray-50 print:bg-white flex items-center justify-center font-bold text-[12px]">{player && (player.isCaptain || player.is_captain) && getPlayerNo(player) ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}</div><div className="flex-1 px-2 flex items-center text-[11px] font-bold uppercase truncate">{getPlayerName(player)}</div></div>
-                                ))}
-                            </div>
-                            <div className="flex-1 flex flex-col divide-y border-black">
-                                {[...liberosB, ...Array(2 - liberosB.length).fill(null)].map((player, i) => (
-                                    <div key={`lb-${i}`} className="flex-1 flex divide-x border-black"><div className="w-8 bg-gray-50 print:bg-white flex items-center justify-center font-bold text-[12px]">{player && (player.isCaptain || player.is_captain) && getPlayerNo(player) ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}</div><div className="flex-1 px-2 flex items-center text-[11px] font-bold uppercase truncate">{getPlayerName(player)}</div></div>
-                                ))}
-                            </div>
+                        <div className="grid grid-cols-2 divide-x-2 border-black border-b-2" style={{ height: `${liberoDisplayRowCount * 20}px` }}>
+                            {[visibleLiberoPlayersA, visibleLiberoPlayersB].map((visiblePlayers, teamIndex) => (
+                                <div key={`libero-team-${teamIndex}`} className="flex-1 flex flex-col min-h-0">
+                                    {Array.from({ length: liberoDisplayRowCount }, (_, i) => {
+                                        const player = visiblePlayers[i];
+                                        return player ? (
+                                            <div key={`libero-${i}`} className="min-w-0 flex-1 flex divide-x border-b border-black min-h-0">
+                                                <div className="w-8 shrink-0 bg-gray-50 print:bg-white flex items-center justify-center font-bold text-[12px]">{player.isCaptain || player.is_captain ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}</div>
+                                                <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{getPlayerName(player)}</div>
+                                            </div>
+                                        ) : <div key={`libero-empty-${i}`} className="flex-1 min-h-0" aria-hidden="true" />;
+                                    })}
+                                </div>
+                            ))}
                         </div>
-
                         {/* OFFICIALS */}
                         <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">OFFICIALS</div>
                         <div className="flex flex-col border-b-2 border-black h-[90px] divide-y border-black">
-                            {[{ r: 'C', nameA: coachA, nameB: coachB }, { r: 'AC¹', nameA: ac1A, nameB: ac1B }, { r: 'AC²', nameA: ac2A, nameB: ac2B }, { r: 'T', nameA: tmA, nameB: tmB }, { r: 'M', nameA: mdA, nameB: mdB }].map(item => (
+                            {[{ r: 'C', nameA: coachA, nameB: coachB }, { r: 'AC1', nameA: ac1A, nameB: ac1B }, { r: 'AC2', nameA: ac2A, nameB: ac2B }, { r: 'T', nameA: tmA, nameB: tmB }, { r: 'M', nameA: mdA, nameB: mdB }].map(item => (
                                 <div key={`off-${item.r}`} className="flex-1 flex divide-x border-black">
                                     <div className="flex-1 px-2 flex items-center justify-center text-xs font-medium truncate">{item.nameA || ''}</div>
                                     <div className="w-12 shrink-0 flex items-center justify-center font-bold text-[12px] bg-gray-50 print:bg-white" dangerouslySetInnerHTML={{ __html: item.r }}></div>
@@ -1525,9 +1530,9 @@ export default function ScoreSheet({ matchId }) {
                 <style dangerouslySetInnerHTML={{
                     __html: `
                     @media print {
-                        @page { 
-                            size: A3 landscape; 
-                            margin: 0; 
+                        @page {
+                            size: A3 landscape;
+                            margin: 0;
                         }
                         /* 1. ซ่อนทุกอย่างบนหน้าเว็บ (ป้องกัน Layout อื่นมาดันกระดาษตกขอบ) */
                         body * {
@@ -1551,7 +1556,7 @@ export default function ScoreSheet({ matchId }) {
                             border: none !important;
                             box-shadow: none !important;
                             background-color: white !important;
-                            -webkit-print-color-adjust: exact !important; 
+                            -webkit-print-color-adjust: exact !important;
                             print-color-adjust: exact !important;
                             transform: none !important;
                             overflow: hidden !important;
@@ -1566,9 +1571,9 @@ export default function ScoreSheet({ matchId }) {
                 <style dangerouslySetInnerHTML={{
                     __html: `
                     @media print {
-                        @page { 
-                            size: A4 portrait; 
-                            margin: 0; 
+                        @page {
+                            size: A4 portrait;
+                            margin: 0;
                         }
                         body * {
                             visibility: hidden;
@@ -1590,7 +1595,7 @@ export default function ScoreSheet({ matchId }) {
                             border: none !important;
                             box-shadow: none !important;
                             background-color: white !important;
-                            -webkit-print-color-adjust: exact !important; 
+                            -webkit-print-color-adjust: exact !important;
                             print-color-adjust: exact !important;
                             transform: none !important;
                             overflow: hidden !important;
@@ -1618,13 +1623,13 @@ const RowHeader = () => (
             </div>
             <div className="flex-1 flex flex-col divide-y border-black bg-gray-50 print:bg-white">
                 <div className="flex-1 flex items-center justify-end pr-1">Service order</div>
-                <div className="flex-1 flex items-center justify-end pr-1">N° of Starting players</div>
+                <div className="flex-1 flex items-center justify-end pr-1">No. of Starting players</div>
                 <div className="flex-[3] flex">
                     <div className="w-5 border-r border-black flex items-center justify-center">
                         <span className="transform -rotate-90">Substitutes</span>
                     </div>
                     <div className="flex-1 flex flex-col divide-y border-black">
-                        <div className="flex-1 flex items-center justify-end pr-1">N° of Player</div>
+                        <div className="flex-1 flex items-center justify-end pr-1">No. of Player</div>
                         <div className="flex-[2] flex flex-col justify-center items-end pr-1 text-right leading-[1.1]">
                             <span>Score</span><span>at change</span>
                         </div>
@@ -1888,11 +1893,11 @@ const Set5RowHeader = () => (
             </div>
             <div className="flex-1 flex flex-col divide-y border-black bg-gray-50 print:bg-white">
                 <div className="flex-1 flex items-center justify-end pr-1">Service order</div>
-                <div className="flex-1 flex items-center justify-end pr-1">N° of Starting players</div>
+                <div className="flex-1 flex items-center justify-end pr-1">No. of Starting players</div>
                 <div className="flex-[3] flex">
                     <div className="w-5 border-r border-black flex items-center justify-center"><span className="transform -rotate-90">Substitutes</span></div>
                     <div className="flex-1 flex flex-col divide-y border-black">
-                        <div className="flex-1 flex items-center justify-end pr-1">N° of Player</div>
+                        <div className="flex-1 flex items-center justify-end pr-1">No. of Player</div>
                         <div className="flex-[2] flex flex-col justify-center items-end pr-1 text-right leading-[1.1]"><span>Score</span><span>at change</span></div>
                     </div>
                 </div>

@@ -2,6 +2,10 @@
 
 ระบบจัดการแข่งขันวอลเลย์บอลพร้อม e-score, live scorer, roster, team registration, match management และรายงานสำหรับผู้ดูแลระบบ
 
+คู่มือผู้ใช้งาน: [คู่มือ VOLLEY VIS ภาษาไทยฉบับละเอียด](docs/vis-user-manual-th.md)
+
+ScorerControl: [คู่มือ Offline และการซิงค์คะแนนทางการ](docs/scorer-offline-th.md)
+
 ## Project Structure
 
 - `client/` React/Vite frontend

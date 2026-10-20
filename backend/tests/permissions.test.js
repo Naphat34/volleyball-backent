@@ -8,6 +8,12 @@ test('legacy score role maps to scorer permissions', () => {
   assert.equal(roleHasPermission('score', 'match.score'), true);
 });
 
+test('statisticians can access scoring data without competition-management privileges', () => {
+  assert.equal(normalizeRole('statistician'), 'scorer');
+  assert.equal(roleHasPermission('statistician', 'match.score'), true);
+  assert.equal(roleHasPermission('statistician', 'competition.manage'), false);
+});
+
 test('organizer can manage competitions but cannot manage admin users', () => {
   assert.equal(roleHasPermission('organizer', 'competition.manage'), true);
   assert.equal(roleHasPermission('organizer', 'admin.manage'), false);

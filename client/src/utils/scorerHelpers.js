@@ -11,11 +11,13 @@ const liveStateFields = [
     'homeLineup', 'awayLineup', 'homeLiberos', 'awayLiberos', 'homeLiberoSwaps',
     'awayLiberoSwaps', 'teamColors', 'showTimeoutTimer', 'timeoutStartTime',
     'matchDuration', 'isTimerRunning', 'setTimerStartedAt', 'subTracker', 'referees', 'matchSignatures',
-    'currentChallengeReview', 'firstServeSet1', 'lineupSetup'
+    'currentChallengeReview', 'firstServeSet1', 'lineupSetup', 'completedSets'
 ];
 
 export const buildScorerLiveState = (state, overrides = {}) => ({
     ...Object.fromEntries(liveStateFields.map(key => [key, state[key]])),
+    officialRallyRefs: (state.matchEvents || []).filter(event => event.metadata?.type === 'POINT')
+        .map(event => String(event.local_event_id || event.metadata?.localEventId || event.id)),
     updatedAt: Date.now(),
     ...overrides
 });

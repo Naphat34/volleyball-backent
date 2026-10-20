@@ -2,6 +2,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { cleanCompetitionTitle } from '../utils';
 import { getAuthToken } from '../authStorage';
+import { appendVisReportPages, visReportFilename } from './visReportPdf';
 
 /**
  * Helper function: จัดการการส่งออกไฟล์ (ดาวน์โหลด หรือ คืนค่า Data URL)
@@ -51,6 +52,16 @@ const fetchPdfTemplate = async (url) => {
 /**
  * 1. Generate FIVB Style Scoresheet PDF (Template Based)
  */
+export const generateVisMatchPDF = async (data, options = {}) => {
+    const { save = true, returnDataUrl = false, exportedAt = new Date() } = options;
+    const pdfDoc = await PDFDocument.create();
+    pdfDoc.registerFontkit(fontkit);
+    const fontBytes = await fetchPdfTemplate('/fonts/Sarabun-Regular.ttf');
+    const font = await pdfDoc.embedFont(fontBytes);
+    appendVisReportPages(pdfDoc, font, data, { ...options, exportedAt, fontLayout: fontkit.create(fontBytes) });
+    return handleOutput(pdfDoc, visReportFilename(data.match, exportedAt), save, returnDataUrl);
+};
+
 export const generateScoresheetPDF = async (data, options = {}) => {
     const { save = true, returnDataUrl = false } = options;
     const { match, homePlayers = [], awayPlayers = [] } = data;
@@ -233,6 +244,7 @@ export const generateScoresheetPDF = async (data, options = {}) => {
             // วาดชื่อ (ลดระยะห่างเหลือ +15 และลดฟอนต์ขนาด 7)
             drawText(formatName(player.first_name, player.last_name), awayStartX + 15, currentY, 7); 
         });
+        if (options.includeVisReport) appendVisReportPages(pdfDoc, customFont, data, { ...options, fontLayout: fontkit.create(fontBytes) });
         // 5. บันทึกผลลัพธ์
         const filename = `Scoresheet_Match_${match.match_number || match.id}.pdf`;
         return handleOutput(pdfDoc, filename, save, returnDataUrl);
