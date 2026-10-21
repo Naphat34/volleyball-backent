@@ -1,16 +1,34 @@
-# React + Vite
+# Volley eScore client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite frontend for competition administration, team registration, ScorerControl, VIS statistics and public match views.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Set `VITE_API_URL` in `.env`, then run:
 
-## React Compiler
+```powershell
+npm.cmd install
+npm.cmd run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Source layout
 
-## Expanding the ESLint configuration
+- `src/pages/`: route-level screens grouped by role and purpose.
+- `src/components/`: forms, tabs, layouts, controls and document components.
+- `src/auth/`: session storage and authentication helpers.
+- `src/offline/`: local persistence, PIN access, match gates and synchronization.
+- `src/utils/`: helpers grouped by scoring, VIS, reports, navigation and language.
+- `src/api.js`: backend API calls.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+See the [complete structure](../docs/technical/project-structure.md) and [user guides](../docs/README.md).
+
+## Verify
+
+```powershell
+npm.cmd run lint
+npm.cmd test
+npm.cmd run build
+npm.cmd run test:pwa
+```
+
+Tests live next to their modules. `src/offline/visEngine.js` is generated from backend rules; use `npm.cmd run generate:vis-engine` to refresh it. The production build is written to `dist/`.

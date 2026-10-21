@@ -1,5 +1,5 @@
 import React from 'react';
-import { getContrastClass, getContrastColorHex } from '../../../utils/colorUtils';
+import { getContrastClass, getContrastColorHex } from '../../../utils/common/colorUtils';
 
 export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
     if (!team) return null;

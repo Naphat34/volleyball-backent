@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getAuthToken } from './authStorage';
+import { getAuthToken } from './auth/authStorage';
 import { offlineMode } from './offline/offlineAuth';
 import { installScorerOffline } from './offline/scorerOffline';
 import { isLocalVis, getLocal, listLocal, localView, createLocal, editLocal, saveLocal } from './offline/offlineStore';
@@ -67,11 +67,12 @@ apiClient.interceptors.response.use(
 
 const customVis = id => String(id).startsWith('custom-') || isLocalVis(id);
 installScorerOffline(apiClient);
-const readCustomVis = async id => isLocalVis(id) ? { data: localView(await getLocal(id)) } : apiClient.get(`/vis-custom/${id}`);
+const readCustomVis = async id => isLocalVis(id) ? { data: localView(await getLocal(id, { readOnly: true })) } : apiClient.get(`/vis-custom/${id}`);
 export const api = {
-  getScorerMatches: () => apiClient.get('/scorer/matches'),
+  getScorerMatches: () => apiClient.get('/scorer/matches', { timeout: 15000 }),
   getOfflinePermit: () => apiClient.get('/vis-custom/offline-permit'),
-  checkoutOfflineVis: (id, deviceId) => apiClient.post(`/vis-custom/${id}/offline-checkout`, { deviceId }),
+  checkoutOfflineVis: (id, deviceId) => apiClient.post(`/vis-custom/${id}/offline-checkout`, { deviceId }, { timeout: 60000 }),
+  cancelOfflineVisCheckout: (id, deviceId, revision, checkoutToken) => apiClient.post(`/vis-custom/${id}/offline-cancel-checkout`, { deviceId, revision, checkoutToken }, { timeout: 15000 }),
   syncOfflineVis: (id, data) => apiClient.post(`/vis-custom/${id}/offline-sync`, data, { timeout: 60000 }),
   createCustomVis: async data => offlineMode() || !navigator.onLine ? { data: localView(await createLocal(data)) } : apiClient.post('/vis-custom', data),
   getCustomVis: readCustomVis,
@@ -173,14 +174,15 @@ export const api = {
 
   saveCoinToss: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/toss`, data),
   getVisState: matchId => customVis(matchId) ? readCustomVis(matchId) : apiClient.get(`/scorer/match/${matchId}/vis`),
-  getVisMatches: async () => {
+  getVisMatches: async ({ fromServer = false } = {}) => {
+    if (fromServer && offlineMode()) throw Error('ขณะนี้อยู่ในโหมด Offline กรุณากลับโหมดเซิร์ฟเวอร์ก่อนดึงแมตช์');
     let local = [];
-    try { local = (await listLocal()).map(item => localView(item).match); } catch (error) { if (offlineMode()) throw error; }
+    try { local = (await listLocal({ readOnly: true })).map(item => localView(item).match); } catch (error) { if (offlineMode()) throw error; }
     if (offlineMode()) return { data: local };
-    const [regular, custom] = await Promise.allSettled([apiClient.get('/scorer/matches'), apiClient.get('/vis-custom')]);
-    if (regular.status === 'rejected' && custom.status === 'rejected') throw regular.reason;
+    const [regular, custom] = await Promise.all([apiClient.get('/scorer/matches', { timeout: 15000 }), apiClient.get('/vis-custom', { timeout: 15000 })]);
+    if (!Array.isArray(regular.data) || !Array.isArray(custom.data)) throw Error('รูปแบบรายการแมตช์จากเซิร์ฟเวอร์ไม่ถูกต้อง');
     const activeServers = new Set(local.filter(m => !m.offline_released).map(m => m.server_id));
-    return { data: [...(regular.status === 'fulfilled' ? regular.value.data : []), ...(custom.status === 'fulfilled' ? custom.value.data.filter(m => !activeServers.has(m.id)) : []), ...local] };
+    return { data: [...regular.data, ...custom.data.filter(m => !activeServers.has(m.id)), ...local] };
   },
   saveVisCommand: async (matchId, data) => isLocalVis(matchId) ? { data: await saveLocal(matchId, data) } : apiClient.post(customVis(matchId) ? `/vis-custom/${matchId}/command` : `/scorer/match/${matchId}/vis`, data),
 

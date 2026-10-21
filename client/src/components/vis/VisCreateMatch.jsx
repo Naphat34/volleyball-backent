@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { readRosterExcel, rosterFromRows, downloadRosterTemplate } from '../../utils/visRosterImport';
+import { readRosterExcel, rosterFromRows, downloadRosterTemplate } from '../../utils/vis/visRosterImport';
 
 export default function VisCreateMatch({ matchId, onClose, onSaved, sources = [] }) {
     const [form, setForm] = useState({ title: '', date: '', time: '', location: '', gender: '', maxSets: 5, home: { name: '', players: [] }, away: { name: '', players: [] } });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { describeVisEvent, describeVisGrade, eventDetails, getVisEventCode, visSkillNames } from '../../utils/visPresentation';
+import { describeVisEvent, describeVisGrade, eventDetails, getVisEventCode, visSkillNames } from '../../utils/vis/visPresentation';
 import './VisHistoryPanel.css';
 
 export default function VisHistoryPanel({ matchData, actionLog, players, className = '' }) {

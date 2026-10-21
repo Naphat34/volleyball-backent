@@ -1,5 +1,5 @@
 import React from 'react';
-import { getContrastColorHex } from '../../../utils/colorUtils';
+import { getContrastColorHex } from '../../../utils/common/colorUtils';
 
 export default function TeamQuickControls({
     team,

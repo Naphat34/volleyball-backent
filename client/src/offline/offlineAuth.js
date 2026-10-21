@@ -1,4 +1,4 @@
-import { canEnterWorkspace } from './workspaceRouting.js';
+import { canEnterSection } from './entryRouting.js';
 import { localRead } from './localRead.js';
 const PROFILE = 'vis_offline_profile_v1';
 const SESSION = 'vis_offline_unlocked_v1';
@@ -17,10 +17,10 @@ export function deviceId() {
 export function offlineProfile() {
     try { return JSON.parse(localStorage.getItem(PROFILE)); } catch { return null; }
 }
-export function getOfflineUser() {
+export function getOfflineUser({ readOnly = false } = {}) {
     try {
         const grant = JSON.parse(sessionStorage.getItem(SESSION));
-        return grant?.expiresAt > Date.now() && ['admin', 'statistician', 'score', 'scorer'].includes(grant.user?.role) ? grant.user : null;
+        return grant && (readOnly || (!grant.readOnly && grant.expiresAt > Date.now())) && ['admin', 'statistician', 'score', 'scorer'].includes(grant.user?.role) ? grant.user : null;
     } catch { return null; }
 }
 export const offlineMode = () => sessionStorage.getItem(MODE) === '1';
@@ -44,22 +44,22 @@ export async function prepareOffline(grant, pin, { replaceAccount = false } = {}
     deviceId();
     try { await navigator.storage?.persist?.(); } catch { /* Preparation has succeeded even if persistence is unavailable. */ }
 }
-export async function unlockOffline(pin, { workspace = null } = {}) {
+export async function unlockOffline(pin, { section = null, readOnly = false } = {}) {
     const record = offlineProfile();
-    if (!record || record.expiresAt <= Date.now()) throw Error('สิทธิ์ Offline หมดอายุหรือยังไม่เตรียมเครื่อง กรุณาเข้าสู่ระบบออนไลน์');
+    if (!record || (!readOnly && record.expiresAt <= Date.now())) throw Error('สิทธิ์ Offline หมดอายุหรือยังไม่เตรียมเครื่อง กรุณาเข้าสู่ระบบออนไลน์');
     let grant;
     try {
         const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decode(record.iv) }, await keyFor(pin, decode(record.salt)), decode(record.encrypted));
         grant = JSON.parse(new TextDecoder().decode(plain));
     } catch { throw Error('PIN ไม่ถูกต้อง'); }
-    if (grant.expiresAt <= Date.now()) throw Error('สิทธิ์ Offline หมดอายุ');
+    if (!readOnly && grant.expiresAt <= Date.now()) throw Error('สิทธิ์ Offline หมดอายุ');
     if (!grant.user?.id || !['admin', 'statistician', 'score', 'scorer'].includes(grant.user.role)) throw Error('ข้อมูลสิทธิ์ Offline ไม่สมบูรณ์ กรุณาเตรียมสิทธิ์ออนไลน์ใหม่');
-    if (workspace && !canEnterWorkspace(grant.user, workspace, true)) throw Error(`บัญชี ${grant.user.username} ไม่มีสิทธิ์เข้า ${workspace === 'vis' ? 'VIS' : 'ScorerControl'} กรุณาเลือกหน้าระบบที่มีสิทธิ์`);
+    if (section && !canEnterSection(grant.user, section, true)) throw Error(`บัญชี ${grant.user.username} ไม่มีสิทธิ์เข้า ${section === 'vis' ? 'VIS' : 'ScorerControl'} กรุณาเลือกหน้าระบบที่มีสิทธิ์`);
     // Commit only after PIN, expiry and destination permissions have all passed.
     const keys = [SESSION, MODE, 'token', 'user'];
     const before = keys.map(key => sessionStorage.getItem(key));
     try {
-        sessionStorage.setItem(SESSION, JSON.stringify(grant));
+        sessionStorage.setItem(SESSION, JSON.stringify({ ...grant, readOnly }));
         setOfflineMode(true);
         // Local identity is authoritative while unlocked; never inherit another online account.
         let online = null;

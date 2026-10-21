@@ -215,13 +215,13 @@
   .scorer-shell > header { min-height: 76px; height: auto; flex-wrap: wrap; gap: .75rem; padding: .75rem 1rem; }
   .scorer-shell > header button { min-height: 44px; min-width: 44px; }
   .scorer-shell main { min-height: 0; }
-  .workspace-shell { height: 100dvh; }
+  .dashboard-shell { height: 100dvh; }
   .ui-search-dialog { width: min(640px, calc(100vw - 2rem)); max-height: 85dvh; margin: auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 1.25rem; background: white; color: #0f172a; box-shadow: 0 24px 80px #0f172a30; }
   .ui-search-dialog::backdrop { background: #0f172a70; backdrop-filter: blur(3px); }
-  .workspace-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select) { min-height: 42px; }
-  .workspace-content :where(th) { font-size: .75rem; font-weight: 600; color: #64748b; }
-  .workspace-content :where(td) { font-variant-numeric: tabular-nums; }
-  .workspace-content :where(tbody tr):hover { background-color: #f8fafc; }
+  .dashboard-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select) { min-height: 42px; }
+  .dashboard-content :where(th) { font-size: .75rem; font-weight: 600; color: #64748b; }
+  .dashboard-content :where(td) { font-variant-numeric: tabular-nums; }
+  .dashboard-content :where(tbody tr):hover { background-color: #f8fafc; }
 }
 
 @media (max-width: 1100px) {

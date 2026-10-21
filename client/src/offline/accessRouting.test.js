@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { IDBFactory } from 'fake-indexeddb';
 import { prepareOffline, unlockOffline, offlineProfile, offlineMode, clearOfflineSession, getOfflineUser, pendingDeviceWork } from './offlineAuth.js';
-import { getAccessSession, getStoredUser, setAuthSession, switchAccessMode } from '../authStorage.js';
+import { getAccessSession, getStoredUser, setAuthSession, switchAccessMode } from '../auth/authStorage.js';
 import { accessDecision, resolveAccess, navigateAccess } from './accessRouting.js';
 import { localRead } from './localRead.js';
 
@@ -22,36 +22,47 @@ async function put(name, record) {
         };
     });
 }
-test('wrong PIN and denied workspace do not commit or change the previous online account', async () => {
+test('wrong PIN and denied section do not commit or change the previous online account', async () => {
     await prepareOffline(grant(1, 'scorer'), '123456'); clearOfflineSession();
     setAuthSession({ user: grant(2).user, token: 'account2' });
-    await assert.rejects(unlockOffline('000000', { workspace: 'scorer' }), /PIN/);
-    await assert.rejects(unlockOffline('123456', { workspace: 'vis' }), /ไม่มีสิทธิ์/);
+    await assert.rejects(unlockOffline('000000', { section: 'scorer' }), /PIN/);
+    await assert.rejects(unlockOffline('123456', { section: 'vis' }), /ไม่มีสิทธิ์/);
     assert.equal(offlineMode(), false); assert.equal(getOfflineUser(), null);
     assert.equal(getAccessSession().user.id, 2);
-    await unlockOffline('123456', { workspace: 'scorer' });
+    await unlockOffline('123456', { section: 'scorer' });
     assert.equal(getAccessSession().kind, 'offline'); assert.equal(getStoredUser().id, 1);
     assert.equal(sessionStorage.getItem('token'), null);
 });
-test('missing and expired permits remain locked and expiry never falls back to an online token', async () => {
+test('missing permits stay locked and expired sessions allow backup without using another online account', async () => {
     await assert.rejects(unlockOffline('123456'), /หมดอายุ|ยังไม่เตรียม/);
     await prepareOffline(grant(), '123456'); await unlockOffline('123456');
     sessionStorage.setItem('token', 'old'); sessionStorage.setItem('user', JSON.stringify(grant(2).user));
     const expired = grant(); expired.expiresAt = Date.now() - 1;
     sessionStorage.setItem('vis_offline_unlocked_v1', JSON.stringify(expired));
-    assert.equal(getAccessSession().kind, 'locked'); assert.equal(getStoredUser(), null);
+    assert.equal(getAccessSession().kind, 'offline'); assert.equal(getAccessSession().readOnly, true); assert.equal(getStoredUser().id, expired.user.id);
+    const result = await resolveAccess({ section: 'vis', search: '?returnTo=/adminvis/match/local-example' });
+    assert.equal(result.path, '/adminvis'); assert.match(result.notice, /สำรอง/);
 });
-test('offline list entry does not depend on any cached match and generic entry selects workspace once', async () => {
+test('online login opens the dashboard for each role directly', () => {
+    for (const [role, path] of [['admin', '/admin'], ['score', '/adminscorer'], ['scorer', '/adminscorer'], ['statistician', '/adminvis']]) {
+        assert.equal(accessDecision({ kind: 'online', user: grant(1, role).user }).path, path);
+    }
+    assert.equal(accessDecision({ kind: 'online', user: grant(1, 'admin').user }, { section: 'vis' }).path, '/adminvis');
+    assert.equal(accessDecision({ kind: 'online', user: grant().user }, { section: 'scorer' }).path, '/adminscorer');
+});
+
+test('offline login opens a role-specific list without reading cached matches', async () => {
     const session = { kind: 'offline', user: grant().user };
     const noRead = () => { throw Error('must not read'); };
-    assert.equal((await resolveAccess({ workspace: 'vis' }, session, noRead)).path, '/adminvis');
-    assert.equal((await resolveAccess({ workspace: 'scorer' }, session, noRead)).path, '/scorer-offline');
-    assert.equal(accessDecision(session).path, '/workspaces');
+    assert.equal((await resolveAccess({ section: 'vis' }, session, noRead)).path, '/adminvis');
+    assert.equal((await resolveAccess({ section: 'scorer' }, session, noRead)).path, '/scorer-offline');
+    assert.equal(accessDecision(session).path, '/adminvis');
+    assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'admin').user }).path, '/adminvis');
     assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'scorer').user }).path, '/scorer-offline');
-    assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'scorer').user }, { workspace: 'vis' }).kind, 'denied');
+    assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'scorer').user }, { section: 'vis' }).kind, 'denied');
 });
 test('missing, released and broken match storage give distinct visible notices and keep the list accessible', async () => {
-    const session = { kind: 'offline', user: grant().user }, options = { workspace: 'scorer', search: '?returnTo=/scorer/42' };
+    const session = { kind: 'offline', user: grant().user }, options = { section: 'scorer', search: '?returnTo=/scorer/42' };
     for (const [load, expected] of [[async () => [], /ไม่พบแมตช์/], [async () => [{ id: 42, released: true }], /คืนสิทธิ์/], [async () => { throw Error('disk'); }, /อ่านข้อมูลแมตช์.*disk/]]) {
         const result = await resolveAccess(options, session, load);
         assert.equal(result.path, '/scorer-offline'); assert.match(result.notice, expected);
@@ -96,13 +107,13 @@ test('expired JWT cannot repeatedly redirect the login back to a protected dashb
     setAuthSession({ user: grant().user, token });
     assert.equal(getAccessSession().kind, 'locked');
     assert.match(getAccessSession().reason, /ออนไลน์หมดอายุ/);
-    assert.equal(accessDecision(getAccessSession(), { workspace: 'vis' }).kind, 'locked');
+    assert.equal(accessDecision(getAccessSession(), { section: 'vis' }).kind, 'locked');
 });
 
 test('a malformed previous online user cannot block a valid offline PIN', async () => {
     await prepareOffline(grant(), '123456'); clearOfflineSession();
     sessionStorage.setItem('user', '{invalid'); sessionStorage.setItem('token', 'old');
-    await unlockOffline('123456', { workspace: 'vis' });
+    await unlockOffline('123456', { section: 'vis' });
     assert.equal(getAccessSession().kind, 'offline'); assert.equal(getStoredUser().id, 1);
     assert.equal(sessionStorage.getItem('token'), null);
 });

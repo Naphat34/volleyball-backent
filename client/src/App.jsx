@@ -1,33 +1,31 @@
-import PageBoundary from './components/PageBoundary';
+import PageBoundary from './components/layout/PageBoundary';
 import React, { lazy, Suspense } from 'react';
 import { Feedback } from './components/ui/SystemUI';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-const WorkspacePicker = lazy(() => import('./pages/WorkspacePicker'));
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const CreateTeam = lazy(() => import('./pages/CreateTeam'));
-const TeamDashboard = lazy(() => import('./pages/TeamDashboard'));
-const LandingPage = lazy(() => import('./pages/guest/LandingPage'));
-const PublicStatistics = lazy(() => import('./pages/guest/PublicStatistics'));
-const PublicStandings = lazy(() => import('./pages/guest/PublicStandings'));
-const PublicTeams = lazy(() => import('./pages/guest/PublicTeams'));
-const PublicMatches = lazy(() => import('./pages/guest/PublicMatches'));
-const MatchCentrePage = lazy(() => import('./pages/guest/MatchCentrePage'));
-const PublicVisMatch = lazy(() => import('./pages/guest/PublicVisMatch'));
-const ScorerConsole = lazy(() => import('./components/scorer/ScorerConsole'));
-const TeamStaffConsole = lazy(() => import('./components/scorer/TeamStaffConsole'));
-const AdminScorer = lazy(() => import('./components/scorer/AdminScorer'));
-const AdminVis = lazy(() => import('./pages/AdminVis'));
-const ScorerOfflineHome = lazy(() => import('./pages/ScorerOfflineHome'));
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const CreateTeam = lazy(() => import('./pages/team/CreateTeam'));
+const TeamDashboard = lazy(() => import('./pages/team/TeamDashboard'));
+const LandingPage = lazy(() => import('./pages/public/LandingPage'));
+const PublicStatistics = lazy(() => import('./pages/public/PublicStatistics'));
+const PublicStandings = lazy(() => import('./pages/public/PublicStandings'));
+const PublicTeams = lazy(() => import('./pages/public/PublicTeams'));
+const PublicMatches = lazy(() => import('./pages/public/PublicMatches'));
+const MatchCentrePage = lazy(() => import('./pages/public/MatchCentrePage'));
+const PublicVisMatch = lazy(() => import('./pages/public/PublicVisMatch'));
+const ScorerConsole = lazy(() => import('./pages/scorer/ScorerConsole'));
+const TeamStaffConsole = lazy(() => import('./pages/scorer/TeamStaffConsole'));
+const AdminScorer = lazy(() => import('./pages/scorer/AdminScorer'));
+const AdminVis = lazy(() => import('./pages/vis/AdminVis'));
+const ScorerOfflineHome = lazy(() => import('./pages/scorer/ScorerOfflineHome'));
 const ScoreViewReferee = lazy(() => import('./components/viewer/ScoreViewReferee'));
 const ScoreViewSpectator = lazy(() => import('./components/viewer/ScoreViewSpectator'));
-const ScoreSheet = lazy(() => import('./pages/ScoreSheet'));
-const RosterVerification = lazy(() => import('./pages/RosterVerification'));
-const MatchDetail = lazy(() => import('./components/MatchDetail'));
+const ScoreSheet = lazy(() => import('./pages/reports/ScoreSheet'));
+const RosterVerification = lazy(() => import('./pages/reports/RosterVerification'));
+const MatchDetail = lazy(() => import('./pages/matches/MatchDetail'));
 import useAccessSession from './hooks/useAccessSession';
-import OfflineMatchGate from './components/OfflineMatchGate';
-import { loginPath } from './offline/workspaceRouting';
+import OfflineMatchGate from './components/auth/OfflineMatchGate';
 
 // import App (หน้าเดิมที่เป็น Scoreboard) ไว้ใช้ทีหลัง
 // import ScoreboardApp from './App_Original';
@@ -39,12 +37,12 @@ const PrivateRoute = ({ children, roleRequired }) => {
   const role = user?.role || null;
 
   // ถ้าไม่มี Token หรือ Role ให้ถือว่ายังไม่ Login
-  const offlineAllowed = session.kind === 'offline' && /^\/(?:workspaces(?:\/|$)|adminvis(?:\/|$)|adminscorer(?:\/|$)|scorer\/\d+(?:\/|$)|scorer-offline(?:\/|$))/.test(window.location.pathname);
-  if ((session.kind !== 'online' && !offlineAllowed) || !role) return <Navigate to={`${loginPath(window.location.pathname)}?returnTo=${encodeURIComponent(window.location.pathname)}`} />;
+  const offlineAllowed = session.kind === 'offline' && /^\/(?:adminvis(?:\/|$)|adminscorer(?:\/|$)|scorer\/\d+(?:\/|$)|scorer-offline(?:\/|$))/.test(window.location.pathname);
+  if ((session.kind !== 'online' && !offlineAllowed) || !role) return <Navigate to={`/login?returnTo=${encodeURIComponent(window.location.pathname)}`} />;
 
   // ถ้าไม่ใช่ Role ที่ต้องการ (เช่น Admin) ให้เด้งไป Login
   const allowedRoles = Array.isArray(roleRequired) ? roleRequired : roleRequired ? [roleRequired] : [];
-  if (allowedRoles.length > 0 && !allowedRoles.includes(role)) return <Navigate to={loginPath(window.location.pathname)} />;
+  if (allowedRoles.length > 0 && !allowedRoles.includes(role)) return <Navigate to="/login" />;
 
   return <OfflineMatchGate session={session}>{children}</OfflineMatchGate>;
 };
@@ -55,7 +53,6 @@ function App() {
       <PageBoundary>
       <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title="กำลังเปิดหน้า / Loading page…" /></div>}>
       <Routes>
-        <Route path="/workspaces" element={<PrivateRoute roleRequired={['admin','score','scorer','statistician']}><WorkspacePicker /></PrivateRoute>} />
         <Route path="/scorer-offline" element={<PrivateRoute roleRequired={['admin','score','scorer','statistician']}><ScorerOfflineHome /></PrivateRoute>} />
         <Route path="/adminvis" element={<PrivateRoute roleRequired={['admin', 'statistician']}><AdminVis /></PrivateRoute>} />
         <Route path="/adminvis/match/:matchId" element={<PrivateRoute roleRequired={['admin', 'statistician']}><AdminVis /></PrivateRoute>} />
@@ -82,8 +79,6 @@ function App() {
 
         {/* หน้า Login/Register */}
         <Route path="/login" element={<Login />} />
-        <Route path="/vis/login" element={<Login key="vis" workspace="vis" />} />
-        <Route path="/scorer/login" element={<Login key="scorer" workspace="scorer" />} />
         <Route path="/register" element={<Register />} />
 
         {/* หน้า Admin (ต้องเป็น admin เท่านั้น) */}

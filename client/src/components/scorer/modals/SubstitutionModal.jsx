@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { isPlayerLibero } from '../../../utils/playerFilters';
+import { isPlayerLibero } from '../../../utils/scorer/playerFilters';
 
 export default function SubstitutionModal({ 
     isOpen, onClose, teamName, roster, currentLineup, playerOut, posIndex, subTracker, disqualifiedPlayers = [], initialExceptional, onConfirm

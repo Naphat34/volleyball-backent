@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getAccessSession } from '../authStorage';
+import { getAccessSession } from '../auth/authStorage';
 
 export default function useAccessSession() {
     const [, refresh] = useState(0);

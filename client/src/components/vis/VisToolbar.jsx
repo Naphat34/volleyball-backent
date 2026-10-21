@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { exportVisMatch } from '../../utils/visMatchFiles';
+import { exportVisMatch } from '../../utils/vis/visMatchFiles';
 
 export default function VisToolbar({ match, onClose, layout, onLayout, orientation, onOrientation, onReset,
     showCourt, onToggleCourt, showVideo, onToggleVideo, onSettings, onStats, liveEnabled, pending, isSaving, retrySave, onConfirm }) {
@@ -21,7 +21,6 @@ export default function VisToolbar({ match, onClose, layout, onLayout, orientati
         finally { setExporting(false); }
     };
     return <header className="shrink-0 border-b border-slate-700 bg-slate-950 px-2 py-2">
-        {match.is_offline_vis && <p className="mb-2 text-xs text-amber-200">บันทึกในเครื่อง · {match.offline_released ? 'คืนสิทธิ์แล้ว อ่านอย่างเดียว' : `${match.offline_pending || 0} คำสั่งรอซิงค์`} · กลับรายการแมตช์เพื่อสำรองหรือซิงค์ · ข้อมูลจะขึ้น Livescore หลังซิงค์สำเร็จ</p>}
         <nav aria-label="แถบเครื่องมือ VIS" className="flex flex-wrap items-center gap-1.5">
             <button className={button} onClick={onClose}>← รายการแมตช์</button>
             <div className="flex gap-1" role="group" aria-label="ขนาดแผง">

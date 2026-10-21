@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../../api';
-import { validateVisFile } from '../../utils/visMatchFiles';
+import { validateVisFile } from '../../utils/vis/visMatchFiles';
 export default function VisOpenMatchFile({ mode, onClose, onOpened }) {
     const [file, setFile] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [url, setUrl] = useState('');
     const [creationId] = useState(() => crypto.randomUUID());

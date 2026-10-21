@@ -1,8 +1,8 @@
-import { getTeamCode, isLineupSetupLocked } from '../../../utils/scorerHelpers';
+import { getTeamCode, isLineupSetupLocked } from '../../../utils/scorer/scorerHelpers';
 import React, { useState, useRef } from 'react';
 import { X, PenTool, Lock } from 'lucide-react';
 import SignaturePad from '../partials/SignaturePad';
-import { getContrastClass } from '../../../utils/colorUtils';
+import { getContrastClass } from '../../../utils/common/colorUtils';
 
 const SHIRT_COLOR_OPTIONS = [
     '#1e3a8a', '#2563eb', '#0f766e', '#16a34a', '#65a30d',

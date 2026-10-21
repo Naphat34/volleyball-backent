@@ -19,6 +19,9 @@ test('official offline MySQL batch is atomic, rejects conflicts and does not dup
   const scope={exports:{},require:wrapped,console};vm.runInNewContext(fs.readFileSync(file,'utf8'),scope,{filename:file});
   const call=async(method,body,owner=7)=>{const res={code:200,status(code){this.code=code;return this;},json(data){this.data=data;}};await (typeof method==='function'?method:scope.exports[method])({params:{matchId:id},body,user:{id:owner,role:'scorer'},app:{get:()=>null}},res);return res;};
   const deviceId=randomUUID(),checked=await call('checkout',{deviceId});assert.equal(checked.code,200,JSON.stringify(checked.data));
+  assert.equal(checked.data.leaseCreated,true);assert.ok(checked.data.checkoutToken);
+  assert.equal(checked.data.cache[`/scorer/match/${id}/state`].score.home,0);
+  assert.ok(Array.isArray(checked.data.cache[`/scorer/match/${id}/events`]));
   assert.equal((await call('checkout',{deviceId:randomUUID()},8)).code,409);
   assert.equal((await call(scope.exports.online('updateLiveState'),{state:initial})).code,409);
   const op={id:randomUUID(),method:'POST',path:'event',at:Date.now(),body:{event_type:'POINT',set_number:1,team_id:source.home_team_id,score_home:1,score_away:0,local_event_id:randomUUID(),details:{}}};
@@ -29,6 +32,12 @@ test('official offline MySQL batch is atomic, rejects conflicts and does not dup
   const tail={...state,id:randomUUID(),body:{state:{...state.body.state,updatedAt:Date.now()}}};
   const resumed=await call('sync',{...request,operations:[...request.operations,tail]});assert.equal(resumed.code,200,JSON.stringify(resumed.data));
   synced.data=resumed.data;
+  const receiptCount=(await connection.query('SELECT receipts FROM scorer_test_scorer_offline_sessions')).rows[0].receipts;
+  const repeated=await call('checkout',{deviceId});assert.equal(repeated.code,200,JSON.stringify(repeated.data));
+  assert.equal(repeated.data.leaseCreated,false);assert.equal(repeated.data.checkoutToken,checked.data.checkoutToken);
+  assert.equal(repeated.data.cache[`/scorer/match/${id}/state`].score.home,1);
+  assert.deepEqual((await connection.query('SELECT receipts FROM scorer_test_scorer_offline_sessions')).rows[0].receipts,receiptCount);
+  assert.equal((await call('cancelCheckout',{deviceId,fingerprint:repeated.data.fingerprint,checkoutToken:repeated.data.checkoutToken})).code,409);
   assert.equal((await connection.query('SELECT * FROM scorer_test_match_events')).rows.length,1);
   assert.equal((await call('sync',{...request,deviceId:randomUUID()})).code,409);
   const bad={...op,id:randomUUID(),body:{...op.body,score_home:9}};
@@ -39,7 +48,11 @@ test('official offline MySQL batch is atomic, rejects conflicts and does not dup
   assert.equal(undone.code,200,JSON.stringify(undone.data));assert.equal((await connection.query('SELECT * FROM scorer_test_match_events')).rows.length,0);
   const restored=(await connection.query('SELECT team_a_score FROM scorer_test_matches WHERE id=?',[id])).rows[0];assert.equal(restored.team_a_score,0);
   assert.equal((await call(scope.exports.online('updateLiveState'),{state:initial})).code,200);
-  const second=await call('checkout',{deviceId});assert.equal(second.code,200);
+  let second=await call('checkout',{deviceId});assert.equal(second.code,200);
+  assert.equal((await call('cancelCheckout',{deviceId,fingerprint:second.data.fingerprint,checkoutToken:checked.data.checkoutToken})).code,409);
+  assert.equal((await call('cancelCheckout',{deviceId,fingerprint:second.data.fingerprint,checkoutToken:second.data.checkoutToken})).code,200);
+  assert.equal((await call('sync',{deviceId,fingerprint:second.data.fingerprint,operations:[],release:true})).code,200);
+  second=await call('checkout',{deviceId});assert.equal(second.code,200);
   const savedCheckpoint=(await connection.query('SELECT checkpoint FROM scorer_test_scorer_offline_sessions')).rows[0].checkpoint;
   const checkpoint=typeof savedCheckpoint==='string'?JSON.parse(savedCheckpoint):savedCheckpoint;
   const full=[];const make=(method,path,body)=>full.push({id:randomUUID(),method,path,body,at:Date.now()});

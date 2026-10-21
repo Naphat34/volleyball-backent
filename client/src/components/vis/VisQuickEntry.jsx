@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { parseVisRally, rallyCode } from '../../utils/visRally';
-import { visSkillNames } from '../../utils/visPresentation';
+import { parseVisRally, rallyCode } from '../../utils/vis/visRally';
+import { visSkillNames } from '../../utils/vis/visPresentation';
 
 export default function VisQuickEntry({ teams, locked, send, commandContext, servingTeam, score, lastSavedOperationId, onUndo, undoDisabled }) {
     const [draft, setDraft] = useState('');

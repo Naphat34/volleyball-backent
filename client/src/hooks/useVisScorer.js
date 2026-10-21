@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { api, getSocketServerUrl } from '../api';
 import Swal from 'sweetalert2';
-import { getAuthToken } from '../authStorage';
+import { getAuthToken } from '../auth/authStorage';
 import { isLocalVis } from '../offline/offlineStore';
 
 export default function useVisScorer(match, requestedReadOnly) {

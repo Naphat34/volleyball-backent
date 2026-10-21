@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../api';
-import { visSkillNames } from '../../utils/visPresentation';
-import { getStoredUser } from '../../authStorage';
+import { visSkillNames } from '../../utils/vis/visPresentation';
+import { getStoredUser } from '../../auth/authStorage';
 
 export default function VisMatchDialog({ mode, match, teams, events, onClose, onLineup, canEditLineup, readOnly: requestedReadOnly, colors, onColors, onPDF }) {
     const readOnly = requestedReadOnly || match.is_custom_vis;

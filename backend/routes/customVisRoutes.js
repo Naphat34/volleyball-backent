@@ -8,6 +8,7 @@ router.get('/', controller.list);
 router.post('/', controller.create);
 router.get('/:id', controller.read);
 router.post('/:id/offline-checkout', controller.offlineCheckout);
+router.post('/:id/offline-cancel-checkout', controller.offlineCancelCheckout);
 router.post('/:id/offline-sync', controller.offlineSync);
 router.put('/:id', controller.update);
 router.post('/:id/command', controller.command);

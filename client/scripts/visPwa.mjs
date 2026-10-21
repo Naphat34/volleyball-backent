@@ -15,7 +15,7 @@ self.addEventListener('activate', event => event.waitUntil(Promise.all([self.cli
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
     if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
-    if (event.request.mode === 'navigate' && /^\\/(vis\\/login(?:\\/|$)|workspaces(?:\\/|$)|scorer-offline(?:\\/|$)|scorer(?:\\/|$)|adminscorer(?:\\/|$)|adminvis(?:\\/|$)|login(?:\\/|$))/.test(url.pathname)) {
+    if (event.request.mode === 'navigate' && /^\\/(scorer-offline(?:\\/|$)|scorer(?:\\/|$)|adminscorer(?:\\/|$)|adminvis(?:\\/|$)|login(?:\\/|$))/.test(url.pathname)) {
         event.respondWith(fetch(event.request).catch(() => caches.open(CACHE).then(cache => cache.match('/index.html')))); return;
     }
     if (FILES.includes(url.pathname)) event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(url.pathname)) || fetch(event.request)));

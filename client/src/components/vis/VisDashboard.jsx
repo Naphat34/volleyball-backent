@@ -1,4 +1,4 @@
-import AccessStatus from '../AccessStatus';
+import AccessStatus from '../auth/AccessStatus';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CloudOff } from 'lucide-react';
@@ -8,8 +8,8 @@ import VisCreateMatch from './VisCreateMatch';
 import VisOpenMatchFile from './VisOpenMatchFile';
 import VisMatchDialog from './VisMatchDialog';
 import VisLineupPanel from './VisLineupPanel';
-import { generateVisMatchPDF } from '../../utils/pdfGenerator';
-import { exportVisMatch } from '../../utils/visMatchFiles';
+import { generateVisMatchPDF } from '../../utils/reports/pdfGenerator';
+import { exportVisMatch } from '../../utils/vis/visMatchFiles';
 import './VisDashboard.css';
 import VisOfflinePanel from './VisOfflinePanel';
 
@@ -54,14 +54,14 @@ export default function VisDashboard({ th, user, matches, matchId, loading, erro
             canEditLineup={dialog.state.currentSet === 1 && !dialog.state.history.length} onLineup={() => { setLineup(dialog); setDialog(null); }} />}
         {lineup && <VisLineupPanel teams={lineup.teams} requiresToss={lineup.state.requiresToss} initialServingTeam={lineup.state.servingTeam} initialHomeLeft={lineup.state.isHomeLeft}
             send={async command => { try { await api.saveVisCommand(lineup.match.id, { command, operationId: crypto.randomUUID(), revision: lineup.state.revision }); return true; } catch (error) { setNotice(error.response?.data?.error || 'บันทึกไลน์อัปไม่สำเร็จ'); setLineup(null); return false; } }} onClose={() => { setLineup(null); reload(); }} onCancel={() => setLineup(null)} />}
-        <header className="vd-account-bar"><Link to="/adminvis" className="vd-brand">VOLLEY <span>/ VIS</span></Link><div className="vd-account"><Link to="/workspaces">สลับพื้นที่ทำงาน</Link>
+        <header className="vd-account-bar"><Link to="/adminvis" className="vd-brand">VOLLEY <span>/ VIS</span></Link><div className="vd-account">
             <div className="vd-languages" aria-label="ภาษา">{[['THA', 'ไทย'], ['ENG', 'EN']].map(([value, label]) => <button key={value} aria-pressed={language === value} className={language === value ? 'is-active' : ''} onClick={() => setLanguage(value)}>{label}</button>)}<button disabled title="ยังไม่รองรับภาษามองโกเลีย">MN</button></div>
             <span>{user?.first_name || user?.username || 'Statistician'} <b className="vd-badge">VIS</b></span>
             <details className="vd-sync"><summary className={error ? 'vd-error' : ''}>● {loading ? 'กำลังโหลด' : error ? 'โหลดไม่สำเร็จ' : 'ข้อมูลล่าสุด'}</summary><div><p>โหลดข้อมูลเมื่อ {date(lastUpdated)}</p><p>แมตช์ที่แสดง {matches.length} รายการ</p><p>เผยแพร่ {matches.filter(m => m.published).length} รายการ</p><p>แมตช์ในเครื่องต้องกดซิงค์เพื่อบันทึกขึ้นเซิร์ฟเวอร์</p><button onClick={reload} disabled={loading}>โหลดข้อมูลอีกครั้ง</button></div></details>
             {user?.role === 'admin' && <Link to="/admin">Admin</Link>}<button disabled={loggingOut} onClick={logout} aria-label="ออกจากระบบ">↪</button>
         </div></header>
         <main className="vd-main"><AccessStatus /><div className="vd-heading"><h1>{th ? 'การแข่งขัน' : 'Matches'}</h1><div className="vd-actions">
-            <div className="vd-split"><button disabled={loading || busy} onClick={reload}>⇩ {th ? 'ดึงแมตช์จากเซิร์ฟเวอร์' : 'Fetch matches'}</button><details><summary aria-label="ตัวเลือกการดึงแมตช์">▾</summary><div><button onClick={() => { reset(); reload(); }}>ดึงทั้งหมดและล้างตัวกรอง</button></div></details></div>
+            <div className="vd-split"><button disabled={loading || busy} onClick={() => reload(true)}>⇩ {th ? 'ดึงแมตช์จากเซิร์ฟเวอร์' : 'Fetch matches'}</button><details><summary aria-label="ตัวเลือกการดึงแมตช์">▾</summary><div><button disabled={loading || busy} onClick={() => { reset(); reload(true); }}>ดึงทั้งหมดและล้างตัวกรอง</button></div></details></div>
             <button disabled={busy} onClick={() => setFileMode('web')}>☁ {th ? 'ไฟล์บนเว็บ' : 'Web file'}</button><button disabled={busy} onClick={() => setFileMode('seava')}>{th ? 'เปิดไฟล์ .seava' : 'Open .seava'}</button><button disabled={busy} onClick={() => setFileMode('json')}>{th ? 'นำเข้า JSON' : 'Import JSON'}</button>
             <button type="button" className={`vd-offline-toggle ${offlineOpen ? 'is-active' : ''}`} title="VIS Offline · ข้อมูลเครื่องและการซิงค์" aria-label="VIS Offline · ข้อมูลเครื่องและการซิงค์" aria-expanded={offlineOpen} aria-controls="vis-offline-information" onClick={() => setOfflineOpen(value => !value)}><CloudOff size={21} aria-hidden="true" /></button>
             <button className="vd-primary" onClick={() => setCreate({})}>+ {th ? 'สร้างแมตช์ใหม่' : 'New match'}</button>

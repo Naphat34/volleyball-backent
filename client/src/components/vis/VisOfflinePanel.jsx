@@ -1,22 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
-import OfflineSetup from '../OfflineSetup';
-import AccessStatus from '../AccessStatus';
-import { switchAccessMode } from '../../authStorage';
+import OfflineSetup from '../auth/OfflineSetup';
+import AccessStatus from '../auth/AccessStatus';
+import { switchAccessMode } from '../../auth/authStorage';
 import { deviceId, offlineProfile, offlineMode, unlockOffline } from '../../offline/offlineAuth';
-import { listLocal, localView, getLocal, updateLocal, checkoutLocal, createLocal } from '../../offline/offlineStore';
+import { listLocal, localView, getLocal, updateLocal, prepareVisCheckout, createLocal } from '../../offline/offlineStore';
 import { syncLocalMatch } from '../../offline/syncVis';
-import { exportVisMatch } from '../../utils/visMatchFiles';
+import { exportVisMatch } from '../../utils/vis/visMatchFiles';
+import { ensureOfflineShell } from '../../offline/offlineShell';
 
-export function OfflineUnlock({ onUnlocked, workspace = null, disabled = false, beginAttempt, endAttempt, compact = false }) {
+export function OfflineUnlock({ onUnlocked, section = null, disabled = false, beginAttempt, endAttempt, compact = false }) {
     const [pin, setPin] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
     const inFlight = useRef(false);
-    const profile = offlineProfile();
+    const profile = offlineProfile(), expired = profile?.expiresAt <= Date.now();
+    const unlockLabel = busy ? 'กำลังตรวจสอบ PIN และสิทธิ์…' : expired ? 'ปลดล็อกเพื่อสำรองข้อมูล' : 'ปลดล็อก Offline';
     if (!profile) return <p className="my-4 rounded border border-slate-300 p-3 text-sm">{compact ? 'ต้องการใช้ Offline? เข้าสู่ระบบแล้วเตรียม PIN และดาวน์โหลดแมตช์ก่อน' : 'ยังไม่ได้เตรียมใช้งาน Offline ในเบราว์เซอร์นี้ กรุณาเข้าสู่ระบบออนไลน์แล้วเตรียม PIN และดาวน์โหลดแมตช์ก่อน'}</p>;
     return <details className="mt-5 rounded-lg border border-slate-300 p-3 text-sm"><summary className="cursor-pointer font-semibold">{compact ? 'ปลดล็อกด้วย PIN Offline' : 'Offline PIN · VIS / ScorerControl'}</summary><p className="my-2">PIN ของบัญชี {profile.user} · สิทธิ์ถึง {new Date(profile.expiresAt).toLocaleString('th-TH')}</p>{compact && <p className="my-2">ใช้ข้อมูลในเครื่องโดยไม่ใช้อินเทอร์เน็ต การซิงค์ต้องเข้าสู่ระบบออนไลน์</p>}{profile.expiresAt <= Date.now() && <p role="alert" className="my-2 text-red-500">สิทธิ์ Offline หมดอายุ กรุณาเข้าสู่ระบบออนไลน์ด้วยบัญชีเดิมเพื่อต่ออายุ ข้อมูลแมตช์ยังอยู่ในเครื่อง</p>}<form onSubmit={async event => {
         event.preventDefault(); if (inFlight.current || disabled || (beginAttempt && !beginAttempt())) return; inFlight.current = true; setBusy(true); setError('');
-        try { const user = await unlockOffline(pin, { workspace }); setPin(''); await onUnlocked(user); } catch (error) { setError(error.message); } finally { inFlight.current = false; setBusy(false); endAttempt?.(); }
-    }}><label>PIN ของบัญชีนี้<input type="password" inputMode="numeric" autoComplete="off" required pattern="[0-9]{6,12}" minLength={6} maxLength={12} disabled={busy || disabled} value={pin} onChange={event => setPin(event.target.value)} className="my-2 block w-full rounded border bg-slate-100 p-2 text-slate-900" /></label><button disabled={busy || disabled || profile.expiresAt <= Date.now()} className="rounded bg-sky-800 px-3 py-2 text-white">{busy ? 'กำลังตรวจสอบ PIN และสิทธิ์…' : 'ปลดล็อก Offline'}</button>{error && <p role="alert" className="mt-2 text-red-500">{error}</p>}</form></details>;
+        try { const user = await unlockOffline(pin, { section, readOnly: expired }); setPin(''); await onUnlocked(user); } catch (error) { setError(error.message); } finally { inFlight.current = false; setBusy(false); endAttempt?.(); }
+    }}><label>PIN ของบัญชีนี้<input type="password" inputMode="numeric" autoComplete="off" required pattern="[0-9]{6,12}" minLength={6} maxLength={12} disabled={busy || disabled} value={pin} onChange={event => setPin(event.target.value)} className="my-2 block w-full rounded border bg-slate-100 p-2 text-slate-900" /></label><button disabled={busy || disabled} className="rounded bg-sky-800 px-3 py-2 text-white">{unlockLabel}</button>{error && <p role="alert" className="mt-2 text-red-500">{error}</p>}</form></details>;
 }
 
 export default function VisOfflinePanel({ matches, reload }) {
@@ -36,7 +38,7 @@ export default function VisOfflinePanel({ matches, reload }) {
     }, []);
     useEffect(() => {
         let active = true;
-        listLocal().then(result => { if (active) setRecords(result); }).catch(error => { if (active) { setRecords([]); setNotice(error.message); } });
+        listLocal({ readOnly: true }).then(result => { if (active) setRecords(result); }).catch(error => { if (active) { setRecords([]); setNotice(error.message); } });
         return () => { active = false; };
     }, [refresh]);
     useEffect(() => {
@@ -58,14 +60,14 @@ export default function VisOfflinePanel({ matches, reload }) {
         <AccessStatus /><div className="flex flex-wrap items-center gap-3"><strong>VIS Offline · {online ? 'มีเครือข่าย' : 'ไม่มีเครือข่าย'}</strong><button disabled={busy} className="rounded border border-sky-700 px-3 py-1" onClick={() => { try { switchAccessMode(!offlineMode()); setRefresh(value => value + 1); reload(); } catch (error) { setNotice(error.message); } }}>{offlineMode() ? 'กลับโหมดเซิร์ฟเวอร์' : 'ทำงานในเครื่อง'}</button><span className="text-xs text-slate-400">เครื่องหลัก {deviceId().slice(0, 8)} · {offlineProfile() ? `สิทธิ์ถึง ${new Date(offlineProfile().expiresAt).toLocaleDateString('th-TH')}` : 'ยังไม่เตรียม Offline'}</span></div>
         <p className="text-xs text-amber-200">ข้อมูลที่ยังไม่ซิงค์อยู่ในเบราว์เซอร์นี้ การล้างข้อมูลเว็บไซต์ เปลี่ยนเครื่อง หรือใช้โหมดไม่ระบุตัวตนอาจทำให้ข้อมูลหาย โปรดส่งออก JSON สำรอง</p>
         <p className="text-xs text-slate-400">PWA: {pwaReady ? 'เก็บไฟล์แอปสำหรับ Offline แล้ว' : import.meta.env.PROD ? 'กำลังเตรียมไฟล์แอป กรุณารอขณะออนไลน์' : 'ใช้ได้เมื่อเปิด production build ผ่าน HTTPS หรือ localhost'} · ติดตั้งแอปได้จากเมนูเบราว์เซอร์</p>
-        <a href="/vis/login?reauth=1" className="inline-block text-sky-300 underline">เข้าสู่ระบบออนไลน์เพื่อซิงค์</a>
+        <a href="/login?reauth=1" className="inline-block text-sky-300 underline">เข้าสู่ระบบออนไลน์เพื่อซิงค์</a>
         <details><summary className="cursor-pointer text-sky-300">เตรียมเครื่อง / ต่ออายุสิทธิ์ / ปลดล็อก</summary>
             <OfflineSetup getPermit={api.getOfflinePermit} onPrepared={() => { setRefresh(value => value + 1); reload(); }} />
-            <OfflineUnlock workspace="vis" onUnlocked={() => { setRefresh(value => value + 1); reload(); }} />
+            <OfflineUnlock section="vis" onUnlocked={() => { setRefresh(value => value + 1); reload(); }} />
         </details>
         <label className="block">นำแมตช์สร้างเองบนเซิร์ฟเวอร์มาทำงาน Offline <select disabled={busy || !online} value="" className="ml-2 max-w-full rounded bg-slate-800 p-2" onChange={event => {
             const id = event.target.value; if (!id) return;
-            run(async () => { await listLocal(); const response = await api.checkoutOfflineVis(id, deviceId()); await checkoutLocal(id, response.data.payload, response.data.match); setNotice('จองสิทธิ์และเก็บแมตช์ในเครื่องแล้ว'); });
+            run(async () => { await ensureOfflineShell(); await prepareVisCheckout(id, api.checkoutOfflineVis, api.cancelOfflineVisCheckout); setNotice('จองสิทธิ์และเก็บแมตช์ในเครื่องแล้ว'); });
         }}><option value="">เลือกแมตช์…</option>{matches.filter(match => match.is_custom_vis && !match.is_offline_vis && !['confirmed', 'cancelled'].includes(match.vis_lifecycle)).map(match => <option key={match.id} value={match.id}>{match.home_team} – {match.away_team}</option>)}</select></label>
         <p className="text-xs text-slate-400">รองรับแมตช์สร้างเอง ส่วนตารางแข่งจาก Admin ยังคีย์ออนไลน์ · ต้องเตรียมแอป PWA ขณะออนไลน์ก่อนเปิดโดยไม่มีอินเทอร์เน็ต</p>
         {records.map(record => <div key={record.id} className="flex flex-wrap items-center gap-2 border-t border-slate-700 pt-2"><span className="min-w-40 flex-1">{record.payload.config.home.name} – {record.payload.config.away.name}<small className="block text-slate-400">{record.released ? 'คืนสิทธิ์แล้ว · อ่านอย่างเดียว' : `${record.queue.length} คำสั่งรอซิงค์${record.serverCreated ? '' : ' · แมตช์ใหม่ยังไม่ขึ้นเซิร์ฟเวอร์'}`} · ล่าสุด {record.lastSyncedAt ? new Date(record.lastSyncedAt).toLocaleString('th-TH') : 'ยังไม่ซิงค์'}</small></span>

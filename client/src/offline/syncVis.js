@@ -1,6 +1,7 @@
-import { getAuthToken, getOnlineUser } from '../authStorage.js';
+import { getAuthToken, getOnlineUser } from '../auth/authStorage.js';
 import { getLocal, updateLocal } from './offlineStore.js';
 import { deviceId } from './offlineAuth.js';
+import { nextSyncBatch, assertAcknowledged } from './syncBatch.js';
 
 export async function syncLocalMatch(id, release = false, transport = null) {
     let current = await getLocal(id);
@@ -14,19 +15,34 @@ export async function syncLocalMatch(id, release = false, transport = null) {
     });
     try {
         const send = transport || (await import('../api.js')).api.syncOfflineVis;
-        const response = await send(current.serverId, {
-        deviceId: deviceId(), baseRevision: current.baseRevision, operations: current.queue, release,
-        ...(!current.serverCreated ? { config: current.initialConfig, importBackup: current.importBackup } : {}),
-        });
-        const saved = response.data, acknowledged = new Set(saved.acknowledged);
-        await updateLocal(id, latest => {
-        latest.queue = latest.queue.filter(operation => !acknowledged.has(operation.operationId));
-        latest.baseRevision = saved.payload.revision;
-        latest.serverCreated = true; latest.lastSyncedAt = saved.payload.lastSyncedAt;
-        if (!latest.queue.length) latest.payload = saved.payload;
-        if (release && latest.queue.length) throw Error('มีรายการใหม่ระหว่างซิงค์ กรุณาซิงค์และคืนสิทธิ์อีกครั้ง');
-        latest.released = release || saved.payload.lifecycle === 'cancelled'; latest.updatedAt = new Date().toISOString(); return latest;
-        });
+        let saved;
+        do {
+            const initial = !current.serverCreated ? { config: current.initialConfig, importBackup: current.importBackup } : {};
+            const batch = nextSyncBatch(current.queue, initial), finalRelease = release && batch.length === current.queue.length;
+            current = await updateLocal(id, latest => {
+                if (latest.syncToken !== syncToken) throw Error('สิทธิ์ซิงค์เปลี่ยน กรุณาลองใหม่');
+                latest.syncingUntil = Date.now() + 120000; return latest;
+            });
+            const response = await send(current.serverId, {
+                deviceId: deviceId(), baseRevision: current.baseRevision, operations: batch, release: finalRelease,
+                ...initial,
+            });
+            saved = response.data;
+            assertAcknowledged(batch, saved.acknowledged, 'operationId');
+            if (!Number.isSafeInteger(saved.payload?.revision) || saved.payload.revision < current.baseRevision || !saved.payload.config || !saved.payload.match || (finalRelease && saved.payload.offlineLease)) {
+                throw Error('เซิร์ฟเวอร์ยืนยันสถานะแมตช์ไม่ครบ คิวในเครื่องยังอยู่ กรุณาลองซิงค์อีกครั้ง');
+            }
+            const acknowledged = new Set(batch.map(op => op.operationId));
+            current = await updateLocal(id, latest => {
+                if (latest.syncToken !== syncToken) throw Error('สิทธิ์ซิงค์เปลี่ยน คิวในเครื่องยังอยู่');
+                if (finalRelease && latest.queue.some(operation => !acknowledged.has(operation.operationId))) throw Error('มีคำสั่งใหม่ระหว่างคืนสิทธิ์ กรุณาสำรองและตรวจสอบ คิวในเครื่องยังอยู่');
+                latest.queue = latest.queue.filter(operation => !acknowledged.has(operation.operationId));
+                latest.baseRevision = saved.payload.revision;
+                latest.serverCreated = true; latest.lastSyncedAt = saved.payload.lastSyncedAt;
+                if (!latest.queue.length) latest.payload = saved.payload;
+                latest.released = finalRelease || saved.payload.lifecycle === 'cancelled'; latest.updatedAt = new Date().toISOString(); return latest;
+            });
+        } while (current.queue.length);
         return saved;
     } finally {
         await updateLocal(id, latest => {

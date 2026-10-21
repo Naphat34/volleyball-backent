@@ -8,3 +8,6 @@ backend/.env
 client/.env
 *.log
 ~$*
+
+# Local working artifacts
+/tmp/

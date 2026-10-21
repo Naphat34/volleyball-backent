@@ -1,4 +1,4 @@
-import { getStoredUser } from '../authStorage.js';
+import { getStoredUser } from '../auth/authStorage.js';
 import { getOfflineUser, deviceId } from './offlineAuth.js';
 import { createPayload, commandPayload, view, importCustomVis } from './visEngine.js';
 import { localRead } from './localRead.js';
@@ -9,8 +9,8 @@ const open = () => new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
 });
-const owner = () => {
-    const user = getOfflineUser(), online = getStoredUser();
+const owner = (options) => {
+    const user = getOfflineUser(options), online = getStoredUser();
     if (!user || (online && String(online.id) !== String(user.id))) throw Error('กรุณาปลดล็อก Offline ด้วย PIN ของบัญชีปัจจุบัน หรือเตรียมสิทธิ์ออนไลน์ใหม่');
     return String(user.id);
 };
@@ -34,20 +34,21 @@ export function updateLocal(id, transform) {
             try {
                 const current = request.result;
                 if (!current || current.ownerId !== userId) throw Error('ไม่พบแมตช์ Offline ของบัญชีนี้');
+                if (current.preparingUntil > Date.now()) throw Error('กำลังดาวน์โหลดแมตช์ กรุณารอ');
                 const next = transform(structuredClone(current));
                 store.put(next); done(next);
             } catch (error) { fail(error); }
         };
     });
 }
-export async function listLocal() {
-    const userId = owner();
+export async function listLocal(options) {
+    const userId = owner(options);
     return localRead(transaction('readonly', (store, done) => {
-        const request = store.getAll(); request.onsuccess = () => done(request.result.filter(item => item.ownerId === userId));
+        const request = store.getAll(); request.onsuccess = () => done(request.result.filter(item => item.ownerId === userId && item.payload));
     }));
 }
-export async function getLocal(id) {
-    const found = (await listLocal()).find(item => item.id === id);
+export async function getLocal(id, options) {
+    const found = (await listLocal(options)).find(item => item.id === id);
     if (!found) throw Error('ไม่พบแมตช์ Offline');
     return found;
 }
@@ -93,15 +94,55 @@ export async function editLocal(id, config) {
         current.updatedAt = new Date().toISOString(); return current;
     });
 }
-export async function checkoutLocal(serverId, payload, match) {
+export async function checkoutLocal(serverId, payload, match, preparingToken = null) {
     const id = serverId.replace('custom-', 'local-');
     const userId = owner();
     const record = { id, serverId, ownerId: userId, deviceId: deviceId(), payload, baseRevision: payload.revision,
         initialConfig: payload.config, serverCreated: true, queue: [], match, updatedAt: new Date().toISOString() };
     return transaction('readwrite', (store, done, fail) => {
         const request = store.get(id); request.onsuccess = () => {
-            if (request.result?.queue.length || request.result?.syncingUntil > Date.now()) return fail(Error('มีข้อมูลรอซิงค์หรือกำลังซิงค์ในเครื่อง ห้ามเขียนทับ'));
-            store.put(record); done(record);
+            try {
+                if (request.result && request.result.ownerId !== userId) return fail(Error('แมตช์นี้เป็นของบัญชีอื่น ห้ามเขียนทับ'));
+                if (preparingToken ? request.result?.preparingToken !== preparingToken : request.result?.preparingUntil > Date.now()) return fail(Error('ข้อมูลเปลี่ยนหรือกำลังดาวน์โหลดจากอีกหน้าต่าง'));
+                if (request.result?.queue.length || request.result?.syncingUntil > Date.now()) return fail(Error('มีข้อมูลรอซิงค์หรือกำลังซิงค์ในเครื่อง ห้ามเขียนทับ'));
+                store.put(record); done(record);
+            } catch (error) { fail(error); }
         };
     });
+}
+
+export async function prepareVisCheckout(serverId, checkout, cancel) {
+    const id = serverId.replace('custom-', 'local-'), userId = owner(), token = crypto.randomUUID();
+    await transaction('readwrite', (store, done, fail) => {
+        const request = store.get(id); request.onsuccess = () => {
+            const previous = request.result;
+            if (previous && previous.ownerId !== userId) return fail(Error('แมตช์นี้เป็นของบัญชีอื่น ห้ามเขียนทับ'));
+            if (previous?.queue.length || previous?.syncingUntil > Date.now() || previous?.preparingUntil > Date.now()) return fail(Error('มีคิวรอซิงค์หรือกำลังดาวน์โหลด/ซิงค์ ห้ามเขียนทับ'));
+            store.put({ ...previous, id, ownerId: userId, queue: previous?.queue || [], preparingToken: token, preparingUntil: Date.now() + 120000 }); done();
+        };
+    });
+    let response;
+    try {
+        response = (await checkout(serverId, deviceId())).data;
+        if (!response.payload?.config || !Number.isSafeInteger(response.payload.revision)) throw Error('ข้อมูลแมตช์จากเซิร์ฟเวอร์ไม่ครบ');
+        return await checkoutLocal(serverId, response.payload, response.match, token);
+    } catch (error) {
+        if (!response) error.message += ' · หากเครือข่ายหลุดหลังจอง ให้ใช้บัญชีและเบราว์เซอร์เดิมดาวน์โหลดแมตช์นี้ซ้ำ';
+        if (response?.leaseCreated) {
+            try { await cancel(serverId, deviceId(), response.payload.revision, response.payload.offlineLease?.checkoutToken); }
+            catch { error.message += ' · คืนสิทธิ์ไม่สำเร็จ กรุณาเชื่อมต่อแล้วดาวน์โหลดแมตช์เดิมอีกครั้ง'; }
+        }
+        throw error;
+    } finally {
+        await transaction('readwrite', (store, done) => {
+            const request = store.get(id); request.onsuccess = () => {
+                const latest = request.result;
+                if (latest?.preparingToken === token) {
+                    if (!latest.payload) store.delete(id);
+                    else { delete latest.preparingToken; delete latest.preparingUntil; store.put(latest); }
+                }
+                done();
+            };
+        });
+    }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { isPlayerLibero } from '../../../utils/playerFilters';
+import { isPlayerLibero } from '../../../utils/scorer/playerFilters';
 
 export default function LiberoSwapModal({
     isOpen,

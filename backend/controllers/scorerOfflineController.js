@@ -2,7 +2,7 @@ const db = require('../config/db');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
-const { createHash } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
 const { fail } = require('../utils/visWorkflow');
 const { initialCheckpoint, checkOperation } = require('../utils/scorerOfflineRules');
 const controllerFile = require.resolve('./scorerController');
@@ -66,13 +66,35 @@ exports.checkout = endpoint(async (req, res, connection) => {
     if (current && !current.released && Number(current.expires_at) > Date.now()
         && (String(current.owner_id) !== String(req.user.id) || current.device_id !== req.body.deviceId)) fail('แมตช์นี้มีเครื่องหลัก Offline แล้ว', 409);
     const hash = await fingerprint(connection, req);
-    const match = await call(scopedController(connection), 'getMatchDetails', req, {});
+    const controller = scopedController(connection);
+    const match = await call(controller, 'getMatchDetails', req, {});
     if (['completed','cancelled'].includes(match.status)) fail('แมตช์จบหรือยกเลิกแล้ว',409);
-    const sets = (await connection.query('SELECT * FROM match_sets WHERE match_id=?', [req.params.matchId])).rows;
-    await connection.query(`INSERT INTO scorer_offline_sessions (match_id,owner_id,device_id,expires_at,fingerprint,receipts,checkpoint,released)
+    const leaseCreated = !current || Boolean(current.released) || Number(current.expires_at) <= Date.now();
+    // Repeat checkout from the same device must preserve receipts from ambiguous sends.
+    if (!leaseCreated && current.fingerprint !== hash) fail('ข้อมูลเปลี่ยนระหว่างจอง กรุณาสำรองและตรวจสอบ', 409);
+    if (leaseCreated) {
+        const sets = (await connection.query('SELECT * FROM match_sets WHERE match_id=?', [req.params.matchId])).rows;
+        const checkpoint = { ...initialCheckpoint(match, sets), checkoutToken: randomUUID() };
+        await connection.query(`INSERT INTO scorer_offline_sessions (match_id,owner_id,device_id,expires_at,fingerprint,receipts,checkpoint,released)
         VALUES (?,?,?,?,?,'[]',?,0) ON DUPLICATE KEY UPDATE owner_id=VALUES(owner_id), device_id=VALUES(device_id), expires_at=VALUES(expires_at), fingerprint=VALUES(fingerprint),checkpoint=VALUES(checkpoint),receipts=JSON_ARRAY(), released=0`,
-    [req.params.matchId, req.user.id, req.body.deviceId, Date.now() + 7 * 86400000, hash,JSON.stringify(initialCheckpoint(match,sets))]);
-    res.json({ fingerprint: hash });
+    [req.params.matchId, req.user.id, req.body.deviceId, Date.now() + 7 * 86400000, hash, JSON.stringify(checkpoint)]);
+    }
+    const prefix = `/scorer/match/${req.params.matchId}`;
+    const cache = { [prefix]: match };
+    for (const [key, handler] of [['roster', 'getMatchRosterData'], ['state', 'getLiveState'], ['lineup', 'getMatchLineup'], ['events', 'getMatchEvents']]) {
+        cache[`${prefix}/${key}`] = await call(controller, handler, req, {});
+    }
+    const savedSession = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=?', [req.params.matchId])).rows[0];
+    res.json({ fingerprint: hash, cache, leaseCreated, checkoutToken: parse(savedSession.checkpoint).checkoutToken });
+});
+exports.cancelCheckout = endpoint(async (req, res, connection) => {
+    const session = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=? FOR UPDATE', [req.params.matchId])).rows[0];
+    if (!session || String(session.owner_id) !== String(req.user.id) || session.device_id !== req.body.deviceId
+        || !req.body.checkoutToken || parse(session.checkpoint).checkoutToken !== req.body.checkoutToken
+        || session.fingerprint !== req.body.fingerprint || parse(session.receipts).length
+        || await fingerprint(connection, req) !== session.fingerprint) fail('ไม่สามารถคืนสิทธิ์ดาวน์โหลดนี้ได้ กรุณาตรวจสอบแมตช์', 409);
+    await connection.query('UPDATE scorer_offline_sessions SET released=1 WHERE match_id=?', [req.params.matchId]);
+    res.json({ released: true });
 });
 exports.sync = endpoint(async (req, res, connection) => {
     const session = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id = ? FOR UPDATE', [req.params.matchId])).rows[0];
@@ -91,6 +113,9 @@ exports.sync = endpoint(async (req, res, connection) => {
         }
     }
     const currentHash = await fingerprint(connection, req);
+    if (!operations.length && session.released && req.body.release && req.body.fingerprint === session.fingerprint && currentHash === session.fingerprint) {
+        return res.json({ fingerprint: currentHash, acknowledged: [], released: true, syncedAt: new Date().toISOString() });
+    }
     if (operations.length && !pending.length) {
         if (req.body.release && !session.released) {
             if (currentHash !== session.fingerprint) fail('ข้อมูลทางการเปลี่ยนก่อนคืนสิทธิ์ กรุณาตรวจสอบ',409);

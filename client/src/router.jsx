@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { navigateBrowser } from './utils/routerNavigation';
+import { navigateBrowser } from './utils/navigation/routerNavigation';
 
 const RouterContext = createContext(null);
 const ParamsContext = createContext({});

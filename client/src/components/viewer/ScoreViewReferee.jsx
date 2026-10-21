@@ -4,8 +4,8 @@ import { Clock, RefreshCw, ArrowRightLeft, Wifi, WifiOff, MonitorPlay, PauseCirc
 import { io } from 'socket.io-client';
 import Swal from 'sweetalert2';
 import { api } from '../../api';
-import CourtView from '../CourtView.jsx';
-import { getContrastClass } from '../../utils/colorUtils';
+import CourtView from '../scorer/CourtView.jsx';
+import { getContrastClass } from '../../utils/common/colorUtils';
 
 const getSocketServerUrl = () => {
     const apiUrl = import.meta.env.VITE_API_URL;

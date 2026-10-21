@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Users } from 'lucide-react';
-import { getPlayerId, getPlayerNumber, isPlayerLibero, filterActivePlayers } from '../../../utils/playerFilters';
+import { getPlayerId, getPlayerNumber, isPlayerLibero, filterActivePlayers } from '../../../utils/scorer/playerFilters';
 
 const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos, onSelect, context }) => {
     if (!isOpen) return null;

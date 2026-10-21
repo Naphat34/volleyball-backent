@@ -43,6 +43,16 @@ test('MySQL offline sync is atomic, owner-scoped, idempotent and enforces exclus
         assert.equal((await call('offlineSync', id, { ...request, release: true })).code, 200);
         assert.equal((await call('command', id, { operationId: randomUUID(), revision: 2, command: { type: 'TIMEOUT', team: 'home' } })).code, 200);
         assert.equal((await call('read', id)).data.state.timeouts.home, 1);
+        const checked = await call('offlineCheckout', id, { deviceId });
+        assert.equal(checked.code, 200); assert.equal(checked.data.leaseCreated, true);
+        const token = checked.data.payload.offlineLease.checkoutToken;
+        const repeated = await call('offlineCheckout', id, { deviceId });
+        assert.equal(repeated.data.leaseCreated, false); assert.equal(repeated.data.payload.offlineLease.checkoutToken, token);
+        assert.equal((await call('offlineCancelCheckout', id, { deviceId, revision: 3, checkoutToken: randomUUID() })).code, 409);
+        assert.equal((await call('offlineCancelCheckout', id, { deviceId, revision: 3, checkoutToken: token })).code, 200);
+        const next = await call('offlineCheckout', id, { deviceId });
+        assert.notEqual(next.data.payload.offlineLease.checkoutToken, token);
+        assert.equal((await call('offlineCancelCheckout', id, { deviceId, revision: 3, checkoutToken: token })).code, 409);
     } finally {
         await connection.query('DROP TEMPORARY TABLE IF EXISTS vis_offline_integration');
         connection.release(); await db.pool.end();

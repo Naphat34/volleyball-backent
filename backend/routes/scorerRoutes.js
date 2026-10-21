@@ -8,6 +8,7 @@ const matchController = require('../controllers/matchController');
 const offline = require('../controllers/scorerOfflineController');
 router.get('/offline-permit', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.permit);
 router.post('/match/:matchId/offline-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.checkout);
+router.post('/match/:matchId/offline-cancel-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.cancelCheckout);
 router.post('/match/:matchId/offline-sync', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.sync);
 router.post('/match/:matchId/offline-confirm', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.confirm);
 router.use('/match/:matchId', offline.guard);

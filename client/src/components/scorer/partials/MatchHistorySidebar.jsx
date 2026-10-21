@@ -1,5 +1,5 @@
-import { getTeamCode } from '../../../utils/scorerHelpers';
-import { getContrastClass } from '../../../utils/colorUtils';
+import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
+import { getContrastClass } from '../../../utils/common/colorUtils';
 import React from 'react';
 import { Settings, Timer } from 'lucide-react';
 

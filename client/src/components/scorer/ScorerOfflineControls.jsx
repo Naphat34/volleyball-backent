@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import client from '../../api';
-import OfflineSetup from '../OfflineSetup';
-import AccessStatus from '../AccessStatus';
+import OfflineSetup from '../auth/OfflineSetup';
+import AccessStatus from '../auth/AccessStatus';
 import { scorerOfflineActive, scorerRecord, prepareScorer, syncScorer, backupScorer } from '../../offline/scorerOffline';
-import EventQueue from '../../utils/eventQueue';
+import EventQueue from '../../utils/scorer/eventQueue';
+import { ensureOfflineShell } from '../../offline/offlineShell';
 export default function ScorerOfflineControls({ matchId, flushState }) {
     const [open, setOpen] = useState(false), [record, setRecord] = useState(null), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
     useEffect(() => { const shell = document.querySelector('.scorer-shell'); if (shell) shell.inert = busy; return () => { if (shell) shell.inert = false; }; }, [busy]);
@@ -26,6 +27,7 @@ export default function ScorerOfflineControls({ matchId, flushState }) {
                 {!scorerOfflineActive(matchId) && <button disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => {
                     if (EventQueue.getQueue().some(event => String(event.matchId) === String(matchId))) throw Error('รอคิวออนไลน์ของแมตช์นี้ส่งครบก่อนจอง Offline');
                     await flushState();
+                    await ensureOfflineShell();
                     await prepareScorer(client, matchId); window.location.reload();
                 })}>ดาวน์โหลดและจองแมตช์ Offline</button>}
                 {record && <button disabled={busy} className="ui-button ui-button-secondary" onClick={() => run(() => backupScorer(matchId))}>สำรอง JSON</button>}
@@ -33,7 +35,7 @@ export default function ScorerOfflineControls({ matchId, flushState }) {
                 {record?.released && <button disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => { await client.post(`/scorer/match/${matchId}/offline-confirm`); window.location.reload(); })}>ตรวจสอบแล้ว · ยืนยันผลทางการ</button>}
             </div>
             <p>{record ? `${record.queue.length} คำสั่งรอซิงค์ · ล่าสุด ${record.syncedAt || 'ยังไม่ซิงค์'}` : 'ยังไม่ได้ดาวน์โหลดแมตช์นี้'}</p>
-            <a className="text-blue-700 underline" href={`/scorer/login?reauth=1&returnTo=${encodeURIComponent(`/scorer/${matchId}`)}`}>เข้าสู่ระบบออนไลน์ / ปลดล็อกด้วย PIN</a>
+            <a className="text-blue-700 underline" href={`/login?reauth=1&returnTo=${encodeURIComponent(`/scorer/${matchId}`)}`}>เข้าสู่ระบบออนไลน์ / ปลดล็อกด้วย PIN</a>
             <a className="ml-3 text-blue-700 underline" href="/scorer-offline">รายการแมตช์ในเครื่อง</a>
             {notice && <p role="status" className="text-amber-800">{notice} หากข้อมูลขัดแย้งให้สำรองและตรวจสอบกับผู้ดูแล ระบบไม่เขียนทับอัตโนมัติ</p>}
         </section>}

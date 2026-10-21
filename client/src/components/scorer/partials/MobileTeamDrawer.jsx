@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import TeamInfoPanel from './TeamInfoPanel';
-import { getContrastColorHex } from '../../../utils/colorUtils';
+import { getContrastColorHex } from '../../../utils/common/colorUtils';
 
 export default function MobileTeamDrawer({
     mobilePanelTeam,

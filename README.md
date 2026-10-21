@@ -2,9 +2,9 @@
 
 ระบบจัดการแข่งขันวอลเลย์บอลพร้อม e-score, live scorer, roster, team registration, match management และรายงานสำหรับผู้ดูแลระบบ
 
-คู่มือผู้ใช้งาน: [คู่มือ VOLLEY VIS ภาษาไทยฉบับละเอียด](docs/vis-user-manual-th.md)
+คู่มือผู้ใช้งาน: [คู่มือ VOLLEY VIS ภาษาไทยฉบับละเอียด](./docs/guides/vis-user-manual-th.md)
 
-ScorerControl: [คู่มือ Offline และการซิงค์คะแนนทางการ](docs/scorer-offline-th.md)
+ScorerControl: [คู่มือ Offline และการซิงค์คะแนนทางการ](./docs/guides/scorer-offline-th.md)
 
 ## Project Structure
 
@@ -12,7 +12,16 @@ ScorerControl: [คู่มือ Offline และการซิงค์ค�
 - `backend/` Express/MySQL backend
 - `backend/migrations/` SQL migrations
 - `backend/seeds/` SQL seed files
-- `docs/` เอกสารประกอบด้าน encoding และ database compatibility
+- `client/src/pages/` หน้าตามกลุ่ม auth, admin, team, scorer, vis, reports, matches และ public
+- `client/src/components/` ส่วนประกอบหน้าจอตามหน้าที่
+- `client/src/auth/` เซสชันและการยืนยันตัวตน
+- `client/src/offline/` แมตช์ในเครื่อง สิทธิ์ PIN และการซิงค์
+- `client/src/utils/` เครื่องมือแยกตามกลุ่มงาน
+- `docs/guides/` คู่มือผู้ใช้งาน
+- `docs/technical/` เอกสารการทำงานและโครงสร้างระบบ
+- `legacy/` โค้ดอ้างอิงเก่าที่ไม่ได้ใช้ในแอป
+
+ดู [ผังโครงสร้างและหลักการวางไฟล์](docs/technical/project-structure.md) และ [สารบัญเอกสาร](docs/README.md)
 
 ## Requirements
 
@@ -122,6 +131,7 @@ npm.cmd run build
 
 ## More Docs
 
-- [เอกสารระบบภาษาไทย](PROJECT_DOCUMENTATION_TH.md)
-- [การอ่านไฟล์ภาษาไทย/UTF-8](docs/ENCODING_TH.md)
-- [แนวทาง database schema compatibility](docs/DATABASE_SCHEMA_COMPATIBILITY_TH.md)
+- [คู่มือการใช้งานระบบทั่วไป](docs/guides/user-manual-th.md)
+- [โครงสร้างโครงการ](docs/technical/project-structure.md)
+- [แมตช์ VIS สร้างเอง](docs/technical/custom-vis-matches.md)
+- [สิทธิ์ Offline และเส้นทางเข้าสู่ระบบ](docs/technical/offline-auth-flow.md)

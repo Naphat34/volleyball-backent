@@ -113,9 +113,20 @@ exports.offlinePermit = async (req, res) => {
         issuedAt: Date.now(), expiresAt: Date.now() + 7 * 86400000 });
 };
 exports.offlineCheckout = endpoint(async (req, res, connection) => {
-    const row = await locked(req, connection), payload = checkout(parse(row.payload), req.body.deviceId);
+    const row = await locked(req, connection), previous = parse(row.payload);
+    const previousToken = previous.offlineLease?.checkoutToken;
+    const leaseCreated = !previous.offlineLease || previous.offlineLease.expiresAt <= Date.now();
+    const payload = checkout(previous, req.body.deviceId);
+    payload.offlineLease.checkoutToken = leaseCreated ? randomUUID() : previousToken;
     await connection.query('UPDATE custom_vis_matches SET payload = ? WHERE id = ?', [JSON.stringify(payload), req.params.id]);
-    await connection.commit(); res.json({ payload, match: decorate({ ...row, payload }) });
+    await connection.commit(); res.json({ payload, match: decorate({ ...row, payload }), leaseCreated });
+});
+exports.offlineCancelCheckout = endpoint(async (req, res, connection) => {
+    const row = await locked(req, connection), payload = parse(row.payload);
+    if (!req.body.checkoutToken || payload.offlineLease?.checkoutToken !== req.body.checkoutToken || payload.offlineLease?.deviceId !== req.body.deviceId || payload.revision !== req.body.revision) fail('ข้อมูลเปลี่ยน จึงไม่คืนสิทธิ์อัตโนมัติ กรุณาตรวจสอบแมตช์', 409);
+    payload.offlineLease = null;
+    await connection.query('UPDATE custom_vis_matches SET payload = ? WHERE id = ?', [JSON.stringify(payload), req.params.id]);
+    await connection.commit(); res.json({ released: true });
 });
 exports.offlineSync = endpoint(async (req, res, connection) => {
     if (!/^custom-[a-f0-9-]{36}$/i.test(req.params.id)) fail('Invalid offline match ID');
