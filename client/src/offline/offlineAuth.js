@@ -17,6 +17,9 @@ export function deviceId() {
 export function offlineProfile() {
     try { return JSON.parse(localStorage.getItem(PROFILE)); } catch { return null; }
 }
+export function offlineProfileMatchesUser(profile, user) {
+    return Boolean(profile?.userId != null && user?.id != null && String(profile.userId) === String(user.id));
+}
 export function getOfflineUser({ readOnly = false } = {}) {
     try {
         const grant = JSON.parse(sessionStorage.getItem(SESSION));
@@ -44,8 +47,9 @@ export async function prepareOffline(grant, pin, { replaceAccount = false } = {}
     deviceId();
     try { await navigator.storage?.persist?.(); } catch { /* Preparation has succeeded even if persistence is unavailable. */ }
 }
-export async function unlockOffline(pin, { section = null, readOnly = false } = {}) {
+export async function unlockOffline(pin, { section = null, readOnly = false, expectedUserId = null } = {}) {
     const record = offlineProfile();
+    if (expectedUserId != null && !offlineProfileMatchesUser(record, { id: expectedUserId })) throw Error('PIN นี้เป็นของบัญชีอื่น กรุณาเตรียมสิทธิ์ Offline สำหรับบัญชีปัจจุบัน');
     if (!record || (!readOnly && record.expiresAt <= Date.now())) throw Error('สิทธิ์ Offline หมดอายุหรือยังไม่เตรียมเครื่อง กรุณาเข้าสู่ระบบออนไลน์');
     let grant;
     try {
@@ -55,6 +59,11 @@ export async function unlockOffline(pin, { section = null, readOnly = false } = 
     if (!readOnly && grant.expiresAt <= Date.now()) throw Error('สิทธิ์ Offline หมดอายุ');
     if (!grant.user?.id || !['admin', 'statistician', 'score', 'scorer'].includes(grant.user.role)) throw Error('ข้อมูลสิทธิ์ Offline ไม่สมบูรณ์ กรุณาเตรียมสิทธิ์ออนไลน์ใหม่');
     if (section && !canEnterSection(grant.user, section, true)) throw Error(`บัญชี ${grant.user.username} ไม่มีสิทธิ์เข้า ${section === 'vis' ? 'VIS' : 'ScorerControl'} กรุณาเลือกหน้าระบบที่มีสิทธิ์`);
+    if (expectedUserId != null) {
+        let current = null;
+        try { current = offlineMode() ? getOfflineUser({ readOnly: true }) : JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null'); } catch { /* Reject a missing or changed identity below. */ }
+        if (String(grant.user.id) !== String(expectedUserId) || !current || String(current.id) !== String(expectedUserId)) throw Error('บัญชีปัจจุบันเปลี่ยนระหว่างปลดล็อก กรุณาตรวจสอบและลองใหม่');
+    }
     // Commit only after PIN, expiry and destination permissions have all passed.
     const keys = [SESSION, MODE, 'token', 'user'];
     const before = keys.map(key => sessionStorage.getItem(key));

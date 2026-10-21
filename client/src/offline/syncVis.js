@@ -25,6 +25,7 @@ export async function syncLocalMatch(id, release = false, transport = null) {
             });
             const response = await send(current.serverId, {
                 deviceId: deviceId(), baseRevision: current.baseRevision, operations: batch, release: finalRelease,
+                ...(current.payload.offlineSession ? { offlineSession: current.payload.offlineSession } : {}),
                 ...initial,
             });
             saved = response.data;

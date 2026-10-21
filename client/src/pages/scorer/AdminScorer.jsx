@@ -7,8 +7,10 @@ import { clearAuthSession, getStoredUser } from '../../auth/authStorage';
 import { useLanguage } from '../../context/LanguageContext';
 import { getPublicGenderLabel } from '../../utils/scorer/publicCompetitionGrouping';
 import { generateScoresheetPDF } from '../../utils/reports/pdfGenerator';
-import { scorerRecords, backupScorer } from '../../offline/scorerOffline';
-import { OfflineUnlock } from '../../components/vis/VisOfflinePanel';
+import ScorerOfflineModal from '../../components/scorer/ScorerOfflineModal';
+import { dashboardRefresh } from '../../utils/navigation/dashboardRefresh';
+import MatchDashboardScore from '../../components/vis/MatchDashboardScore';
+import { visStatusLabel } from '../../utils/vis/dashboardStatus';
 import '../../components/vis/VisDashboard.css';
 
 const statuses = { scheduled: ['ยังไม่เริ่ม', 'Scheduled'], live: ['กำลังแข่งขัน', 'Live'], completed: ['จบการแข่งขัน', 'Completed'], cancelled: ['ยกเลิก', 'Cancelled'] };
@@ -24,12 +26,13 @@ export default function AdminScorer() {
     const [loading, setLoading] = useState(true), [error, setError] = useState(''), [reloadKey, setReloadKey] = useState(0), [lastUpdated, setLastUpdated] = useState(null);
     const [search, setSearch] = useState(''), [status, setStatus] = useState(''), [team, setTeam] = useState('');
     const [sort, setSort] = useState({ field: 'number', descending: false }), [page, setPage] = useState(1), [pageSize, setPageSize] = useState(10);
-    const [offlineOpen, setOfflineOpen] = useState(false), [localMatches, setLocalMatches] = useState([]), [offlineNotice, setOfflineNotice] = useState('');
+    const [offlineOpen, setOfflineOpen] = useState(false);
     const [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
     useEffect(() => {
         let active = true;
-        const load = async () => {
-            setLoading(true); setError('');
+        const load = async (silent = false) => {
+            if (!silent) setLoading(true);
+            let partialError = '';
             try {
                 const response = await api.getOpenCompetitions();
                 const open = (response.data || []).filter(item => String(item.status || 'OPEN').toUpperCase() === 'OPEN');
@@ -38,7 +41,7 @@ export default function AdminScorer() {
                     // Referees keep the existing public competition read path, without scorer write permissions.
                     const results = await Promise.allSettled(open.map(item => api.getMatchesByCompetition(item.id)));
                     rows = results.flatMap((result,index) => result.status === 'fulfilled' ? result.value.data.map(match => ({ ...match, competition_id: open[index].id, competition_name: titleOf(open[index]) })) : []);
-                    if (results.some(result => result.status === 'rejected') && active) setError('โหลดบางรายการไม่สำเร็จ กรุณาดึงข้อมูลอีกครั้ง');
+                    if (results.some(result => result.status === 'rejected')) partialError = 'โหลดบางรายการไม่สำเร็จ กรุณาดึงข้อมูลอีกครั้ง';
                 } else {
                     rows = (await api.getScorerMatches()).data;
                 }
@@ -48,19 +51,14 @@ export default function AdminScorer() {
                     setCompetitions(open);
                     setMatches([...new Map(rows.filter(match => available.has(String(match.competition_id))).map(match => [match.id, { ...match, status: normalizeStatus(match.status) }])).values()]);
                     setLastUpdated(new Date());
+                    setError(partialError);
                 }
             } catch (error) { if (active) setError(error.response?.data?.error || error.message || 'โหลดแมตช์ไม่สำเร็จ'); }
-            finally { if (active) setLoading(false); }
+            finally { if (active && !silent) setLoading(false); }
         };
-        void load(); return () => { active = false; };
+        const updates = dashboardRefresh(load);
+        void updates.refresh(false); return () => { active = false; updates.stop(); };
     }, [reloadKey, isReferee]);
-    useEffect(() => {
-        if (!offlineOpen || isReferee) return;
-        let active = true;
-        const load = () => scorerRecords().then(rows => { if (active) { setLocalMatches(rows); setOfflineNotice(''); } }).catch(error => { if (active) setOfflineNotice(error.message); });
-        void load(); window.addEventListener('scorer-offline-updated', load);
-        return () => { active = false; window.removeEventListener('scorer-offline-updated', load); };
-    }, [offlineOpen, isReferee]);
     const competitionOptions = [...new Map(competitions.map(item => [titleOf(item), item])).values()];
     const selectedCompetition = competitions.find(item => String(item.id) === competition);
     const teamNames = [...new Set(matches.flatMap(match => [match.home_team,match.away_team]).filter(Boolean))].sort((a,b) => a.localeCompare(b,'th'));
@@ -88,14 +86,11 @@ export default function AdminScorer() {
         </div></header>
         <main className="vd-main"><AccessStatus /><div className="vd-heading"><h1>{th ? 'การแข่งขัน':'Matches'} · {isReferee ? 'Referee':'ScorerControl'}</h1><div className="vd-actions">
             <div className="vd-split"><button disabled={loading} onClick={() => setReloadKey(value => value+1)}>⇩ {th ? 'ดึงแมตช์จากเซิร์ฟเวอร์':'Fetch matches'}</button><details><summary aria-label="ตัวเลือกดึงข้อมูล">▾</summary><div><button onClick={() => { reset(); setReloadKey(value => value+1); }}>ดึงทั้งหมดและล้างตัวกรอง</button></div></details></div>
-            {!isReferee && <button type="button" className={`vd-offline-toggle ${offlineOpen ? 'is-active':''}`} aria-label="ScorerControl Offline" title="ScorerControl Offline · ข้อมูลในเครื่อง" aria-expanded={offlineOpen} aria-controls="scorer-dashboard-offline" onClick={() => setOfflineOpen(value => !value)}><CloudOff size={21} aria-hidden="true" /></button>}
+            {!isReferee && <button type="button" className={`vd-offline-toggle ${offlineOpen ? 'is-active':''}`} aria-label="ScorerControl Offline" title="ScorerControl Offline · ข้อมูลในเครื่อง" aria-haspopup="dialog" aria-expanded={offlineOpen} aria-controls={offlineOpen ? 'scorer-dashboard-offline' : undefined} onClick={() => setOfflineOpen(true)}><CloudOff size={21} aria-hidden="true" /></button>}
         </div></div>
-        {!isReferee && <section id="scorer-dashboard-offline" hidden={!offlineOpen} className="vd-offline-content" onKeyDown={event => { if (event.key === 'Escape') { setOfflineOpen(false); document.querySelector('.vd-offline-toggle')?.focus(); } }}>
-            <div className="mb-4 space-y-3 rounded-xl border border-sky-900 bg-slate-900 p-4"><h2 className="font-bold">ScorerControl Offline</h2><p>ดาวน์โหลดเฉพาะแมตช์ที่เลือกจากปุ่ม Offline ในหน้า ScorerControl แล้วจึงใช้งานโดยไม่มีอินเทอร์เน็ต</p><Link to="/scorer-offline" className="text-sky-300 underline">เปิดรายการแมตช์ในเครื่อง →</Link><OfflineUnlock section="scorer" onUnlocked={() => navigate('/scorer-offline')} />
-                {offlineNotice && <p className="text-amber-200">{offlineNotice}</p>}{localMatches.map(record => <div key={record.id} className="flex flex-wrap items-center gap-3 border-t border-slate-700 pt-2"><span className="flex-1">แมตช์ #{record.id} · {record.queue.length} คำสั่งรอซิงค์ · {record.released ? 'คืนสิทธิ์แล้ว':'เครื่องหลัก'}</span><Link to={`/scorer/${record.id}`} className="text-sky-300 underline">เปิดแมตช์</Link><button disabled={busy} onClick={() => run(() => backupScorer(record.id))} className="text-sky-300 underline">สำรอง JSON</button></div>)}
-            </div>
-        </section>}
+        {!isReferee && offlineOpen && <ScorerOfflineModal onClose={() => setOfflineOpen(false)} />}
         {(notice || error) && <div className="vd-notice" role="status"><span>{notice || error}</span>{notice && <button onClick={() => setNotice('')} aria-label="ปิดข้อความ">✕</button>}</div>}
+        <p className="vd-refresh-note">{th ? 'อัปเดตอัตโนมัติทุก 5 วินาที · แสดงผลเซตทางการและแต้มเซตปัจจุบันจาก Scorer' : 'Refreshes every 5 seconds · Official sets and current-set points from Scorer'}</p>
         <section className="vd-table-panel" aria-label="รายการแมตช์ Scorer"><div className="vd-filters">
             <input value={search} aria-label="ค้นหาแมตช์" placeholder={th ? 'ค้นหา…':'Search…'} onChange={event => { setSearch(event.target.value); setPage(1); }} />
             <select value={competition} aria-label="รายการแข่งขัน" onChange={event => { setParams(event.target.value ? {view:'matches',compId:event.target.value}:{}); setPage(1); }}><option value="">{th ? 'ทุกรายการแข่งขัน':'All competitions'}</option>{competitionOptions.map(item => <option key={item.id} value={item.id}>{titleOf(item)}</option>)}{selectedCompetition && !competitionOptions.some(item => String(item.id) === competition) && <option value={competition}>{titleOf(selectedCompetition)}</option>}</select>
@@ -105,7 +100,7 @@ export default function AdminScorer() {
         </div><div className="vd-table-scroll"><table className="vd-table"><thead><tr><th>{heading('date',th?'วันที่':'Date')}</th><th>{heading('number',th?'แมตช์':'Match')}</th><th>{heading('competition',th?'รายการ / สนาม':'Competition / venue')}</th><th>{heading('score',th?'ผล':'Result')}</th><th>{heading('status',th?'สถานะ':'Status')}</th><th aria-label="การจัดการ" /></tr></thead><tbody>
             {loading || !rows.length ? <tr><td colSpan={6} className="vd-empty" role="status">{loading ? 'กำลังโหลดแมตช์…':error || 'ไม่พบแมตช์ตามเงื่อนไข'}</td></tr> : rows.map(match => <tr key={match.id}>
                 <td className="vd-date">{date(match.match_date || match.raw_start_time)}</td><td className="vd-match"><strong><span>{match.home_team || 'TBA'}</span> <i>vs</i> <span>{match.away_team || 'TBA'}</span></strong><small>#{match.match_number || match.id}</small><small>{[match.round_name,match.pool_name].filter(Boolean).join(' · ') || 'ตารางแข่งขันจาก Admin'}</small></td>
-                <td className="vd-competition"><span>{label(match)}</span><small>{match.location || '—'}</small></td><td className="vd-score">{['live','completed'].includes(match.status) ? `${match.home_set_score || 0} : ${match.away_set_score || 0}`:'—'}</td><td><div className="vd-badges"><span className={`vd-badge vd-${match.status}`}>{statuses[match.status]?.[th?0:1] || match.status}</span><span className="vd-badge">เซิร์ฟเวอร์</span></div></td>
+                <td className="vd-competition"><span>{label(match)}</span><small>{match.location || '—'}</small></td><td className="vd-score"><MatchDashboardScore match={match} th={th} source="official" /></td><td><div className="vd-badges"><span className={`vd-badge vd-${match.status}`}>{th ? 'ทางการ' : 'Official'} · {statuses[match.status]?.[th?0:1] || match.status}</span>{match.vis_summary?.hasActivity && <span className="vd-badge">VIS · {visStatusLabel(match, th)}</span>}<span className="vd-badge">เซิร์ฟเวอร์</span></div></td>
                 <td><div className="vd-row-actions">{!isReferee && !['cancelled','completed'].includes(match.status) && match.home_team_id && match.away_team_id && <Link to={`/scorer/${match.id}`} className="vd-primary">{th?'บันทึกคะแนน':'Score'}</Link>}<Link to={`/match/${match.id}`}>{th?'ข้อมูลแมตช์':'Match details'}</Link><details className="vd-row-menu"><summary aria-label={`เมนูแมตช์ ${match.match_number || match.id}`}>⋯</summary><div><a href={`/match/${match.id}/viewer`} target="_blank" rel="noreferrer">Livescore ↗</a><button disabled={busy} onClick={() => run(async () => { const response = await api.getMatchScoresheetData(match.id); await generateScoresheetPDF(response.data); })}>รายงาน PDF</button><a href={`/match/${match.id}`} target="_blank" rel="noreferrer">เปิดข้อมูลแท็บใหม่ ↗</a></div></details></div></td>
             </tr>)}
         </tbody></table></div><footer className="vd-pagination"><span>{th?'แสดง':'Showing'} {filtered.length ? (currentPage-1)*pageSize+1:0}–{Math.min(currentPage*pageSize,filtered.length)} {th?'จาก':'of'} {filtered.length}</span><div>{pages>1 && <><button disabled={currentPage===1} onClick={() => setPage(currentPage-1)}>‹</button><span>{currentPage} / {pages}</span><button disabled={currentPage===pages} onClick={() => setPage(currentPage+1)}>›</button></>}<select aria-label="จำนวนต่อหน้า" value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>{[10,25,50].map(size => <option key={size} value={size}>{size} / {th?'หน้า':'page'}</option>)}</select></div></footer></section>

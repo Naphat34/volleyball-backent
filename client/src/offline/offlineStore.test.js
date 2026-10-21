@@ -5,6 +5,7 @@ import 'fake-indexeddb/auto';
 import { createLocal, getLocal, listLocal, saveLocal, localView, updateLocal, prepareVisCheckout } from './offlineStore.js';
 import { syncLocalMatch } from './syncVis.js';
 import { prepareOffline, unlockOffline, clearOfflineSession, getOfflineUser, offlineProfile } from './offlineAuth.js';
+import { setAuthSession } from '../auth/authStorage.js';
 const require = createRequire(import.meta.url);
 const { syncPayload } = require('../../../backend/utils/visOffline.js');
 const { createPayload } = require('../../../backend/utils/customVis.js');
@@ -29,6 +30,35 @@ async function recordGame() {
     await saveLocal(current.id, operation({ type: 'RALLY', events: [{ team: 'home', player: 1, skill: 'S', grade: '#' }] }));
     return getLocal(current.id);
 }
+
+test('Admin match checkout uses a separate local ID, keeps original players/teams and syncs with its session', async () => {
+    const payload = createPayload(config(), 'custom-admin-fixture');
+    payload.match = { ...payload.match, id: 913, home_team_id: 21, away_team_id: 42, is_custom_vis: false };
+    payload.offlineSession = crypto.randomUUID();
+    payload.config.home.players.forEach((p, i) => { p.id = 2101 + i; });
+    payload.config.away.players.forEach((p, i) => { p.id = 4201 + i; });
+    const record = await prepareVisCheckout('913', async () => ({ data: { payload, leaseCreated: false } }), async () => {});
+    assert.equal(record.id, 'local-admin-913');
+    assert.equal(record.serverId, '913');
+    await saveLocal(record.id, { operationId: crypto.randomUUID(), revision: 0, command: {
+        type: 'SET_LINEUP', lineups: { home: [2101,2102,2103,2104,2105,2106], away: [4201,4202,4203,4204,4205,4206] }, servingTeam: 'home', firstSetHomeLeft: true,
+    } });
+    const current = await getLocal(record.id);
+    await saveLocal(record.id, { operationId: crypto.randomUUID(), revision: current.payload.revision, command: {
+        type: 'RALLY', context: { key: localView(current).state.context.key }, events: [{ team: 'home', player: 2101, skill: 'S', grade: '#' }],
+    } });
+    const local = await getLocal(record.id);
+    assert.equal(local.payload.actions[0].team_id, 21);
+    assert.equal(local.payload.actions[0].player_id, 2101);
+    assert.equal(localView(local).match.is_custom_vis, false);
+    await syncLocalMatch(record.id, true, async (id, request) => {
+        assert.equal(id, '913');
+        assert.equal(request.offlineSession, payload.offlineSession);
+        return { data: syncPayload(payload, request) };
+    });
+    assert.equal((await getLocal(record.id)).released, true);
+    assert.equal((await getLocal(record.id)).queue.length, 0);
+});
 test('PIN unlock encrypts grant, rejects wrong PIN and expires without storing online token', async () => {
     await prepareOffline(grant(), '123456');
     const profile = offlineProfile();
@@ -137,6 +167,33 @@ test('expired PIN unlocks backups but never authorizes recording', async () => {
         assert.equal((await getLocal(record.id, { readOnly: true })).queue.length, 2);
         await assert.rejects(saveLocal(record.id, {}), /PIN/);
     } finally { Date.now = originalNow; }
+});
+
+test('dashboard PIN cannot switch to another account or replace a profile with pending work', async () => {
+    await prepareOffline(grant(), '123456');
+    const record = await recordGame(), profile = JSON.stringify(offlineProfile());
+    const scorer = { id: 8, role: 'scorer', username: 'scorer' };
+    setAuthSession({ token: 'scorer-online-token', user: scorer });
+    await assert.rejects(unlockOffline('123456', { section: 'scorer', expectedUserId: 8 }), /บัญชีอื่น/);
+    assert.equal(sessionStorage.getItem('token'), 'scorer-online-token');
+    assert.equal(JSON.parse(sessionStorage.getItem('user')).id, 8);
+    assert.equal(getOfflineUser(), null);
+    await assert.rejects(prepareOffline({ user: scorer, expiresAt: Date.now() + 86400000 }, '654321', { replaceAccount: true }), /รอซิงค์/);
+    assert.equal(JSON.stringify(offlineProfile()), profile);
+    setAuthSession({ token: 'original-online-token', user: grant().user });
+    await unlockOffline('123456', { section: 'vis', expectedUserId: '7' });
+    assert.equal((await getLocal(record.id)).queue.length, 2);
+    assert.equal(sessionStorage.getItem('token'), 'original-online-token');
+});
+
+test('strict PIN verifies the decrypted account even if the profile metadata names the current user', async () => {
+    await prepareOffline(grant(), '123456');
+    const profile = offlineProfile(); profile.userId = 8;
+    localStorage.setItem('vis_offline_profile_v1', JSON.stringify(profile));
+    setAuthSession({ token: 'scorer-online-token', user: { id: 8, role: 'scorer', username: 'scorer' } });
+    await assert.rejects(unlockOffline('123456', { section: 'scorer', expectedUserId: 8 }), /บัญชีปัจจุบันเปลี่ยน/);
+    assert.equal(sessionStorage.getItem('token'), 'scorer-online-token');
+    assert.equal(getOfflineUser(), null);
 });
 
 test('VIS engine replays multiple batches with correct revisions after a lost final release response', async () => {

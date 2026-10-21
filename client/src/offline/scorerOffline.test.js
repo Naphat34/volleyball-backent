@@ -8,13 +8,46 @@ beforeEach(()=>{
  globalThis.localStorage=storage();globalThis.sessionStorage=storage();globalThis.window=new EventTarget();
  window.location={pathname:`/scorer/${++id}`};
  Object.defineProperty(navigator,'onLine',{value:true,configurable:true});
- const user={id:7,role:'scorer'};sessionStorage.setItem('user',JSON.stringify(user));sessionStorage.setItem('token','test-token');
+ const user={id:7,role:'scorer'};sessionStorage.setItem('user',JSON.stringify(user));sessionStorage.setItem('token',`e30.${btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))}.test`);
  sessionStorage.setItem('vis_offline_unlocked_v1',JSON.stringify({user,expiresAt:Date.now()+60000}));
 });
 const snapshot=()=>({ [`/scorer/match/${id}`]: { id, home_team_id: 1, away_team_id: 2 },
  [`/scorer/match/${id}/state`]: {score:{home:0,away:0}}, [`/scorer/match/${id}/roster`]: {home:{players:[]},away:{players:[]}},
  [`/scorer/match/${id}/lineup`]: [], [`/scorer/match/${id}/events`]: [] });
-const client=()=>({get:async()=>({data:[]}),post:async()=>({data:{fingerprint:'base-fingerprint',cache:snapshot(),leaseCreated:true}}),interceptors:{request:{use(fn){this.handler=fn;}}}});
+const client=()=>({get:async path=>({data:path.endsWith('/offline-status')?{canCheckout:true}:[]}),post:async()=>({data:{fingerprint:'base-fingerprint',cache:snapshot(),leaseCreated:true}}),interceptors:{request:{use(fn){this.handler=fn;}}}});
+
+test('download requires a live online session belonging to the unlocked PIN account',async()=>{
+ const transport=client();let calls=0;transport.get=async()=>{calls++;return {data:{canCheckout:true}};};
+ sessionStorage.removeItem('token');
+ await assert.rejects(prepareScorer(transport,id),/ออนไลน์/);assert.equal(calls,0);
+ sessionStorage.setItem('token',`e30.${btoa(JSON.stringify({exp:1}))}.test`);
+ await assert.rejects(prepareScorer(transport,id),/ออนไลน์/);assert.equal(calls,0);
+ sessionStorage.setItem('token',`e30.${btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+60}))}.test`);
+ sessionStorage.setItem('user',JSON.stringify({id:8,role:'scorer'}));
+ await assert.rejects(prepareScorer(transport,id),/PIN|บัญชี/);assert.equal(calls,0);
+});
+
+test('reservation preflight rejects another lease before creating a local record or calling checkout',async()=>{
+ const transport=client();let posts=0;
+ transport.get=async()=>({data:{canCheckout:false,reason:'แมตช์ถูกจองสำหรับ VIS Offline'}});
+ transport.post=async()=>{posts++;};
+ await assert.rejects(prepareScorer(transport,id),/VIS Offline/);assert.equal(posts,0);
+ await assert.rejects(scorerRecord(id),/ไม่พบ/);
+});
+
+test('session is rechecked after reference downloads before reserving the match',async()=>{
+ const transport=client();let posts=0;
+ transport.get=async path=>{if(path.endsWith('/offline-status'))return {data:{canCheckout:true}};sessionStorage.removeItem('token');return {data:[]};};
+ transport.post=async()=>{posts++;};
+ await assert.rejects(prepareScorer(transport,id),/ออนไลน์/);assert.equal(posts,0);
+ await assert.rejects(scorerRecord(id),/ไม่พบ/);
+});
+
+test('checkout conflicts after a successful preflight do not persist an incomplete match',async()=>{
+ const transport=client();transport.post=async()=>{throw Error('มีเครื่องอื่นจองก่อนดาวน์โหลด');};
+ await assert.rejects(prepareScorer(transport,id),/เครื่องอื่นจอง/);
+ await assert.rejects(scorerRecord(id),/ไม่พบ/);
+});
 test('prepared official match serves cached reads and journals mutations in IndexedDB',async()=>{
  const transport=client();await prepareScorer(transport,id);installScorerOffline(transport);
  const send=async(path,method='get',data)=>{const config=await transport.interceptors.request.handler({url:`/scorer/match/${id}/${path}`,method,data});return config.adapter();};

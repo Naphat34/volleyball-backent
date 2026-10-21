@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
+import VisRosterEditor from './VisRosterEditor';
 import { readRosterExcel, rosterFromRows, downloadRosterTemplate } from '../../utils/vis/visRosterImport';
 
 export default function VisCreateMatch({ matchId, onClose, onSaved, sources = [] }) {
@@ -20,7 +21,20 @@ export default function VisCreateMatch({ matchId, onClose, onSaved, sources = []
     const team = (key, fields) => setForm(previous => ({ ...previous, [key]: { ...previous[key], ...fields } }));
     const teamSources = sources.flatMap(source => ['home', 'away'].map(key => ({ id: source.id, key, name: source[`${key}_team`] }))).filter(source => source.name);
     const run = async action => { setBusy(true); setError(''); try { await action(); } catch (error) { setError(error.response?.data?.error || error.message || 'บันทึกไม่สำเร็จ'); } finally { setBusy(false); } };
+    const validateRosters = () => {
+        for (const key of ['home', 'away']) {
+            const players = form[key].players;
+            if (players.some(p => !String(p.number ?? '').trim() || !p.first_name.trim() || !p.last_name.trim())) throw Error(`${key === 'home' ? 'เจ้าบ้าน' : 'ทีมเยือน'}: กรุณาระบุเบอร์ ชื่อ และนามสกุลให้ครบ หรือลบแถวที่ไม่ใช้`);
+            rosterFromRows([['number', 'first_name', 'last_name', 'position', 'captain'], ...players.map(p => [p.number, p.first_name, p.last_name, p.position, p.is_captain ? 1 : 0])]);
+            if (players.filter(p => p.is_captain).length > 1) throw Error('กำหนดกัปตันได้ทีมละหนึ่งคน');
+        }
+    };
+    const next = () => {
+        try { if (step === 2 && !locked) validateRosters(); setError(''); setStep(step + 1); }
+        catch (error) { setError(error.message); }
+    };
     const save = start => run(async () => {
+        validateRosters();
         if (!form.title.trim() || !form.home.name.trim() || !form.away.name.trim()) throw Error('กรุณาระบุชื่อแมตช์และชื่อทั้งสองทีม');
         if (start && ['home', 'away'].some(key => form[key].players.filter(p => p.position !== 'L').length < 6)) throw Error('ก่อนเริ่มต้องมีผู้เล่นทั่วไปอย่างน้อยทีมละ 6 คน');
         const response = matchId ? await api.updateCustomVis(matchId, form) : await api.createCustomVis({ ...form, creationId });
@@ -44,14 +58,15 @@ export default function VisCreateMatch({ matchId, onClose, onSaved, sources = []
             </div>}
             {step === 2 && <><button disabled={busy} className={btn} onClick={() => run(downloadRosterTemplate)}>ดาวน์โหลดแบบฟอร์ม Excel (.xlsx)</button><p className="text-xs text-slate-400">คอลัมน์ number, first_name, last_name, position, captain · ตำแหน่ง S/OH/MB/OPP/L · captain ใส่ 1 · นำเข้าแทนที่รายชื่อทีมที่เลือก</p>
                 <div className="grid gap-4 lg:grid-cols-2">{['home', 'away'].map(key => <section key={key} className="space-y-2 rounded border border-slate-700 p-3"><h3>{key === 'home' ? '* เจ้าบ้าน' : 'a ทีมเยือน'}</h3><input className={input} disabled={busy || locked} value={form[key].name} placeholder="ชื่อทีม" aria-label={`ชื่อทีม ${key}`} onChange={event => team(key, { name: event.target.value })} />
+                    <VisRosterEditor players={form[key].players} disabled={busy || locked} teamLabel={key === 'home' ? 'เจ้าบ้าน' : 'ทีมเยือน'} onChange={players => team(key, { players })} />
                     <select className={input} disabled={busy || locked} defaultValue="" aria-label={`คัดลอกทีมเดิม ${key}`} onChange={event => { const source = teamSources[Number(event.target.value)]; if (event.target.value !== '' && source) run(async () => { const response = await api.getMatchRosterData(source.id); team(key, { name: source.name, players: response.data[source.key].players.map(p => ({ number: Number(p.number), first_name: p.first_name || '', last_name: p.last_name || '', position: p.position || '', is_captain: Boolean(p.is_captain) })) }); }); event.target.value = ''; }}><option value="">คัดลอกทีมและรายชื่อจากแมตช์เดิม…</option>{teamSources.map((source, index) => <option key={`${source.id}-${source.key}`} value={index}>{source.name} · {source.id}</option>)}</select>
                     <label className="block text-xs">นำเข้าจาก Excel<input disabled={busy || locked} type="file" accept=".xlsx" className="mt-1 block max-w-full" onChange={event => { const file = event.target.files?.[0]; if (file) run(async () => team(key, { players: await readRosterExcel(file, key) })); event.target.value = ''; }} /></label>
                     <textarea disabled={busy || locked} className={`${input} min-h-24 font-mono`} value={paste[key]} aria-label={`วางรายชื่อ ${key}`} onChange={event => setPaste({ ...paste, [key]: event.target.value })} placeholder={'วางตารางจาก Excel พร้อมหัวคอลัมน์\nnumber\tfirst_name\tlast_name\tposition'} />
                     <button disabled={busy || locked} className={btn} onClick={() => { try { team(key, { players: rosterFromRows(paste[key].split(/\r?\n/).map(row => row.split('\t'))) }); setError(''); } catch (error) { setError(error.message); } }}>ตรวจสอบและใช้รายชื่อที่วาง</button>
-                    <p className="text-xs text-sky-200">ตัวอย่างก่อนบันทึก · {form[key].players.length} คน</p><div className="max-h-64 overflow-y-auto"><table className="w-full text-left text-xs"><thead><tr><th>เบอร์</th><th>ชื่อ</th><th>ตำแหน่ง</th></tr></thead><tbody>{form[key].players.map(p => <tr key={p.number} className="border-b border-slate-800"><td className="py-1">{p.number}</td><td>{p.first_name} {p.last_name}{p.is_captain ? ' (C)' : ''}</td><td>{p.position || '-'}</td></tr>)}</tbody></table></div>
+                    <p className="text-xs text-sky-200">ตัวอย่างก่อนบันทึก · {form[key].players.length} คน</p><div className="max-h-64 overflow-y-auto"><table className="w-full text-left text-xs"><thead><tr><th>เบอร์</th><th>ชื่อ</th><th>ตำแหน่ง</th></tr></thead><tbody>{form[key].players.map((p, index) => <tr key={index} className="border-b border-slate-800"><td className="py-1">{p.number}</td><td>{p.first_name} {p.last_name}{p.is_captain ? ' (C)' : ''}</td><td>{p.position || '-'}</td></tr>)}</tbody></table></div>
                 </section>)}</div></>}
             {step === 3 && <div className="space-y-3 rounded bg-slate-800 p-4"><h3 className="text-lg font-bold">{form.title || 'ยังไม่ระบุชื่อแมตช์'}</h3><p>{form.home.name || 'เจ้าบ้าน'} ({form.home.players.length} คน) — {form.away.name || 'ทีมเยือน'} ({form.away.players.length} คน)</p><p>{form.date} {form.time} · {form.location || 'ยังไม่ระบุสนาม'} · สูงสุด {form.maxSets} เซต</p><p className="text-xs text-slate-400">แมตช์นี้แยกจากตารางคะแนนรายการแข่งขันและทะเบียนทีมหลัก เริ่มต้นเป็นส่วนตัว เปิดเผยแพร่ได้จากปุ่มจัดการแมตช์</p></div>}
         </div>
-        <footer className="flex justify-between gap-2 border-t border-slate-700 p-4"><button disabled={busy || step === 1} onClick={() => setStep(step - 1)} className={btn}>ย้อนกลับ</button><div className="flex gap-2">{step < 3 ? <button disabled={busy} onClick={() => setStep(step + 1)} className={btn}>ถัดไป</button> : !locked && <><button disabled={busy} onClick={() => save(false)} className={btn}>บันทึกฉบับร่าง</button><button disabled={busy} onClick={() => save(true)} className={btn}>บันทึกและเริ่มคีย์</button></>}</div></footer>
+        <footer className="flex justify-between gap-2 border-t border-slate-700 p-4"><button disabled={busy || step === 1} onClick={() => setStep(step - 1)} className={btn}>ย้อนกลับ</button><div className="flex gap-2">{step < 3 ? <button disabled={busy} onClick={next} className={btn}>ถัดไป</button> : !locked && <><button disabled={busy} onClick={() => save(false)} className={btn}>บันทึกฉบับร่าง</button><button disabled={busy} onClick={() => save(true)} className={btn}>บันทึกและเริ่มคีย์</button></>}</div></footer>
     </section></div>;
 }

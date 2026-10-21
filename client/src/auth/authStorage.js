@@ -1,6 +1,8 @@
 import { getOfflineUser, clearOfflineSession, offlineMode, setOfflineMode } from '../offline/offlineAuth.js';
 const TOKEN_KEY = 'token';
 const USER_KEY = 'user';
+let authSessionVersion = 0;
+export const getAuthSessionVersion = () => authSessionVersion;
 
 const safeJsonParse = (value) => {
   if (!value) return null;
@@ -37,6 +39,9 @@ export const getStoredUser = () => {
 };
 
 export const setAuthSession = ({ token, user }) => {
+  authSessionVersion++;
+  const grant = getOfflineUser({ readOnly: true });
+  if (user && grant && String(user.id) !== String(grant.id)) clearOfflineSession();
   if (token) sessionStorage.setItem(TOKEN_KEY, token);
   if (user) sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   localStorage.removeItem(TOKEN_KEY);
@@ -82,6 +87,7 @@ export const adoptOfflineIdentity = (user) => {
 };
 
 export const clearAuthSession = () => {
+  authSessionVersion++;
   clearOfflineSession();
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);

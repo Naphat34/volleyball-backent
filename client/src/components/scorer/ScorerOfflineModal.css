@@ -1,0 +1,13 @@
+.vop-panel.vop-dialog.sop-dialog { width:min(860px,calc(100% - 32px)); max-width:860px; margin:auto; }
+.sop-dialog .sop-network { justify-content:flex-end; margin:-8px 0 14px; }
+.sop-dialog .vop-device-body .vop-match-actions { margin-top:16px; }
+.sop-dialog .vop-text-link { display:inline-block; color:#a8cbfa; text-decoration:underline; }
+.sop-dialog .sop-busy { margin-top:14px; color:var(--vop-muted); font-size:13px; }
+.sop-dialog .sop-record-help { margin-top:10px; color:var(--vop-muted); font-size:12px; }
+.sop-dialog .sop-server { padding:20px 0; border-bottom:1px solid var(--vop-line); }
+.sop-dialog .sop-server .vop-download { margin-top:14px; }
+.sop-dialog button:focus-visible, .sop-dialog a:focus-visible, .sop-dialog summary:focus-visible { outline:2px solid #8ac6ff; outline-offset:3px; }
+@media(max-width:600px) {
+    .vop-panel.vop-dialog.sop-dialog { width:calc(100% - 20px); max-height:calc(100dvh - 20px); padding:16px; }
+    .sop-dialog .vop-icon-button { min-width:44px; min-height:44px; }
+}

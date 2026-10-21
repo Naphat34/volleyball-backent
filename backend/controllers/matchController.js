@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLogger');
 const { roleHasPermission } = require('../config/permissions');
+const { attachDashboardSummaries } = require('../utils/matchDashboard');
 
 // Helper: สลับทีมสำหรับ Round Robin
 const rotateTeams = (teams) => {
@@ -210,7 +211,7 @@ module.exports = {
             const result = await db.query(`
                 SELECT
                     m.id, m.competition_id, c.title as competition_name, m.round_name,
-                    m.start_time as raw_start_time, m.location, m.status,
+                    m.start_time as raw_start_time, m.location, m.status, m.vis_state, m.live_state,
                     m.match_number, m.pool_name, m.gender,
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
                     COALESCE(ms.away_set_score, m.away_set_score) AS away_set_score,
@@ -239,7 +240,7 @@ module.exports = {
                             GROUP_CONCAT(CONCAT('"', home_score, '-', away_score, '"') ORDER BY set_number ASC SEPARATOR ','),
                             ']'
                         ) AS set_scores
-                    FROM match_sets
+                    FROM match_sets WHERE end_time IS NOT NULL
                     GROUP BY match_id
                 ) ms ON ms.match_id = m.id
                 ORDER BY
@@ -288,7 +289,7 @@ module.exports = {
                     status: row.status ? row.status.toLowerCase() : row.status
                 };
             });
-            res.json(normalizedRows);
+            res.json(await attachDashboardSummaries(db, normalizedRows));
         } catch (err) {
             console.error("Get All Matches Error:", err);
             res.status(500).json({ error: err.message });

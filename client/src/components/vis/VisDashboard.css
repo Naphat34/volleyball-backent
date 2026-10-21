@@ -60,6 +60,13 @@
 .vd-match small,.vd-competition small { display:block; color:#92a1b7; font-size:13px; line-height:1.45; }
 .vd-competition { max-width:300px; min-width:150px; color:#9faec3; font-size:14px; }
 .vd-score { width:60px; white-space:nowrap; font-variant-numeric:tabular-nums; color:#cbd5e1; }
+.vd-score-details { min-width:155px; display:grid; gap:8px; padding:4px 0; }
+.vd-refresh-note { color:#9fb2cc; font-size:12px; margin:0 0 10px; }
+.vd-score-vis, .vd-score-official { display:grid; gap:2px; }
+.vd-score-vis>span, .vd-score-details small { font-size:11px; color:#9fb2cc; }
+.vd-score-vis>strong { font-size:19px; color:#d3ebff; }
+.vd-score-official { border-top:1px solid #334155; padding-top:5px; font-size:11px; color:#b3c1d5; }
+.vd-score-official.is-primary { border:0; padding:0; font-size:14px; }
 .vd-badges { display:flex; flex-wrap:wrap; gap:4px; min-width:115px; }
 .vd-badge { display:inline-block; background:#29374d; color:#9cabc0; border:1px solid #344359; border-radius:20px; padding:2px 6px; font-size:12px; white-space:nowrap; line-height:1.3; font-weight:400; }
 .vd-live { color:#70dfb6; border-color:#2e6c61; background:#193c39; }

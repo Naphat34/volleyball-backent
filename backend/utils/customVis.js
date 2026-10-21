@@ -1,4 +1,4 @@
-const { projectOfficialState, applyRally, resolveContext, fail } = require('./visWorkflow');
+const { projectOfficialState, applyRally, resolveContext, visDashboardSummary, fail } = require('./visWorkflow');
 const keys = ['home', 'away'];
 const clone = value => JSON.parse(JSON.stringify(value));
 function validateInput(input) {
@@ -48,12 +48,16 @@ function view(payload) {
     state.liberos = payload.match.vis_state.setups?.[state.currentSet]?.liberos || { home: null, away: null };
     state.revision = payload.revision;
     state.isReadOnly = ['confirmed', 'cancelled'].includes(payload.lifecycle);
-    match.status = payload.lifecycle === 'confirmed' ? 'completed' : payload.lifecycle === 'cancelled' ? 'cancelled' : payload.actions.length ? 'live' : 'scheduled';
-    match.home_set_score = state.setsWon.home; match.away_set_score = state.setsWon.away;
-    // A compatible, authoritative snapshot for existing VIS reports only.
-    match.live_state = { scoringSource: 'custom-vis', workflowStep: state.phase, score: state.score,
-        currentSet: state.currentSet, matchData: { currentSet: state.currentSet }, completedSets: state.completedSets,
-        setsWon: state.setsWon, homeLineup: state.lineups.home, awayLineup: state.lineups.away };
+    match.vis_summary = visDashboardSummary(match, payload.actions, state);
+    if (payload.match.is_custom_vis !== false) {
+        match.status = payload.lifecycle === 'confirmed' ? 'completed' : payload.lifecycle === 'cancelled' ? 'cancelled' : payload.actions.length ? 'live' : 'scheduled';
+        match.home_set_score = state.setsWon.home; match.away_set_score = state.setsWon.away;
+        // Custom matches own their scores. Admin matches retain the original
+        // official snapshot; VIS statistics must not replace eScore in reports.
+        match.live_state = { scoringSource: 'custom-vis', workflowStep: state.phase, score: state.score,
+            currentSet: state.currentSet, matchData: { currentSet: state.currentSet }, completedSets: state.completedSets,
+            setsWon: state.setsWon, homeLineup: state.lineups.home, awayLineup: state.lineups.away };
+    }
     const controls = match.vis_state.controls || [];
     const all = [...payload.actions, ...controls];
     const events = [...state.history].reverse().map(item => all.find(event => String(event.id) === String(item.eventId))).filter(Boolean);
@@ -90,7 +94,7 @@ function commandPayload(previous, operation) {
             const player = payload.config[event.team].players.find(p => p.id === event.player);
             const code = `${event.team === 'home' ? '*' : 'a'}${player ? String(player.number).padStart(2, '0') : ''}${event.skill}${event.grade}`;
             return { id: payload.nextId++, action_type: 'VIS_STAT', set_number: state.currentSet, set_id: state.currentSet,
-                team_id: event.team === 'home' ? 1 : 2, player_id: event.player, skill: event.skill, grade: event.grade || '!',
+                team_id: payload.match[`${event.team}_team_id`], player_id: event.player, skill: event.skill, grade: event.grade || '!',
                 score_home: result.state.score.home, score_away: result.state.score.away, event_code: code,
                 details: { vis: true, rallyId: operation.operationId, rallyPoint: index === command.events.length - 1,
                     statisticalRallyWinner: result.winner, event_code: code, jersey_number: player?.number,
@@ -105,8 +109,8 @@ function commandPayload(previous, operation) {
             setup.controls = setup.controls.filter(e => String(e.id) !== String(last.eventId)); response.deletedEventId = last.eventId;
         } else {
             const row = payload.actions.find(e => e.id === last.eventId), group = row.details.rallyId;
-            response.deletedEventIds = payload.actions.filter(e => e.details.rallyId === group).map(e => e.id);
-            payload.actions = payload.actions.filter(e => e.details.rallyId !== group);
+            response.deletedEventIds = payload.actions.filter(e => group ? e.details.rallyId === group : e.id === row.id).map(e => e.id);
+            payload.actions = payload.actions.filter(e => !response.deletedEventIds.includes(e.id));
         }
         payload.lifecycle = payload.actions.length ? 'playing' : 'ready';
     } else if (['TIMEOUT', 'SUBSTITUTION'].includes(command.type)) {
@@ -125,7 +129,7 @@ function commandPayload(previous, operation) {
             if (swaps.length >= 2 || (swaps.length === 1 && command.playerIn !== starters[slot]) || (!swaps.length && starters.includes(command.playerIn))) fail('คู่เปลี่ยนตัวไม่ตรงกับผู้เล่นเริ่มต้น');
             Object.assign(details, { playerOut: command.playerOut, playerIn: command.playerIn, slot });
         }
-        const event = { id: `control-${operation.operationId}`, skill: command.type, team, team_id: team === 'home' ? 1 : 2,
+        const event = { id: `control-${operation.operationId}`, skill: command.type, team, team_id: payload.match[`${team}_team_id`],
             set_id: state.currentSet, set_number: state.currentSet, score_home: state.score.home, score_away: state.score.away, details,
             afterEventId: payload.actions.at(-1)?.id || 0 };
         setup.controls.push(event); response.event = event;

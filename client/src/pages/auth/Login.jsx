@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import LoginLayout from '../../components/auth/LoginLayout';
 import { clearAuthSession, setAuthSession, getAccessSession } from '../../auth/authStorage';
-import { OfflineUnlock } from '../../components/vis/VisOfflinePanel';
+import OfflineUnlock from '../../components/auth/OfflineUnlock';
 import { loginIntent } from '../../offline/entryRouting';
 import { resolveAccess, navigateAccess } from '../../offline/accessRouting';
 

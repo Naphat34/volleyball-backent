@@ -50,6 +50,8 @@ exports.command = async (req, res) => {
         connection = await db.connect();
         await connection.beginTransaction();
         const match = await getMatch(connection, req.params.matchId, true);
+        const visLease = parse(match.vis_state).offlineVis?.payload?.offlineLease;
+        if (!req.offlineReplay && visLease?.expiresAt > Date.now()) fail('แมตช์ถูกจองสำหรับ VIS Offline กรุณาซิงค์และคืนสิทธิ์ก่อน', 409);
         if (['cancelled', 'canceled'].includes(match.status)) fail('Match is cancelled', 409);
         const { state: previous, session, rallies } = await read(connection, match);
         const operations = session.operations || [];

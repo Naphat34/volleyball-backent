@@ -12,6 +12,7 @@
     "test": "node --test",
     "test:vis": "node --test tests/visWorkflow.test.js tests/visController.test.js tests/visController.mysql.test.js tests/visStatistics.test.js tests/visEventCode.test.js",
     "test:unit": "node --test tests/**/*.test.js",
+    "test:dashboard": "node --test tests/matchDashboard.test.js tests/matchDashboard.mysql.test.js",
     "test:vis:lineup": "node --test tests/visLineup.test.js"
   },
   "keywords": [],

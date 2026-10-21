@@ -128,4 +128,10 @@ function applyRally(previous, events) {
     awardServe(state, winner);
     return { state, winner };
 }
-module.exports = { initialState, projectOfficialState, resolveContext, applyCommand, applyRally, rallyWinner, fail };
+function visDashboardSummary(match, actions, state = projectOfficialState(match, actions).state) {
+    const hasActivity = Boolean(state.setupComplete || actions.length || state.history.length);
+    const status = ['confirmed', 'cancelled'].includes(match.vis_lifecycle) ? match.vis_lifecycle
+        : state.phase === 'MATCH_FINISHED' ? 'review' : actions.length || state.history.length ? 'recording' : state.setupComplete ? 'ready' : 'idle';
+    return { status, hasActivity, currentSet: state.currentSet, score: state.score, setsWon: state.setsWon };
+}
+module.exports = { initialState, projectOfficialState, resolveContext, applyCommand, applyRally, rallyWinner, visDashboardSummary, fail };

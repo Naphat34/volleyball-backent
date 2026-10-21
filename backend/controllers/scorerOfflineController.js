@@ -5,6 +5,7 @@ const { createRequire } = require('node:module');
 const { createHash, randomUUID } = require('node:crypto');
 const { fail } = require('../utils/visWorkflow');
 const { initialCheckpoint, checkOperation } = require('../utils/scorerOfflineRules');
+const { scorerCheckoutStatus } = require('../utils/scorerCheckoutStatus');
 const controllerFile = require.resolve('./scorerController');
 const controllerSource = fs.readFileSync(controllerFile, 'utf8');
 const handlers = { 'POST event': 'saveMatchEvent', 'POST toss': 'saveCoinToss', 'POST lineup': 'saveLineup',
@@ -42,6 +43,7 @@ function endpoint(action) {
         try {
             connection = await db.connect(); await connection.beginTransaction();
             await connection.query('SELECT id FROM matches WHERE id = ? FOR UPDATE', [req.params.matchId]);
+            await require('./officialVisOfflineController').assertOnline(connection, req.params.matchId);
             let answer;
             await action(req, { json: data => { answer = data; } }, connection); await connection.commit();
             const io = req.app.get('io');
@@ -60,11 +62,27 @@ function endpoint(action) {
     };
 }
 exports.permit = (req, res) => res.json({ user: { id: req.user.id, role: req.user.role, username: req.user.username || `Scorer ${req.user.id}` }, expiresAt: Date.now() + 7 * 86400000 });
+exports.status = async (req, res) => {
+    let connection;
+    res.set('Cache-Control', 'no-store');
+    try {
+        if (!device(req.query.deviceId)) fail('Invalid device');
+        connection = await db.connect(); await connection.beginTransaction();
+        const match = (await connection.query('SELECT * FROM matches WHERE id=? FOR UPDATE', [req.params.matchId])).rows[0];
+        const lease = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=? FOR UPDATE', [req.params.matchId])).rows[0];
+        const status = scorerCheckoutStatus(match, lease, req.user.id, req.query.deviceId);
+        await connection.commit(); res.json(status);
+    } catch (error) {
+        if (connection) await connection.rollback();
+        res.status(error.status || 500).json({ error: error.status ? error.message : 'ตรวจสถานะการจองไม่สำเร็จ กรุณาลองใหม่' });
+    } finally { connection?.release(); }
+};
 exports.checkout = endpoint(async (req, res, connection) => {
     if (!device(req.body.deviceId)) fail('Invalid device');
     const current = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id = ? FOR UPDATE', [req.params.matchId])).rows[0];
-    if (current && !current.released && Number(current.expires_at) > Date.now()
-        && (String(current.owner_id) !== String(req.user.id) || current.device_id !== req.body.deviceId)) fail('แมตช์นี้มีเครื่องหลัก Offline แล้ว', 409);
+    const row = (await connection.query('SELECT * FROM matches WHERE id=? FOR UPDATE', [req.params.matchId])).rows[0];
+    const status = scorerCheckoutStatus(row, current, req.user.id, req.body.deviceId);
+    if (!status.canCheckout) fail(status.reason, 409);
     const hash = await fingerprint(connection, req);
     const controller = scopedController(connection);
     const match = await call(controller, 'getMatchDetails', req, {});
@@ -203,3 +221,6 @@ exports.guard = async (req, res, next) => {
         next();
     } catch (error) { res.status(503).json({ error: error.code === 'ER_NO_SUCH_TABLE' ? 'กรุณาติดตั้ง migration 33 ก่อนบันทึก' : 'ตรวจสิทธิ์เครื่องหลักไม่สำเร็จ' }); }
 };
+
+exports.scopedController = scopedController;
+exports.call = call;

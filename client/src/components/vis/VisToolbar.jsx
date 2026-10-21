@@ -8,7 +8,7 @@ export default function VisToolbar({ match, onClose, layout, onLayout, orientati
     const button = 'shrink-0 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-200 hover:border-sky-500 hover:bg-slate-700 disabled:opacity-40';
     const selected = value => `${button} ${value ? '!border-sky-500 !bg-sky-950 !text-sky-200' : ''}`;
     const share = async () => {
-        const url = new URL(`/adminvis/match/${match.id}`, window.location.origin).href;
+        const url = new URL(`/adminvis/match/${match.is_offline_vis && match.server_id ? match.server_id : match.id}`, window.location.origin).href;
         try { await navigator.clipboard.writeText(url); setNotice('คัดลอกลิงก์แล้ว · ผู้เปิดต้องเข้าสู่ระบบและมีสิทธิ์ VIS ของแมตช์นี้'); }
         catch { setNotice(`ลิงก์สำหรับผู้มีสิทธิ์ VIS: ${url}`); }
     };
@@ -38,7 +38,7 @@ export default function VisToolbar({ match, onClose, layout, onLayout, orientati
             <button className={button} onClick={share}>⇪ แชร์</button>
             <button className={button} disabled={exporting || isSaving || Boolean(pending)} onClick={exportMatch}>⤓ {exporting ? 'กำลังส่งออก…' : 'ส่งออก JSON'}</button>
             {match.is_custom_vis && !match.is_offline_vis && match.vis_lifecycle === 'review' && <button className={`${button} !border-emerald-500 !text-emerald-300`} disabled={isSaving || Boolean(pending)} onClick={onConfirm}>ตรวจสอบแล้ว · ยืนยันผล</button>}
-            {liveEnabled && (!match.is_custom_vis || match.published) && <a className={`${button} ml-auto !text-emerald-300`} href={match.is_custom_vis ? `/vis-live/${match.public_token}` : `/match-centre/${match.id}`} target="_blank" rel="noreferrer" title="เปิด Livescore">LIVE: {match.match_number || (match.is_custom_vis ? 'VIS' : match.id)}</a>}
+            {liveEnabled && (!match.is_custom_vis || match.published) && <a className={`${button} ml-auto !text-emerald-300`} href={match.is_custom_vis ? `/vis-live/${match.public_token}` : `/match-centre/${match.is_offline_vis && match.server_id ? match.server_id : match.id}`} target="_blank" rel="noreferrer" title="เปิด Livescore">LIVE: {match.match_number || (match.is_custom_vis ? 'VIS' : match.id)}</a>}
             {pending && !isSaving && <button className={`${button} !border-amber-500 !text-amber-200`} onClick={retrySave}>ลองส่งรายการค้างอีกครั้ง</button>}
         </nav>
         {notice && <div role="status" className="mt-2 flex items-center justify-between gap-2 break-all text-xs text-sky-200"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="ปิดข้อความ">✕</button></div>}

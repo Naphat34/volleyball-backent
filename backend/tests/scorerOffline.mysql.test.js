@@ -12,13 +12,18 @@ test('official offline MySQL batch is atomic, rejects conflicts and does not dup
   const source=(await connection.query('SELECT * FROM scorer_test_matches')).rows[0];
   if(!source){t.skip('Requires one existing match as a read-only roster fixture');return;}
   const id=source.id,initial={score:{home:0,away:0},matchData:{currentSet:1},workflowStep:'SERVING',setsWon:{home:0,away:0}};
-  await connection.query("UPDATE scorer_test_matches SET status='scheduled',live_state=?,team_a_score=0,team_b_score=0,home_set_score=0,away_set_score=0 WHERE id=?",[JSON.stringify(initial),id]);
+  await connection.query("UPDATE scorer_test_matches SET status='scheduled',vis_state='{}',live_state=?,team_a_score=0,team_b_score=0,home_set_score=0,away_set_score=0 WHERE id=?",[JSON.stringify(initial),id]);
   const proxy={query:(sql,args)=>connection.query(sql.replace(/\b(matches|match_events|match_sets|match_lineups|scorer_offline_sessions)\b/g,name=>`scorer_test_${name}`),args),beginTransaction:()=>connection.beginTransaction(),commit:()=>connection.commit(),rollback:()=>connection.rollback(),release(){}};
   const file=require.resolve('../controllers/scorerOfflineController'), localRequire=createRequire(file);
   const wrapped=name=>name==='../config/db'?{connect:async()=>proxy,query:proxy.query}:localRequire(name);wrapped.resolve=localRequire.resolve;
   const scope={exports:{},require:wrapped,console};vm.runInNewContext(fs.readFileSync(file,'utf8'),scope,{filename:file});
-  const call=async(method,body,owner=7)=>{const res={code:200,status(code){this.code=code;return this;},json(data){this.data=data;}};await (typeof method==='function'?method:scope.exports[method])({params:{matchId:id},body,user:{id:owner,role:'scorer'},app:{get:()=>null}},res);return res;};
-  const deviceId=randomUUID(),checked=await call('checkout',{deviceId});assert.equal(checked.code,200,JSON.stringify(checked.data));
+  const call=async(method,body,owner=7)=>{const res={code:200,set(){return this;},status(code){this.code=code;return this;},json(data){this.data=data;}};await (typeof method==='function'?method:scope.exports[method])({params:{matchId:id},body,query:body,user:{id:owner,role:'scorer'},app:{get:()=>null}},res);return res;};
+  const deviceId=randomUUID();
+  const status=await call('status',{deviceId});assert.equal(status.code,200);assert.equal(status.data.canCheckout,true);
+  assert.equal((await connection.query('SELECT * FROM scorer_test_scorer_offline_sessions WHERE match_id=?',[id])).rows.length,0);
+  const checked=await call('checkout',{deviceId});assert.equal(checked.code,200,JSON.stringify(checked.data));
+  assert.equal((await call('status',{deviceId})).data.state,'own');
+  assert.equal((await call('status',{deviceId:randomUUID()},8)).data.canCheckout,false);
   assert.equal(checked.data.leaseCreated,true);assert.ok(checked.data.checkoutToken);
   assert.equal(checked.data.cache[`/scorer/match/${id}/state`].score.home,0);
   assert.ok(Array.isArray(checked.data.cache[`/scorer/match/${id}/events`]));

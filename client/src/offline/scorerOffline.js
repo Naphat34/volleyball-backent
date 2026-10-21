@@ -1,8 +1,9 @@
-import { getStoredUser, getAuthToken, getOnlineUser } from '../auth/authStorage.js';
+import { getStoredUser, getAuthToken, getOnlineUser, getAccessSession } from '../auth/authStorage.js';
 import { getOfflineUser, deviceId } from './offlineAuth.js';
 import { localRead } from './localRead.js';
 import { nextSyncBatch, assertAcknowledged } from './syncBatch.js';
 import { applyScorerCache, hydrateScorerCache, scorerStorageSnapshot } from './scorerCache.js';
+import EventQueue from '../utils/scorer/eventQueue.js';
 const activeKey = id => `scorer_offline_active_${id}`;
 export const scorerOfflineActive = id => localStorage.getItem(activeKey(id)) === '1';
 const owner = (options) => {
@@ -44,8 +45,18 @@ export async function changeScorerRecord(id, change) {
         };
     });
 }
+function downloadOwner(expected) {
+    const user = owner(), session = getAccessSession({ onlineOnly: true });
+    if (!navigator.onLine || session.kind !== 'online') throw Error('กรุณาเชื่อมต่อและเข้าสู่ระบบออนไลน์ด้วยบัญชีเจ้าของ PIN ก่อนดาวน์โหลด');
+    if (String(session.user.id) !== user || (expected && user !== expected)) throw Error('บัญชีออนไลน์ไม่ตรงกับเจ้าของ PIN กรุณาเข้าสู่ระบบด้วยบัญชีเดิม');
+    return user;
+}
 export async function prepareScorer(client, id) {
-    const user = owner(), token = crypto.randomUUID();
+    const user = downloadOwner(), token = crypto.randomUUID();
+    if (EventQueue.getQueue().some(event => String(event.matchId) === String(id))) throw Error('รอคิวออนไลน์ของแมตช์นี้ส่งครบก่อนจอง Offline');
+    const status = (await client.get(`/scorer/match/${id}/offline-status`, { params: { deviceId: deviceId() }, timeout: 15000 })).data;
+    if (status?.canCheckout !== true) throw Error(status?.reason || 'ยังตรวจยืนยันสิทธิ์ดาวน์โหลดไม่ได้ กรุณาลองใหม่');
+    downloadOwner(user);
     await access('readwrite', (store, done, fail) => {
         const request = store.get(String(id));
         request.onsuccess = () => {
@@ -63,7 +74,9 @@ export async function prepareScorer(client, id) {
         for (const path of ['/scorer/referees', '/scorer/line-judges', '/competitions/open', '/age-groups']) {
             try { cache[path] = (await client.get(path, { timeout: 15000 })).data; } catch { /* Optional reference data. */ }
         }
+        downloadOwner(user);
         checkout = (await client.post(`/scorer/match/${id}/offline-checkout`, { deviceId: deviceId() }, { timeout: 60000 })).data;
+        downloadOwner(user);
         const prefix = `/scorer/match/${id}`;
         if (!checkout.fingerprint || !checkout.cache || [prefix, ...['roster', 'state', 'lineup', 'events'].map(key => `${prefix}/${key}`)].some(path => !(path in checkout.cache))) {
             throw Error('ข้อมูลดาวน์โหลดไม่ครบ กรุณาอัปเดตเซิร์ฟเวอร์แล้วลองใหม่');

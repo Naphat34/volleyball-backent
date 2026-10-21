@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { getOfflineUser, offlineProfileMatchesUser } from '../offline/offlineAuth.js';
 import {
   clearAuthSession,
   getAuthToken,
   getStoredUser,
   setAuthSession,
   adoptOfflineIdentity,
+  getAuthSessionVersion,
 } from './authStorage.js';
 
 const createStorage = () => {
@@ -40,6 +42,31 @@ test('setAuthSession stores auth data in sessionStorage only', () => {
   assert.equal(sessionStorage.getItem('token'), 'session-token');
   assert.equal(localStorage.getItem('token'), null);
   assert.deepEqual(getStoredUser(), { id: 1, username: 'admin', role: 'admin' });
+});
+
+test('login to another account clears the unlocked grant while retaining the encrypted offline profile', () => {
+  const profile = '{"userId":7,"user":"vis","encrypted":"keep-backup"}';
+  localStorage.setItem('vis_offline_profile_v1', profile);
+  sessionStorage.setItem('vis_offline_unlocked_v1', JSON.stringify({ user: { id: 7, role: 'statistician' }, expiresAt: Date.now() + 60000 }));
+  setAuthSession({ token: 'scorer-token', user: { id: 8, username: 'scorer', role: 'scorer' } });
+  assert.equal(getOfflineUser({ readOnly: true }), null);
+  assert.equal(localStorage.getItem('vis_offline_profile_v1'), profile);
+  assert.equal(getStoredUser().id, 8);
+  assert.equal(getAuthToken(), 'scorer-token');
+});
+
+test('profile ownership follows user ID rather than names or roles', () => {
+  assert.equal(offlineProfileMatchesUser({ userId: '7', user: 'old' }, { id: 7, username: 'renamed' }), true);
+  assert.equal(offlineProfileMatchesUser({ userId: 7, user: 'scorer' }, { id: 8, username: 'scorer' }), false);
+  assert.equal(offlineProfileMatchesUser({ user: 'scorer' }, { id: 8, username: 'scorer' }), false);
+});
+
+test('a new login and logout each advance the in-memory session even for the same user', () => {
+  const before = getAuthSessionVersion();
+  setAuthSession({ token: 'one', user: { id: 7 } });
+  const first = getAuthSessionVersion(); assert.ok(first > before);
+  setAuthSession({ token: 'two', user: { id: 7 } }); assert.ok(getAuthSessionVersion() > first);
+  const second = getAuthSessionVersion(); clearAuthSession(); assert.ok(getAuthSessionVersion() > second);
 });
 
 test('PIN identity discards another online account and preserves the unlocked grant', () => {
