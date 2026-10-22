@@ -5,7 +5,7 @@ import client, { api } from '../../api';
 import { getAccessSession, getStoredUser, switchAccessMode } from '../../auth/authStorage';
 import useAccessSession from '../../hooks/useAccessSession';
 import { deviceId, getOfflineUser, offlineMode, offlineProfile, offlineProfileMatchesUser } from '../../offline/offlineAuth';
-import { backupScorer, prepareScorer, scorerRecords } from '../../offline/scorerOffline';
+import { backupScorer, prepareScorer, scorerRecords, syncScorer } from '../../offline/scorerOffline';
 import { ensureOfflineShell } from '../../offline/offlineShell';
 import { resolveAccess } from '../../offline/accessRouting';
 import OfflineSetup from '../auth/OfflineSetup';
@@ -161,12 +161,17 @@ export default function ScorerOfflineModal({ onClose }) {
                     const primary = !record.recoveryReadOnly && record.deviceId === deviceId();
                     return <article className="vop-match" key={record.id}><div className="vop-match-heading"><div><h4>{match.home_team_name || match.home_team || 'ทีมเหย้า'} — {match.away_team_name || match.away_team || 'ทีมเยือน'}</h4><p>แมตช์ #{match.match_number || record.id} · {record.released ? 'คืนสิทธิ์แล้ว' : primary ? 'เครื่องหลัก' : 'สำเนาสำหรับสำรอง'} · {record.queue.length} คำสั่งรอซิงค์</p><p>ซิงค์ล่าสุด {date(record.syncedAt)}</p></div></div>
                         <div className="vop-match-actions">{unlocked && primary && !record.released && <button type="button" className="vop-button" disabled={busy} onClick={() => openMatch(record)}>เปิดแมตช์</button>}{record.released && serverReady && <Link className="vop-button" to={`/scorer/${record.id}`} onClick={event => { try { switchAccessMode(false); } catch (error) { event.preventDefault(); setNotice(error.message); setNoticeError(true); } }}>เปิดบนเซิร์ฟเวอร์</Link>}
+                            {unlocked && primary && !record.released && <>
+                                <button type="button" className="vop-button" disabled={busy || !serverReady} onClick={() => run(async () => { await syncScorer(client, record.id); setNotice('ซิงค์สำเร็จ ยังคงจองเครื่องหลัก'); })}>ซิงค์</button>
+                                <button type="button" className="vop-button" disabled={busy || !serverReady} onClick={() => run(async () => { await syncScorer(client, record.id, true); setServerVersion(value => value + 1); setNotice('ซิงค์และคืนสิทธิ์แล้ว กรุณาเปิดแมตช์บนเซิร์ฟเวอร์เพื่อตรวจสอบผล'); })}>ซิงค์และคืนสิทธิ์</button>
+                            </>}
+                            {record.released && serverReady && <button type="button" className="vop-button" disabled={busy} onClick={() => run(async () => { await client.post(`/scorer/match/${record.id}/offline-confirm`); setNotice('ยืนยันผลทางการแล้ว'); })}>ตรวจสอบแล้ว · ยืนยันผลทางการ</button>}
                             <button type="button" className="vop-button" disabled={busy} onClick={() => run(() => backupScorer(record.id))}>สำรอง JSON</button>
-                        </div>{!record.released && primary && <p className="sop-record-help">เปิดแมตช์ แล้วใช้ปุ่ม Offline เพื่อซิงค์และคืนสิทธิ์</p>}</article>;
+                        </div>{!record.released && primary && <p className="sop-record-help">บันทึกและปิดหน้าแมตช์ในแท็บอื่นก่อนซิงค์หรือคืนสิทธิ์จากแดชบอร์ดนี้</p>}</article>;
                 })}
             </section>
             <details className="vop-device"><summary><MonitorCog aria-hidden="true" />อุปกรณ์และสิทธิ์การใช้งาน<ChevronDown aria-hidden="true" /></summary><div className="vop-device-body"><dl><div><dt>อุปกรณ์นี้</dt><dd>{deviceId().slice(0, 8)}</dd></div><div><dt>บัญชี Offline</dt><dd>{profile?.user || 'ยังไม่เตรียม'}</dd></div><div><dt>สิทธิ์ถึง</dt><dd>{profile ? date(profile.expiresAt) : '—'}</dd></div></dl><div className="vop-match-actions"><button type="button" className="vop-button" disabled={busy || !serverReady} onClick={() => setView('setup')}>เตรียม / ต่ออายุสิทธิ์</button>{profile && <button type="button" className="vop-button" disabled={busy} onClick={() => setView('unlock')}>ปลดล็อกด้วย PIN</button>}<Link className="vop-text-link" to={loginUrl}>เข้าสู่ระบบออนไลน์</Link></div></div></details>
-            <footer className="vop-footer"><span><ShieldCheck aria-hidden="true" />ข้อมูลเก็บในเบราว์เซอร์นี้</span><details><summary>การดาวน์โหลดและสำรองข้อมูล</summary><p>ดาวน์โหลดจากปุ่ม Offline ในหน้า ScorerControl ขณะออนไลน์ ก่อนตัดเน็ตต้องเตรียมแอป PWA ผ่าน production build ให้พร้อม สำรอง JSON ก่อนล้างข้อมูลเว็บไซต์หรือย้ายอุปกรณ์</p></details></footer>
+            <footer className="vop-footer"><span><ShieldCheck aria-hidden="true" />ข้อมูลเก็บในเบราว์เซอร์นี้</span><details><summary>การดาวน์โหลดและสำรองข้อมูล</summary><p>เตรียมสิทธิ์ เลือกแมตช์ และดาวน์โหลดจากแดชบอร์ด Scorer ขณะออนไลน์ ก่อนตัดเน็ตต้องเตรียมแอป PWA ผ่าน production build ให้พร้อม สำรอง JSON ก่อนล้างข้อมูลเว็บไซต์หรือย้ายอุปกรณ์</p></details></footer>
         </>}
         {notice && <div className={`vop-notice ${noticeError ? 'is-error' : ''}`} role={noticeError ? 'alert' : 'status'}><p>{notice}</p><button type="button" aria-label="ปิดข้อความ" onClick={() => setNotice('')}><X aria-hidden="true" /></button></div>}
         {busy && <p className="sop-busy" role="status">กำลังดำเนินการ กรุณารอสักครู่…</p>}

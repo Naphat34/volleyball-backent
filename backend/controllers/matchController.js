@@ -243,6 +243,7 @@ module.exports = {
                     FROM match_sets WHERE end_time IS NOT NULL
                     GROUP BY match_id
                 ) ms ON ms.match_id = m.id
+                WHERE m.manual_owner_id IS NULL
                 ORDER BY
                     m.start_time DESC,
                     m.id DESC

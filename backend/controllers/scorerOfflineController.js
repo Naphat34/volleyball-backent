@@ -207,6 +207,19 @@ exports.confirm = endpoint(async (req,res,connection) => {
     res.json({success:true});
 });
 exports.online = method => endpoint(async (req,res,connection) => {
+    if (req.manualScorerMatch) {
+        const manual = (await connection.query('SELECT * FROM matches WHERE id=? FOR UPDATE', [req.params.matchId])).rows[0];
+        if (!manual || ['draft','confirmed'].includes(manual.manual_lifecycle)) fail('แมตช์ยังไม่พร้อมหรือยืนยันผลแล้ว',409);
+        const config = typeof manual.manual_config === 'string' ? JSON.parse(manual.manual_config) : manual.manual_config;
+        if (method === 'endSet') {
+            const { setNumber, homeScore, awayScore } = req.body;
+            const target = Number(setNumber) === config.maxSets ? config.decidingSetPoints : config.pointsPerSet;
+            if (![setNumber,homeScore,awayScore].every(value => value != null && value !== '' && Number.isInteger(Number(value)))
+                || Number(setNumber)<1 || Number(setNumber)>config.maxSets || Math.min(homeScore,awayScore)<0
+                || Math.max(homeScore,awayScore)<target || Math.abs(homeScore-awayScore)<2) fail('คะแนนรายเซตไม่ตรงกับกติกาแมตช์',400);
+        }
+        if (method === 'updateMatchOfficials' && req.body.has_challenge != null && Boolean(Number(req.body.has_challenge)) !== config.hasChallenge) fail('กติกา Challenge ถูกกำหนดไว้ในแมตช์แล้ว',409);
+    }
     req.skipMatchUpdated = method === 'updateLiveState';
     req.emitRoster = ['updateMatchRoster','createMatchTeamPlayer','updateMatchTeamPlayer'].includes(method);
     const lease = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=? FOR UPDATE',[req.params.matchId])).rows[0];

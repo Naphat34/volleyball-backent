@@ -1,11 +1,10 @@
-import { getTeamCode, buildScorerLiveState, replaceLineupPlayer, isLineupSetupLocked, saveRosterApproval } from '../../utils/scorer/scorerHelpers';
+import { buildScorerLiveState, replaceLineupPlayer, isLineupSetupLocked, saveRosterApproval } from '../../utils/scorer/scorerHelpers';
 import { getSetElapsedSeconds, restoreSetTimer } from '../../utils/scorer/setTimer';
-import { StatusBadge } from '../../components/ui/SystemUI';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import {
-    ListChecks, CheckCircle, X,  Loader,
+    ListChecks, CheckCircle, X,  Loader, Wifi, WifiOff, CloudOff, CloudCheck, CloudUpload, CloudAlert,
     Trophy, RotateCcw, Flag, Clock, RefreshCcw, History, FileText, AlertTriangle, Repeat,
     Moon, Sun, Timer, ArrowUpDown, ArrowDown, ArrowUp, ArrowLeftRight, Pause, Megaphone as Whistle, PenTool, Settings
 } from 'lucide-react';
@@ -18,7 +17,7 @@ import EventQueue from '../../utils/scorer/eventQueue';
 import { isPlayerLibero, isPlayingPlayer } from '../../utils/scorer/playerFilters';
 import { getAuthToken, getStoredUser } from '../../auth/authStorage';
 import { scorerOfflineActive } from '../../offline/scorerOffline';
-import ScorerOfflineControls from '../../components/scorer/ScorerOfflineControls';
+import '../../components/scorer/ScorerTheme.css';
 
 // --- Imported Modals ---
 import ChallengeModal from '../../components/scorer/modals/ChallengeModal';
@@ -151,6 +150,10 @@ const mergeTeamColorsWithUniformDefaults = (uniformColors, currentColors = {}) =
 // MAIN COMPONENT (ScorerConsole)
 // -----------------------------------------------------------------------------
 export default function ScorerConsole() {
+    useEffect(() => {
+        document.body.classList.add('scorer-dark-theme');
+        return () => document.body.classList.remove('scorer-dark-theme');
+    }, []);
     const { matchId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
@@ -1114,6 +1117,11 @@ export default function ScorerConsole() {
                 // 1. ยิง API ดึงข้อมูลแมตช์เสมอ เพื่อเอา max_sets ที่ถูกต้องชัวร์ๆ
                 const resMatch = await api.getMatchById(matchId);
                 const m = resMatch.data;
+                if (m.manual_owner_id && ['draft', 'confirmed'].includes(m.manual_lifecycle)) {
+                    navigate(m.manual_lifecycle === 'confirmed' ? `/match/${matchId}/viewer` : '/adminscorer', { replace: true });
+                    return;
+                }
+                const manualConfig = typeof m.manual_config === 'string' ? JSON.parse(m.manual_config) : m.manual_config;
 
                 // คำนวณระบบการแข่งขัน (เช่น 3/2 = 2, 5/2 = 3)
                 const maxSets = m.max_sets || 5;
@@ -1141,12 +1149,17 @@ export default function ScorerConsole() {
                     teamAway: m.away_team_name || m.away_team || matchDataRef.current?.teamAway,
                     homeLogoUrl: m.home_logo_url || matchDataRef.current?.homeLogoUrl || null,
                     awayLogoUrl: m.away_logo_url || matchDataRef.current?.awayLogoUrl || null,
-                    teamHomeCode: m.home_team_code || matchDataRef.current?.teamHomeCode || null,
-                    teamAwayCode: m.away_team_code || matchDataRef.current?.teamAwayCode || null,
+                    teamHomeCode: m.home_team_code || null,
+                    teamAwayCode: m.away_team_code || null,
                     teamHomeId: m.home_team_id || matchDataRef.current?.teamHomeId,
                     teamAwayId: m.away_team_id || matchDataRef.current?.teamAwayId,
                     currentSet: m.current_set || matchDataRef.current?.currentSet || 1,
                     maxSets: maxSets,
+                    isManualScorer: Boolean(m.manual_owner_id),
+                    pointsPerSet: Number(manualConfig?.pointsPerSet) || 25,
+                    decidingSetPoints: Number(manualConfig?.decidingSetPoints) || 15,
+                    has_challenge: m.has_challenge,
+                    hasChallenge: Boolean(m.has_challenge),
                     matchId: matchId,
                     competitionName: competitionName,
                     matchNo: m.match_number || m.matchNo || matchDataRef.current?.matchNo,
@@ -1434,7 +1447,7 @@ export default function ScorerConsole() {
         };
         fetchMatchDataRef.current = fetchMatchData;
         fetchMatchData();
-    }, [matchId, refreshRoster, restoreMatchTimer]);
+    }, [matchId, navigate, refreshRoster, restoreMatchTimer]);
 
 
     // --- API HELPER: SAVE EVENT (OFFLINE-FIRST) ---
@@ -1561,14 +1574,14 @@ export default function ScorerConsole() {
                 color: teamColors[teamCode]
             };
         } else if (eventType === 'COIN_TOSS_WINNER') {
-            description = `Coin Toss Winner: ${getTeamCode(teamName)}`;
-            metadata = { type: 'COIN_TOSS_WINNER', team: teamName, color: teamColors[teamCode] };
+            description = `Coin Toss Winner: ${teamName}`;
+            metadata = { type: 'COIN_TOSS_WINNER', team: teamName, teamCode, color: teamColors[teamCode] };
         } else if (eventType === 'COURT_SIDE_LEFT') {
-            description = `Court Side A (Left): ${getTeamCode(teamName)}`;
-            metadata = { type: 'COURT_SIDE_LEFT', team: teamName, color: teamColors[teamCode] };
+            description = `Court Side A (Left): ${teamName}`;
+            metadata = { type: 'COURT_SIDE_LEFT', team: teamName, teamCode, color: teamColors[teamCode] };
         } else if (eventType === 'FIRST_SERVE') {
-            description = `First Serve: ${getTeamCode(teamName)}`;
-            metadata = { type: 'FIRST_SERVE', team: teamName, color: teamColors[teamCode] };
+            description = `First Serve: ${teamName}`;
+            metadata = { type: 'FIRST_SERVE', team: teamName, teamCode, color: teamColors[teamCode] };
         } else if (eventType === 'MATCH_START') {
             description = details.description || 'Match Started';
             metadata = { type: 'MATCH_START', team: teamName, teamCode, color: teamColors[teamCode] };
@@ -1846,12 +1859,13 @@ export default function ScorerConsole() {
         // Check Set Winner
         const tieBreakSet = (setsToWin * 2) - 1;
         const isTieBreak = matchData.currentSet === tieBreakSet;
-        const pointsToWin = isTieBreak ? 15 : 25;
+        const pointsToWin = isTieBreak ? (matchData.decidingSetPoints || 15) : (matchData.pointsPerSet || 25);
         const winnerScore = newScore[winnerTeamCode];
         const loserScore = newScore[winnerTeamCode === 'home' ? 'away' : 'home'];
 
         // Check for court side switch in deciding set (when either team reaches 8 points first)
-        if (isTieBreak && winnerScore === 8 && loserScore < 8) {
+        const switchPoints = Math.ceil((matchData.decidingSetPoints || 15) / 2);
+        if (isTieBreak && winnerScore === switchPoints && loserScore < switchPoints) {
             const teamName = winnerTeamCode === 'home' ? matchData.teamHome : matchData.teamAway;
             Swal.fire({
                 title: 'เปลี่ยนแดน (Switch Sides)',
@@ -2000,7 +2014,7 @@ export default function ScorerConsole() {
         const winnerCode = homeScore > awayScore ? 'home' : 'away';
         const tieBreakSet = (setsToWin * 2) - 1;
         const isTieBreak = matchData.currentSet === tieBreakSet;
-        const pointsToWin = isTieBreak ? 15 : 25;
+        const pointsToWin = isTieBreak ? (matchData.decidingSetPoints || 15) : (matchData.pointsPerSet || 25);
         const winnerScore = winnerCode === 'home' ? homeScore : awayScore;
         const loserScore = winnerCode === 'home' ? awayScore : homeScore;
 
@@ -2012,7 +2026,7 @@ export default function ScorerConsole() {
             winnerCode,
             finalScore: { home: homeScore, away: awayScore }
         };
-    }, [matchData.currentSet, pendingSetWinner, score.away, score.home, setsToWin]);
+    }, [matchData.currentSet, matchData.decidingSetPoints, matchData.pointsPerSet, pendingSetWinner, score.away, score.home, setsToWin]);
 
     const handleConfirmSetEnd = useCallback(async () => {
         if (isEndingSet || isFinishingSetRef.current) return;
@@ -3864,16 +3878,16 @@ export default function ScorerConsole() {
     return (
         <div className="scorer-shell flex flex-col bg-app-background text-slate-900 font-sans overflow-hidden">
             {/* --- HEADER --- */}
-            <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
-                <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-blue-700">
-                        <Trophy size={20} strokeWidth={2.25} />
+            <header className="scorer-header h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+                <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-blue-700">
+                        <Trophy size={17} strokeWidth={2.25} />
                     </div>
                     <div className="flex min-w-0 flex-col">
-                        <h1 className="truncate text-base font-bold leading-tight tracking-normal text-slate-950">
+                        <h1 className="truncate text-sm font-bold leading-tight tracking-normal text-slate-950">
                             Scorer Console
                         </h1>
-                        <div className="mt-0.5 flex items-center gap-2 text-xs font-medium text-slate-500">
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
                             <span className="inline-flex items-center gap-1.5 text-rose-600">
                                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
                                 LIVE
@@ -3884,21 +3898,26 @@ export default function ScorerConsole() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <ScorerOfflineControls matchId={matchId} flushState={() => api.updateLiveState(matchId, createLiveState())} />
+                <div className="flex items-center gap-2">
                     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
-                        <StatusBadge tone={realtimeConnected ? 'success' : 'warning'} dot>{scorerOfflineActive(matchId) ? 'Offline · เครื่องหลัก' : realtimeConnected ? 'เชื่อมต่อสด / Live' : 'กำลังเชื่อมต่อใหม่ / Reconnecting'}</StatusBadge>
-                        <StatusBadge tone={liveSyncStatus === 'error' ? 'error' : liveSyncStatus === 'saved' && queueCount === 0 ? 'success' : 'warning'}>
-                            {liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · กด Offline เพื่อซิงค์' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}
-                        </StatusBadge>
-                        {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary"><RefreshCcw size={15} />ลองใหม่ / Retry</button>}
+                        <span tabIndex={0} className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${scorerOfflineActive(matchId) ? 'bg-slate-100 text-slate-600' : realtimeConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}
+                            title={scorerOfflineActive(matchId) ? 'Offline · เครื่องหลัก' : realtimeConnected ? 'เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live' : 'ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting'}>
+                            {scorerOfflineActive(matchId) ? <CloudOff size={16} aria-hidden="true" /> : realtimeConnected ? <Wifi size={16} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
+                            <span className="sr-only">{scorerOfflineActive(matchId) ? 'Offline · เครื่องหลัก' : realtimeConnected ? 'เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live' : 'ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting'}</span>
+                        </span>
+                        <span tabIndex={0} className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${liveSyncStatus === 'error' ? 'bg-rose-50 text-rose-600' : liveSyncStatus === 'saved' && queueCount === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}
+                            title={liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}>
+                            {liveSyncStatus === 'error' ? <CloudAlert size={16} aria-hidden="true" /> : scorerOfflineActive(matchId) ? <CloudOff size={16} aria-hidden="true" /> : liveSyncStatus === 'saved' && queueCount === 0 ? <CloudCheck size={16} aria-hidden="true" /> : <CloudUpload size={16} aria-hidden="true" />}
+                            <span className="sr-only">{liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}</span>
+                        </span>
+                        {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary" title="ลองบันทึกอีกครั้ง / Retry" aria-label="ลองบันทึกอีกครั้ง / Retry"><RefreshCcw size={16} aria-hidden="true" /></button>}
                     </div>
 
                     <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-sm">
                         <button onClick={handleProtest} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title="Protest / Forfeit">
-                            <Whistle size={18} />
+                            <Whistle size={16} />
                         </button>
-                        <button onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title="Match Log"><ListChecks size={18} /></button>
+                        <button onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title="Match Log"><ListChecks size={16} /></button>
                         <button
                             onClick={() => {
                                 const role = getStoredUser()?.role || 'admin';
@@ -3911,7 +3930,7 @@ export default function ScorerConsole() {
                             className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                             title="Exit"
                         >
-                            <X size={18} />
+                            <X size={16} />
                         </button>
                     </div>
                 </div>

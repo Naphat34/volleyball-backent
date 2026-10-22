@@ -151,7 +151,7 @@ module.exports = {
     async getAllTeams(req, res) {
         try {
             const [rows] = await db.query(`
-                SELECT id, name, logo_url, code FROM teams ORDER BY name ASC
+                SELECT id, name, logo_url, code FROM teams WHERE manual_owner_id IS NULL ORDER BY name ASC
             `);
             res.json(rows);
         } catch (err) {
@@ -210,9 +210,9 @@ module.exports = {
             // หมายเหตุ: ถ้าในตาราง matches ของคุณไม่มี competition_id ให้ลบส่วน WHERE นี้ออก
             // แต่ปกติควรมีเพื่อแยกรายการแข่งขัน
             if (competitionId) {
-                query += ` WHERE m.competition_id = ?`;
+                query += ` WHERE m.manual_owner_id IS NULL AND m.competition_id = ?`;
                 params.push(competitionId);
-            }
+            } else { query += ` WHERE m.manual_owner_id IS NULL`; }
 
             // เรียงตามเวลาแข่ง
             query += ` ORDER BY m.match_date ASC, m.start_time ASC, m.id ASC`;

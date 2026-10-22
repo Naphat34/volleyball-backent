@@ -552,10 +552,10 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     const timeLabel = matchDetails.startTime ? String(matchDetails.startTime).slice(0, 5) : '';
 
     return (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[200] select-none font-sans p-4">
+        <div className="scorer-setup-modal fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[200] select-none font-sans p-4">
             <div className="bg-white rounded-xl w-full max-w-5xl h-[850px] max-h-[calc(100vh-32px)] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
 
-                <div className="px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-gray-50/80 shrink-0">
+                <div className="scorer-setup-heading px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-gray-50/80 shrink-0">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 text-blue-600">
@@ -992,6 +992,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                         <label className="flex items-center gap-3 cursor-pointer select-none">
                                             <input
                                                 type="checkbox"
+                                                disabled={match?.isManualScorer}
                                                 checked={matchDetails.hasChallenge || false}
                                                 onChange={e => setMatchDetails(prev => ({ ...prev, hasChallenge: e.target.checked }))}
                                                 className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"

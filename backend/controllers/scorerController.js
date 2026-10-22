@@ -196,7 +196,7 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
         }
     }
 
-    if (options.requireEntryRoster) {
+    if (options.requireEntryRoster && competitionId) {
         return entryRoster;
     }
 
@@ -399,6 +399,8 @@ module.exports = {
                     m.*, 
                     t1.name as home_team_name, 
                     t2.name as away_team_name,
+                    t1.code as home_team_code,
+                    t2.code as away_team_code,
                     t1.logo_url as home_logo_url,
                     t2.logo_url as away_logo_url,
                     t1.main_color as home_main_color,
@@ -417,7 +419,8 @@ module.exports = {
                     t2.libero_third_color as away_libero_third_color,
                     t2.home_color as away_legacy_home_color,
                     t2.away_color as away_legacy_away_color,
-                    COALESCE(c.max_sets, 5) as max_sets,
+                    COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
+                    m.manual_title as competition_name,
                     -- ข้อมูล Referee 1
                     r1.firstname as r1_firstname, r1.lastname as r1_lastname, r1.country as r1_country,
                     -- ข้อมูล Referee 2
@@ -1285,7 +1288,7 @@ module.exports = {
             // 6️⃣ ตรวจสอบว่าจบแมตช์หรือยัง
             const matchInfo = await client.query(
                 `
-        SELECT m.home_team_id, m.away_team_id, COALESCE(c.max_sets, 5) as max_sets
+        SELECT m.home_team_id, m.away_team_id, COALESCE(c.max_sets, m.max_sets, 5) as max_sets
         FROM matches m
         LEFT JOIN competitions c ON m.competition_id = c.id
         WHERE m.id = ?
@@ -1364,10 +1367,10 @@ module.exports = {
                     m.*, 
                     t1.name as home_team_name, t1.code as home_team_code, t1.logo_url as home_logo_url,
                     t2.name as away_team_name, t2.code as away_team_code, t2.logo_url as away_logo_url,
-                    c.title as competition_name, c.title as competition_title, 
+                    COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title,
                     c.gender as competition_gender, c.sport as competition_sport,
                     c.start_date as start_date, c.end_date as end_date,
-                    COALESCE(c.max_sets, 5) as max_sets,
+                    COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
                     COALESCE(c.max_players, 14) as competition_max_players,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     ag.name as age_group_name
@@ -1545,10 +1548,10 @@ module.exports = {
                     m.*, 
                     t1.name as home_team_name, t1.code as home_team_code,
                     t2.name as away_team_name, t2.code as away_team_code,
-                    c.title as competition_name, c.title as competition_title, c.gender as competition_gender, c.gender as competition_category,
+                    COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title, c.gender as competition_gender, c.gender as competition_category,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     ag.name as age_group_name,
-                    COALESCE(c.max_sets, 5) as max_sets,
+                    COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
                     
                     -- Officials
                     r1.firstname as r1_firstname, r1.lastname as r1_lastname, r1.country as r1_country,

@@ -213,6 +213,18 @@ export const api = {
   deletePlayerAdmin: (id) => apiClient.delete(`/admin/players/${id}`),
 
   // --- Scorer System ---
+  getManualScorerMatches: () => apiClient.get('/scorer/manual-matches'),
+  getManualScorerMatch: id => apiClient.get(`/scorer/manual-matches/${id}`),
+  createManualScorerMatch: data => apiClient.post('/scorer/manual-matches', data),
+  updateManualScorerMatch: (id, data) => apiClient.put(`/scorer/manual-matches/${id}`, data),
+  publishManualScorerMatch: (id, published) => apiClient.post(`/scorer/manual-matches/${id}/publish`, { published }),
+  confirmManualScorerMatch: id => apiClient.post(`/scorer/manual-matches/${id}/confirm`),
+  downloadManualScorerBackup: async id => {
+    const { data } = await apiClient.get(`/scorer/manual-matches/${id}/backup`);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = `Scorer_manual_${id}.json`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
   getMatchById: (id) => apiClient.get(`/scorer/match/${id}`),
   saveLineup: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/lineup`, data),
   getMatchLineup: (matchId) => apiClient.get(`/scorer/match/${matchId}/lineup`),

@@ -1,4 +1,3 @@
-import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
 import { getContrastClass } from '../../../utils/common/colorUtils';
 import React from 'react';
 import { Settings, Timer } from 'lucide-react';
@@ -127,7 +126,7 @@ const MatchHistorySidebar = ({
     const rightLineupText = formatLineupForCourtSide(isHomeLeft ? selectedAwayLineupText : selectedHomeLineupText, 'right');
 
     return (
-        <aside className="w-[300px] bg-white text-slate-800 border-l border-slate-200 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden shrink-0">
+        <aside className="scorer-match-history w-[300px] bg-white text-slate-800 border-l border-slate-200 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden shrink-0">
 
             {/* Top Row: Staff connection status */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-white">
@@ -147,8 +146,8 @@ const MatchHistorySidebar = ({
                             }`}></div>
                         <span className="text-slate-700">
                             {isHomeLeft
-                                ? (matchData.teamHomeCode || getTeamCode(matchData.teamHome))
-                                : (matchData.teamAwayCode || getTeamCode(matchData.teamAway))}
+                                ? (matchData.teamHomeCode || '—')
+                                : (matchData.teamAwayCode || '—')}
                         </span>
                     </div>
                     <div className="flex items-center gap-1.5" title={`${isHomeLeft ? matchData.teamAway : matchData.teamHome} Staff`}>
@@ -158,8 +157,8 @@ const MatchHistorySidebar = ({
                             }`}></div>
                         <span className="text-slate-700">
                             {isHomeLeft
-                                ? (matchData.teamAwayCode || getTeamCode(matchData.teamAway))
-                                : (matchData.teamHomeCode || getTeamCode(matchData.teamHome))}
+                                ? (matchData.teamAwayCode || '—')
+                                : (matchData.teamHomeCode || '—')}
                         </span>
                     </div>
                 </div>
@@ -168,9 +167,9 @@ const MatchHistorySidebar = ({
             {/* Match History & Set Selector */}
             <div className="p-3 border-b border-slate-100 bg-white">
                 <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[15px] font-bold text-[#1e293b]">Match history</h3>
+                    <h3 className="text-[15px] font-bold text-slate-800">Match history</h3>
                     <div className="flex items-center bg-[#f8fafc] border border-slate-200 rounded-md px-2 py-1 gap-1.5">
-                        <span className="text-[11px] font-bold text-[#475569]">Current</span>
+                        <span className="text-[11px] font-bold text-slate-600">Current</span>
                         <span className="text-[11px] font-bold text-blue-600 bg-white border border-slate-200 rounded px-1.5 py-0.5 min-w-[20px] text-center">{matchData.currentSet}</span>
                     </div>
                 </div>
@@ -271,6 +270,15 @@ const MatchHistorySidebar = ({
                                 const isNeutralEvent = !isLeftEvent && !isRightEvent;
                                 const accentColor = isHome ? teamColors.home : isAway ? teamColors.away : '#cbd5e1';
                                 const eventTeamName = isHome ? matchData.teamHome : isAway ? matchData.teamAway : mt.team;
+                                const setupEventLabels = { FIRST_SERVE: 'First Serve', COURT_SIDE_LEFT: 'Court Side A (Left)', COIN_TOSS_WINNER: 'Coin Toss Winner' };
+                                const description = setupEventLabels[mt.type] && eventTeamName
+                                    ? `${setupEventLabels[mt.type]}: ${eventTeamName}`
+                                    : ev.description;
+                                if (setupEventLabels[mt.type]) return (
+                                    <div key={ev.id} className={`px-3 py-2 text-[11px] text-slate-500 break-words hover:bg-slate-50 transition-colors ${isRightEvent ? 'text-right' : 'text-left'}`}>
+                                        {description}
+                                    </div>
+                                );
                                 const [homeScore, awayScore] = (ev.score || '0-0').split('-');
                                 // Stored scores are home-away; show the point-winning team first.
                                 const scoringTeamScore = isAway ? awayScore : homeScore;
@@ -406,9 +414,9 @@ const MatchHistorySidebar = ({
                                 // Generic fallback
                                 return (
                                     <div key={ev.id} className="flex items-center px-3 py-2 hover:bg-slate-50 transition-colors">
-                                        <div className="flex-1 text-[11px] text-slate-500">{isLeftEvent && ev.description}</div>
-                                        <div className="flex-1 text-right text-[11px] text-slate-500">{isRightEvent && ev.description}</div>
-                                        {isNeutralEvent && <div className="w-full text-center text-[11px] text-slate-400">{ev.description}</div>}
+                                        <div className="flex-1 text-[11px] text-slate-500">{isLeftEvent && description}</div>
+                                        <div className="flex-1 text-right text-[11px] text-slate-500">{isRightEvent && description}</div>
+                                        {isNeutralEvent && <div className="w-full text-center text-[11px] text-slate-400">{description}</div>}
                                     </div>
                                 );
                             })}

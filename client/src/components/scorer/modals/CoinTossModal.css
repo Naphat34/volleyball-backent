@@ -1,0 +1,12 @@
+/* Team cards compute their text color from their actual solid background. */
+.coin-toss-team-button span,
+.coin-toss-team-button p,
+.scorer-dark-theme .coin-toss-team-button span,
+.scorer-dark-theme .coin-toss-team-button p {
+    color: inherit;
+}
+
+.coin-toss-team-button:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 4px;
+}

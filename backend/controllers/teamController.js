@@ -1151,7 +1151,7 @@ exports.getAllTeams = async (req, res) => {
     const result = await db.query(`
       SELECT t.*,
       (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) as player_count
-      FROM teams t ORDER BY t.id ASC
+      FROM teams t WHERE t.manual_owner_id IS NULL ORDER BY t.id ASC
     `);
     res.json(result.rows);
   } catch (err) {
@@ -1330,6 +1330,7 @@ exports.getAllPlayers = async (req, res) => {
       SELECT p.*, t.name as team_name
       FROM players p
       LEFT JOIN teams t ON p.team_id = t.id
+      WHERE t.manual_owner_id IS NULL
       ORDER BY p.id DESC
     `);
     res.json(result.rows);

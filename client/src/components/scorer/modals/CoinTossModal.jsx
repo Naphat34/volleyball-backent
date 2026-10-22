@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Trophy, Flag, ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import { getContrastColorHex } from '../../../utils/common/colorUtils';
+import './CoinTossModal.css';
 
 export default function CoinTossModal({
     isOpen,
@@ -17,11 +19,11 @@ export default function CoinTossModal({
     const [servingTeam, setServingTeam] = useState(null);
 
     const getTeamStyle = (teamKey, selected) => {
-        const color = teamColors?.[teamKey] || '';
+        const color = teamColors?.[teamKey] || '#4f46e5';
         return {
-            backgroundColor: selected ? (color || '#4f46e5') : color ? `${color}20` : undefined,
-            borderColor: selected ? (color || '#4f46e5') : '#e2e8f0',
-            color: selected ? '#ffffff' : color ? '#111827' : undefined,
+            backgroundColor: selected ? color : 'var(--color-app-surface, #ffffff)',
+            borderColor: selected ? color : 'var(--color-app-border, #e2e8f0)',
+            color: selected ? getContrastColorHex(color) : 'var(--color-app-ink, #0f172a)',
         };
     };
 
@@ -49,10 +51,10 @@ export default function CoinTossModal({
                                         key={teamKey}
                                         onClick={() => setTossWinner(teamKey)}
                                         style={getTeamStyle(teamKey, selected)}
-                                        className={`group rounded-3xl border-2 p-5 flex flex-col items-center justify-center transition-all duration-300 shadow-sm ${selected ? 'shadow-indigo-300/50' : 'hover:-translate-y-0.5 hover:shadow-lg'} `}
+                                        className={`coin-toss-team-button group rounded-3xl border-2 p-5 flex flex-col items-center justify-center transition-all duration-300 shadow-sm ${selected ? 'shadow-indigo-300/50' : 'hover:-translate-y-0.5 hover:shadow-lg'} `}
                                     >
                                         <span className="text-xs uppercase tracking-[0.3em] text-slate-400 mb-2">Winner</span>
-                                        <span className="text-lg font-bold">{getTeamName(teamKey)}</span>
+                                        <span className="coin-toss-team-name text-lg font-bold">{getTeamName(teamKey)}</span>
                                         {selected && (
                                             <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
                                                 <CheckCircle2 size={14} /> Selected
@@ -90,7 +92,7 @@ export default function CoinTossModal({
                                         key={teamKey}
                                         onClick={() => setCourtLeft(teamKey)}
                                         style={getTeamStyle(teamKey, selected)}
-                                        className={`group rounded-3xl border-2 p-5 flex flex-col items-start justify-between transition-all duration-300 shadow-sm ${selected ? 'shadow-sky-300/50' : 'hover:-translate-y-0.5 hover:shadow-lg'}`}
+                                        className={`coin-toss-team-button group rounded-3xl border-2 p-5 flex flex-col items-start justify-between transition-all duration-300 shadow-sm ${selected ? 'shadow-sky-300/50' : 'hover:-translate-y-0.5 hover:shadow-lg'}`}
                                     >
                                         <div className="flex items-center gap-2 mb-3">
                                             <div className="w-2.5 h-2.5 rounded-full bg-sky-500" />
@@ -136,7 +138,7 @@ export default function CoinTossModal({
                                         key={teamKey}
                                         onClick={() => setServingTeam(teamKey)}
                                         style={getTeamStyle(teamKey, selected)}
-                                        className={`group rounded-3xl border-2 p-5 flex flex-col items-center justify-center transition-all duration-300 shadow-sm ${selected ? 'shadow-emerald-300/50' : 'hover:-translate-y-0.5 hover:shadow-lg'}`}
+                                        className={`coin-toss-team-button group rounded-3xl border-2 p-5 flex flex-col items-center justify-center transition-all duration-300 shadow-sm ${selected ? 'shadow-emerald-300/50' : 'hover:-translate-y-0.5 hover:shadow-lg'}`}
                                     >
                                         <span className="text-sm uppercase tracking-[0.3em] text-slate-400 mb-2">Serve First</span>
                                         <span className="text-xl font-semibold">{getTeamName(teamKey)}</span>

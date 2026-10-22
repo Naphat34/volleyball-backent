@@ -2,7 +2,7 @@ import { getTeamCode, isLineupSetupLocked } from '../../../utils/scorer/scorerHe
 import React, { useState, useRef } from 'react';
 import { X, PenTool, Lock } from 'lucide-react';
 import SignaturePad from '../partials/SignaturePad';
-import { getContrastClass } from '../../../utils/common/colorUtils';
+import { getContrastClass, getContrastColorHex } from '../../../utils/common/colorUtils';
 
 const SHIRT_COLOR_OPTIONS = [
     '#1e3a8a', '#2563eb', '#0f766e', '#16a34a', '#65a30d',
@@ -161,7 +161,7 @@ const LineupModal = ({
     );
 
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all font-sans select-none">
+        <div className="scorer-lineup-modal fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all font-sans select-none">
             <div className="bg-white w-full max-w-[1100px] rounded-2xl border border-slate-200 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in duration-300">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
@@ -213,7 +213,7 @@ const LineupModal = ({
                                     onClick={() => onSetRoster('home')} 
                                     disabled={isLineupSetupLocked(currentSet, lineupSetup, 'home', 'rosterLocked')}
                                     className={`flex-1 py-2 text-xs font-bold ${getContrastClass(homeColor)} rounded transition-colors shadow-sm enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60`}
-                                    style={{ backgroundColor: homeColor }}
+                                    style={{ backgroundColor: homeColor, color: getContrastColorHex(homeColor) }}
                                 >
                                     Set roster
                                     {isLineupSetupLocked(currentSet, lineupSetup, 'home', 'rosterLocked') && <Lock size={12} className="ml-1 inline" aria-label="Locked" />}
@@ -258,7 +258,7 @@ const LineupModal = ({
                                 {/* Orange Court Area with white border lines */}
                                 <div className="flex-1 bg-[#f2a167] border-[1.5px] border-white relative p-2.5 flex flex-col justify-between">
                                     {/* Attack Line */}
-                                    <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-white -translate-y-1/2" />
+                                    <div className="lineup-court-line absolute top-1/2 left-0 right-0 h-[1.5px] bg-white -translate-y-1/2" />
                                     
                                     {/* Front Row (P4, P3, P2) */}
                                     <div className="grid grid-cols-3 gap-2.5 relative z-10">
@@ -312,7 +312,7 @@ const LineupModal = ({
                                 {/* Orange Court Area with white border lines */}
                                 <div className="flex-1 bg-[#f2a167] border-[1.5px] border-white relative p-2.5 flex flex-col justify-between">
                                     {/* Attack Line */}
-                                    <div className="absolute top-1/2 left-0 right-0 h-[1.5px] bg-white -translate-y-1/2" />
+                                    <div className="lineup-court-line absolute top-1/2 left-0 right-0 h-[1.5px] bg-white -translate-y-1/2" />
                                     
                                     {/* Front Row (P4, P3, P2) */}
                                     <div className="grid grid-cols-3 gap-2.5 relative z-10">
@@ -395,7 +395,7 @@ const LineupModal = ({
                                     onClick={() => onSetRoster('away')} 
                                     disabled={isLineupSetupLocked(currentSet, lineupSetup, 'away', 'rosterLocked')}
                                     className={`flex-1 py-2 text-xs font-bold ${getContrastClass(awayColor)} rounded transition-colors shadow-sm enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60`}
-                                    style={{ backgroundColor: awayColor }}
+                                    style={{ backgroundColor: awayColor, color: getContrastColorHex(awayColor) }}
                                 >
                                     Set roster
                                     {isLineupSetupLocked(currentSet, lineupSetup, 'away', 'rosterLocked') && <Lock size={12} className="ml-1 inline" aria-label="Locked" />}

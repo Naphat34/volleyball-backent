@@ -1,0 +1,177 @@
+/* Scoped to the console, including dialogs rendered through portals. */
+.scorer-shell > .scorer-header {
+    min-height: 54px;
+    height: auto;
+    padding: 6px 14px;
+    gap: 8px;
+}
+.scorer-shell > .scorer-header button {
+    min-height: 32px;
+    min-width: 32px;
+}
+.scorer-header .ui-button {
+    height: 32px;
+    padding: 6px;
+    border-radius: 6px;
+}
+@media (pointer: coarse) {
+    .scorer-shell > .scorer-header button { min-height: 44px; min-width: 44px; }
+}
+
+body.scorer-dark-theme {
+    color-scheme: dark;
+    background: #0b1220;
+    color: #e2e8f0;
+    --color-app-background: #0b1220;
+    --color-app-surface: #162235;
+    --color-app-border: #334155;
+    --color-app-ink: #f1f5f9;
+    --scorer-control-ink: #f1f5f9;
+    scrollbar-color: #475569 #111c2e;
+}
+
+
+.scorer-dark-theme .scorer-shell {
+    background: #0b1220;
+    color: #e2e8f0;
+}
+
+.scorer-dark-theme .scorer-shell [class~="bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))]"] {
+    background-image: radial-gradient(circle at center, #1b2b43, #0b1220);
+}
+
+.scorer-dark-theme :is([class~="bg-white"], [class~="bg-app-surface"], .ui-button-secondary) {
+    background-color: #162235;
+}
+
+.scorer-dark-theme :is([class~="bg-white/90"], [class~="bg-white/95"]) {
+    background-color: rgb(22 34 53 / 95%);
+}
+
+.scorer-dark-theme :is([class~="bg-slate-50"], [class~="bg-slate-50/70"], [class~="bg-slate-100"], [class~="bg-gray-50"], [class~="bg-gray-100"], [class~="bg-[#f8fafc]"], [class~="bg-[#f1f5f9]"]) {
+    background-color: #111c2e;
+}
+
+.scorer-dark-theme :is([class~="bg-slate-200"], [class~="bg-slate-300"], [class~="bg-gray-200"]) {
+    background-color: #334155;
+}
+
+.scorer-dark-theme :is([class*="border-slate-"], [class*="border-gray-"]) {
+    border-color: #334155;
+}
+
+.scorer-dark-theme :is([class~="text-slate-950"], [class~="text-slate-900"], [class~="text-slate-800"], [class~="text-gray-950"], [class~="text-gray-900"], [class~="text-gray-800"]) {
+    color: #f1f5f9;
+}
+
+.scorer-dark-theme :is([class~="text-slate-700"], [class~="text-slate-600"], [class~="text-gray-700"], [class~="text-gray-600"], .ui-button-secondary) {
+    color: #cbd5e1;
+}
+
+.scorer-dark-theme :is([class~="text-slate-500"], [class~="text-slate-400"], [class~="text-gray-500"], [class~="text-gray-400"]) {
+    color: #94a3b8;
+}
+
+.scorer-dark-theme :is([class~="hover:bg-slate-50"], [class~="hover:bg-slate-100"], [class~="hover:bg-gray-50"], [class~="hover:bg-gray-100"], .ui-button-secondary):hover {
+    background-color: #24344c;
+}
+
+.scorer-dark-theme :is([class~="bg-blue-50"], [class~="bg-blue-100"], [class~="bg-indigo-50"], [class~="bg-sky-50"]) { background-color: #172e50; }
+.scorer-dark-theme :is([class~="text-blue-600"], [class~="text-blue-700"], [class~="text-blue-900"], [class~="text-indigo-600"], [class~="text-indigo-700"], [class~="text-sky-700"]) { color: #93c5fd; }
+.scorer-dark-theme [class~="bg-emerald-50"] { background-color: #103b32; }
+.scorer-dark-theme :is([class~="text-emerald-600"], [class~="text-emerald-700"]) { color: #6ee7b7; }
+.scorer-dark-theme [class~="bg-amber-50"] { background-color: #3b2d18; }
+.scorer-dark-theme :is([class~="text-amber-600"], [class~="text-amber-700"]) { color: #fcd34d; }
+.scorer-dark-theme :is([class~="bg-rose-50"], [class~="bg-red-50"], .ui-button-danger) { background-color: #421f30; }
+.scorer-dark-theme :is([class~="text-rose-600"], [class~="text-red-600"], .ui-button-danger) { color: #fda4af; }
+
+.scorer-dark-theme :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]), select, textarea) {
+    background-color: #0f1a2b;
+    color: #e2e8f0;
+    border-color: #475569;
+}
+
+.scorer-dark-theme :is(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: 3px;
+}
+
+.scorer-dark-theme button:disabled { cursor: not-allowed; }
+
+.scorer-dark-theme .swal2-popup {
+    background: #162235;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+}
+.scorer-dark-theme :is(.swal2-title, .swal2-html-container, .swal2-footer) { color: #e2e8f0; }
+.scorer-dark-theme .swal2-validation-message { background: #421f30; color: #fda4af; }
+
+/* Translucent light surfaces also need dark equivalents. */
+.scorer-dark-theme :is([class~="bg-slate-50/40"], [class~="bg-slate-50/50"]) {
+    background-color: #1b293e;
+}
+.scorer-dark-theme [class~="bg-slate-100/90"] {
+    background-color: #24344c;
+}
+.scorer-dark-theme [class~="hover:bg-slate-50/50"]:hover {
+    background-color: #2b3e58;
+}
+.scorer-dark-theme [class~="enabled:hover:bg-slate-50"]:enabled:hover {
+    background-color: #24344c;
+}
+.scorer-dark-theme [class~="disabled:bg-slate-100"]:disabled {
+    background-color: #24344c;
+    color: #94a3b8;
+}
+.scorer-dark-theme .scorer-lineup-modal .lineup-court-line {
+    background-color: #ffffff;
+}
+
+/* Setup has translucent headers, roster selection and an inline player editor. */
+.scorer-dark-theme .scorer-setup-modal .scorer-setup-heading {
+    background-color: #1b293e;
+    border-color: #334155;
+}
+.scorer-dark-theme .scorer-setup-heading h2 { color: #f1f5f9; }
+.scorer-dark-theme .scorer-setup-heading p { color: #b5c4d8; }
+
+.scorer-dark-theme .scorer-setup-modal [class~="bg-slate-50/80"] {
+    background-color: #1b293e;
+}
+.scorer-dark-theme .scorer-setup-modal :is([class~="bg-indigo-50/50"], [class~="bg-indigo-50/60"], [class~="bg-blue-50/40"]) {
+    background-color: #1c3353;
+}
+.scorer-dark-theme .scorer-setup-modal [class~="bg-indigo-100"] {
+    background-color: #30466b;
+}
+.scorer-dark-theme .scorer-setup-modal :is([class~="hover:bg-white"], [class~="hover:bg-slate-50/30"]):hover {
+    background-color: #24344c;
+}
+.scorer-dark-theme .scorer-setup-modal [class~="text-rose-700"] {
+    color: #fda4af;
+}
+.scorer-dark-theme .scorer-setup-modal :is([class~="shadow-indigo-200"], [class~="shadow-slate-200"]) {
+    --tw-shadow-color: rgb(0 0 0 / 25%);
+}
+
+.scorer-dark-theme .scorer-match-history [class~="divide-slate-100"] > :not(:last-child) {
+    border-color: #2d3d54;
+}
+.scorer-dark-theme .scorer-match-history [class~="bg-blue-50/35"] {
+    background-color: #172e50;
+}
+.scorer-dark-theme .scorer-match-history [class~="hover:bg-blue-50/70"]:hover {
+    background-color: #203e63;
+}
+.scorer-dark-theme .scorer-match-history [class~="bg-amber-50/35"] {
+    background-color: #342a1c;
+}
+.scorer-dark-theme .scorer-match-history [class~="hover:bg-amber-50/70"]:hover {
+    background-color: #443621;
+}
+.scorer-dark-theme .scorer-match-history [class~="bg-slate-50/60"] {
+    background-color: #111c2e;
+}
+.scorer-dark-theme .scorer-match-history :is([class~="hover:bg-slate-50/80"], [class~="hover:bg-slate-100/70"]):hover {
+    background-color: #24344c;
+}

@@ -25,7 +25,7 @@ export default function TeamQuickControls({
                         onClick={() => onOpenLiberoSwap(team.code)}
                         disabled={isRallyOrLineup}
                         className="border text-[11px] font-bold py-1.5 rounded hover:bg-slate-50 disabled:opacity-50"
-                        style={{ borderColor: team.color, color: '#000' }}
+                        style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                     >
                         Libero in
                     </button>
@@ -45,7 +45,7 @@ export default function TeamQuickControls({
                             onClick={() => onOpenChallenge(team.code)}
                             disabled={!challengeEnabled || challenges[team.code] <= 0 || isRallyOrLineup}
                             className="flex-1 bg-white text-[10px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
-                            style={{ borderColor: team.color, color: '#000' }}
+                            style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                             title={challengeEnabled ? 'Video challenge' : 'Challenge system is not enabled for this match'}
                         >
                             Video chall.
@@ -64,7 +64,7 @@ export default function TeamQuickControls({
                             onClick={() => onActionSelect(team.code, 'TIMEOUT')}
                             disabled={timeouts[team.code] >= 2 || isRallyOrLineup}
                             className="flex-1 bg-white text-[11px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
-                            style={{ borderColor: team.color, color: '#000' }}
+                            style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                         >
                             Timeout
                         </button>
@@ -82,7 +82,7 @@ export default function TeamQuickControls({
                             onClick={() => onOpenSubstitution(team.code)}
                             disabled={isRallyOrLineup}
                             className="flex-1 bg-white text-[11px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
-                            style={{ borderColor: team.color, color: '#000' }}
+                            style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                         >
                             Substitution
                         </button>

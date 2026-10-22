@@ -28,7 +28,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
             {/* Header ชื่อทีม */}
             <div
                 className="flex items-center justify-center gap-2 bg-white px-4 py-3 text-center text-xl font-black uppercase tracking-wide"
-                style={{ borderBottom: `3px solid ${color}`, color: '#000000' }}
+                style={{ borderBottom: `3px solid ${color}`, color: 'var(--scorer-control-ink, #000000)' }}
             >
                 <span className="w-full truncate" title={team.name}>{team.name}</span>
 
