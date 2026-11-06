@@ -127,13 +127,13 @@ export default function AdminScorer() {
                 if (!active || !sameSession()) return;
                 if (fromServer && !silent) void Swal.fire({ icon: partialError ? 'warning' : 'success', title: th ? 'ดึงแมตช์สำเร็จ' : 'Matches loaded',
                     text: (th ? `ดึงแมตช์จาก Server จำนวน ${loaded.length} แมตช์` : `Loaded ${loaded.length} Server matches`) + (partialError ? ` · ${partialError}` : ''),
-                    confirmButtonText: th ? 'ตกลง' : 'OK', background: '#131f32', color: '#e3ebf7', confirmButtonColor: '#0284c7' });
+                    confirmButtonText: th ? 'ตกลง' : 'OK', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
             } catch (failure) {
                 if (!active || !sameSession()) return;
                 const message = failure.response?.data?.error || failure.message || 'Unable to load matches';
                 setError(message); setRestored(true);
                 if (fromServer && !silent) void Swal.fire({ icon: 'error', title: th ? 'ดึงแมตช์ไม่สำเร็จ' : 'Unable to load matches', text: message,
-                    confirmButtonText: th ? 'ตกลง' : 'OK', background: '#131f32', color: '#e3ebf7', confirmButtonColor: '#0284c7' });
+                    confirmButtonText: th ? 'ตกลง' : 'OK', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
             } finally { if (active && sameSession() && !silent) setLoading(false); }
         };
         const updates = dashboardRefresh(load);

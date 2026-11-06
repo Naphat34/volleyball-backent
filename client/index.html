@@ -4,6 +4,22 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0f172a" />
     <meta charset="UTF-8" />
+    <script>
+      (() => {
+        let preference;
+        try {
+          for (const key of ['volley-theme', 'volley-vis-theme', 'volley-admin-theme', 'volley-admin-vims-theme']) {
+            const value = localStorage.getItem(key);
+            if (value === 'light' || value === 'dark') { preference = value; break; }
+          }
+        } catch {}
+        const theme = preference || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.dataset.appTheme = theme;
+        document.documentElement.dataset.visTheme = theme;
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
     <link rel="preload" href="/fonts/Sarabun-Regular.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="icon" type="image/png" href="/Logo_Phatthalung.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

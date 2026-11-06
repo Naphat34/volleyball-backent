@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getOfflineUser, offlineProfileMatchesUser } from '../offline/offlineAuth.js';
+import { getVisMatchGate } from '../offline/visMatchGate.js';
 import {
   clearAuthSession,
   getAuthToken,
@@ -31,6 +32,19 @@ const createStorage = () => {
 test.beforeEach(() => {
   globalThis.localStorage = createStorage();
   globalThis.sessionStorage = createStorage();
+});
+
+test('a new login and logout clear the saved VIS dashboard fetch choice', () => {
+  setAuthSession({ token: 'first', user: { id: 7, role: 'admin' } });
+  getVisMatchGate(`7:${getAuthSessionVersion()}`).serverMatchesLoaded = true;
+  assert.notEqual(sessionStorage.getItem('volley-vis-match-list'), null);
+  setAuthSession({ token: 'second', user: { id: 7, role: 'admin' } });
+  assert.equal(sessionStorage.getItem('volley-vis-match-list'), null);
+  const gate = getVisMatchGate(`7:${getAuthSessionVersion()}`);
+  assert.equal(gate.serverMatchesLoaded, false);
+  gate.serverMatchesLoaded = true;
+  clearAuthSession();
+  assert.equal(sessionStorage.getItem('volley-vis-match-list'), null);
 });
 
 test('setAuthSession stores auth data in sessionStorage only', () => {

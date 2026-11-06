@@ -1,3 +1,4 @@
+import { useVisTheme } from '../vis/visThemeContext';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw, Download, Moon, Sun, Search, AlertCircle, Activity } from 'lucide-react';
@@ -20,10 +21,9 @@ export default function AdminVimsTab({ theme: inheritedTheme }) {
     const [filters, setFilters] = useState(emptyFilters), [view, setView] = useState('matches'), [page, setPage] = useState(1), [pageSize, setPageSize] = useState(25);
     const [sort, setSort] = useState({ field: 'date', descending: true }), [includeUnconfirmed, setIncludeUnconfirmed] = useState(false);
     const [detail, setDetail] = useState(null), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
-    const [localTheme, setTheme] = useState(() => { try { return localStorage.getItem('volley-admin-vims-theme') || 'light'; } catch { return 'light'; } });
-    const theme = inheritedTheme || localTheme;
+    const { theme: globalTheme, setTheme } = useVisTheme();
+    const theme = inheritedTheme || globalTheme;
     const refresh = useRef(null);
-    useEffect(() => { try { localStorage.setItem('volley-admin-vims-theme', theme); } catch { /* Current view still works without storage. */ } }, [theme]);
     useEffect(() => {
         let active = true;
         const updates = dashboardRefresh(async silent => {

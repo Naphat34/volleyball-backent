@@ -1,3 +1,5 @@
+import { useVisTheme } from '../../components/vis/visThemeContext';
+import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import BatchSubstitutionModal from '../../components/scorer/modals/BatchSubstitutionModal';
 import { applySubstitutionBatch } from '../../utils/scorer/substitutionBatch';
 import { hasMatchPlayActivity, normalizeWorkflowStepForMatch } from '../../utils/scorer/scorerWorkflow';
@@ -101,10 +103,11 @@ const mergeTeamColorsWithUniformDefaults = (uniformColors, currentColors = {}, m
 // MAIN COMPONENT (ScorerConsole)
 // -----------------------------------------------------------------------------
 export default function ScorerConsole() {
+    const { theme } = useVisTheme();
     useEffect(() => {
-        document.body.classList.add('scorer-dark-theme');
+        document.body.classList.toggle('scorer-dark-theme', theme === 'dark');
         return () => document.body.classList.remove('scorer-dark-theme');
-    }, []);
+    }, [theme]);
     const { matchId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
@@ -3901,6 +3904,7 @@ export default function ScorerConsole() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <VisThemeToggle iconOnly />
                     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
                         <span tabIndex={0} className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${scorerOfflineActive(matchId) ? 'bg-slate-100 text-slate-600' : realtimeConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}
                             title={scorerOfflineActive(matchId) ? 'Offline · เครื่องหลัก' : realtimeConnected ? 'เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live' : 'ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting'}>

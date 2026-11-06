@@ -1,3 +1,4 @@
+import { useVisTheme } from '../../components/vis/visThemeContext';
 import GlobalSearch from '../../components/layout/GlobalSearch';
 import Logo from '../../assets/img/Logo_Phatthalung.png';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -38,8 +39,7 @@ export default function AdminDashboard() {
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [adminContext, setAdminContext] = useState(null);
-    const [adminTheme, setAdminTheme] = useState(() => { try { return localStorage.getItem('volley-admin-theme') || 'light'; } catch { return 'light'; } });
-    useEffect(() => { try { localStorage.setItem('volley-admin-theme', adminTheme); } catch { /* Keep session theme if storage is unavailable. */ } }, [adminTheme]);
+    const { theme: adminTheme, setTheme: setAdminTheme } = useVisTheme();
     const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
     const [clubSearch, setGlobalSearch] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);

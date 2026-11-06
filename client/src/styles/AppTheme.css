@@ -1,0 +1,85 @@
+/* Shared application colors. Team uniforms, courts and report paper retain their own colors. */
+:root, html[data-app-theme="light"] {
+  --app-page: #f5f7fb;
+  --app-header: #122b52;
+  --app-surface: #ffffff;
+  --app-surface-alt: #f1f5f9;
+  --app-control: #e8eef6;
+  --app-hover: #e2eaf5;
+  --app-border: #cbd5e1;
+  --app-text: #152238;
+  --app-muted: #526176;
+  --app-soft: #58687e;
+  --app-accent: #1d4ed8;
+  --app-info-bg: #eff6ff;
+  --app-info-text: #1d4ed8;
+  --app-success-bg: #ecfdf5;
+  --app-success-text: #047857;
+  --app-warning-bg: #fffbeb;
+  --app-warning-text: #92400e;
+  --app-danger-bg: #fff1f2;
+  --app-danger-text: #be123c;
+  --app-purple-bg: #f5f3ff;
+  --app-purple-text: #6d28d9;
+  --color-app-background: var(--app-page);
+  --color-app-surface: var(--app-surface);
+  --color-app-border: var(--app-border);
+  --color-app-ink: var(--app-text);
+  --scorer-control-ink: var(--app-text);
+  color-scheme: light;
+}
+html[data-app-theme="dark"] {
+  --app-page: #0b1220;
+  --app-header: #101d32;
+  --app-surface: #162235;
+  --app-surface-alt: #1e2d42;
+  --app-control: #2a3b53;
+  --app-hover: #30445f;
+  --app-border: #40536b;
+  --app-text: #f1f5f9;
+  --app-muted: #cbd5e1;
+  --app-soft: #a5b4c8;
+  --app-accent: #93c5fd;
+  --app-info-bg: #172e50;
+  --app-info-text: #93c5fd;
+  --app-success-bg: #103b32;
+  --app-success-text: #6ee7b7;
+  --app-warning-bg: #3b2d18;
+  --app-warning-text: #fde68a;
+  --app-danger-bg: #421f30;
+  --app-danger-text: #fda4af;
+  --app-purple-bg: #31234c;
+  --app-purple-text: #d8b4fe;
+  color-scheme: dark;
+}
+html, body, #root { background: var(--app-page); color: var(--app-text); }
+body { scrollbar-color: var(--app-border) var(--app-page); }
+.app-theme-control { position:fixed; bottom:max(16px, env(safe-area-inset-bottom)); left:16px; z-index:90; }
+.app-theme-control .vis-theme-toggle { background:var(--app-surface); border:1px solid var(--app-border); color:var(--app-text); box-shadow:0 3px 14px #0002; min-height:40px; border-radius:999px; padding:10px 14px; }
+.vis-theme-toggle { color:var(--app-text); background:var(--app-surface); border:1px solid var(--app-border); }
+.vis-theme-toggle:hover { background:var(--app-hover); }
+.official-primary-button, .ui-button-primary { color:#fff; }
+.official-icon-box { color:var(--app-accent); }
+.official-header { background:var(--app-header); color:#fff; }
+.ui-button-danger, .ui-badge-live, .ui-badge-error, .ui-feedback-error, .login-error { color:var(--app-danger-text); background:var(--app-danger-bg); border-color:color-mix(in srgb,var(--app-danger-text) 35%,transparent); }
+.ui-badge-success { color:var(--app-success-text); background:var(--app-success-bg); }
+.ui-badge-warning { color:var(--app-warning-text); background:var(--app-warning-bg); }
+.ui-badge-info { color:var(--app-info-text); background:var(--app-info-bg); }
+.app-theme-control .vis-theme-toggle:focus-visible { outline:3px solid var(--app-accent); outline-offset:3px; }
+@media screen {
+  html[data-app-theme] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]), textarea, select):not([data-theme-fixed], [data-theme-fixed] *, [data-theme-paper], [data-theme-paper] *) {
+    color:var(--app-text); background-color:var(--app-surface); border-color:var(--app-border);
+  }
+  html[data-app-theme] :is(input, textarea)::placeholder { color:var(--app-soft); opacity:1; }
+  html[data-app-theme] option { color:var(--app-text); background-color:var(--app-surface); }
+  html[data-app-theme] .swal2-popup { color:var(--app-text); background:var(--app-surface); border:1px solid var(--app-border); }
+  html[data-app-theme] :is(.swal2-title, .swal2-html-container, .swal2-footer, .swal2-close) { color:var(--app-text); }
+  html[data-app-theme] .swal2-validation-message { color:var(--app-danger-text); background:var(--app-danger-bg); }
+  html[data-app-theme] .swal2-input { color:var(--app-text); background:var(--app-surface-alt); border-color:var(--app-border); }
+}
+[data-theme-paper] { --app-surface:#fff; --app-surface-alt:#f1f5f9; --app-text:#000; --app-muted:#334155; --app-soft:#475569; --app-border:#cbd5e1; --color-app-ink:#000; color-scheme:light; background:#fff; color:#000; }
+@media print {
+  :root, html[data-app-theme] { --app-page:#fff; --app-surface:#fff; --app-surface-alt:#f1f5f9; --app-control:#e8eef6; --app-border:#cbd5e1; --app-text:#000; --app-muted:#334155; --app-soft:#475569; color-scheme:light; }
+  html, body, #root { background:#fff; color:#000; }
+  .app-theme-control, .vis-theme-toggle, .admin-theme-switch { display:none!important; }
+}

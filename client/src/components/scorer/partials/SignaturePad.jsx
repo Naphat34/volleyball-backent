@@ -81,7 +81,7 @@ const SignaturePad = ({ width = 500, height = 220, onSave, defaultValue }) => {
 
     return (
         <div className="flex flex-col gap-2 w-full">
-            <div className="relative rounded-2xl border-2 border-slate-200 bg-slate-50 shadow-inner overflow-hidden aspect-[500/220] max-w-full">
+            <div data-theme-fixed className="relative rounded-2xl border-2 border-slate-200 bg-slate-50 shadow-inner overflow-hidden aspect-[500/220] max-w-full">
                 <canvas
                     ref={canvasRef}
                     width={width}

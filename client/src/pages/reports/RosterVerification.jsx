@@ -75,7 +75,7 @@ const RosterVerification = () => {
 
             <div className="mx-auto mb-4 flex max-w-[287mm] flex-wrap items-center gap-3 px-4 print:hidden"><StatusBadge tone={homePlayers.length && awayPlayers.length ? 'success' : 'warning'}>{homePlayers.length && awayPlayers.length ? 'มีรายชื่อทั้งสองทีม / Rosters available' : 'ตรวจรายชื่อก่อนพิมพ์ / Review missing rosters'}</StatusBadge><span className="text-sm text-slate-600">Home {homePlayers.length} · Away {awayPlayers.length}</span></div>
             {/* Print Container (A4 Landscape) */}
-            <div id="o2-form" className="w-[287mm] h-[198mm] bg-white mx-auto border border-gray-300 print:border-none shadow-lg print:shadow-none p-[6mm] flex flex-col justify-between box-border relative">
+            <div data-theme-paper id="o2-form" className="w-[287mm] h-[198mm] bg-white mx-auto border border-gray-300 print:border-none shadow-lg print:shadow-none p-[6mm] flex flex-col justify-between box-border relative">
                 
                 {/* Top Headers */}
                 <div className="flex justify-between gap-4">

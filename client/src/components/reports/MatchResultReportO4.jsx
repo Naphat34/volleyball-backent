@@ -466,7 +466,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
     const totalDuration = setDurations.reduce((sum, d) => sum + d, 0);
 
     return (
-        <div className="o4-paper w-[820px] min-h-[1000px] mx-auto bg-white border border-gray-300 p-8 shadow-md text-[11px] leading-snug font-sans text-black select-none box-border flex flex-col justify-between">
+        <div data-theme-paper className="o4-paper w-[820px] min-h-[1000px] mx-auto bg-white border border-gray-300 p-8 shadow-md text-[11px] leading-snug font-sans text-black select-none box-border flex flex-col justify-between">
             {/* Style override for printing O-4 */}
             <style>{`
                 @media print {

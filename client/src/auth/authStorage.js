@@ -1,3 +1,4 @@
+import { clearVisMatchGate } from '../offline/visMatchGate.js';
 import { getOfflineUser, clearOfflineSession, offlineMode, setOfflineMode } from '../offline/offlineAuth.js';
 const TOKEN_KEY = 'token';
 const USER_KEY = 'user';
@@ -40,6 +41,7 @@ export const getStoredUser = () => {
 
 export const setAuthSession = ({ token, user }) => {
   authSessionVersion++;
+  clearVisMatchGate();
   const grant = getOfflineUser({ readOnly: true });
   if (user && grant && String(user.id) !== String(grant.id)) clearOfflineSession();
   if (token) sessionStorage.setItem(TOKEN_KEY, token);
@@ -80,6 +82,7 @@ export const switchAccessMode = (offline) => {
 export const adoptOfflineIdentity = (user) => {
   const online = safeJsonParse(sessionStorage.getItem(USER_KEY)) || safeJsonParse(localStorage.getItem(USER_KEY));
   if (online && String(online.id) === String(user.id)) return;
+  clearVisMatchGate();
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
   localStorage.removeItem(TOKEN_KEY);
@@ -88,6 +91,7 @@ export const adoptOfflineIdentity = (user) => {
 
 export const clearAuthSession = () => {
   authSessionVersion++;
+  clearVisMatchGate();
   clearOfflineSession();
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);

@@ -48,14 +48,14 @@ export default function AdminVis() {
                     setError('');
                     if (fromServer) void Swal.fire({ icon: 'success', title: th ? 'ดึงแมตช์สำเร็จ' : 'Matches loaded',
                         text: th ? `ดึงแมตช์จาก Admin จำนวน ${response.serverMatchCount} แมตช์` : `Loaded ${response.serverMatchCount} Admin matches`,
-                        confirmButtonText: th ? 'ตกลง' : 'OK', background: '#131f32', color: '#e3ebf7', confirmButtonColor: '#0284c7' });
+                        confirmButtonText: th ? 'ตกลง' : 'OK', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
                 }
             } catch (loadError) {
                 if (!cancelled) {
                     const message = loadError.response?.data?.error || loadError.message || (th ? 'โหลดรายการแมตช์ไม่สำเร็จ' : 'Unable to load matches');
                     setError(message);
                     if (fromServer) void Swal.fire({ icon: 'error', title: th ? 'ดึงแมตช์ไม่สำเร็จ' : 'Unable to load matches', text: message,
-                        confirmButtonText: th ? 'ตกลง' : 'OK', background: '#131f32', color: '#e3ebf7', confirmButtonColor: '#0284c7' });
+                        confirmButtonText: th ? 'ตกลง' : 'OK', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
                 }
             } finally {
                 if (!cancelled && (!silent || fromServer)) setLoading(false);

@@ -853,7 +853,7 @@ export default function ScoreSheet({ matchId }) {
                 <MatchResultReportO4 matchData={matchData} scoreData={scoreData} rosterData={rosterData} />
             ) : (
                 /* พื้นที่กระดาษ (ตั้งค่าขนาดสำหรับ A3 แนวนอนตอนพิมพ์) */
-                <div className="a3-container w-[1587px] h-[1123px] mx-auto bg-white border border-gray-300 shadow-2xl overflow-hidden text-[12px] leading-tight text-black relative box-border p-2 flex flex-col gap-1 pb-4">
+                <div data-theme-paper className="a3-container w-[1587px] h-[1123px] mx-auto bg-white border border-gray-300 shadow-2xl overflow-hidden text-[12px] leading-tight text-black relative box-border p-2 flex flex-col gap-1 pb-4">
 
                 {/* --- ส่วนหัว (HEADER) --- */}
                 <div className="flex border-[3px] border-black h-[13%] min-h-0 shrink-0 text-[13px] leading-tight bg-white">

@@ -408,7 +408,7 @@ export default function ScoreViewReferee() {
                         <div className={`flex flex-row items-stretch gap-2 md:gap-4 ${isVertical ? 'h-full' : 'h-auto'}`}>
                             
                             {/* Left Score Card */}
-                            <div className="flex-1 rounded-2xl md:rounded-3xl border-2 border-white flex flex-col items-center justify-center shadow-md p-2 md:p-4 relative overflow-hidden transition-all" style={{ backgroundColor: leftTeam.color }}>
+                            <div data-theme-fixed className="flex-1 rounded-2xl md:rounded-3xl border-2 border-white flex flex-col items-center justify-center shadow-md p-2 md:p-4 relative overflow-hidden transition-all" style={{ backgroundColor: leftTeam.color }}>
                                 <div className={`text-6xl md:text-8xl xl:text-9xl font-black ${getContrastClass(leftTeam.color)} drop-shadow-lg tabular-nums`}>
                                     {leftTeam.score}
                                 </div>
@@ -422,7 +422,7 @@ export default function ScoreViewReferee() {
                             )}
 
                             {/* Right Score Card */}
-                            <div className="flex-1 rounded-2xl md:rounded-3xl border-2 border-white flex flex-col items-center justify-center shadow-md p-2 md:p-4 relative overflow-hidden transition-all" style={{ backgroundColor: rightTeam.color }}>
+                            <div data-theme-fixed className="flex-1 rounded-2xl md:rounded-3xl border-2 border-white flex flex-col items-center justify-center shadow-md p-2 md:p-4 relative overflow-hidden transition-all" style={{ backgroundColor: rightTeam.color }}>
                                 <div className={`text-6xl md:text-8xl xl:text-9xl font-black ${getContrastClass(rightTeam.color)} drop-shadow-lg tabular-nums`}>
                                     {rightTeam.score}
                                 </div>

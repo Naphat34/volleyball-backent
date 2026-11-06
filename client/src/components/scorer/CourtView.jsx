@@ -89,6 +89,7 @@ const PlayerToken = ({
                     transition-transform transform group-hover:scale-105 hover:border-blue-500
                     ${finalColorClass}
                 `}
+                data-theme-fixed
                 style={finalStyle}
             >
                 {/* หมายเลขตรงกลาง */}

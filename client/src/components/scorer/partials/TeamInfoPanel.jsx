@@ -1,6 +1,6 @@
 import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
 import React from 'react';
-import { getContrastClass, getContrastColorHex } from '../../../utils/common/colorUtils';
+import { getContrastColorHex } from '../../../utils/common/colorUtils';
 
 export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
     if (!team) return null;
@@ -22,7 +22,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
     }).sort((a, b) => parseInt(a.number) - parseInt(b.number));
 
     const isRight = align === 'right';
-    const courtTextClass = getContrastClass(color, 0.35);
+    const courtTextClass = 'text-app-ink';
 
     return (
         <div className="flex flex-col h-full bg-white select-none border border-slate-200 rounded-sm">

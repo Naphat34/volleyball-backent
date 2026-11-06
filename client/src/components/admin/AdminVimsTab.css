@@ -51,7 +51,7 @@
 .vims-vs {color:var(--vm-muted);font-size:11px;font-weight:400;}
 .vims-badge {display:inline-block;padding:3px 7px;border:1px solid var(--vm-line);border-radius:20px;background:var(--vm-head);color:var(--vm-muted);font-size:11px;white-space:nowrap;}
 .vims-badge.is-live {color:var(--vm-accent);background:var(--vm-tint);}
-.vims-badge.is-completed {color:#166534;background:#f0fdf4;border-color:#86cda3;}
+.vims-badge.is-completed {color:#166534;background:var(--app-surface-alt);border-color:var(--app-border);}
 .vims-badge.is-cancelled {color:var(--vm-error);background:var(--vm-error-bg);}
 .admin-vims[data-theme=dark] .vims-badge.is-completed {color:#86efac;background:#16382c;border-color:#39725b;}
 .vims-row-actions {display:flex;flex-wrap:wrap;gap:5px;min-width:140px;}
