@@ -1,3 +1,4 @@
+import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
@@ -16,8 +17,8 @@ export default function PublicVisMatch() {
         void refresh(); const interval = setInterval(refresh, 3000);
         return () => { active = false; clearInterval(interval); };
     }, [token]);
-    if (!data) return <main className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-white"><p role="status">{error || 'กำลังโหลด Livescore VIS…'}</p></main>;
-    return <main className="min-h-screen bg-slate-950 px-4 py-8 text-white"><div className="mx-auto max-w-5xl space-y-6">
+    if (!data) return <main className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-white"><VisThemeToggle /><p role="status">{error || 'กำลังโหลด Livescore VIS…'}</p></main>;
+    return <main className="min-h-screen bg-slate-950 px-4 py-8 text-white"><div className="mx-auto max-w-5xl space-y-6"><VisThemeToggle />
         <p className="text-xs text-slate-400">ข้อมูลล่าสุดบนเซิร์ฟเวอร์: {data.lastSyncedAt ? new Date(data.lastSyncedAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : 'ไม่ระบุเวลา'} · รายการ Offline ที่ยังไม่ซิงค์ไม่แสดงที่หน้านี้</p>
         <header><p className="text-xs tracking-widest text-sky-300">VOLLEY / VIS · แมตช์สร้างเอง</p><h1 className="mt-2 text-2xl font-bold">{data.title}</h1><p className="mt-2 text-sm text-slate-400">{data.date} · {data.location || 'ไม่ระบุสนาม'}</p></header>
         <section className="rounded-2xl border border-slate-700 bg-slate-900 p-5 text-center"><p className="mb-4 text-sm text-sky-200">{data.phase === 'MATCH_FINISHED' ? data.lifecycle === 'confirmed' ? 'ยืนยันผลแล้ว' : 'จบการแข่งขัน · รอตรวจสอบผล' : `เซตที่ ${data.currentSet}`}</p>

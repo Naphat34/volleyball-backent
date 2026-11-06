@@ -31,6 +31,8 @@ function importCustomVis(backup, id) {
             command: { ...command, context: { key: state.context.key } } }).payload;
     };
     const setup = backup.match?.vis_state || {};
+    if (setup.substitutionLimit || setup.firstServingTeam) send({ type: 'CONFIGURE_SETTINGS',
+        substitutionLimit: Number(setup.substitutionLimit) || 6, firstServingTeam: setup.firstServingTeam || setup.setups?.[1]?.servingTeam || setup.servingTeam || null });
     const controls = setup.controls || [];
     if (!Array.isArray(controls) || controls.length > 1000) fail('รายการควบคุมในไฟล์สำรองไม่ถูกต้อง');
     const setLineup = setNumber => {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { api, getSocketServerUrl } from '../api';
 import Swal from 'sweetalert2';
-import { getAuthToken } from '../auth/authStorage';
+import { getAuthToken, getStoredUser } from '../auth/authStorage';
 import { isLocalVis } from '../offline/offlineStore';
 
 export default function useVisScorer(match, requestedReadOnly) {
@@ -25,6 +25,27 @@ export default function useVisScorer(match, requestedReadOnly) {
     const pendingRef = useRef(null);
     const refreshRef = useRef(null);
     const pendingKey = `vis_statistics_pending_${match.id}`;
+    const clockOwner = getStoredUser()?.id || 'guest';
+    const [draftClock, setDraftClock] = useState(null);
+    const clockStarts = useRef({});
+    useEffect(() => {
+        const setNumber = snapshot?.currentSet;
+        if (!setNumber) return;
+        try {
+            const startedAt = sessionStorage.getItem(`vis-clock:${clockOwner}:${match.id}:${setNumber}`);
+            if (startedAt && Number.isFinite(Date.parse(startedAt))) { clockStarts.current[setNumber] = startedAt; setDraftClock({ setNumber, startedAt }); }
+        } catch { /* Timing still works in memory when storage is unavailable. */ }
+    }, [match.id, clockOwner, snapshot?.currentSet]);
+    const startSetClock = () => {
+        if (!snapshot || snapshot.phase === 'MATCH_FINISHED' || contextChoice !== 'current' || !snapshot.setupComplete) return null;
+        const setNumber = snapshot.currentSet;
+        const recorded = snapshot.timing?.sets.find(set => set.set === setNumber)?.startedAt;
+        const startedAt = recorded || clockStarts.current[setNumber] || new Date().toISOString();
+        clockStarts.current[setNumber] = startedAt;
+        setDraftClock(previous => previous?.setNumber === setNumber && previous.startedAt === startedAt ? previous : { setNumber, startedAt });
+        try { sessionStorage.setItem(`vis-clock:${clockOwner}:${match.id}:${setNumber}`, startedAt); } catch { /* Optional draft clock cache. */ }
+        return startedAt;
+    };
     const clearPending = () => {
         pendingRef.current = null; setPending(null);
         try { localStorage.removeItem(pendingKey); } catch { /* Optional retry cache. */ }
@@ -80,6 +101,7 @@ export default function useVisScorer(match, requestedReadOnly) {
         mutationEpoch.current++;
         busy.current = true; setIsSaving(true);
         const operation = retry ? pendingRef.current : { operationId: operationId || crypto.randomUUID(), revision: snapshot.revision,
+            timing: ['STAT', 'RALLY'].includes(command?.type) ? { setNumber: snapshot.currentSet, recordedAt: new Date().toISOString(), setStartedAt: startSetClock() } : undefined,
             command: ['STAT', 'RALLY'].includes(command?.type) ? { ...command, context: command.context || commandContext } : command };
         if (!operation) { busy.current = false; setIsSaving(false); return false; }
         pendingRef.current = operation; setPending(operation);
@@ -127,12 +149,13 @@ export default function useVisScorer(match, requestedReadOnly) {
         || isSaving || Boolean(pending) || syncError;
     const serverId = historical?.serverPlayerId || (snapshot?.servingTeam ? snapshot.lineups[snapshot.servingTeam]?.[0] : null);
     const serverTeam = historical ? (homePlayers.some(player => player.id === Number(serverId)) ? 'home' : 'away') : snapshot?.servingTeam;
-    return {
+    return { timing: snapshot?.timing, draftClock, startSetClock, setLineups: snapshot?.setLineups || {},
         matchData, homePlayers, awayPlayers, homeRotation, awayRotation,
         homeLibero: findPlayer('home', snapshot?.liberos.home), awayLibero: findPlayer('away', snapshot?.liberos.away),
         homeSubs: homePlayers.filter(player => !homeRotation.some(item => item.id === player.id)),
         awaySubs: awayPlayers.filter(player => !awayRotation.some(item => item.id === player.id)),
         timeouts: snapshot?.timeouts || { home: 0, away: 0 }, substitutions: snapshot?.substitutions || { home: 0, away: 0 },
+        substitutionLimit: snapshot?.substitutionLimit || 6,
         phase, isReadOnly, isSaving, pending, loadError, syncError, loading: !snapshot || !roster, lastSavedOperationId,
         requiresToss: snapshot?.requiresToss, setupComplete: snapshot?.setupComplete, officialReady: snapshot?.officialReady, rallies, contextChoice, activeContext, commandContext,
         setContextChoice: value => { setContextChoice(value); resetSelection(); },

@@ -33,6 +33,7 @@ export function appendVisReportPages(pdf, font, data, options = {}) {
     const margin = 32;
     const lineHeight = 15;
     const fontKeys = new Map();
+    const boldFontKeys = new Map();
     const clean = value => Array.from(String(value ?? '-').replace(/[\r\n\t]+/g, ' ')).filter(char => char.codePointAt(0) >= 32).join('');
     const segments = value => Array.from(new Intl.Segmenter('th', { granularity: 'grapheme' }).segment(clean(value)), item => item.segment);
     const wrap = (value, maxWidth, size = 10) => {
@@ -45,18 +46,21 @@ export function appendVisReportPages(pdf, font, data, options = {}) {
         lines.push(line || '-');
         return lines;
     };
-    const drawText = (target, value, x, baseline, size, color) => {
-        if (!options.fontLayout) {
-            target.drawText(clean(value), { x, y: baseline, font, size, color });
+    const drawText = (target, value, x, baseline, size, color, bold = false) => {
+        const selectedFont = bold && options.boldFont ? options.boldFont : font;
+        const layout = bold && options.boldLayout ? options.boldLayout : options.fontLayout;
+        const keys = bold && options.boldFont ? boldFontKeys : fontKeys;
+        if (!layout) {
+            target.drawText(clean(value), { x, y: baseline, font: selectedFont, size, color });
             return;
         }
         // pdf-lib encodes glyphs but omits GPOS offsets. Apply fontkit positions
         // explicitly so Thai vowels and tone marks stay attached to their bases.
-        if (!fontKeys.has(target)) fontKeys.set(target, target.node.newFontDictionary(font.name, font.ref));
-        const run = options.fontLayout.layout(clean(value));
-        const scale = size / options.fontLayout.unitsPerEm;
+        if (!keys.has(target)) keys.set(target, target.node.newFontDictionary(selectedFont.name, selectedFont.ref));
+        const run = layout.layout(clean(value));
+        const scale = size / layout.unitsPerEm;
         let cursorX = x, cursorY = baseline;
-        const operators = [beginText(), setFontAndSize(fontKeys.get(target), size), setFillingRgbColor(color.red, color.green, color.blue)];
+        const operators = [beginText(), setFontAndSize(keys.get(target), size), setFillingRgbColor(color.red, color.green, color.blue)];
         run.glyphs.forEach((glyph, i) => {
             const position = run.positions[i];
             operators.push(setTextMatrix(1, 0, 0, 1, cursorX + position.xOffset * scale, cursorY + position.yOffset * scale), showText(PDFHexString.of(glyph.id.toString(16).padStart(4, '0'))));
@@ -122,7 +126,9 @@ export function appendVisReportPages(pdf, font, data, options = {}) {
         if (report.excluded) paragraph(`รายการที่ไม่รวมในการประมวลผล: ${report.excluded} รายการ (ข้อมูลทีมหรือผลการประเมินไม่ครบถ้วน)`, 9, red);
     };
 
-    added.push(...appendMatchResultPages(pdf, font, data, report, drawText));
+    const p2Report = buildVisReport(data, { scoreSource: 'vis' });
+    appendMatchResultPages(pdf, font, data, p2Report, drawText, options);
+    if (options.resultOnly) return p2Report;
     newPage('สรุปผลการแข่งขันและสถิติภาพรวม');
     const a = report.teams[0], b = report.teams[1];
     paragraph(`ทีม A: ${a.name}`, 13, blue);

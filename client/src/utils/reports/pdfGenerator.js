@@ -56,11 +56,19 @@ export const generateVisMatchPDF = async (data, options = {}) => {
     const { save = true, returnDataUrl = false, exportedAt = new Date() } = options;
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
-    const fontBytes = await fetchPdfTemplate('/fonts/Sarabun-Regular.ttf');
+    const [fontBytes, boldBytes, competitionLogo, associationLogo, partnersLogo] = await Promise.all([
+        fetchPdfTemplate('/fonts/Sarabun-Regular.ttf'), fetchPdfTemplate('/fonts/Sarabun-Bold.ttf'),
+        fetchPdfTemplate('/reports/p2/competition-logo.png'), fetchPdfTemplate('/reports/p2/association-logo.png'), fetchPdfTemplate('/reports/p2/partners.png'),
+    ]);
     const font = await pdfDoc.embedFont(fontBytes);
-    appendVisReportPages(pdfDoc, font, data, { ...options, exportedAt, fontLayout: fontkit.create(fontBytes) });
-    return handleOutput(pdfDoc, visReportFilename(data.match, exportedAt), save, returnDataUrl);
+    const boldFont = await pdfDoc.embedFont(boldBytes);
+    const p2Assets = { competition: await pdfDoc.embedPng(competitionLogo), association: await pdfDoc.embedPng(associationLogo), partners: await pdfDoc.embedPng(partnersLogo) };
+    appendVisReportPages(pdfDoc, font, data, { ...options, exportedAt, fontLayout: fontkit.create(fontBytes), boldFont, boldLayout: fontkit.create(boldBytes), p2Assets });
+    const filename = options.resultOnly ? `P-2_${visReportFilename(data.match, exportedAt).replace(/^Vis_match_/, '')}` : visReportFilename(data.match, exportedAt);
+    return handleOutput(pdfDoc, filename, save, returnDataUrl);
 };
+
+export const generateVisMatchResultPDF = (data, options = {}) => generateVisMatchPDF(data, { ...options, resultOnly: true });
 
 export const generateScoresheetPDF = async (data, options = {}) => {
     const { save = true, returnDataUrl = false } = options;

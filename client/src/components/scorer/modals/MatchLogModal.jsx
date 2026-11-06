@@ -1,7 +1,8 @@
+import { abbreviateHistoryTeams } from '../../../utils/scorer/historyTeamNames';
 import React from 'react';
 import { X, FileText, Clock } from 'lucide-react';
 
-const MatchLogModal = ({ isOpen, onClose, events }) => {
+const MatchLogModal = ({ isOpen, onClose, events, matchData = {} }) => {
     if (!isOpen) return null;
 
     return (
@@ -38,7 +39,7 @@ const MatchLogModal = ({ isOpen, onClose, events }) => {
                                     <div className="text-[8px] font-bold text-slate-300 uppercase tracking-tighter mt-1">Ref Time</div>
                                 </div>
                                 <div className="flex-1">
-                                    <div className="text-slate-800 font-semibold text-xs uppercase tracking-tight leading-snug">{ev.description}</div>
+                                    <div className="text-slate-800 font-semibold text-xs uppercase tracking-tight leading-snug">{abbreviateHistoryTeams(ev.description, matchData)}</div>
                                     <div className="flex items-center gap-3 mt-2">
                                         <div className="bg-slate-900 text-white text-[9px] font-semibold px-2 py-0.5 rounded-lg uppercase tracking-tighter shadow-sm">SET {ev.set}</div>
                                         <div className="flex items-center gap-1.5 grayscale group-hover:grayscale-0 transition-all">

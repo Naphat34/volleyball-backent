@@ -48,7 +48,8 @@ const reportQueries = {
 };
 
 const escapeCsv = (value) => {
-  const text = value === null || value === undefined ? '' : String(value);
+  let text = value === null || value === undefined ? '' : String(value);
+  if (typeof value === 'string' && /^[\s]*[=+@\-]/.test(text)) text = "'" + text;
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
@@ -64,7 +65,7 @@ const escapePdfText = (value) => String(value ?? '')
   .replace(/\(/g, '\\(')
   .replace(/\)/g, '\\)');
 
-const buildCsv = (report, rows) => [
+const buildCsv = (report, rows) => '\uFEFF' + [
   report.columns.map(escapeCsv).join(','),
   ...rows.map((row) => report.columns.map((column) => escapeCsv(row[column])).join(',')),
 ].join('\n');
@@ -77,7 +78,7 @@ const buildExcelHtml = (report, rows) => `<!doctype html>
 <caption>${escapeHtml(report.title)}</caption>
 <thead><tr>${report.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('')}</tr></thead>
 <tbody>
-${rows.map((row) => `<tr>${report.columns.map((column) => `<td>${escapeHtml(row[column])}</td>`).join('')}</tr>`).join('\n')}
+${rows.map((row) => `<tr>${report.columns.map((column) => `<td>${escapeHtml(typeof row[column] === 'string' && /^[\s]*[=+@\-]/.test(row[column]) ? "'" + row[column] : row[column])}</td>`).join('')}</tr>`).join('\n')}
 </tbody>
 </table>
 </body>

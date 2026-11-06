@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const { projectOfficialState, resolveContext, applyCommand, applyRally, fail } = require('../utils/visWorkflow');
+const { projectOfficialState, resolveContext, applyCommand, applyRally, configureVisSettings, normalizeVisTiming, fail } = require('../utils/visWorkflow');
 const { formatVisEventCode, getVisJerseyNumber } = require('../utils/visEventCode');
 const teamId = (match, team) => match[`${team}_team_id`];
 const parse = value => { try { return typeof value === 'string' ? JSON.parse(value) : value || {}; } catch { return {}; } };
@@ -61,6 +61,17 @@ exports.command = async (req, res) => {
         }
         if (previous.revision !== revision) fail('VIS statistics changed on another screen. Reload before continuing.', 409);
         if (['completed', 'finished', 'match_finished'].includes(match.status)) fail('Match is finished', 409);
+        if (command.type === 'CONFIGURE_SETTINGS') {
+            if (previous.phase === 'MATCH_FINISHED') fail('Match is finished', 409);
+            const setup = configureVisSettings(parse(match.vis_state), previous, command);
+            setup.lineupRevision = (Number(setup.lineupRevision) || 0) + 1;
+            setup.lineupOperations = [...(setup.lineupOperations || []), operationId];
+            await connection.query('UPDATE matches SET vis_state = ? WHERE id = ?', [JSON.stringify(setup), match.id]);
+            const result = await read(connection, { ...match, vis_state: setup });
+            await connection.commit();
+            req.app.get('io')?.to('match_' + match.id).emit('vis_statistics_updated', { matchId: match.id });
+            return res.json({ state: result.state });
+        }
         const last = previous.history.at(-1);
         if (command.type === 'RALLY') {
             if (!previous.setupComplete || previous.phase === 'MATCH_FINISHED') fail('Complete the set lineup before recording.', 409);
@@ -76,7 +87,7 @@ exports.command = async (req, res) => {
                     if (number == null || String(number).trim() === '' || !Number.isSafeInteger(Number(number)) || Number(number) < 0) fail('Invalid jersey number');
                 }
                 const code = `${event.team === 'home' ? '*' : 'a'}${number == null ? '' : String(number).padStart(2, '0')}${event.skill}${event.grade}`;
-                const details = { vis: true, scoringSource: 'vis-statistics', operationId, rallyId: operationId,
+                const details = { vis: true, visTiming: normalizeVisTiming(req.body.timing, context.setNumber), scoringSource: 'vis-statistics', operationId, rallyId: operationId,
                     rallyPoint: index === command.events.length - 1, statisticalRallyWinner: result.winner,
                     jersey_number: number == null ? null : Number(number), event_code: code, rawGrade: event.grade, generated: Boolean(event.generated),
                     visContext: { ...context, scoreBefore: context.score, scoreAfter: result.state.score } };
@@ -126,7 +137,7 @@ exports.command = async (req, res) => {
                 if (command.type === 'TIMEOUT' && previous.timeouts[team] >= 2) fail('Maximum 2 timeouts per set.');
                 const details = {};
                 if (command.type === 'SUBSTITUTION') {
-                    if (previous.substitutions[team] >= 6) fail('Maximum 6 substitutions per set.');
+                    if (previous.substitutions[team] >= previous.substitutionLimit) fail(`Maximum ${previous.substitutionLimit} substitutions per set.`);
                     const { playerOut, playerIn } = command;
                     if (!Number.isSafeInteger(playerIn) || !previous.lineups[team].includes(playerOut) || previous.lineups[team].includes(playerIn)) fail('Select an on-court player and a bench player.');
                     const starters = (setup.setups?.[previous.currentSet] || setup).lineups[team];
@@ -211,7 +222,7 @@ exports.command = async (req, res) => {
             const number = await getVisJerseyNumber(connection, match, teamId(match, event.team), event.player);
             const code = formatVisEventCode(event.skill, number, event.grade);
             if (!code) fail('Player jersey number is missing or invalid. Update the roster before recording.');
-            const details = { ...event.details, vis: true, scoringSource: 'vis-statistics', operationId,
+            const details = { visTiming: normalizeVisTiming(req.body.timing, officialContext.setNumber), ...event.details, vis: true, scoringSource: 'vis-statistics', operationId,
                 event_type: event.skill, jersey_number: Number(number), event_code: code };
             const result = await connection.query(`INSERT INTO match_actions
                 (match_id, set_number, action_type, team_id, player_id, skill, grade, score_home, score_away, description, details, operation_id, created_at)

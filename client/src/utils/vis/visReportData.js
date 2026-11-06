@@ -1,4 +1,5 @@
 import { eventDetails } from './visPresentation.js';
+import { projectVisTiming } from './visTiming.js';
 
 const skills = ['S', 'R', 'A', 'B', 'D', 'E'];
 const grades = ['#', '+', '!', '-', '=', '/'];
@@ -11,7 +12,7 @@ export const attempts = (stats, skill) => grades.reduce((sum, grade) => sum + st
 export const playerPoints = stats => stats.A['#'] + stats.S['#'] + stats.B['#'];
 export const percentage = (numerator, denominator) => denominator ? `${(numerator / denominator * 100).toFixed(1)}%` : '-';
 
-export function buildVisReport(data) {
+export function buildVisReport(data, options = {}) {
     const { match, events = [], visActions = [], sets = [], homePlayers = [], awayPlayers = [] } = data;
     // Official timeline stays in match_events; VIS actions are supplied separately.
     const reportEvents = [...events, ...visActions.map(action => ({ ...action,
@@ -67,8 +68,37 @@ export function buildVisReport(data) {
         }
     }
     teams.sort((a, b) => a.label.localeCompare(b.label));
-    const completed = state?.workflowStep === 'MATCH_FINISHED' || ['completed', 'finished'].includes(match.status);
-    return { match, teams, events: orderedEvents, statEvents, sets: [...setMap.values()].sort((a, b) => a.number - b.number), excluded,
+    let completed = state?.workflowStep === 'MATCH_FINISHED' || ['completed', 'finished'].includes(match.status);
+    let wins = state?.setsWon || { home: Number(match.home_set_score || 0), away: Number(match.away_set_score || 0) };
+    const timingActions = orderedEvents.filter(event => event.action_type === 'VIS_STAT');
+    if (options.scoreSource === 'vis') {
+        const visSets = new Map();
+        for (const event of timingActions) {
+            // Use the independent VIS scoring context, never a legacy copy of official points.
+            const score = eventDetails(event).visContext?.scoreAfter;
+            const number = Number(event.set_number ?? event.set_id);
+            if (!score || !Number.isInteger(number) || number < 1 || !['home', 'away'].every(key => score[key] != null && Number.isFinite(Number(score[key])))) continue;
+            const home = Number(score.home), away = Number(score.away);
+            const target = number === Number(match.max_sets || 5) ? 15 : 25;
+            visSets.set(number, { number, home, away, finished: Math.max(home, away) >= target && Math.abs(home - away) >= 2 });
+        }
+        if (visSets.size) {
+            setMap.clear();
+            for (const [number, set] of visSets) setMap.set(number, set);
+            wins = { home: 0, away: 0 };
+            for (const set of visSets.values()) if (set.finished) wins[set.home > set.away ? 'home' : 'away']++;
+            completed = Math.max(wins.home, wins.away) >= Math.floor(Number(match.max_sets || 5) / 2) + 1;
+        }
+    }
+    const completedTimingSets = timingActions.filter(event => {
+        const score = eventDetails(event).visContext?.scoreAfter || { home: event.score_home, away: event.score_away };
+        const target = Number(event.set_number ?? event.set_id) === Number(match.max_sets || 5) ? 15 : 25;
+        return Math.max(Number(score.home), Number(score.away)) >= target && Math.abs(Number(score.home) - Number(score.away)) >= 2;
+    }).map(event => ({ set: Number(event.set_number ?? event.set_id) }));
+    // Imported/legacy created_at may be an edit/import time days later. Only explicit
+    // recorded timing is suitable for P-2; official match_sets remain a fallback.
+    const visTiming = projectVisTiming(timingActions.filter(event => eventDetails(event).visTiming), completedTimingSets, Number(match.max_sets || 5));
+    return { match, teams, events: orderedEvents, statEvents, visTiming, sets: [...setMap.values()].sort((a, b) => a.number - b.number), excluded,
         completed, hasStats: statEvents.length > 0, state,
-        wins: state?.setsWon || { home: Number(match.home_set_score || 0), away: Number(match.away_set_score || 0) } };
+        wins };
 }

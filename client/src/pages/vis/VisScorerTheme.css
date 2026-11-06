@@ -1,0 +1,152 @@
+/* Semantic colors for the scorer. Do not derive text colors by inverting surfaces. */
+html[data-vis-theme="light"] {
+  --vs-page: #f8fafc;
+  --vs-surface: #ffffff;
+  --vs-heading: #f3f4f6;
+  --vs-control: #f8fafc;
+  --vs-hover: #eaf4fc;
+  --vs-selected: #e0f2fe;
+  --vs-line: #cbd5e1;
+  --vs-text: #1f2937;
+  --vs-muted: #526176;
+  --vs-accent: #0369a1;
+  --vs-accent-bg: #e0f2fe;
+  --vs-success: #166534;
+  --vs-success-bg: #f0fdf4;
+  --vs-error: #be123c;
+  --vs-error-bg: #fff1f2;
+  --vs-warning: #854d0e;
+  --vs-scroll: #94a3b8;
+}
+html[data-vis-theme="dark"] {
+  --vs-page: #0c131e;
+  --vs-surface: #172231;
+  --vs-heading: #202d3e;
+  --vs-control: #223247;
+  --vs-hover: #2c4058;
+  --vs-selected: #243f59;
+  --vs-line: #41536a;
+  --vs-text: #e5edf7;
+  --vs-muted: #afbed1;
+  --vs-accent: #7dd3fc;
+  --vs-accent-bg: #203d53;
+  --vs-success: #86efac;
+  --vs-success-bg: #16382c;
+  --vs-error: #fda4af;
+  --vs-error-bg: #412435;
+  --vs-warning: #fde68a;
+  --vs-scroll: #71849c;
+}
+html[data-vis-theme] .vis-workspace {
+  --vis-border: var(--vs-line);
+  --vis-ink: var(--vs-text);
+  --vis-muted: var(--vs-muted);
+  background: var(--vs-page);
+  color: var(--vs-text);
+  color-scheme: var(--vis-color-scheme);
+}
+html[data-vis-theme] .vis-scorer-loading {background:var(--vs-page);color:var(--vs-text);}
+html[data-vis-theme] .vis-scorer-loading button {background:var(--vs-control);color:var(--vs-text);border:1px solid var(--vs-line);}
+html[data-vis-theme] :is(.vis-workspace, .vis-settings-modal, .vis-stats-modal) * {
+  scrollbar-color: var(--vs-scroll) var(--vs-surface);
+}
+html[data-vis-theme] .vis-workspace :is(
+  .vis-scoreboard, .vis-court-panel, .vis-code-panel, .vis-guide-panel,
+  .vis-court-card, .vis-control-card, .vis-set-points, .vis-recording,
+  .vis-main-history, .vis-history-scroll, .vis-history-card,
+  .vis-entry-dock, .vis-entry-dock > form, .vis-guide-scroll
+) {background:var(--vs-surface);color:var(--vs-text);}
+html[data-vis-theme] .vis-workspace :is(
+  .vis-app-header, .vis-panel-title, .vis-main-history .vis-history-header,
+  .vis-guide-tabs, .vis-set-points > h3
+) {background:var(--vs-heading);color:var(--vs-text);border-color:var(--vs-line);}
+html[data-vis-theme] .vis-workspace :is(.vis-match-heading b, .vis-score-team h2, .vis-guide-scroll h3) {color:var(--vs-text);}
+html[data-vis-theme] .vis-workspace :is(
+  .vis-match-heading span, .vis-score-team small, .vis-team-indicators,
+  .vis-score-times, .vis-zoom span, .vis-zoom button,
+  .vis-history-header label, .vis-history-empty, .vis-history-detail,
+  .vis-history-cardfooter, .vis-lineup-hint, .vis-bench-grid > span:first-child
+) {color:var(--vs-muted);}
+html[data-vis-theme] .vis-workspace :is(
+  .vis-tool-button, .vis-layout-select, .vis-tool-group, .vis-language,
+  .vis-app-actions > button, .vis-court-tools button, .vis-team-tools button,
+  .vis-lineup-actions button, .vis-point-controls button,
+  .vis-team-controls > div[role=group] > button, .vis-entry-dock button,
+  .vis-main-history .vis-history-modes, .vis-history-set button,
+  .vis-set-scores span, .vis-libero-slot
+) {background:var(--vs-control);color:var(--vs-text);border-color:var(--vs-line);}
+html[data-vis-theme] .vis-workspace button:not(:disabled):hover {filter:brightness(1.06);}
+html[data-vis-theme] .vis-workspace :is(.vis-tool-button, .vis-court-tools button, .vis-entry-dock button):not(:disabled):hover {background:var(--vs-hover);}
+html[data-vis-theme] .vis-workspace :is(
+  .vis-tool-selected, .vis-language button[aria-pressed=true],
+  .vis-main-history .vis-history-modes button[aria-pressed=true],
+  .vis-court-tools button[aria-pressed=true]
+) {background:var(--vs-accent-bg)!important;color:var(--vs-accent)!important;border-color:var(--vs-accent)!important;}
+html[data-vis-theme] .vis-workspace :is(.vis-guide-tabs button, .vis-main-history .vis-history-modes button) {color:var(--vs-muted);}
+html[data-vis-theme] .vis-workspace .vis-guide-tabs button[aria-pressed=true] {color:var(--vs-accent);border-color:var(--vs-accent);}
+html[data-vis-theme] .vis-workspace .vis-score-context > b {background:var(--vs-accent-bg);color:var(--vs-accent);}
+html[data-vis-theme] .vis-workspace .vis-score-context > b.vis-phase-finished {background:var(--vs-success-bg);color:var(--vs-success);}
+html[data-vis-theme] .vis-workspace .vis-sync-status {color:var(--vs-success);border-color:var(--vs-success);}
+html[data-vis-theme] .vis-workspace :is(.vis-sync-warning, .vis-history-warning) {color:var(--vs-warning);}
+html[data-vis-theme] .vis-workspace :is(.vis-guide-hint, .vis-guide-manual, .vis-guide-action, .vis-toolbar-notice) {background:var(--vs-control);color:var(--vs-text);border-color:var(--vs-line);}
+html[data-vis-theme] .vis-workspace :is(.vis-live-link, .vis-guide-manual summary, .vis-guide-scroll td:first-child, .vis-guide-action) {color:var(--vs-accent);}
+html[data-vis-theme] .vis-workspace .vis-guide-manual p {color:var(--vs-muted);}
+html[data-vis-theme] .vis-workspace .vis-guide-hint b {background:var(--vs-heading);color:var(--vs-text);}
+
+/* Preserve team identity with text colors checked against the actual surface. */
+html[data-vis-theme] .vis-workspace :is(.vis-court-team h3, .vis-bench-player) {color:var(--team-ink);}
+html[data-vis-theme] .vis-workspace :is(.vis-court-player, .vis-set-count) {background:var(--team-card);color:var(--team-card-ink);border-color:var(--team-ink);}
+html[data-vis-theme] .vis-workspace .vis-court-player > small {color:var(--team-card-ink);}
+html[data-vis-theme] .vis-workspace .vis-court-player.vis-player-serving {border-color:var(--vs-warning);}
+html[data-vis-theme] .vis-workspace .vis-bench-player {background:var(--vs-control);border-color:var(--team-ink);}
+html[data-vis-theme] .vis-workspace :is(.vis-history-teamheads span:first-child, .vis-history-scorelink span:first-child, .vis-history-cardfooter .home, .vis-entry-dock [class*="text-blue-"]) {color:var(--vis-home-ink);}
+html[data-vis-theme] .vis-workspace :is(.vis-history-teamheads span:last-child, .vis-history-scorelink span:last-child, .vis-history-cardfooter .away, .vis-entry-dock [class*="text-red-"]) {color:var(--vis-away-ink);}
+
+/* History bubbles must never mix the team color with a hard-coded white surface. */
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-event .vis-history-eventline {background:var(--vs-control);color:var(--vs-text);border-color:var(--vs-line);border-radius:4px;}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-event.home .vis-history-eventline {background:var(--vis-home-card);color:var(--vis-home-card-ink);border-left-color:var(--vis-home-ink);}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-event.away .vis-history-eventline {background:var(--vis-away-card);color:var(--vis-away-card-ink);border-right-color:var(--vis-away-ink);}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-eventline code {color:inherit;font-size:inherit;}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-eventline :is(.positive, .negative) {padding:1px 4px;border-radius:3px;}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-eventline .positive {background:var(--vs-success-bg);color:var(--vs-success);}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-eventline .negative {background:var(--vs-error-bg);color:var(--vs-error);}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-rail {background:var(--vs-control);}
+html[data-vis-theme] .vis-workspace .vis-main-history .vis-history-scorelink {background:var(--vs-surface);}
+html[data-vis-theme] .vis-workspace .vis-main-history :is(.vis-history-scorelink.selected, .vis-history-card.selected) {background:var(--vs-selected);outline:2px solid var(--vs-accent);outline-offset:-2px;}
+
+/* The input is transparent because the matching painted layer renders its text. */
+html[data-vis-theme] .vis-workspace .vis-entry-dock .vis-code-editor {background:var(--vs-surface);border-color:var(--vs-line);}
+html[data-vis-theme] .vis-workspace .vis-entry-dock .vis-code-editor:focus-within {outline:2px solid var(--vs-accent);outline-offset:1px;}
+html[data-vis-theme] .vis-workspace .vis-code-editor input.vis-code-text {color:transparent;caret-color:var(--vs-text);}
+html[data-vis-theme] .vis-workspace .vis-code-editor input::placeholder {color:var(--vs-muted);opacity:1;}
+html[data-vis-theme] .vis-workspace :is(.text-slate-100, .text-slate-200, .text-slate-300) {color:var(--vs-text);}
+html[data-vis-theme] .vis-workspace :is(.text-slate-400, .text-slate-500, .text-slate-600) {color:var(--vs-muted);}
+html[data-vis-theme] .vis-workspace .vis-entry-dock .vis-code-finished {background:var(--vs-heading);color:var(--vs-text);}
+html[data-vis-theme] .vis-workspace .vis-entry-dock button[aria-pressed=true] {background:var(--vs-selected)!important;color:var(--vs-accent)!important;border-color:var(--vs-accent)!important;}
+html[data-vis-theme] .vis-workspace :is(.text-amber-200, .text-amber-300) {color:var(--vs-warning);}
+html[data-vis-theme] .vis-workspace .vis-entry-dock #vis-code-preview .text-red-300 {color:var(--vs-error);}
+html[data-vis-theme] .vis-workspace :is(.text-indigo-200, .text-sky-200, .text-sky-300) {color:var(--vs-accent);}
+html[data-vis-theme] .vis-workspace :is(.bg-indigo-600, .bg-sky-800, .bg-blue-700) {background:var(--vs-accent-bg);color:var(--vs-accent);}
+
+/* Settings, full statistics and lineup/substitution dialogs use the same palette. */
+html[data-vis-theme] :is(.vis-settings-modal, .vis-stats-modal, .vis-themed-dialog) {background:var(--vs-surface);color:var(--vs-text);border-color:var(--vs-line);}
+html[data-vis-theme] :is(.vis-settings-header, .vis-settings-card h3, .vis-stats-header, .vis-stats-team h3, .vis-stats-modal thead, .vis-stats-modal tfoot, .vis-themed-dialog h2) {background:var(--vs-heading);color:var(--vs-text);border-color:var(--vs-line);}
+html[data-vis-theme] :is(.vis-settings-body, .vis-settings-card, .vis-stats-body, .vis-stats-team, .vis-stats-modal tbody tr) {background:var(--vs-surface);color:var(--vs-text);}
+html[data-vis-theme] :is(.vis-settings-modal, .vis-stats-modal) :is(h2, h3, h4, .vis-stats-team-name, tbody th) {color:var(--vs-text);}
+html[data-vis-theme] :is(.vis-settings-modal label, .vis-settings-note, .vis-stats-header p, .vis-stats-team h3 span, .vis-stats-player-en, .vis-stats-team-name small, .vis-stats-empty) {color:var(--vs-muted);}
+html[data-vis-theme] :is(.vis-settings-modal, .vis-stats-modal, .vis-themed-dialog) :is(button, input:not([type=checkbox]):not([type=radio]):not([type=color]), select, textarea) {background:var(--vs-control);color:var(--vs-text);border-color:var(--vs-line);}
+html[data-vis-theme] :is(.vis-settings-modal, .vis-stats-modal) :is(td, th, .vis-settings-card, .vis-stats-team) {border-color:var(--vs-line);}
+html[data-vis-theme] :is(.vis-settings-modal .vis-settings-save, .vis-stats-modal .vis-stats-export) {background:var(--vs-accent-bg)!important;color:var(--vs-accent)!important;border-color:var(--vs-accent)!important;}
+html[data-vis-theme] .vis-stats-modal tbody tr:hover {background:var(--vs-hover);}
+html[data-vis-theme] .vis-stats-modal :is(.vis-stats-points, .vis-stats-total) {color:var(--vs-success);}
+html[data-vis-theme] :is(.vis-stats-errors, .vis-settings-error) {color:var(--vs-error);}
+html[data-vis-theme] .vis-settings-error {background:var(--vs-error-bg);}
+html[data-vis-theme] .vis-stats-footer {background:var(--vs-heading);color:var(--vs-muted);border-color:var(--vs-line);}
+html[data-vis-theme] .vis-themed-dialog h2 {padding:8px;border-radius:5px;}
+html[data-vis-theme] .vis-themed-dialog :is(.bg-slate-800, .bg-slate-950\/70, .bg-orange-950\/40) {background:var(--vs-control);}
+html[data-vis-theme] .vis-themed-dialog :is(.text-slate-300, .text-slate-400) {color:var(--vs-muted);}
+html[data-vis-theme] .vis-workspace :is(button, a, select, input):focus-visible {outline:2px solid var(--vs-accent);outline-offset:2px;}
+html[data-vis-theme] .vis-workspace button:disabled {opacity:.6;}
+@media (prefers-reduced-motion: reduce) {
+  .vis-workspace * {scroll-behavior:auto;transition:none;}
+}

@@ -1,3 +1,4 @@
+import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
 import React from 'react';
 import { getContrastClass, getContrastColorHex } from '../../../utils/common/colorUtils';
 
@@ -30,7 +31,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                 className="flex items-center justify-center gap-2 bg-white px-4 py-3 text-center text-xl font-black uppercase tracking-wide"
                 style={{ borderBottom: `3px solid ${color}`, color: 'var(--scorer-control-ink, #000000)' }}
             >
-                <span className="w-full truncate" title={team.name}>{team.name}</span>
+                <span className="w-full truncate" title={team.name}>{team.shortName?.trim() || getTeamCode(team.name)}</span>
 
             </div>
 

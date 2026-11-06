@@ -1,3 +1,4 @@
+const { applyMatchSetup, setupPlayers } = require('../utils/matchSetup');
 const crypto = require('crypto');
 const db = require('../config/db');
 const { normalizeManualMatch, assertReady, parseConfig, canManage } = require('../utils/manualScorer');
@@ -20,7 +21,7 @@ async function actualConfig(connection, match) {
     for (const side of ['home', 'away']) {
         const team = (await connection.query('SELECT name, main_color FROM teams WHERE id = ?', [match[`${side}_team_id`]])).rows[0];
         const players = (await connection.query('SELECT id, number, first_name, last_name, position, is_captain FROM players WHERE team_id = ? AND is_playing = 1 ORDER BY number', [match[`${side}_team_id`]])).rows;
-        config[side] = { name: team.name, color: team.main_color || config[side].color, players: players.map(p => ({ ...p, position: p.position || '', is_captain: Boolean(p.is_captain) })) };
+        config[side] = { name: applyMatchSetup({ ...match })[`${side}_team_name`] || team.name, color: team.main_color || config[side].color, players: setupPlayers(match, side, players).map(p => ({ ...p, position: p.position || '', is_captain: Boolean(p.is_captain) })) };
     }
     return config;
 }
@@ -60,7 +61,7 @@ exports.list = async (req, res) => {
     } catch (error) { sendError(res, error); }
 };
 exports.read = async (req, res) => {
-    try { const match = await owned(db, req); res.json({ match, config: await actualConfig(db, match) }); }
+    try { const match = await owned(db, req); res.json({ match: applyMatchSetup(match), config: await actualConfig(db, match) }); }
     catch (error) { sendError(res, error); }
 };
 exports.save = async (req, res) => {
@@ -83,7 +84,7 @@ exports.save = async (req, res) => {
         const awayId = await saveTeam(connection, config.away, req.user.id, match?.away_team_id);
         const values = [config.title || 'แมตช์สร้างเอง', start ? 'ready' : 'draft', JSON.stringify(config), config.date || null, config.time || null, config.location || null, config.matchNumber, config.maxSets, config.hasChallenge ? 1 : 0, config.gender || null];
         if (match) {
-            await connection.query('UPDATE matches SET manual_title=?, manual_lifecycle=?, manual_config=?, match_date=?, start_time=?, location=?, match_number=?, max_sets=?, has_challenge=?, gender=?, live_state=NULL WHERE id=?', [...values, match.id]);
+            await connection.query('UPDATE matches SET match_setup=NULL, match_setup_revision=match_setup_revision+1, manual_title=?, manual_lifecycle=?, manual_config=?, match_date=?, start_time=?, location=?, match_number=?, max_sets=?, has_challenge=?, gender=?, live_state=NULL WHERE id=?', [...values, match.id]);
         } else {
             const inserted = await connection.query(`INSERT INTO matches
                 (manual_title, manual_lifecycle, manual_config, match_date, start_time, location, match_number, max_sets, has_challenge, gender, home_team_id, away_team_id, manual_owner_id, manual_creation_id, status, set_scores)

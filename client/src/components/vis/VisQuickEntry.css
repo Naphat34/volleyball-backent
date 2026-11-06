@@ -1,0 +1,22 @@
+/* The painted code and native input must use identical glyph metrics. */
+.vis-code-editor .vis-code-text {
+    box-sizing: border-box;
+    margin: 0;
+    border: 0;
+    padding: 8px 12px;
+    font: 400 16px/24px var(--font-sans);
+    letter-spacing: normal;
+    word-spacing: normal;
+    text-indent: 0;
+    text-transform: none;
+    font-kerning: none;
+    font-variant-ligatures: none;
+    direction: ltr;
+    text-align: left;
+    white-space: pre;
+}
+.vis-code-editor input.vis-code-text {
+    height: 40px;
+    color: transparent;
+    caret-color: var(--vis-d15345e, #15345e);
+}

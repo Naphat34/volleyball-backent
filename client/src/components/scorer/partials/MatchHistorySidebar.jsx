@@ -1,3 +1,4 @@
+import { historyTeamName, abbreviateHistoryTeams } from '../../../utils/scorer/historyTeamNames';
 import { getContrastClass } from '../../../utils/common/colorUtils';
 import React from 'react';
 import { Settings, Timer } from 'lucide-react';
@@ -269,11 +270,17 @@ const MatchHistorySidebar = ({
                                 const isRightEvent = isHomeLeft ? isAway : isHome;
                                 const isNeutralEvent = !isLeftEvent && !isRightEvent;
                                 const accentColor = isHome ? teamColors.home : isAway ? teamColors.away : '#cbd5e1';
-                                const eventTeamName = isHome ? matchData.teamHome : isAway ? matchData.teamAway : mt.team;
+                                const eventTeamName = isHome ? historyTeamName(matchData, 'home') : isAway ? historyTeamName(matchData, 'away') : abbreviateHistoryTeams(mt.team, matchData);
                                 const setupEventLabels = { FIRST_SERVE: 'First Serve', COURT_SIDE_LEFT: 'Court Side A (Left)', COIN_TOSS_WINNER: 'Coin Toss Winner' };
                                 const description = setupEventLabels[mt.type] && eventTeamName
                                     ? `${setupEventLabels[mt.type]}: ${eventTeamName}`
-                                    : ev.description;
+                                    : abbreviateHistoryTeams(ev.description, matchData);
+                                if (mt.type === 'SUBSTITUTION_BATCH') return (
+                                    <details key={ev.id} className="border-l-[3px] px-3 py-2 text-xs text-slate-600" style={{ borderColor: accentColor }}>
+                                        <summary className="cursor-pointer font-bold">{eventTeamName} · Substitutions ({mt.pairs.length})</summary>
+                                        <div className="mt-2 space-y-1">{mt.pairs.map((pair, index) => <div key={index}>OUT #{pair.outNumber} → IN #{pair.inNumber}</div>)}</div>
+                                    </details>
+                                );
                                 if (setupEventLabels[mt.type]) return (
                                     <div key={ev.id} className={`px-3 py-2 text-[11px] text-slate-500 break-words hover:bg-slate-50 transition-colors ${isRightEvent ? 'text-right' : 'text-left'}`}>
                                         {description}

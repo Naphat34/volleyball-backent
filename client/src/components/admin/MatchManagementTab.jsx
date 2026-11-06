@@ -15,7 +15,7 @@ const normalizeRoundName = (value) => {
     return String(value).includes('เธ') ? 'Classification' : value;
 };
 
-export default function MatchManagementTab() {
+export default function MatchManagementTab({ initialCompetitionId, initialMatchId }) {
     // --- State Management ---
     const [competitions, setCompetitions] = useState([]);
     const [matches, setMatches] = useState([]);
@@ -121,7 +121,7 @@ export default function MatchManagementTab() {
     const fetchCompetitions = useCallback(async () => {
         try {
             const res = await api.getAllCompetitions();
-            setCompetitions(res.data.filter(c => c.status?.toLowerCase() === 'open'));
+            setCompetitions(res.data);
 
             // Extract unique base names
             const bases = new Set();
@@ -136,12 +136,13 @@ export default function MatchManagementTab() {
             setUniqueBaseNames(sortedBases);
 
             if (sortedBases.length > 0) {
-                setSelectedBaseName(sortedBases[0]);
+                const target = res.data.find(c => String(c.id) === String(initialCompetitionId));
+                setSelectedBaseName(target ? (target.title || target.name || '').replace(/\s\((Male|Female|Mix|Mixed)\)$/i, '').trim() : sortedBases[0]);
             }
         } catch (err) {
             console.error("Error fetching competitions:", err);
         }
-    }, []);
+    }, [initialCompetitionId]);
 
     // Effect: Update available genders when base name changes
     useEffect(() => {
@@ -332,6 +333,10 @@ export default function MatchManagementTab() {
             setFilterAgeGroup('All');
         }
     }, [filterAgeGroup, pageAgeGroups]);
+
+    useEffect(() => {
+        if (initialMatchId && matches.some(match => String(match.id) === String(initialMatchId))) document.getElementById(`admin-fixture-${initialMatchId}`)?.scrollIntoView({ block: 'center' });
+    }, [initialMatchId, matches]);
 
     // --- Handlers ---
     const handleOpenCreate = () => {
@@ -695,7 +700,7 @@ export default function MatchManagementTab() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {matches.map((match) => (
-                                    <tr key={match.id} className="group transition-colors hover:bg-blue-50/30">
+                                    <tr key={match.id} id={`admin-fixture-${match.id}`} aria-current={String(match.id) === String(initialMatchId) ? 'true' : undefined} className={`group transition-colors hover:bg-blue-50/30 ${String(match.id) === String(initialMatchId) ? 'admin-target-fixture' : ''}`}>
                                         <td className="px-6 py-4">
                                             <span className="font-mono font-bold text-blue-600">
                                                 {match.match_number}

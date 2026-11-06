@@ -1,3 +1,4 @@
+const { applyMatchSetup, setupPlayers, setupStaff, parseSetup, normalizeTeam } = require('../utils/matchSetup');
 const db = require('../config/db');
 const { normalizeVisGrade, normalizeVisSkill } = require('../config/visCodes');
 
@@ -456,7 +457,7 @@ module.exports = {
                 return res.status(404).json({ error: "Match not found" });
             }
 
-            res.json(result.rows[0]);
+            res.json(applyMatchSetup(result.rows[0]));
         } catch (err) {
             console.error("Get Match Details Error", err);
             res.status(500).json({ error: "Database error" });
@@ -1005,7 +1006,7 @@ module.exports = {
             const { homePlayers = [], awayPlayers = [] } = req.body;
 
             const matchRes = await client.query(`
-                SELECT id, competition_id, home_team_id, away_team_id
+                SELECT id, competition_id, home_team_id, away_team_id, match_setup
                 FROM matches
                 WHERE id = ?
             `, [matchId]);
@@ -1015,6 +1016,20 @@ module.exports = {
             }
 
             const match = matchRes.rows[0];
+            if (match.match_setup) {
+                const setup = parseSetup(match.match_setup);
+                for (const [side, submitted] of [['home', homePlayers], ['away', awayPlayers]]) {
+                    if (!Array.isArray(submitted)) return res.status(400).json({ error: 'Invalid roster' });
+                    const current = setup[side];
+                    const ids = new Set(current.players.map(p => Number(p.id)));
+                    const selected = submitted.map(normalizeRosterPlayer).filter(p => p.selected);
+                    const players = selected.map(p => ({ ...current.players.find(row => Number(row.id) === p.id), id: p.id, number: p.number, role: ['C','L1','L2','L1+C','L2+C'].includes(p.role) ? p.role : '' }));
+                    setup[side] = normalizeTeam({ ...current, players }, ids);
+                }
+                await client.query('UPDATE matches SET match_setup=?, match_setup_revision=match_setup_revision+1 WHERE id=?', [JSON.stringify(setup), matchId]);
+                req.app.get('io')?.to(`match_${matchId}`).emit('roster_updated', { id: matchId });
+                return res.json({ success: true, message: 'Match roster updated' });
+            }
             const rosterByTeam = [
                 { teamId: match.home_team_id, players: Array.isArray(homePlayers) ? homePlayers : [] },
                 { teamId: match.away_team_id, players: Array.isArray(awayPlayers) ? awayPlayers : [] },
@@ -1137,7 +1152,7 @@ module.exports = {
         } catch (err) {
             await client.query('ROLLBACK');
             console.error("Update Match Roster Error", err);
-            res.status(500).json({ error: "Database error: " + err.message });
+            res.status(err.status || 500).json({ error: err.status ? err.message : "Database error: " + err.message });
         } finally {
             client.release();
         }
@@ -1288,7 +1303,7 @@ module.exports = {
             // 6️⃣ ตรวจสอบว่าจบแมตช์หรือยัง
             const matchInfo = await client.query(
                 `
-        SELECT m.home_team_id, m.away_team_id, COALESCE(c.max_sets, m.max_sets, 5) as max_sets
+        SELECT m.home_team_id, m.away_team_id, m.match_setup, COALESCE(c.max_sets, m.max_sets, 5) as max_sets
         FROM matches m
         LEFT JOIN competitions c ON m.competition_id = c.id
         WHERE m.id = ?
@@ -1297,7 +1312,7 @@ module.exports = {
             );
 
 
-            const info = matchInfo.rows[0];
+            const info = applyMatchSetup(matchInfo.rows[0]);
 
             const maxSets = info.max_sets || 5;
             const setsToWin = Math.ceil(maxSets / 2);
@@ -1386,7 +1401,8 @@ module.exports = {
                 return res.status(404).json({ error: "Match not found" });
             }
 
-            const match = matchResult.rows[0];
+            const rosterGender = matchResult.rows[0].competition_gender;
+            const match = applyMatchSetup(matchResult.rows[0]);
 
             let stadiumName = null;
             let stadiumCity = null;
@@ -1463,7 +1479,7 @@ module.exports = {
                 entryHasIsPlaying: entryColumnNames.has('is_playing'),
                 playerHasIsPlaying: playerColumnNames.has('is_playing'),
                 ageGroupId: match.match_age_group_id,
-                gender: match.competition_gender,
+                gender: rosterGender,
                 requireEntryRoster: true,
                 allowRegisteredTeamGenderFallback: true
             };
@@ -1522,12 +1538,14 @@ module.exports = {
             res.json({
                 match,
                 home: {
-                    players: homePlayers.rows,
-                    staff: homeStaff.rows
+                    players: setupPlayers(match, 'home', homePlayers.rows),
+                    availablePlayers: homePlayers.rows,
+                    staff: setupStaff(match, 'home', homeStaff.rows)
                 },
                 away: {
-                    players: awayPlayers.rows,
-                    staff: awayStaff.rows
+                    players: setupPlayers(match, 'away', awayPlayers.rows),
+                    availablePlayers: awayPlayers.rows,
+                    staff: setupStaff(match, 'away', awayStaff.rows)
                 }
             });
 
@@ -1580,7 +1598,8 @@ module.exports = {
                 return res.status(404).json({ error: "Match not found" });
             }
 
-            const match = matchResult.rows[0];
+            const rosterGender = matchResult.rows[0].competition_gender;
+            const match = applyMatchSetup(matchResult.rows[0]);
 
             // 2. ดึงข้อมูลเซต (Score & Duration)
             const setsResult = await db.query(`
@@ -1600,7 +1619,7 @@ module.exports = {
                 'p.id, p.first_name, p.last_name, p.number, p.position',
                 {
                     ageGroupId: match.match_age_group_id,
-                    gender: match.competition_gender,
+                    gender: rosterGender,
                     requireEntryRoster: true
                 }
             );
@@ -1611,7 +1630,7 @@ module.exports = {
                 'p.id, p.first_name, p.last_name, p.number, p.position',
                 {
                     ageGroupId: match.match_age_group_id,
-                    gender: match.competition_gender,
+                    gender: rosterGender,
                     requireEntryRoster: true
                 }
             );
@@ -1635,8 +1654,8 @@ module.exports = {
                 match,
                 sets: setsResult.rows,
                 lineups: lineupsResult.rows,
-                homePlayers: homePlayers.rows,
-                awayPlayers: awayPlayers.rows,
+                homePlayers: setupPlayers(match, 'home', homePlayers.rows),
+                awayPlayers: setupPlayers(match, 'away', awayPlayers.rows),
                 events: eventsResult.rows,
                 visActions: visActionsResult.rows
             });

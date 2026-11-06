@@ -1,11 +1,18 @@
-export default function MatchDashboardScore({ match, th = true, source = 'vis' }) {
-    const vis = match.vis_summary, official = match.official_summary;
-    const officialActive = ['live', 'completed'].includes(match.status);
+import { dashboardSetResult, officialCompletedSetScores } from '../../utils/vis/dashboardResult';
+
+export default function MatchDashboardScore({ match, source = 'vis' }) {
+    if (source === 'vis') return <strong className="vd-set-result">{dashboardSetResult(match)}</strong>;
+    const setsWon = match.official_summary?.setsWon;
+    const home = Number(setsWon?.home ?? match.home_set_score ?? 0);
+    const away = Number(setsWon?.away ?? match.away_set_score ?? 0);
+    const completedSets = officialCompletedSetScores(match);
     return <div className="vd-score-details">
-        {source === 'vis' && <div className="vd-score-vis">{vis?.hasActivity ? <><span>VIS · {th ? 'เซต' : 'Set'} {vis.currentSet}</span><strong>{vis.score.home} – {vis.score.away}</strong><small>{th ? 'เซตที่ชนะ' : 'Sets won'} {vis.setsWon.home} : {vis.setsWon.away}</small></> : <span>VIS · {th ? 'ยังไม่มีแต้มบันทึก' : 'No recorded score'}</span>}</div>}
         {!match.is_custom_vis && <div className={source === 'official' ? 'vd-score-official is-primary' : 'vd-score-official'}>
-            <span>{th ? 'ผลเซตทางการ' : 'Official sets'} · {officialActive ? `${official?.setsWon.home ?? match.home_set_score ?? 0} : ${official?.setsWon.away ?? match.away_set_score ?? 0}` : '—'}</span>
-            {match.status === 'live' && official?.score && <small>{th ? 'แต้มเซต' : 'Set'} {official.currentSet} · {official.score.home} – {official.score.away}</small>}
+            <span className="vd-official-result"><span className={home > away ? 'vd-winning-score' : ''}>{home}</span><span className="vd-score-separator">-</span><span className={away > home ? 'vd-winning-score' : ''}>{away}</span></span>
+            {completedSets.length > 0 && <div className="vd-completed-set-scores">{completedSets.map((score, index) => {
+                const [homePoints, awayPoints] = score.split(':').map(Number);
+                return <span className="vd-set-score-chip" key={index}><span className={homePoints > awayPoints ? 'vd-winning-score' : ''}>{homePoints}</span><span className="vd-score-separator">:</span><span className={awayPoints > homePoints ? 'vd-winning-score' : ''}>{awayPoints}</span></span>;
+            })}</div>}
         </div>}
     </div>;
 }

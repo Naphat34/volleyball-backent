@@ -177,6 +177,7 @@ export const api = {
 
   saveCoinToss: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/toss`, data),
   getVisState: matchId => customVis(matchId) ? readCustomVis(matchId) : apiClient.get(`/scorer/match/${matchId}/vis`),
+  getAdminVisOverview: () => apiClient.get('/admin/vis/overview', { timeout: 60000 }),
   getVisMatches: ({ fromServer = false, includeServerMatches = false, matchId = null } = {}) => loadVisMatchList({
     fromServer, includeServerMatches, matchId, offline: offlineMode(),
     readLocal: async () => (await listLocal({ readOnly: true })).map(item => localView(item).match),
@@ -255,6 +256,8 @@ export const api = {
 
   // อัปเดตข้อมูลเจ้าหน้าที่ในแมตช์
   updateMatchOfficials: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/officials`, data),
+  getMatchSettings: matchId => apiClient.get(`/scorer/match/${matchId}/settings`),
+  updateMatchSettings: (matchId, data) => apiClient.put(`/scorer/match/${matchId}/settings`, data),
   endSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/end-set`, data),
   startSet: (matchId, data) => apiClient.post(`/scorer/match/${matchId}/start-set`, data),
   getMatchScoresheetData: async matchId => {

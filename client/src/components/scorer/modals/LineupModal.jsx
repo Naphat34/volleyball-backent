@@ -1,3 +1,4 @@
+import { isPlayerLibero } from '../../../utils/scorer/playerFilters';
 import { getTeamCode, isLineupSetupLocked } from '../../../utils/scorer/scorerHelpers';
 import React, { useState, useRef } from 'react';
 import { X, PenTool, Lock } from 'lucide-react';
@@ -19,7 +20,9 @@ const LineupModal = ({
     awayLogoUrl,
     homeLineup, 
     awayLineup, 
-    onSlotClick, 
+    onSlotClick,
+    onSelectRosterPlayer,
+    onClearSlot,
     onConfirm,
     homeRoster = [],
     awayRoster = [],
@@ -118,6 +121,22 @@ const LineupModal = ({
         setActiveColorPicker(null);
     };
 
+    const renderLineupSlot = (side, posIndex, player) => (
+        <div key={posIndex} className="relative">
+            <button type="button" onClick={() => onSlotClick(side, posIndex)}
+                aria-label={`${side} position ${posIndex + 1}${player ? ' player ' + player.number : ' empty'}`}
+                className="aspect-square w-full bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer">
+                {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
+            </button>
+            {player && <button type="button" onClick={() => onClearSlot(side, posIndex)}
+                aria-label={`Remove player ${player.number} from ${side} position ${posIndex + 1}`}
+                className="absolute right-0 top-0 z-20 flex h-5 w-5 items-center justify-center bg-transparent text-slate-500 hover:text-rose-600"
+                style={{ backgroundColor: 'transparent' }}>
+                <X size={10}/>
+            </button>}
+        </div>
+    );
+
     const renderShirtColorPicker = (side, currentColor) => (
         <div className="relative flex-1">
             <button
@@ -186,9 +205,12 @@ const LineupModal = ({
                         <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                             {safeHomeRoster.length > 0 ? (
                                 safeHomeRoster.map((player, index) => (
-                                    <div 
+                                    <button type="button"
+                                        onClick={() => onSelectRosterPlayer('home', player)}
+                                        disabled={isPlayerLibero(player) || homeLineup.every(Boolean) || homeLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
+                                        aria-pressed={homeLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
                                         key={player.id} 
-                                        className={`flex justify-between items-center py-2 px-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded transition-colors ${
+                                        className={`w-full text-left disabled:opacity-50 disabled:cursor-not-allowed flex justify-between items-center py-2 px-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded transition-colors ${
                                             index % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'
                                         }`}
                                     >
@@ -199,7 +221,7 @@ const LineupModal = ({
                                         <div>
                                             {getPlayerBadge(player)}
                                         </div>
-                                    </div>
+                                    </button>
                                 ))
                             ) : (
                                 <div className="text-center py-10 text-slate-400 text-xs italic">No roster data</div>
@@ -264,15 +286,7 @@ const LineupModal = ({
                                     <div className="grid grid-cols-3 gap-2.5 relative z-10">
                                         {[3, 2, 1].map((posIndex) => {
                                             const player = homeLineup[posIndex];
-                                            return (
-                                                <button 
-                                                    key={posIndex}
-                                                    onClick={() => onSlotClick('home', posIndex)}
-                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
-                                                >
-                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
-                                                </button>
-                                            );
+                                            return renderLineupSlot('home', posIndex, player);
                                         })}
                                     </div>
                                     
@@ -280,15 +294,7 @@ const LineupModal = ({
                                     <div className="grid grid-cols-3 gap-2.5 relative z-10">
                                         {[4, 5, 0].map((posIndex) => {
                                             const player = homeLineup[posIndex];
-                                            return (
-                                                <button 
-                                                    key={posIndex}
-                                                    onClick={() => onSlotClick('home', posIndex)}
-                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
-                                                >
-                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
-                                                </button>
-                                            );
+                                            return renderLineupSlot('home', posIndex, player);
                                         })}
                                     </div>
                                 </div>
@@ -318,15 +324,7 @@ const LineupModal = ({
                                     <div className="grid grid-cols-3 gap-2.5 relative z-10">
                                         {[3, 2, 1].map((posIndex) => {
                                             const player = awayLineup[posIndex];
-                                            return (
-                                                <button 
-                                                    key={posIndex}
-                                                    onClick={() => onSlotClick('away', posIndex)}
-                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
-                                                >
-                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
-                                                </button>
-                                            );
+                                            return renderLineupSlot('away', posIndex, player);
                                         })}
                                     </div>
                                     
@@ -334,15 +332,7 @@ const LineupModal = ({
                                     <div className="grid grid-cols-3 gap-2.5 relative z-10">
                                         {[4, 5, 0].map((posIndex) => {
                                             const player = awayLineup[posIndex];
-                                            return (
-                                                <button 
-                                                    key={posIndex}
-                                                    onClick={() => onSlotClick('away', posIndex)}
-                                                    className="aspect-square bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
-                                                >
-                                                    {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
-                                                </button>
-                                            );
+                                            return renderLineupSlot('away', posIndex, player);
                                         })}
                                     </div>
                                 </div>
@@ -368,9 +358,12 @@ const LineupModal = ({
                         <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                             {safeAwayRoster.length > 0 ? (
                                 safeAwayRoster.map((player, index) => (
-                                    <div 
+                                    <button type="button"
+                                        onClick={() => onSelectRosterPlayer('away', player)}
+                                        disabled={isPlayerLibero(player) || awayLineup.every(Boolean) || awayLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
+                                        aria-pressed={awayLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
                                         key={player.id} 
-                                        className={`flex justify-between items-center py-2 px-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded transition-colors ${
+                                        className={`w-full text-left disabled:opacity-50 disabled:cursor-not-allowed flex justify-between items-center py-2 px-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded transition-colors ${
                                             index % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'
                                         }`}
                                     >
@@ -381,7 +374,7 @@ const LineupModal = ({
                                         <div>
                                             {getPlayerBadge(player)}
                                         </div>
-                                    </div>
+                                    </button>
                                 ))
                             ) : (
                                 <div className="text-center py-10 text-slate-400 text-xs italic">No roster data</div>

@@ -4,10 +4,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../../api';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, MapPin, Flag, UserCog,
+    LayoutDashboard, MapPin, Flag,
     UserCheck, LogOut, Users, Trophy, Swords, Shield,
     Star, BarChart2, Menu, X, User, Bell,
-    PanelLeftClose, PanelLeftOpen
+    PanelLeftClose, PanelLeftOpen, ListChecks, FileText, Sun, Moon
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useLanguage } from '../../context/LanguageContext';
@@ -15,6 +15,9 @@ import { getStoredUser } from '../../auth/authStorage';
 
 import CompetitionsTab from '../../components/admin/CompetitionsTab';
 import HomeTab from '../../components/admin/HomeTab';
+import AdminControlCenter from '../../components/admin/AdminControlCenter';
+import AdminReportCenter from '../../components/admin/AdminReportCenter';
+import './AdminConsole.css';
 import MatchManagementTab from '../../components/admin/MatchManagementTab';
 import PlayerViewTab from '../../components/admin/PlayerViewTab';
 import ClubsTab from '../../components/admin/ClubsTab';
@@ -26,29 +29,17 @@ import TeamRankingTab from '../../components/admin/TeamRankingTab';
 import OfficialsTab from '../../components/admin/OfficialsTab';
 
 
-const PlaceholderTab = ({ title }) => {
-    const { language } = useLanguage();
-
-    return (
-        <div className="official-panel rounded-xl p-6">
-            <h2 className="mb-3 text-xl font-semibold text-slate-900">{title}</h2>
-            <p className="text-sm text-slate-500">
-                {language === 'THA' ? 'หน้านี้กำลังอยู่ระหว่างการพัฒนา...' : 'This page is under development...'}
-            </p>
-        </div>
-    );
-};
-
-
-
 export default function AdminDashboard() {
     const navigate = useNavigate();
     const { language, setLanguage, t } = useLanguage();
     const [activeTab, setActiveTab] = useState(() => {
         const storedTab = sessionStorage.getItem('adminActiveTab');
-        return storedTab === 'live_scorer' ? 'home' : (storedTab || 'home');
+        return ['home','action_center','competition_overview','competitions','clubs','stadium','team_ranking','players','officials','accounts','pending_users','matches','escore','reports'].includes(storedTab) ? storedTab : 'home';
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [adminContext, setAdminContext] = useState(null);
+    const [adminTheme, setAdminTheme] = useState(() => { try { return localStorage.getItem('volley-admin-theme') || 'light'; } catch { return 'light'; } });
+    useEffect(() => { try { localStorage.setItem('volley-admin-theme', adminTheme); } catch { /* Keep session theme if storage is unavailable. */ } }, [adminTheme]);
     const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
     const [clubSearch, setGlobalSearch] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -145,48 +136,47 @@ export default function AdminDashboard() {
     };
 
     const changeTab = (tab, search = '') => {
-        setGlobalSearch(search);
+        setGlobalSearch(typeof search === 'string' ? search : '');
+        setAdminContext(typeof search === 'object' ? search : null);
         setActiveTab(tab);
         setIsSidebarOpen(false);
     };
 
+    const tr = (thai, english) => language === 'THA' ? thai : english;
     const sidebarSections = [
-        {
-            label: t('admin.mainMenu'),
-            items: [
-                { key: 'home', icon: <LayoutDashboard size={19} />, label: t('admin.home') },
-                { key: 'competitions', icon: <Trophy size={19} />, label: t('admin.competitions') },
-                { key: 'clubs', icon: <Shield size={19} />, label: t('admin.teams') },
-                { key: 'stadium', icon: <MapPin size={19} />, label: t('admin.stadium') },
-                { key: 'team_ranking', icon: <BarChart2 size={19} />, label: t('admin.teamRanking') },
-            ],
-        },
-        {
-            label: t('admin.people'),
-            items: [
-                { key: 'players', icon: <Users size={19} />, label: t('admin.players') },
-                { key: 'coaches', icon: <UserCog size={19} />, label: t('admin.coaches') },
-                { key: 'officials', icon: <Flag size={19} />, label: t('admin.officials') },
-            ],
-        },
-        {
-            label: t('admin.operations'),
-            items: [
-                { key: 'matches', icon: <Swords size={19} />, label: t('admin.matches') },
-                { key: 'escore', icon: <Star size={19} />, label: t('admin.vis') },
-            ],
-        },
-        {
-            label: t('admin.system'),
-            items: [
-                { key: 'accounts', icon: <UserCheck size={19} />, label: t('admin.accounts') },
-                { key: 'pending_users', icon: <User size={19} />, label: t('admin.pendingUsers'), badge: pendingUsersCount },
-            ],
-        },
+        { label: tr('ภาพรวม', 'Overview'), items: [
+            { key: 'home', icon: <LayoutDashboard size={19} />, label: tr('ศูนย์บริหารการแข่งขัน', 'Control center') },
+            { key: 'action_center', icon: <ListChecks size={19} />, label: tr('งานที่ต้องดำเนินการ', 'Action center') }
+        ]},
+        { label: tr('การแข่งขัน', 'Competition'), items: [
+            { key: 'competitions', icon: <Trophy size={19} />, label: t('admin.competitions') },
+            { key: 'matches', icon: <Swords size={19} />, label: tr('ตารางและผลการแข่งขัน', 'Fixtures & results') },
+            { key: 'competition_overview', icon: <LayoutDashboard size={19} />, label: tr('รายละเอียดรายการ', 'Competition details') },
+            { key: 'stadium', icon: <MapPin size={19} />, label: t('admin.stadium') },
+            { key: 'team_ranking', icon: <BarChart2 size={19} />, label: t('admin.teamRanking') }
+        ]},
+        { label: tr('ทีมและบุคลากร', 'Teams & people'), items: [
+            { key: 'clubs', icon: <Shield size={19} />, label: t('admin.teams') },
+            { key: 'players', icon: <Users size={19} />, label: t('admin.players') },
+            { key: 'officials', icon: <Flag size={19} />, label: t('admin.officials') }
+        ]},
+        { label: tr('การบันทึก', 'Match operations'), items: [
+            { key: 'scoring', href: '/adminscorer', icon: <Swords size={19} />, label: 'ScorerControl' },
+            { key: 'escore', icon: <Star size={19} />, label: tr('ศูนย์ข้อมูล VIMS', 'VIMS statistics') }
+        ]},
+        { label: tr('รายงาน', 'Reports'), items: [
+            { key: 'reports', icon: <FileText size={19} />, label: tr('รายงานและเอกสาร', 'Reports & documents') }
+        ]},
+        { label: tr('ดูแลระบบ', 'Administration'), items: [
+            { key: 'accounts', icon: <UserCheck size={19} />, label: t('admin.accounts') },
+            { key: 'pending_users', icon: <User size={19} />, label: t('admin.pendingUsers'), badge: pendingUsersCount }
+        ]}
     ];
+    const currentSection = sidebarSections.find(section => section.items.some(item => item.key === activeTab));
+    const currentPage = currentSection?.items.find(item => item.key === activeTab);
 
     return (
-        <div className="dashboard-shell app-page flex overflow-hidden font-sans">
+        <div className="admin-console dashboard-shell app-page flex overflow-hidden font-sans" data-admin-theme={adminTheme}>
             {isSidebarOpen && (
                 <div
                 className="fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-sm lg:hidden"
@@ -244,7 +234,7 @@ export default function AdminDashboard() {
                                     <MenuButton
                                         key={item.key}
                                         active={activeTab === item.key}
-                                        onClick={() => changeTab(item.key)}
+                                        onClick={() => item.href ? navigate(item.href) : changeTab(item.key)}
                                         icon={item.icon}
                                         label={item.label}
                                         badge={item.badge}
@@ -285,15 +275,16 @@ export default function AdminDashboard() {
                         </button>
                         <div className="min-w-0">
                             <p className="hidden text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:block">
-                                {t('admin.dashboard')}
+                                {currentSection?.label || t('admin.dashboard')}
                             </p>
                             <h2 className="truncate text-xl font-bold tracking-tight text-slate-950">
-                                {getTabName(activeTab)}
+                                {currentPage?.label || getTabName(activeTab)}
                             </h2>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2 lg:gap-4">
+                        <button className="admin-theme-switch" onClick={() => setAdminTheme(value => value === 'dark' ? 'light' : 'dark')} aria-label={tr('สลับโหมดสว่างและมืด', 'Toggle light and dark mode')}>{adminTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
                         <GlobalSearch onSelect={(tab, label) => changeTab(tab, label)} />
                         <div className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm md:flex">
                             <Shield size={15} className="text-blue-500" />
@@ -350,20 +341,24 @@ export default function AdminDashboard() {
 
                 <main id="main-content" className="dashboard-content flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-transparent">
                     <div className="mx-auto w-full max-w-[1600px]">
-                        {activeTab === 'home' && <HomeTab onNavigate={changeTab} pendingUsersCount={pendingUsersCount} />}
+                        <div className="admin-breadcrumb"><button onClick={() => changeTab('home')}>{tr('ศูนย์บริหารการแข่งขัน', 'Control center')}</button><span>/</span><span>{currentSection?.label}</span><span>/</span><strong>{currentPage?.label}</strong></div>
+                        {activeTab === 'home' && <AdminControlCenter key="home" theme={adminTheme} onNavigate={changeTab} />}
+                        {activeTab === 'action_center' && <AdminControlCenter key="actions" theme={adminTheme} onNavigate={changeTab} actionsOnly />}
+                        {activeTab === 'competition_overview' && <HomeTab />}
+                        {activeTab === 'reports' && <AdminReportCenter onNavigate={changeTab} />}
                         {activeTab === 'competitions' && <CompetitionsTab />}
                         {activeTab === 'clubs' && <ClubsTab initialSearch={clubSearch} />}
                         {activeTab === 'stadium' && <StadiumsTab />}
                         {activeTab === 'team_ranking' && <TeamRankingTab />}
 
                         {activeTab === 'players' && <PlayerViewTab />}
-                        {activeTab === 'coaches' && <PlaceholderTab title="Coaches Management" />}
+
                         {activeTab === 'officials' && <OfficialsTab />}
 
                         {activeTab === 'accounts' && <AccountsTab />}
                         {activeTab === 'pending_users' && <PendingUsersTab />}
-                        {activeTab === 'matches' && <MatchManagementTab />}
-                        {activeTab === 'escore' && <EScoreTab />}
+                        {activeTab === 'matches' && <MatchManagementTab initialCompetitionId={adminContext?.competitionId} initialMatchId={adminContext?.matchId} />}
+                        {activeTab === 'escore' && <EScoreTab theme={adminTheme} />}
                     </div>
                 </main>
             </div>
@@ -404,7 +399,7 @@ function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
             <div className="flex items-center gap-3 min-w-0">
                 <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors ${
                     active
-                        ? 'bg-white/10 text-white ring-1 ring-white/10'
+                        ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
                         : 'bg-white text-slate-400 ring-1 ring-blue-100 group-hover:text-blue-600 group-hover:ring-blue-200'
                 }`}>{icon}</span>
                 <span className={`transition-all duration-200 truncate ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
@@ -412,14 +407,14 @@ function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
                 </span>
             </div>
             {!isCollapsed && badge > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center shrink-0 ${active ? 'bg-white/15 text-white' : 'bg-rose-50 text-rose-600 ring-1 ring-rose-100'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center shrink-0 ${active ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 ring-1 ring-rose-100'}`}>
                     {badge}
                 </span>
             )}
             {isCollapsed && badge > 0 && (
                 <>
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border border-white lg:block hidden"></span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold min-w-[20px] text-center lg:hidden ${active ? 'bg-white/15 text-white' : 'bg-rose-50 text-rose-600'}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold min-w-[20px] text-center lg:hidden ${active ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600'}`}>
                         {badge}
                     </span>
                 </>

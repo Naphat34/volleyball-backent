@@ -81,7 +81,7 @@ export async function saveLocal(id, operation) {
         if (current.released || current.deviceId !== deviceId()) throw Error('เครื่องนี้ไม่มีสิทธิ์บันทึกแมตช์ Offline นี้');
         if (current.syncingUntil > Date.now()) throw Error('กำลังซิงค์แมตช์นี้ กรุณารอให้เสร็จก่อนบันทึก');
         if (['CONFIRM', 'REOPEN'].includes(operation.command?.type)) throw Error('กรุณาซิงค์และคืนสิทธิ์ก่อนตรวจสอบยืนยันผลออนไลน์');
-        if (!current.payload.match.is_custom_vis && !['SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION'].includes(operation.command?.type)) throw Error('คำสั่งนี้ต้องทำออนไลน์หลังซิงค์และคืนสิทธิ์แมตช์ Admin');
+        if (!current.payload.match.is_custom_vis && !['CONFIGURE_SETTINGS', 'SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION'].includes(operation.command?.type)) throw Error('คำสั่งนี้ต้องทำออนไลน์หลังซิงค์และคืนสิทธิ์แมตช์ Admin');
         const result = commandPayload(current.payload, operation); response = result.response;
         if (!response.duplicate) { current.payload = result.payload; current.queue.push(operation); }
         current.updatedAt = new Date().toISOString(); return current;

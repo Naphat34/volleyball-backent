@@ -1,3 +1,7 @@
+import BatchSubstitutionModal from '../../components/scorer/modals/BatchSubstitutionModal';
+import { applySubstitutionBatch } from '../../utils/scorer/substitutionBatch';
+import { hasMatchPlayActivity, normalizeWorkflowStepForMatch } from '../../utils/scorer/scorerWorkflow';
+import { getConfiguredTeamColors, mergeConfiguredTeamColors } from '../../utils/scorer/configuredTeamColors';
 import { buildScorerLiveState, replaceLineupPlayer, isLineupSetupLocked, saveRosterApproval } from '../../utils/scorer/scorerHelpers';
 import { getSetElapsedSeconds, restoreSetTimer } from '../../utils/scorer/setTimer';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -65,60 +69,6 @@ const workflowStepRank = {
 
 const getWorkflowStepRank = (step) => workflowStepRank[step] || 0;
 
-const hasMatchPlayActivity = (snapshot = {}) => {
-    const scoreHome = Number(snapshot.score?.home) || 0;
-    const scoreAway = Number(snapshot.score?.away) || 0;
-    const setsWonHome = Number(snapshot.setsWon?.home) || 0;
-    const setsWonAway = Number(snapshot.setsWon?.away) || 0;
-    const matchDuration = Number(snapshot.matchDuration) || 0;
-    const completedSets = Array.isArray(snapshot.completedSets) ? snapshot.completedSets : [];
-    const matchEvents = Array.isArray(snapshot.matchEvents) ? snapshot.matchEvents : [];
-
-    return (
-        scoreHome > 0 ||
-        scoreAway > 0 ||
-        setsWonHome > 0 ||
-        setsWonAway > 0 ||
-        matchDuration > 0 ||
-        completedSets.length > 0 ||
-        matchEvents.some(event => {
-            const eventType = String(event?.type || event?.event_type || '').toUpperCase();
-            return ![
-                'LINEUP_CONFIRM',
-                'ROSTER_CONFIRM',
-                'SETUP_CONFIRM',
-                'MATCH_SETUP',
-                'COIN_TOSS_WINNER',
-                'COURT_SIDE_LEFT',
-                'FIRST_SERVE'
-            ].includes(eventType);
-        })
-    );
-};
-
-const hasCompletedCoinToss = (snapshot = {}) => {
-    const matchEvents = Array.isArray(snapshot.matchEvents) ? snapshot.matchEvents : [];
-
-    return (
-        Boolean(snapshot.servingTeam) ||
-        typeof snapshot.isHomeLeft === 'boolean' ||
-        Boolean(snapshot.firstServeSet1) ||
-        matchEvents.some(event => {
-            const eventType = String(event?.type || event?.event_type || '').toUpperCase();
-            return ['COIN_TOSS_WINNER', 'COURT_SIDE_LEFT', 'FIRST_SERVE'].includes(eventType);
-        })
-    );
-};
-
-const normalizeWorkflowStepForMatch = (step, snapshot = {}) => {
-    if (!step) return 'LINEUP';
-    if (step === 'SIGNATURES') return 'LINEUP';
-    if (step === 'MATCH_FINISHED' && !hasMatchPlayActivity(snapshot)) {
-        return hasCompletedCoinToss(snapshot) ? 'READY' : 'LINEUP';
-    }
-    return step;
-};
-
 const DEFAULT_TEAM_COLORS = { home: '#d6d6d8ff', away: '#d6d6d8ff' };
 
 const normalizeHexColor = (color) => {
@@ -134,13 +84,14 @@ const isDefaultTeamColor = (color) => {
 
 const getTeamUniformColor = (match, side) => {
     const prefix = side === 'home' ? 'home' : 'away';
-    return normalizeHexColor(match?.[`${prefix}_main_color`])
+    return normalizeHexColor(match?.[`${prefix}_team_color`])
+        || normalizeHexColor(match?.[`${prefix}_main_color`])
         || normalizeHexColor(match?.[`${prefix}_legacy_home_color`])
         || normalizeHexColor(match?.[`${prefix}_legacy_away_color`])
         || DEFAULT_TEAM_COLORS[side];
 };
 
-const mergeTeamColorsWithUniformDefaults = (uniformColors, currentColors = {}) => ({
+const mergeTeamColorsWithUniformDefaults = (uniformColors, currentColors = {}, match = {}) => mergeConfiguredTeamColors(match, {
     home: isDefaultTeamColor(currentColors.home) ? uniformColors.home : currentColors.home,
     away: isDefaultTeamColor(currentColors.away) ? uniformColors.away : currentColors.away,
 });
@@ -195,7 +146,7 @@ export default function ScorerConsole() {
     const matchDataRef = useRef(null);
     const fetchMatchDataRef = useRef(null);
     const localStateUpdateTsRef = useRef(initialLocalStateUpdatedAt);
-    const workflowStepRef = useRef('LINEUP');
+    const workflowStepRef = useRef('COIN_TOSS');
 
     const markLocalStateUpdate = useCallback(() => {
         // Keep versions strictly increasing so same-millisecond updates and
@@ -235,13 +186,15 @@ export default function ScorerConsole() {
     const [workflowStep, setWorkflowStep] = useState(() => {
         // ดึง workflowStep จาก localStorage เพื่อรักษาสถานะเมื่อรีเฟรช
         const saved = localStorage.getItem(`match_${matchId}_workflowStep`);
-        const parsed = saved ? JSON.parse(saved) : 'LINEUP';
+        const parsed = saved ? JSON.parse(saved) : 'COIN_TOSS';
         return normalizeWorkflowStepForMatch(parsed, {
             score: loadState('score', { home: 0, away: 0 }),
             setsWon: loadState('setsWon', { home: 0, away: 0 }),
             completedSets: loadState('completedSets', []),
             matchEvents: loadState('matchEvents', []),
-            matchDuration: loadState('matchDuration', 0)
+            matchDuration: loadState('matchDuration', 0),
+            servingTeam: loadState('servingTeam', null),
+            firstServeSet1: loadState('firstServeSet1', null)
         });
     });
 
@@ -663,6 +616,7 @@ export default function ScorerConsole() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [realtimeConnected, setRealtimeConnected] = useState(false);
     const [liveSyncStatus, setLiveSyncStatus] = useState('pending');
+    const [lastSyncedAt, setLastSyncedAt] = useState(null);
     const liveSyncGenerationRef = useRef(0);
     const retryLiveStateRef = useRef(null);
     const [queueCount, setQueueCount] = useState(EventQueue.getQueue().length);
@@ -704,7 +658,7 @@ export default function ScorerConsole() {
         localStateUpdateTsRef.current = serverUpdatedAt || Date.now();
         localStorage.setItem(`match_${matchId}_updatedAt`, JSON.stringify(localStateUpdateTsRef.current));
 
-        if (live.matchData) setMatchData(live.matchData);
+        if (live.matchData) setMatchData({ ...live.matchData, ...matchDataRef.current, currentSet: live.matchData.currentSet || matchDataRef.current.currentSet });
         if (live.workflowStep) setWorkflowStep(normalizedWorkflowStep);
         if (live.score) {
             scoreRef.current = live.score;
@@ -764,13 +718,13 @@ export default function ScorerConsole() {
                 home: getTeamUniformColor(matchDataRef.current, 'home'),
                 away: getTeamUniformColor(matchDataRef.current, 'away')
             };
-            setTeamColors(mergeTeamColorsWithUniformDefaults(uniformTeamColors, live.teamColors));
+            setTeamColors(mergeTeamColorsWithUniformDefaults(uniformTeamColors, live.teamColors, matchDataRef.current));
         }
         if (live.showTimeoutTimer !== undefined) setShowTimeoutTimer(live.showTimeoutTimer);
         if (live.timeoutStartTime !== undefined) setTimeoutStartTime(live.timeoutStartTime);
         restoreMatchTimer({ ...live, workflowStep: normalizedWorkflowStep });
         if (live.subTracker) setSubTracker(live.subTracker);
-        if (live.referees) setReferees(live.referees);
+        if (live.referees && (matchDataRef.current.status !== 'scheduled' || matchDataRef.current.first_serve_team_id)) setReferees(live.referees);
         if (live.matchSignatures) setMatchSignatures(live.matchSignatures);
         if (live.lineupSetup) setLineupSetup(live.lineupSetup);
         if (live.currentChallengeReview !== undefined) setCurrentChallengeReview(live.currentChallengeReview);
@@ -1013,7 +967,10 @@ export default function ScorerConsole() {
                 setLiveSyncStatus('saving');
                 try {
                     await api.updateLiveState(matchId, liveStateForServer);
-                    if (syncActive && generation === liveSyncGenerationRef.current) setLiveSyncStatus('saved');
+                    if (syncActive && generation === liveSyncGenerationRef.current) {
+                        setLiveSyncStatus('saved');
+                        if (!scorerOfflineActive(matchId)) setLastSyncedAt(Date.now());
+                    }
                 } catch (error) {
                     console.error('Failed to sync state to server:', error);
                     if (syncActive && generation === liveSyncGenerationRef.current) setLiveSyncStatus('error');
@@ -1156,10 +1113,10 @@ export default function ScorerConsole() {
                     currentSet: m.current_set || matchDataRef.current?.currentSet || 1,
                     maxSets: maxSets,
                     isManualScorer: Boolean(m.manual_owner_id),
-                    pointsPerSet: Number(manualConfig?.pointsPerSet) || 25,
-                    decidingSetPoints: Number(manualConfig?.decidingSetPoints) || 15,
+                    pointsPerSet: Number(m.points_per_set || manualConfig?.pointsPerSet) || 25,
+                    decidingSetPoints: Number(m.deciding_set_points || manualConfig?.decidingSetPoints) || 15,
                     has_challenge: m.has_challenge,
-                    hasChallenge: Boolean(m.has_challenge),
+                    hasChallenge: Boolean(Number(m.has_challenge)),
                     matchId: matchId,
                     competitionName: competitionName,
                     matchNo: m.match_number || m.matchNo || matchDataRef.current?.matchNo,
@@ -1173,6 +1130,9 @@ export default function ScorerConsole() {
                     startTime: m.start_time,
                     matchDate: m.match_date || m.start_date,
                     status: m.status || matchDataRef.current?.status,
+                    ...getConfiguredTeamColors(m),
+                    age_group_id: m.age_group_id || m.match_age_group_id,
+                    first_serve_team_id: m.first_serve_team_id,
                     home_main_color: m.home_main_color,
                     home_second_color: m.home_second_color,
                     home_third_color: m.home_third_color,
@@ -1191,13 +1151,14 @@ export default function ScorerConsole() {
                     away_legacy_away_color: m.away_legacy_away_color
                 };
 
+                matchDataRef.current = currentMatch;
                 setMatchData(currentMatch);
                 setSetsToWin(calculatedSetsToWin);
                 const uniformTeamColors = {
                     home: getTeamUniformColor(currentMatch, 'home'),
                     away: getTeamUniformColor(currentMatch, 'away')
                 };
-                setTeamColors(prev => mergeTeamColorsWithUniformDefaults(uniformTeamColors, prev));
+                setTeamColors(prev => mergeTeamColorsWithUniformDefaults(uniformTeamColors, prev, currentMatch));
 
                 const firstServeCode = m.first_serve_team_id
                     ? (String(m.first_serve_team_id) === String(m.home_team_id) ? 'home' : 'away')
@@ -1209,6 +1170,7 @@ export default function ScorerConsole() {
                     || Boolean(localStateUpdateTsRef.current);
 
                 if (firstServeCode) {
+                    setWorkflowStep(previous => previous === 'COIN_TOSS' && Number(currentMatch.currentSet) === 1 ? 'LINEUP' : previous);
                     setFirstServeSet1(firstServeCode);
                     if (!servingTeamRef.current && !localStateUpdateTsRef.current) {
                         setServingTeam(firstServeCode);
@@ -1339,7 +1301,7 @@ export default function ScorerConsole() {
                             if (live.challenges) setChallenges(live.challenges);
                             if (live.substitutions) setSubstitutions(live.substitutions);
                             if (live.teamColors) {
-                                setTeamColors(mergeTeamColorsWithUniformDefaults(uniformTeamColors, live.teamColors));
+                                setTeamColors(mergeTeamColorsWithUniformDefaults(uniformTeamColors, live.teamColors, currentMatch));
                             }
                             if (live.subTracker) setSubTracker(live.subTracker);
                             if (live.showTimeoutTimer !== undefined) setShowTimeoutTimer(live.showTimeoutTimer);
@@ -1503,6 +1465,11 @@ export default function ScorerConsole() {
         else if (eventType === 'CHALLENGE') {
             description = `Challenge ${teamName}`;
             metadata = { type: 'CHALLENGE', team: teamName, teamCode, color: teamColors[teamCode] };
+        }
+        else if (eventType === 'SUBSTITUTION_BATCH') {
+            const pairs = details.pairs;
+            description = 'Substitutions (' + teamName + '): ' + pairs.map(pair => '#' + pair.outNumber + ' -> #' + pair.inNumber).join(', ');
+            metadata = { type: 'SUBSTITUTION_BATCH', team: teamName, teamCode, pairs, color: teamColors[teamCode] };
         }
         else if (eventType === 'SUBSTITUTION') {
             const roster = teamCode === 'home' ? homeRoster : awayRoster;
@@ -1720,7 +1687,7 @@ export default function ScorerConsole() {
                     Swal.fire({
                         html: `
                             <div style="text-align: left; font-size: 13px; color: #000; margin-top: -20px; margin-bottom: 15px;"></div>
-                            <h2 style="color: #000080; font-size: 26px; font-weight: 900; margin: 0 0 30px 0;">${teamName}</h2>
+                            <h2 class="libero-alert-label" style="color: #000080; font-size: 26px; font-weight: 900; margin: 0 0 30px 0;">${teamName}</h2>
 
                             <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
                                 
@@ -1729,7 +1696,7 @@ export default function ScorerConsole() {
                                         <svg width="24" height="45" viewBox="0 0 24 45">
                                             <path d="M12 0 L24 15 L16 15 L16 45 L8 45 L8 15 L0 15 Z" fill="#00b050" stroke="#000" stroke-width="1.5"/>
                                         </svg>
-                                        <span style="font-size: 24px; font-weight: 900; color: #000; margin-left: 5px;">IN</span>
+                                        <span class="libero-alert-label" style="font-size: 24px; font-weight: 900; color: #000; margin-left: 5px;">IN</span>
                                     </div>
                                     
                                     <div style="display: flex; flex-direction: column; align-items: center; margin-top: 35px;">
@@ -1759,7 +1726,7 @@ export default function ScorerConsole() {
                                     </div>
 
                                     <div style="display: flex; align-items: center; margin-left: 10px; margin-top: 25px;">
-                                        <span style="font-size: 24px; font-weight: 900; color: #000; margin-right: 5px;">OUT</span>
+                                        <span class="libero-alert-label" style="font-size: 24px; font-weight: 900; color: #000; margin-right: 5px;">OUT</span>
                                         <svg width="24" height="45" viewBox="0 0 24 45">
                                             <path d="M8 0 L16 0 L16 30 L24 30 L12 45 L0 30 L8 30 Z" fill="#ff0000" stroke="#000" stroke-width="1.5"/>
                                         </svg>
@@ -1768,7 +1735,7 @@ export default function ScorerConsole() {
 
                             </div>
 
-                            <div style="margin-top: 40px; font-size: 16px; color: #000;">
+                            <div class="libero-alert-label" style="margin-top: 40px; font-size: 16px; color: #000;">
                                 Player n. ${originalPlayer.number} must replace the libero on the court
                             </div>
                         `,
@@ -1778,7 +1745,7 @@ export default function ScorerConsole() {
                         confirmButtonText: 'Ok',
                         confirmButtonColor: '#1d4ed8',
                         customClass: {
-                            popup: 'rounded-sm border border-slate-300 shadow-xl',
+                            popup: 'scorer-libero-alert rounded-sm border border-slate-300 shadow-xl',
                             confirmButton: 'w-64 font-bold text-lg rounded-sm',
                         }
                     });
@@ -2156,6 +2123,19 @@ export default function ScorerConsole() {
                     catch (error) { await Swal.fire('ย้อนรายการไม่สำเร็จ', error.message, 'error'); return; }
                 }
 
+                if (!scorerOfflineActive(matchId)) {
+                    const keep = new Set((lastState.matchEvents || []).map(event => event.id));
+                    const batch = matchEvents.find(event => event.metadata?.type === 'SUBSTITUTION_BATCH' && !keep.has(event.id));
+                    if (batch) {
+                        try {
+                            await client.post('/scorer/match/' + matchId + '/undo-substitution-batch', { batchId: batch.local_event_id || batch.id, state: createLiveState(lastState) });
+                            for (const queued of EventQueue.getQueue()) if (String(queued.matchId) === String(matchId) && queued.local_event_id === (batch.local_event_id || batch.id)) EventQueue.remove(queued.localId);
+                            setQueueCount(EventQueue.getQueue().length);
+                            markLocalStateUpdate();
+                        } catch (error) { await Swal.fire('Undo failed', error.response?.data?.error || error.message, 'error'); return; }
+                    }
+                }
+
                 setScore(lastState.score);
                 setSetsWon(lastState.setsWon);
                 setServingTeam(lastState.servingTeam);
@@ -2421,7 +2401,7 @@ export default function ScorerConsole() {
         // 3. ไปยังขั้นตอนถัดไป
         Swal.fire({
             title: 'Coin Toss',
-            text: 'Ready to Play',
+            text: Number(matchData.currentSet) === 1 ? 'Next: Starting Lineup' : 'Coin toss completed',
             icon: 'success',
             confirmButtonText: 'OK',
             confirmButtonColor: '#10b981',
@@ -2430,13 +2410,13 @@ export default function ScorerConsole() {
             const currentSetNumber = Number(matchData.currentSet || matchData.current_set || 1);
             const tieBreakSet = (setsToWin * 2) - 1;
             const isTieBreakSet = currentSetNumber === tieBreakSet;
-            const requiresNewLineup = currentSetNumber > 1 && (
+            const requiresNewLineup = currentSetNumber === 1 || (
                 isTieBreakSet ||
                 homeLineup.some(p => !p) || awayLineup.some(p => !p)
             );
             if (requiresNewLineup) {
                 setWorkflowStep('LINEUP');
-                setShowLineupModal(true);
+                if (currentSetNumber > 1) setShowLineupModal(true);
             } else {
                 setWorkflowStep('READY');
             }
@@ -2624,19 +2604,23 @@ export default function ScorerConsole() {
 
             await Swal.fire({
                 title: 'บันทึกข้อมูลนักกีฬาเรียบร้อย',
-                text: 'Starting Lineup',
+                text: Number(matchData.currentSet) === 1 && !firstServeSet1 ? 'Next: Coin Toss' : 'Starting Lineup',
                 icon: 'success',
                 confirmButtonText: 'OK',
                 confirmButtonColor: '#0d54c7ff',
                 allowOutsideClick: false
             });
-            setWorkflowStep('LINEUP');
-            setShowLineupModal(true);
+            const needsToss = Number(matchData.currentSet) === 1 && !firstServeSet1;
+            setWorkflowStep(needsToss ? 'COIN_TOSS' : 'LINEUP');
+            setShowLineupModal(!needsToss);
             return;
         }
 
         if (showSetup) {
             setShowSetup(false);
+            if (Number(matchData.currentSet) === 1 && !firstServeSet1 && !hasMatchPlayActivity({ score, setsWon, completedSets, matchEvents })) {
+                setWorkflowStep('COIN_TOSS');
+            }
             Swal.fire({
                 title: 'OK',
                 text: 'บันทึกข้อมูลการตั้งค่าทีมและผู้ตัดสินเรียบร้อยแล้ว',
@@ -2650,14 +2634,13 @@ export default function ScorerConsole() {
         if (matchData.currentSet === 1) {
             Swal.fire({
                 title: 'บันทึกการลงทะเบียนนักกีฬาสำเร็จ',
-                text: 'ขั้นตอนต่อไป: บันทึกลายเซ็นโค้ชและกัปตันทีม (Signatures)',
+                text: 'Next: Coin Toss, then Starting Lineup',
                 icon: 'success',
                 confirmButtonText: 'ดำเนินการต่อ',
                 confirmButtonColor: '#0d54c7ff',
                 allowOutsideClick: false
             }).then(() => {
-                setWorkflowStep('LINEUP');
-                setShowLineupModal(true);
+                setWorkflowStep(firstServeSet1 ? 'LINEUP' : 'COIN_TOSS');
             });
         } else {
             Swal.fire({
@@ -2732,9 +2715,9 @@ export default function ScorerConsole() {
 
         setShowLineupModal(false);
 
-        // เฉพาะเซต 1: ต้องทำ Coin Toss หลัง Save Lineup
-        if (matchData.currentSet === 1) {
-            await runCoinTossFlow();
+        // The toss is complete before the first-set lineup is saved.
+        if (Number(matchData.currentSet) === 1) {
+            setWorkflowStep('READY');
         } else {
             Swal.fire({
                 title: '✅ บันทึกไลน์อัปตัวจริงสำเร็จ',
@@ -3481,11 +3464,12 @@ export default function ScorerConsole() {
             Swal.fire({
                 icon: 'success',
                 title: `Libero in court`,
+                customClass: { popup: 'scorer-libero-alert' },
                 html: `
                     <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;margin-top:10px;">
-                        <span style="font-weight:bold;">Number In</span>
+                        <span class="libero-alert-label" style="font-weight:bold;">Number In</span>
                         <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;background-color:#d1fae5;color:#10b981;border:1.5px solid #6ee7b7;font-size:13px;font-weight:900;">#${playerIn.number}</span>
-                        <span style="font-weight:bold;">Number Out</span>
+                        <span class="libero-alert-label" style="font-weight:bold;">Number Out</span>
                         <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;background-color:#fee2e2;color:#ef4444;border:1.5px solid #fca5a5;font-size:13px;font-weight:900;">#${playerOut.number}</span>
                     </div>
                 `,
@@ -3597,12 +3581,12 @@ export default function ScorerConsole() {
 
     // Helper for UI
     const getLeftTeam = () => isHomeLeft
-        ? { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home }
-        : { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away };
+        ? { name: matchData.teamHome, shortName: matchData.teamHomeCode, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home }
+        : { name: matchData.teamAway, shortName: matchData.teamAwayCode, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away };
 
     const getRightTeam = () => isHomeLeft
-        ? { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away }
-        : { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home };
+        ? { name: matchData.teamAway, shortName: matchData.teamAwayCode, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away }
+        : { name: matchData.teamHome, shortName: matchData.teamHomeCode, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home };
 
     // Opens picker for LineupModal
     const openPickerForLineup = (team, index) => {
@@ -3714,6 +3698,24 @@ export default function ScorerConsole() {
 
 
     // 2. ฟังก์ชันนี้จะถูกเรียกเมื่อกด Confirm ใน SubstitutionModal
+    const handleSubstitutionBatchConfirm = async pairs => {
+        const team = subData.team;
+        if (!team || !['SERVING', 'SERVER_SELECT', 'READY'].includes(workflowStep)) throw Error('Substitutions are unavailable during this phase.');
+        const opponent = team === 'home' ? 'away' : 'home';
+        const result = applySubstitutionBatch({ lineup: team === 'home' ? homeLineup : awayLineup,
+            roster: team === 'home' ? homeRoster : awayRoster, tracker: subTracker[team], pairs,
+            disqualified: disqualifiedPlayers[team], score: score[team] + '-' + score[opponent] });
+        markLocalStateUpdate();
+        await saveEventToBackend('SUBSTITUTION_BATCH', team, { pairs: pairs.map(pair => ({
+            in: pair.playerIn.id || pair.playerIn.player_id, out: pair.playerOut.id || pair.playerOut.player_id,
+            inNumber: pair.playerIn.number, outNumber: pair.playerOut.number
+        })) });
+        saveStateToHistory();
+        (team === 'home' ? setHomeLineup : setAwayLineup)(result.lineup);
+        setSubTracker(previous => ({ ...previous, [team]: result.tracker }));
+        setSubstitutions(previous => ({ ...previous, [team]: previous[team] + pairs.length }));
+    };
+
     const handleSubstitutionConfirm = async (playerIn, isExceptional, innerPosIndex, innerPlayerOut, teamOverride = null) => {
         const team = teamOverride || subData.team;
         const posIndex = innerPosIndex !== undefined && innerPosIndex !== null ? innerPosIndex : subData.posIndex;
@@ -3909,6 +3911,10 @@ export default function ScorerConsole() {
                             title={liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}>
                             {liveSyncStatus === 'error' ? <CloudAlert size={16} aria-hidden="true" /> : scorerOfflineActive(matchId) ? <CloudOff size={16} aria-hidden="true" /> : liveSyncStatus === 'saved' && queueCount === 0 ? <CloudCheck size={16} aria-hidden="true" /> : <CloudUpload size={16} aria-hidden="true" />}
                             <span className="sr-only">{liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}</span>
+                        </span>
+                        <span className="whitespace-nowrap px-1 text-xs font-semibold text-slate-600"
+                            title={lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('th-TH') : 'No successful server sync in this session'}>
+                            Sync Last {lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('en-GB', { hour12: false }) : '--'}
                         </span>
                         {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary" title="ลองบันทึกอีกครั้ง / Retry" aria-label="ลองบันทึกอีกครั้ง / Retry"><RefreshCcw size={16} aria-hidden="true" /></button>}
                     </div>
@@ -4257,6 +4263,21 @@ export default function ScorerConsole() {
                 awayLineup={awayLineup}
                 homeLiberos={homeLiberos}
                 awayLiberos={awayLiberos}
+                onSelectRosterPlayer={(team, player) => {
+                    if (isPlayerLibero(player)) return;
+                    const setLineup = team === 'home' ? setHomeLineup : setAwayLineup;
+                    setLineup(previous => {
+                        if (previous.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))) return previous;
+                        const index = previous.findIndex(selected => !selected);
+                        if (index < 0) return previous;
+                        return previous.map((selected, position) => position === index ? { ...player } : selected);
+                    });
+                }}
+                onClearSlot={(team, index) => {
+                    const setLineup = team === 'home' ? setHomeLineup : setAwayLineup;
+                    setLineup(previous => previous.map((player, position) => position === index ? null : player));
+                }}
+                onClearTeamLineup={team => (team === 'home' ? setHomeLineup : setAwayLineup)(Array(6).fill(null))}
                 onSlotClick={openPickerForLineup}
                 onConfirm={handleLineupConfirm}
                 homeRoster={homeRoster}
@@ -4277,12 +4298,13 @@ export default function ScorerConsole() {
             />
 
             <MatchLogModal
+                matchData={matchData}
                 isOpen={showMatchLogModal}
                 onClose={() => setShowMatchLogModal(false)}
                 events={matchEvents}
             />
 
-            <SubstitutionModal
+            {subData.isExceptional ? <SubstitutionModal
                 isOpen={subData.isOpen}
                 onClose={() => setSubData({ isOpen: false, team: null, posIndex: null, playerOut: null })}
                 teamName={subData.team === 'home' ? matchData.teamHome : matchData.teamAway}
@@ -4295,7 +4317,17 @@ export default function ScorerConsole() {
                 disqualifiedPlayers={subData.team ? disqualifiedPlayers[subData.team] : []} //ส่งเฉพาะอาเรย์ของทีมนั้น
                 initialExceptional={subData.isExceptional}
                 onConfirm={handleSubstitutionConfirm}
-            />
+            /> : <BatchSubstitutionModal
+                isOpen={subData.isOpen}
+                onClose={() => setSubData({ isOpen: false, team: null, posIndex: null, playerOut: null })}
+                teamName={subData.team === 'home' ? matchData.teamHome : matchData.teamAway}
+                roster={subData.team === 'home' ? homeRoster : awayRoster}
+                currentLineup={subData.team === 'home' ? homeLineup : awayLineup}
+                playerOut={subData.playerOut} posIndex={subData.posIndex}
+                subTracker={subData.team ? subTracker[subData.team] : null}
+                disqualifiedPlayers={subData.team ? disqualifiedPlayers[subData.team] : []}
+                onConfirmBatch={handleSubstitutionBatchConfirm}
+            />}
 
             <SanctionModal
                 isOpen={showSanctionModal}

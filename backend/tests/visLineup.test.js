@@ -29,6 +29,23 @@ function harness() {
     } };
 }
 
+test('match settings command persists eight substitutions and first serve, with idempotent retries', async () => {
+    const h = harness();
+    const official = h.match.live_state;
+    h.body.command = { type: 'CONFIGURE_SETTINGS', substitutionLimit: 8, firstServingTeam: 'home' };
+    const saved = await h.run();
+    assert.equal(saved.code, 200);
+    assert.equal(saved.body.state.substitutionLimit, 8);
+    assert.equal(saved.body.state.firstServingTeam, 'home');
+    assert.equal((await h.run()).body.duplicate, true);
+    assert.equal(h.match.live_state, official);
+    h.body.operationId = 'invalid-settings-operation';
+    h.body.revision = saved.body.state.revision;
+    h.body.command.substitutionLimit = 9;
+    assert.equal((await h.run()).code, 400);
+    assert.equal(workflow.projectOfficialState(h.match).state.substitutionLimit, 8);
+});
+
 test('a substitute returns to the original starter after their court slot has rotated', async () => {
     const h = harness();
     assert.equal((await h.run()).code, 200);

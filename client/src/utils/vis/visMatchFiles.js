@@ -1,19 +1,20 @@
 import { api } from '../../api';
+import { buildSeavaExport } from './seavaExport';
 export function validateVisFile(value) {
-    if (!value || value.format !== 'volley-vis' || value.version !== 1 || !value.backup?.config || !Array.isArray(value.backup.actions)) {
+    if (!value || !['volley-vis', 'seava-vis'].includes(value.format) || value.version !== 1 || !value.backup?.config || !Array.isArray(value.backup.actions)) {
         throw new Error('รองรับไฟล์ JSON หรือ .seava ที่ส่งออกจาก VOLLEY VIS และมีข้อมูลสำรองครบถ้วนเท่านั้น');
     }
     return value;
 }
-export async function exportVisMatch(match) {
-    const response = await api.getVisState(match.id);
-    const roster = await api.getMatchRosterData(match.id);
-    const backup = response.data.backup || { config: { title: match.competition_name || 'VIS Match', maxSets: response.data.state.maxSets,
-        date: String(match.match_date || '').slice(0, 10) || null, location: match.location || '',
-        home: { name: match.home_team, players: roster.data.home.players }, away: { name: match.away_team, players: roster.data.away.players } },
-        match: response.data.backupMatch, actions: response.data.events.filter(event => event.action_type === 'VIS_STAT').sort((a, b) => Number(a.id) - Number(b.id)).map(event => ({ ...event, details: typeof event.details === 'string' ? JSON.parse(event.details) : event.details })) };
-    const value = { format: 'volley-vis', version: 1, exportedAt: new Date().toISOString(), match, roster: roster.data, ...response.data, backup };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
-    const a = document.createElement('a'); a.href = url; a.download = `Vis_match_${match.match_number || match.id}.json`; a.click();
+export async function exportVisMatch(match, options = {}) {
+    const [response, roster] = await Promise.all([api.getVisState(match.id), api.getMatchRosterData(match.id)]);
+    const value = buildSeavaExport(match, roster.data, response.data, options);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = Array.from(value.match.config.title, char => char.charCodeAt(0) < 32 ? '_' : char).join('').replace(/[<>:"/\\|?*]/g, '_') + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

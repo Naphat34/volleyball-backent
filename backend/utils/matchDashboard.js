@@ -1,6 +1,8 @@
 const { visDashboardSummary } = require('./visWorkflow');
+const { applyMatchSetup } = require('./matchSetup');
 const parse = value => { try { return typeof value === 'string' ? JSON.parse(value) : value || {}; } catch { return {}; } };
 function dashboardMatch(row, actions) {
+    row = applyMatchSetup({ ...row });
     const { vis_state, live_state, ...match } = row;
     const setup = { ...parse(vis_state) }; delete setup.offlineVis;
     const live = parse(live_state), score = live.score;

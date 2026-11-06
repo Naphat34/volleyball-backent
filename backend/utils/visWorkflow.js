@@ -1,4 +1,5 @@
 const { isVisSkill, isVisGrade, normalizeVisSkill, normalizeVisGrade } = require('../config/visCodes');
+const { projectVisTiming, normalizeVisTiming } = require('./visTiming');
 function fail(message, status = 400) { const error = new Error(message); error.status = status; throw error; }
 const parse = value => { try { return typeof value === 'string' ? JSON.parse(value) : value || {}; } catch { return {}; } };
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -30,6 +31,10 @@ function projectOfficialState(match, actions = []) {
         state.isHomeLeft = context.isHomeLeft ?? true;
     }
     const setup = parse(match.vis_state);
+    const savedSetups = { ...(setup.lineups ? { 1: setup } : {}), ...(setup.setups || {}) };
+    state.setLineups = Object.fromEntries(Object.entries(savedSetups).map(([number, saved]) => [number, {
+        home: ids(saved.lineups?.home), away: ids(saved.lineups?.away), servingTeam: saved.servingTeam || null,
+    }]));
     const lastBySet = new Map();
     for (const action of stats) lastBySet.set(Number(action.set_number || 1), action);
     for (const [setNumber, action] of lastBySet) {
@@ -48,9 +53,11 @@ function projectOfficialState(match, actions = []) {
     const currentSetup = setup.setups?.[state.currentSet] || (state.currentSet === 1 ? setup : {});
     state.lineups = { home: ids(currentSetup.lineups?.home), away: ids(currentSetup.lineups?.away) };
     const first = setup.setups?.[1] || setup;
-    const firstServer = first.servingTeam;
+    const firstServer = first.servingTeam || setup.firstServingTeam;
+    state.firstServingTeam = firstServer || null;
+    state.substitutionLimit = Number(setup.substitutionLimit) || 6;
     state.requiresToss = state.currentSet === 1 || state.currentSet === state.maxSets;
-    state.servingTeam = currentSetup.servingTeam || (!state.requiresToss && firstServer
+    state.servingTeam = currentSetup.servingTeam || (state.currentSet === 1 ? firstServer : null) || (!state.requiresToss && firstServer
         ? state.currentSet % 2 === 1 ? firstServer : otherTeam(firstServer) : null);
     state.firstSetHomeLeft = setup.firstSetHomeLeft ?? true;
     state.isHomeLeft = currentSetup.firstSetHomeLeft ?? (state.currentSet % 2 === 1 ? state.firstSetHomeLeft : !state.firstSetHomeLeft);
@@ -87,6 +94,7 @@ function projectOfficialState(match, actions = []) {
     // Context is an exact optimistic-concurrency identifier, not an authentication secret.
     // Keep this synchronous and portable so the same engine can run offline.
     state.context.key = JSON.stringify(state.context);
+    state.timing = projectVisTiming(stats, state.completedSets, state.maxSets);
     return { state, session: { operations: [...(setup.lineupOperations || []), ...(setup.controlOperations || []), ...stats.map(action => actionDetails(action).operationId).filter(Boolean)] }, rallies: [] };
 }
 function resolveContext(state, rallies, context) {
@@ -134,4 +142,19 @@ function visDashboardSummary(match, actions, state = projectOfficialState(match,
         : state.phase === 'MATCH_FINISHED' ? 'review' : actions.length || state.history.length ? 'recording' : state.setupComplete ? 'ready' : 'idle';
     return { status, hasActivity, currentSet: state.currentSet, score: state.score, setsWon: state.setsWon };
 }
-module.exports = { initialState, projectOfficialState, resolveContext, applyCommand, applyRally, rallyWinner, visDashboardSummary, fail };
+function configureVisSettings(setup, state, command) {
+    const limit = command.substitutionLimit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 8) fail('Substitution limit must be between 1 and 8.');
+    if (Object.values(state.substitutions).some(count => count > limit)) fail('Substitution limit is below substitutions already used.');
+    if (!['home', 'away', null].includes(command.firstServingTeam)) fail('Invalid first serving team.');
+    if (command.firstServingTeam !== state.firstServingTeam) {
+        if (state.currentSet !== 1 || state.history.length) fail('First serving team is locked after recording starts.', 409);
+        if (!command.firstServingTeam && state.setupComplete) fail('Select the first serving team.');
+        setup.firstServingTeam = command.firstServingTeam;
+        if (setup.servingTeam) setup.servingTeam = command.firstServingTeam;
+        if (setup.setups?.[1]) setup.setups[1].servingTeam = command.firstServingTeam;
+    }
+    setup.substitutionLimit = limit;
+    return setup;
+}
+module.exports = { initialState, projectOfficialState, resolveContext, applyCommand, applyRally, rallyWinner, visDashboardSummary, configureVisSettings, normalizeVisTiming, fail };

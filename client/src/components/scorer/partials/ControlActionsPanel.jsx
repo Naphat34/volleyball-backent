@@ -259,7 +259,7 @@ const ControlActionsPanel = ({
                                 </div>
                             </div>
                         ) : workflowStep === 'READY' ? (
-                            <button onClick={handleStartMatch} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xl py-3 px-10 shadow-md w-full max-w-xs transition-colors mt-4">
+                            <button onClick={handleStartMatch} className="scorer-start-match bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xl py-3 px-10 shadow-md w-full max-w-xs transition-colors mt-4">
                                 START MATCH
                             </button>
                         ) : workflowStep === 'SERVING' ? (
@@ -284,7 +284,7 @@ const ControlActionsPanel = ({
                         ) : workflowStep === 'LINEUP' ? (
                             <button
                                 onClick={() => setShowLineupModal(true)}
-                                className="flex flex-col items-center justify-center gap-1 bg-white border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-black text-2xl py-3 px-12 shadow-md w-full max-w-xs transition-all duration-200 active:scale-95 group rounded-2xl"
+                                className="scorer-start-lineup flex flex-col items-center justify-center gap-1 bg-white border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-black text-2xl py-3 px-12 shadow-md w-full max-w-xs transition-all duration-200 active:scale-95 group rounded-2xl"
                             >
                                 <Users size={24} className="group-hover:scale-110 transition-transform" />
                                 <span>Start Line Up</span>

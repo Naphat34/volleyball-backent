@@ -37,16 +37,25 @@ function harness() {
     } };
     vm.runInNewContext(fs.readFileSync(require.resolve('../controllers/visController'), 'utf8'), sandbox);
     return { match, rows: () => rows, failPlayer: player => { badPlayer = player; },
-        send: async (command, operationId = 'rally-operation-123456') => {
+        send: async (command, operationId = 'rally-operation-123456', timing) => {
             const state = workflow.projectOfficialState(match, rows).state;
             const res = { code: 200, status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
-            await sandbox.exports.command({ params: { matchId: 1 }, body: { operationId, revision: state.revision,
+            await sandbox.exports.command({ params: { matchId: 1 }, body: { operationId, timing, revision: state.revision,
                 command: { ...command, context: { key: state.context.key } } }, app: { get: () => null } }, res);
             return res;
         } };
 }
 const events = [{ team: 'home', player: 1, skill: 'S', grade: '' },
     { team: 'away', player: 12, skill: 'A', grade: '#' }, { team: 'home', player: null, skill: 'T', grade: '=' }];
+
+test('official VIS keeps original device timing across the saved rally and refreshed projection', async () => {
+    const h = harness();
+    const timing = { setNumber: 1, recordedAt: '2026-11-03T01:01:00.000Z', setStartedAt: '2026-11-03T01:00:00.000Z' };
+    const saved = await h.send({ type: 'RALLY', events }, 'timed-rally-operation', timing);
+    assert.equal(saved.code, 200);
+    assert.equal(JSON.parse(h.rows()[0].details).visTiming.recordedAt, timing.recordedAt);
+    assert.equal(saved.body.state.timing.sets[0].startedAt, timing.setStartedAt);
+});
 test('controller saves a rally atomically, retries idempotently and undoes every event together', async () => {
     const h = harness(), official = JSON.stringify(h.match.live_state);
     const saved = await h.send({ type: 'RALLY', events });

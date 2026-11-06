@@ -17,9 +17,21 @@ function scopedController(connection) {
     const localRequire = createRequire(controllerFile);
     const scope = { module: { exports: {} }, exports: {}, console, require: name => name === '../config/db' ? database : localRequire(name) };
     vm.runInNewContext(controllerSource, scope, { filename: controllerFile });
+    scope.module.exports.batchConnection = connection;
     return scope.module.exports;
 }
 async function call(controller, method, req, body) {
+    if (method === 'saveMatchEvent' && body.event_type === 'SUBSTITUTION_BATCH') {
+        const planned = require('../utils/substitutionBatch').substitutionBatchEvents(body);
+        const existing = await controller.batchConnection.query("SELECT * FROM match_events WHERE match_id=? AND (JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchLocalEventId'))=? OR JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchCancelledId'))=?) ORDER BY id", [req.params.matchId, body.local_event_id, body.local_event_id]);
+        if (existing.rows.length) return { success: true, event: existing.rows[0], events: existing.rows };
+        const events = [];
+        for (const item of planned) {
+            const result = await call(controller, method, req, item);
+            events.push(result.event);
+        }
+        return { success: true, event: events[0], events };
+    }
     const response = { code: 200, status(code) { this.code = code; return this; }, json(value) { this.data = value; return this; } };
     await controller[method]({ ...req, body, app: { get: () => null } }, response);
     if (response.code >= 400) fail(response.data?.error || 'คำสั่งไม่ผ่านการตรวจสอบ', response.code);
@@ -52,7 +64,7 @@ function endpoint(action) {
                 io.to(`match_${req.params.matchId}`).emit('live_state_updated', parse(saved?.live_state) || {});
                 if (!req.skipMatchUpdated) io.to(`match_${req.params.matchId}`).emit('match_updated', {id:req.params.matchId});
                 if (req.emitRoster) io.to(`match_${req.params.matchId}`).emit('roster_updated', {id:req.params.matchId});
-                if (answer?.event) io.to(`match_${req.params.matchId}`).emit('match_event', answer.event);
+                for (const event of answer?.events || (answer?.event ? [answer.event] : [])) io.to(`match_${req.params.matchId}`).emit('match_event', event);
             }
             res.json(answer);
         } catch (error) {
@@ -153,7 +165,7 @@ exports.sync = endpoint(async (req, res, connection) => {
             if (!state?.score || !Array.isArray(op.body.keepLocalIds)) fail('ข้อมูลย้อนรายการไม่ครบ');
             const keep = new Set(op.body.keepLocalIds);
             for (const item of receipts.filter(item => item.localEventId && !keep.has(item.localEventId))) {
-                await connection.query("DELETE FROM match_events WHERE match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(details) THEN details ELSE '{}' END,'$.local_event_id'))=?", [req.params.matchId, item.localEventId]);
+                await connection.query("DELETE FROM match_events WHERE match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(details) THEN details ELSE '{}' END,'$.local_event_id'))=? OR match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(details) THEN details ELSE '{}' END,'$.batchLocalEventId'))=?", [req.params.matchId, item.localEventId, req.params.matchId, item.localEventId]);
             }
             await connection.query('DELETE FROM match_sets WHERE match_id=? AND set_number>?', [req.params.matchId, state.completedSets?.length || 0]);
             await connection.query("UPDATE matches SET status='live',winner_team_id=NULL,team_a_score=?,team_b_score=?,home_set_score=?,away_set_score=? WHERE id=?", [state.score.home,state.score.away,state.setsWon?.home || 0,state.setsWon?.away || 0,req.params.matchId]);
@@ -172,7 +184,7 @@ exports.sync = endpoint(async (req, res, connection) => {
         }
         const result = await call(controller, method, req, op.body);
         if (op.path === 'event' && result?.event?.id && Number.isSafeInteger(op.at)) {
-            await connection.query('UPDATE match_events SET created_at=? WHERE id=?',[new Date(op.at),result.event.id]);
+            for (const event of result.events || [result.event]) await connection.query('UPDATE match_events SET created_at=? WHERE id=?',[new Date(op.at),event.id]);
         }
         receipts.push({ id: op.id, hash:receiptHash, localEventId: op.path === 'event' ? op.body.local_event_id : null });
     }
@@ -224,6 +236,17 @@ exports.online = method => endpoint(async (req,res,connection) => {
     req.emitRoster = ['updateMatchRoster','createMatchTeamPlayer','updateMatchTeamPlayer'].includes(method);
     const lease = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=? FOR UPDATE',[req.params.matchId])).rows[0];
     if (lease && !lease.released && Number(lease.expires_at)>Date.now()) fail('แมตช์ถูกจอง Offline กรุณาซิงค์และคืนสิทธิ์ก่อน',409);
+    if (method === 'undoSubstitutionBatch') {
+        const { batchId, state } = req.body;
+        if (typeof batchId !== 'string' || batchId.length > 100 || !state?.score || !state?.matchData?.currentSet) fail('Invalid batch undo', 400);
+        const match = (await connection.query('SELECT status FROM matches WHERE id=?', [req.params.matchId])).rows[0];
+        if (!match || ['completed', 'cancelled'].includes(match.status)) fail('Match is locked', 409);
+        await connection.query("DELETE FROM match_events WHERE match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchLocalEventId'))=?", [req.params.matchId, batchId]);
+        const controller = scopedController(connection);
+        await call(controller, 'saveMatchEvent', req, { event_type: 'SUBSTITUTION_BATCH_UNDO', local_event_id: `undo:${batchId}`, set_number: state.matchData.currentSet, score_home: state.score.home, score_away: state.score.away, details: { batchCancelledId: batchId } });
+        await call(controller, 'updateLiveState', req, { state });
+        return res.json({ success: true });
+    }
     res.json(await call(scopedController(connection),method,req,req.body));
 });
 exports.guard = async (req, res, next) => {

@@ -1,0 +1,90 @@
+﻿.admin-vims {--vm-bg:#f7f9fc;--vm-panel:#fff;--vm-head:#f1f5f9;--vm-text:#1e293b;--vm-muted:#526176;--vm-line:#d5deea;--vm-accent:#0369a1;--vm-tint:#eaf5ff;--vm-warn:#92400e;--vm-warn-bg:#fffbeb;--vm-error:#be123c;--vm-error-bg:#fff1f2;color:var(--vm-text);background:var(--vm-bg);border-radius:16px;padding:20px;font:14px/1.5 var(--font-sans,sans-serif);}
+.admin-vims[data-theme=dark] {--vm-bg:#101927;--vm-panel:#172435;--vm-head:#223247;--vm-text:#e5edf7;--vm-muted:#adbed3;--vm-line:#40536b;--vm-accent:#7dd3fc;--vm-tint:#203d53;--vm-warn:#fde68a;--vm-warn-bg:#3c321e;--vm-error:#fda4af;--vm-error-bg:#402535;color-scheme:dark;}
+.admin-vims * {box-sizing:border-box;}
+.admin-vims :is(button,input,select) {font:inherit;}
+.admin-vims button,.admin-vims .vims-actions a,.admin-vims .vims-row-actions a {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:6px 11px;background:var(--vm-panel);border:1px solid var(--vm-line);border-radius:7px;color:var(--vm-text);text-decoration:none;cursor:pointer;}
+.admin-vims button:disabled {cursor:default;opacity:.5;}
+.admin-vims button:not(:disabled):hover {background:var(--vm-tint);}
+.admin-vims :is(button,a,input,select,[tabindex]):focus-visible {outline:2px solid var(--vm-accent);outline-offset:2px;}
+.admin-vims :is(h2,h3,p) {margin-top:0;}
+.admin-vims small {display:block;color:var(--vm-muted);font-size:11px;line-height:1.6;}
+.vims-heading {display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:12px;}
+.vims-heading h2 {font-size:23px;font-weight:700;letter-spacing:-.02em;margin:3px 0 5px;color:var(--vm-text);}
+.vims-heading p {margin-bottom:0;color:var(--vm-muted);font-size:13px;}
+.vims-heading .vims-eyebrow {font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--vm-accent);}
+.vims-actions {display:flex;align-items:center;flex-wrap:wrap;gap:7px;}
+.admin-vims .vims-actions a {background:var(--vm-accent);color:var(--vm-panel);border-color:var(--vm-accent);font-weight:600;}
+.vims-note {display:flex;align-items:center;gap:6px;color:var(--vm-muted);font-size:12px;margin:8px 0 12px;}
+.vims-information {display:flex;align-items:flex-start;gap:9px;background:var(--vm-tint);border:1px solid var(--vm-line);border-radius:9px;padding:10px 12px;margin:12px 0 16px;color:var(--vm-accent);}
+.vims-information svg {flex-shrink:0;margin-top:2px;}
+.vims-information p {margin:0;font-size:12px;line-height:1.65;}
+.vims-panel {background:var(--vm-panel);border:1px solid var(--vm-line);border-radius:10px;overflow:hidden;}
+.vims-filters {display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;padding:16px;}
+.vims-filters label {display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:var(--vm-muted);flex:1 1 145px;min-width:0;}
+.vims-filters .vims-search {flex-basis:235px;}
+.vims-filters :is(input,select),.vims-pagination select {width:100%;min-width:0;min-height:37px;padding:7px 9px;border:1px solid var(--vm-line);border-radius:6px;background:var(--vm-panel);color:var(--vm-text);font-size:12px;}
+.vims-search>span {display:flex;align-items:center;position:relative;}
+.vims-search svg {position:absolute;left:9px;pointer-events:none;}
+.vims-search input {padding-left:32px;}
+.vims-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0;}
+.vims-summary article {border:1px solid var(--vm-line);background:var(--vm-panel);border-radius:10px;padding:14px 16px;}
+.vims-summary p {margin:0 0 7px;font-size:12px;color:var(--vm-muted);}
+.vims-summary strong {font-size:29px;line-height:1.2;font-weight:700;color:var(--vm-text);font-variant-numeric:tabular-nums;}
+.vims-section-heading {display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:20px 0 10px;}
+.vims-tabs {display:flex;gap:5px;flex-wrap:wrap;}
+.admin-vims .vims-tabs button {background:transparent;border-color:transparent;color:var(--vm-muted);font-size:13px;}
+.admin-vims .vims-tabs button[aria-pressed=true] {background:var(--vm-tint);border-color:var(--vm-line);color:var(--vm-accent);font-weight:700;}
+.vims-tabs button span {padding:0 5px;border-radius:9px;background:var(--vm-panel);font-size:11px;}
+.vims-scroll {max-width:100%;overflow:auto;overscroll-behavior:contain;}
+.admin-vims table {border-collapse:collapse;width:100%;text-align:left;font-size:12px;}
+.admin-vims .vims-match-table {min-width:1280px;}
+.admin-vims :is(th,td) {padding:12px 10px;border-bottom:1px solid var(--vm-line);vertical-align:middle;}
+.admin-vims th {background:var(--vm-head);color:var(--vm-muted);font-size:11px;font-weight:600;white-space:nowrap;}
+.admin-vims th button {min-height:24px;padding:0;border:0;background:transparent;color:inherit;white-space:nowrap;font:inherit;}
+.admin-vims tbody tr:hover {background:var(--vm-tint);}
+.admin-vims td strong {font-weight:600;}
+.admin-vims .vims-match-table td:nth-child(3) {min-width:240px;max-width:340px;}
+.admin-vims .vims-match-table td:nth-child(4) {white-space:nowrap;font-variant-numeric:tabular-nums;}
+.vims-number {display:inline-block;min-width:25px;padding:2px 7px;border-radius:12px;color:var(--vm-accent);background:var(--vm-tint);font-weight:600;font-size:11px;}
+.admin-vims .vims-group-row th {background:var(--vm-panel);color:var(--vm-text);padding:14px 12px;font-size:13px;border-top:1px solid var(--vm-line);}
+.vims-group-row span {margin-left:8px;color:var(--vm-muted);font-size:11px;font-weight:400;}
+.vims-vs {color:var(--vm-muted);font-size:11px;font-weight:400;}
+.vims-badge {display:inline-block;padding:3px 7px;border:1px solid var(--vm-line);border-radius:20px;background:var(--vm-head);color:var(--vm-muted);font-size:11px;white-space:nowrap;}
+.vims-badge.is-live {color:var(--vm-accent);background:var(--vm-tint);}
+.vims-badge.is-completed {color:#166534;background:#f0fdf4;border-color:#86cda3;}
+.vims-badge.is-cancelled {color:var(--vm-error);background:var(--vm-error-bg);}
+.admin-vims[data-theme=dark] .vims-badge.is-completed {color:#86efac;background:#16382c;border-color:#39725b;}
+.vims-row-actions {display:flex;flex-wrap:wrap;gap:5px;min-width:140px;}
+.admin-vims .vims-row-actions :is(button,a) {font-size:11px;padding:4px 7px;min-height:29px;}
+.admin-vims .vims-row-actions button:first-child {color:var(--vm-accent);background:var(--vm-tint);}
+.vims-issues {display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.vims-issues span {padding:2px 5px;border-radius:4px;background:var(--vm-warn-bg);color:var(--vm-warn);font-size:10px;}
+.vims-pagination {display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;color:var(--vm-muted);font-size:12px;}
+.vims-pagination>div {display:flex;align-items:center;gap:9px;}
+.vims-pagination select {width:auto;}
+.vims-empty {margin:0;padding:38px 18px;text-align:center;color:var(--vm-muted);}
+.vims-warning {background:var(--vm-warn-bg);color:var(--vm-warn);padding:10px 12px;border-radius:7px;}
+.vims-error {display:flex;align-items:center;flex-wrap:wrap;gap:9px;background:var(--vm-error-bg);color:var(--vm-error);padding:12px;border-radius:8px;}
+.vims-ranking-options {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 16px 6px;}
+.vims-ranking-options label {display:flex;align-items:center;gap:8px;}
+.vims-ranking-options input {accent-color:var(--vm-accent);}
+.vims-ranking-options span {font-size:12px;color:var(--vm-muted);}
+.vims-panel>.vims-note {padding:0 16px;}
+.vims-overlay {position:fixed;inset:0;z-index:95;padding:20px;display:flex;align-items:center;justify-content:center;background:#0a1326b3;}
+.vims-detail {display:flex;flex-direction:column;width:min(1150px,100%);max-height:94dvh;background:var(--vm-panel);color:var(--vm-text);border:1px solid var(--vm-line);border-radius:12px;box-shadow:0 24px 80px #0005;overflow:hidden;}
+.vims-detail>header {display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 20px;background:var(--vm-head);border-bottom:1px solid var(--vm-line);}
+.vims-detail h2 {margin:3px 0;font-size:18px;font-weight:700;color:var(--vm-text);}
+.vims-detail header p {margin:0;font-size:12px;color:var(--vm-muted);}
+.vims-detail>.vims-tabs {padding:10px 16px;border-bottom:1px solid var(--vm-line);}
+.vims-detail-body {padding:20px;min-height:0;overflow:auto;overscroll-behavior:contain;}
+.vims-detail h3 {margin:18px 0 8px;font-size:15px;font-weight:600;}
+.vims-facts {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0;}
+.vims-facts>div {padding:12px;border:1px solid var(--vm-line);border-radius:7px;}
+.vims-facts dt {font-size:11px;color:var(--vm-muted);}
+.vims-facts dd {margin:3px 0 0;font-size:14px;font-weight:600;}
+.vims-set-list {display:flex;flex-wrap:wrap;gap:8px;}
+.vims-set-list span {padding:6px 10px;background:var(--vm-head);border-radius:6px;}
+.vims-detail>footer {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--vm-line);}
+.vims-detail>footer p {margin:0;font-size:12px;color:var(--vm-muted);}
+@media(min-width:1500px) {.vims-summary {grid-template-columns:repeat(8,minmax(0,1fr));}}
+@media(max-width:850px) {.admin-vims {padding:14px;}.vims-summary {grid-template-columns:repeat(2,minmax(0,1fr));}.vims-heading h2 {font-size:20px;}.vims-filters {padding:12px;gap:10px;}.vims-filters label {flex-basis:calc(50% - 10px);}.vims-filters .vims-search {flex-basis:100%;}.vims-overlay {padding:8px;}.vims-detail {max-height:98dvh;}.vims-detail-body {padding:14px;}.vims-facts {grid-template-columns:1fr;}}

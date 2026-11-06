@@ -12,7 +12,9 @@ test('browser engine matches server through complete match, substitutions, contr
     let local = createPayload(config, 'custom-test'), remote = server.createPayload(config, 'custom-test');
     let n = 0;
     const send = command => {
-        const operation = { operationId: `parity-operation-${++n}`, revision: local.revision, command: { ...command, context: { key: view(local).state.context.key } } };
+        const operation = { operationId: `parity-operation-${++n}`, revision: local.revision,
+            timing: { setNumber: view(local).state.currentSet, recordedAt: new Date(Date.UTC(2026, 10, 3, 0, n)).toISOString(), setStartedAt: new Date(Date.UTC(2026, 10, 3, 0, n - 1)).toISOString() },
+            command: { ...command, context: { key: view(local).state.context.key } } };
         local = commandPayload(local, operation).payload; remote = server.commandPayload(remote, operation).payload;
         assert.deepEqual(view(local), server.view(remote));
     };

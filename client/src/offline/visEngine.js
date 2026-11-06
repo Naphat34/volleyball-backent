@@ -30,6 +30,45 @@ const isVisGrade = (value) => Boolean(VIS_GRADES[normalizeVisGrade(value)]);
 
 
 
+function normalizeVisTiming(value, setNumber) {
+    if (!value || Number(value.setNumber) !== Number(setNumber)) return null;
+    const recorded = Date.parse(value.recordedAt);
+    if (!Number.isFinite(recorded)) return null;
+    const start = Date.parse(value.setStartedAt);
+    return { setNumber: Number(setNumber), recordedAt: new Date(recorded).toISOString(),
+        setStartedAt: Number.isFinite(start) && start <= recorded ? new Date(start).toISOString() : null };
+}
+
+function projectVisTiming(actions, completedSets, maxSets = 5) {
+    const completed = new Set(completedSets.map(set => Number(set.set ?? set.number)));
+    const groups = new Map();
+    for (const action of actions) {
+        if (action.action_type !== 'VIS_STAT') continue;
+        const set = Number(action.set_number ?? action.set_id ?? 1);
+        let details;
+        try { details = typeof (action.details ?? action.description) === 'string' ? JSON.parse(action.details ?? action.description) : action.details || {}; } catch { details = {}; }
+        const timing = normalizeVisTiming(details.visTiming, set);
+        const recorded = Date.parse(timing?.recordedAt || action.created_at);
+        if (!Number.isFinite(recorded)) continue;
+        if (!groups.has(set)) groups.set(set, { set, startedAt: timing?.setStartedAt || new Date(recorded).toISOString(), lastAt: new Date(recorded).toISOString(), endedAt: null });
+        const row = groups.get(set);
+        // The first winning event freezes the set. Later statistical corrections do not extend it.
+        if (!row.endedAt) row.lastAt = new Date(Math.max(Date.parse(row.lastAt), recorded)).toISOString();
+        const score = details.visContext?.scoreAfter || { home: action.score_home, away: action.score_away };
+        if (!row.endedAt && completed.has(set) && Math.max(Number(score.home), Number(score.away)) >= (set === Number(maxSets) ? 15 : 25)
+            && Math.abs(Number(score.home) - Number(score.away)) >= 2) row.endedAt = row.lastAt;
+    }
+    const sets = [...groups.values()].sort((a, b) => a.set - b.set).map(row => {
+        const endedAt = completed.has(row.set) ? row.endedAt || row.lastAt : null;
+        return { set: row.set, startedAt: row.startedAt, endedAt,
+            durationSeconds: endedAt ? Math.max(0, Math.floor((Date.parse(endedAt) - Date.parse(row.startedAt)) / 1000)) : null };
+    });
+    const finished = sets.filter(set => set.endedAt);
+    const breakSeconds = finished.filter(set => completed.has(set.set + 1) && set.set + 1 !== Number(maxSets)).length * 180;
+    return { sets, breakSeconds, totalSeconds: finished.length && finished.length === completed.size ? finished.reduce((sum, set) => sum + set.durationSeconds, 0) + breakSeconds : null };
+}
+
+
 function fail(message, status = 400) { const error = new Error(message); error.status = status; throw error; }
 const parse = value => { try { return typeof value === 'string' ? JSON.parse(value) : value || {}; } catch { return {}; } };
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -61,6 +100,10 @@ function projectOfficialState(match, actions = []) {
         state.isHomeLeft = context.isHomeLeft ?? true;
     }
     const setup = parse(match.vis_state);
+    const savedSetups = { ...(setup.lineups ? { 1: setup } : {}), ...(setup.setups || {}) };
+    state.setLineups = Object.fromEntries(Object.entries(savedSetups).map(([number, saved]) => [number, {
+        home: ids(saved.lineups?.home), away: ids(saved.lineups?.away), servingTeam: saved.servingTeam || null,
+    }]));
     const lastBySet = new Map();
     for (const action of stats) lastBySet.set(Number(action.set_number || 1), action);
     for (const [setNumber, action] of lastBySet) {
@@ -79,9 +122,11 @@ function projectOfficialState(match, actions = []) {
     const currentSetup = setup.setups?.[state.currentSet] || (state.currentSet === 1 ? setup : {});
     state.lineups = { home: ids(currentSetup.lineups?.home), away: ids(currentSetup.lineups?.away) };
     const first = setup.setups?.[1] || setup;
-    const firstServer = first.servingTeam;
+    const firstServer = first.servingTeam || setup.firstServingTeam;
+    state.firstServingTeam = firstServer || null;
+    state.substitutionLimit = Number(setup.substitutionLimit) || 6;
     state.requiresToss = state.currentSet === 1 || state.currentSet === state.maxSets;
-    state.servingTeam = currentSetup.servingTeam || (!state.requiresToss && firstServer
+    state.servingTeam = currentSetup.servingTeam || (state.currentSet === 1 ? firstServer : null) || (!state.requiresToss && firstServer
         ? state.currentSet % 2 === 1 ? firstServer : otherTeam(firstServer) : null);
     state.firstSetHomeLeft = setup.firstSetHomeLeft ?? true;
     state.isHomeLeft = currentSetup.firstSetHomeLeft ?? (state.currentSet % 2 === 1 ? state.firstSetHomeLeft : !state.firstSetHomeLeft);
@@ -118,6 +163,7 @@ function projectOfficialState(match, actions = []) {
     // Context is an exact optimistic-concurrency identifier, not an authentication secret.
     // Keep this synchronous and portable so the same engine can run offline.
     state.context.key = JSON.stringify(state.context);
+    state.timing = projectVisTiming(stats, state.completedSets, state.maxSets);
     return { state, session: { operations: [...(setup.lineupOperations || []), ...(setup.controlOperations || []), ...stats.map(action => actionDetails(action).operationId).filter(Boolean)] }, rallies: [] };
 }
 function resolveContext(state, rallies, context) {
@@ -164,6 +210,21 @@ function visDashboardSummary(match, actions, state = projectOfficialState(match,
     const status = ['confirmed', 'cancelled'].includes(match.vis_lifecycle) ? match.vis_lifecycle
         : state.phase === 'MATCH_FINISHED' ? 'review' : actions.length || state.history.length ? 'recording' : state.setupComplete ? 'ready' : 'idle';
     return { status, hasActivity, currentSet: state.currentSet, score: state.score, setsWon: state.setsWon };
+}
+function configureVisSettings(setup, state, command) {
+    const limit = command.substitutionLimit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 8) fail('Substitution limit must be between 1 and 8.');
+    if (Object.values(state.substitutions).some(count => count > limit)) fail('Substitution limit is below substitutions already used.');
+    if (!['home', 'away', null].includes(command.firstServingTeam)) fail('Invalid first serving team.');
+    if (command.firstServingTeam !== state.firstServingTeam) {
+        if (state.currentSet !== 1 || state.history.length) fail('First serving team is locked after recording starts.', 409);
+        if (!command.firstServingTeam && state.setupComplete) fail('Select the first serving team.');
+        setup.firstServingTeam = command.firstServingTeam;
+        if (setup.servingTeam) setup.servingTeam = command.firstServingTeam;
+        if (setup.setups?.[1]) setup.setups[1].servingTeam = command.firstServingTeam;
+    }
+    setup.substitutionLimit = limit;
+    return setup;
 }
 
 
@@ -240,7 +301,10 @@ function commandPayload(previous, operation) {
     if (!command || ['confirmed', 'cancelled'].includes(payload.lifecycle)) fail('แมตช์ถูกล็อกแล้ว', 409);
     let response = {};
     const setup = payload.match.vis_state;
-    if (command.type === 'SET_LINEUP') {
+    if (command.type === 'CONFIGURE_SETTINGS') {
+        if (state.phase === 'MATCH_FINISHED') fail('Match is finished', 409);
+        configureVisSettings(setup, state, command);
+    } else if (command.type === 'SET_LINEUP') {
         if (state.phase === 'MATCH_FINISHED' || payload.actions.some(a => a.set_number === state.currentSet)) fail('ไม่สามารถแก้ไลน์อัปหลังเริ่มเซต', 409);
         for (const key of keys) {
             const ids = command.lineups?.[key];
@@ -258,13 +322,14 @@ function commandPayload(previous, operation) {
         if (!state.setupComplete || state.phase === 'MATCH_FINISHED') fail('กรุณาจัดไลน์อัปก่อน', 409);
         const context = resolveContext(state, [], command.context);
         const result = applyRally(state, command.events);
+        const timing = normalizeVisTiming(operation.timing, state.currentSet);
         const events = command.events.map((event, index) => {
             const player = payload.config[event.team].players.find(p => p.id === event.player);
             const code = `${event.team === 'home' ? '*' : 'a'}${player ? String(player.number).padStart(2, '0') : ''}${event.skill}${event.grade}`;
             return { id: payload.nextId++, action_type: 'VIS_STAT', set_number: state.currentSet, set_id: state.currentSet,
-                team_id: payload.match[`${event.team}_team_id`], player_id: event.player, skill: event.skill, grade: event.grade || '!',
+                team_id: payload.match[`${event.team}_team_id`], player_id: event.player, skill: event.skill, grade: event.grade || '!', created_at: timing?.recordedAt || null,
                 score_home: result.state.score.home, score_away: result.state.score.away, event_code: code,
-                details: { vis: true, rallyId: operation.operationId, rallyPoint: index === command.events.length - 1,
+                details: { vis: true, visTiming: timing, rallyId: operation.operationId, rallyPoint: index === command.events.length - 1,
                     statisticalRallyWinner: result.winner, event_code: code, jersey_number: player?.number,
                     visContext: { ...context, scoreBefore: context.score, scoreAfter: result.state.score } } };
         });
@@ -287,7 +352,7 @@ function commandPayload(previous, operation) {
         const details = {};
         if (command.type === 'TIMEOUT' && state.timeouts[team] >= 2) fail('ขอเวลานอกครบแล้ว');
         if (command.type === 'SUBSTITUTION') {
-            if (state.substitutions[team] >= 6 || !state.lineups[team].includes(command.playerOut) || state.lineups[team].includes(command.playerIn)
+            if (state.substitutions[team] >= state.substitutionLimit || !state.lineups[team].includes(command.playerOut) || state.lineups[team].includes(command.playerIn)
                 || !payload.config[team].players.some(p => p.id === command.playerIn)) fail('คู่เปลี่ยนตัวไม่ถูกต้องหรือครบโควตา');
             const starters = setup.setups[state.currentSet].lineups[team];
             const controls = setup.controls.filter(e => e.set_id === state.currentSet && e.team === team && e.skill === 'SUBSTITUTION');
@@ -343,6 +408,8 @@ function importCustomVis(backup, id) {
             command: { ...command, context: { key: state.context.key } } }).payload;
     };
     const setup = backup.match?.vis_state || {};
+    if (setup.substitutionLimit || setup.firstServingTeam) send({ type: 'CONFIGURE_SETTINGS',
+        substitutionLimit: Number(setup.substitutionLimit) || 6, firstServingTeam: setup.firstServingTeam || setup.setups?.[1]?.servingTeam || setup.servingTeam || null });
     const controls = setup.controls || [];
     if (!Array.isArray(controls) || controls.length > 1000) fail('รายการควบคุมในไฟล์สำรองไม่ถูกต้อง');
     const setLineup = setNumber => {
@@ -384,4 +451,4 @@ function importCustomVis(backup, id) {
 }
 
 
-export { createPayload, view, commandPayload, importCustomVis };
+export { createPayload, view, commandPayload, importCustomVis, projectVisTiming };

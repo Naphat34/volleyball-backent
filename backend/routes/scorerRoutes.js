@@ -37,10 +37,14 @@ router.get('/match/:matchId/state', scorerController.getLiveState);
 
 // Mutating scorer endpoints are available to admins and scorer-console users.
 const scorerWriteAccess = [authMiddleware.verifyToken, authMiddleware.canScoreMatches];
+const settings = require('../controllers/matchSettingsController');
+router.get('/match/:matchId/settings', authMiddleware.verifyApprovedToken, settings.read);
+router.put('/match/:matchId/settings', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, settings.save);
 router.get('/matches', scorerWriteAccess, matchController.getAllMatches);
 router.get('/match/:matchId/vis', scorerWriteAccess, visController.getState);
 router.post('/match/:matchId/vis', scorerWriteAccess, visController.command);
 router.post('/match/:matchId/event', scorerWriteAccess, validateRequest('scorerEvent'), offline.online('saveMatchEvent'));
+router.post('/match/:matchId/undo-substitution-batch', scorerWriteAccess, offline.online('undoSubstitutionBatch'));
 router.post('/match/:matchId/toss', scorerWriteAccess, offline.online('saveCoinToss'));
 router.post('/match/:matchId/lineup', scorerWriteAccess, offline.online('saveLineup'));
 router.post('/match/:matchId/start-set', scorerWriteAccess, offline.online('startSet'));

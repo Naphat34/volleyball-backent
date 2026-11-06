@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Clock3, ArrowLeftRight, X } from 'lucide-react';
 
-export default function VisMatchControls({ teams, locked, send, timeouts, substitutions, showTeamName = true, stacked = false }) {
+export default function VisMatchControls({ teams, locked, send, timeouts, substitutions, substitutionLimit = 6, showTeamName = true, stacked = false }) {
     const [teamKey, setTeamKey] = useState(null);
     const [playerOut, setPlayerOut] = useState('');
     const [playerIn, setPlayerIn] = useState('');
@@ -19,13 +19,13 @@ export default function VisMatchControls({ teams, locked, send, timeouts, substi
             <button className={buttonClass} aria-label={`เวลานอก ${item.name} ${timeouts[item.key]}/2`} disabled={locked || timeouts[item.key] >= 2} onClick={() => send({ type: 'TIMEOUT', team: item.key })}>
                 <Clock3 size={15} />เวลานอก {timeouts[item.key]}/2
             </button>
-            <button className={buttonClass} aria-label={`เปลี่ยนตัว ${item.name} ${substitutions[item.key]}/6`} disabled={locked || substitutions[item.key] >= 6 || item.players.length <= item.lineup.length}
+            <button className={buttonClass} aria-label={`เปลี่ยนตัว ${item.name} ${substitutions[item.key]}/${substitutionLimit}`} disabled={locked || substitutions[item.key] >= substitutionLimit || item.players.length <= item.lineup.length}
                 onClick={() => { setTeamKey(item.key); setPlayerOut(''); setPlayerIn(''); }}>
-                <ArrowLeftRight size={15} />เปลี่ยนตัว {substitutions[item.key]}/6
+                <ArrowLeftRight size={15} />เปลี่ยนตัว {substitutions[item.key]}/{substitutionLimit}
             </button>
         </div>)}
         {team && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4">
-            <form onSubmit={submit} aria-label="เปลี่ยนตัวผู้เล่น" className="w-full max-w-lg space-y-4 rounded-xl border border-slate-600 bg-slate-900 p-5 text-white">
+            <form onSubmit={submit} aria-label="เปลี่ยนตัวผู้เล่น" className="vis-themed-dialog w-full max-w-lg space-y-4 rounded-xl border border-slate-600 bg-slate-900 p-5 text-white">
                 <div className="flex items-center justify-between"><h2 className="text-lg font-bold">เปลี่ยนตัว · {team.name}</h2><button type="button" onClick={() => setTeamKey(null)} aria-label="ปิด"><X size={20} /></button></div>
                 <label className="block">ผู้เล่นออก<select value={playerOut} disabled={locked} onChange={event => setPlayerOut(event.target.value)} className="mt-2 block w-full rounded bg-slate-800 p-3">
                     <option value="">เลือกผู้เล่นในสนาม</option>{team.lineup.map(player => <option key={player.id} value={player.id}>#{player.number} {player.name}</option>)}

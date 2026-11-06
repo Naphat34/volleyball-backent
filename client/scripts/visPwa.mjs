@@ -4,7 +4,7 @@ export function visPwa() {
         name: 'vis-offline-shell',
         enforce: 'post',
         generateBundle: { order: 'post', handler(_options, bundle) {
-            const fonts = ['THSarabunNew', 'Sarabun-Regular', 'BaiJamjuree-ExtraLight', 'BaiJamjuree-Light', 'BaiJamjuree-Regular', 'BaiJamjuree-Medium', 'BaiJamjuree-SemiBold', 'BaiJamjuree-Bold'].map(name => `/fonts/${name}.ttf`);
+            const fonts = ['Sarabun-ExtraLight', 'Sarabun-Light', 'Sarabun-Regular', 'Sarabun-Medium', 'Sarabun-SemiBold', 'Sarabun-Bold', 'Sarabun-ExtraBold'].map(name => `/fonts/${name}.ttf`);
             const files = ['/index.html', '/manifest.webmanifest', '/vis-icon.svg', ...fonts, ...Object.values(bundle).map(file => file.fileName).filter(path => !path.endsWith('.map')).map(path => `/${path}`)];
             const cache = `vis-shell-${createHash('sha256').update(JSON.stringify(bundle)).digest('hex').slice(0, 12)}`;
             this.emitFile({ type: 'asset', fileName: 'sw.js', source: `

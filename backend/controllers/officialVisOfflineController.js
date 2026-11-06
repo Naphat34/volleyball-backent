@@ -128,7 +128,7 @@ exports.sync = endpoint(async (connection, req, row) => {
     if (scoreLease && !scoreLease.released && Number(scoreLease.expires_at) > Date.now()) fail('แมตช์ถูกจองสำหรับ Scorer Offline กรุณาคืนสิทธิ์ก่อนซิงค์ VIS', 409);
     const fresh = await snapshot(connection, req);
     if (fresh.fingerprint !== value.fingerprint) fail('ข้อมูลแมตช์หรือรายชื่อบนเซิร์ฟเวอร์เปลี่ยน กรุณาสำรองก่อนตรวจสอบ ห้ามเขียนทับ', 409);
-    if (req.body.operations.some(op => !['SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION'].includes(op?.command?.type))) fail('คำสั่งนี้ต้องทำออนไลน์หลังซิงค์และคืนสิทธิ์', 409);
+    if (req.body.operations.some(op => !['CONFIGURE_SETTINGS', 'SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION'].includes(op?.command?.type))) fail('คำสั่งนี้ต้องทำออนไลน์หลังซิงค์และคืนสิทธิ์', 409);
     const result = syncPayload(value.payload, req.body);
     const official = controller(connection);
     for (const operation of req.body.operations) {

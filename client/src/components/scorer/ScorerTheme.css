@@ -1,4 +1,28 @@
 /* Scoped to the console, including dialogs rendered through portals. */
+.scorer-dark-theme .scorer-libero-alert .libero-alert-label {
+    color: #f8fafc !important;
+}
+.scorer-dark-theme .scorer-libero-alert .swal2-title {
+    color: #ffffff;
+}
+
+.scorer-shell .scorer-start-lineup,
+.scorer-shell .scorer-start-match {
+    outline: 2px solid #facc15;
+    outline-offset: 3px;
+    animation: scorer-lineup-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes scorer-lineup-glow {
+    0%, 100% { outline-color: #facc15; box-shadow: 0 0 12px 3px rgb(250 204 21 / 50%); }
+    50% { outline-color: transparent; box-shadow: 0 0 0 0 rgb(250 204 21 / 0%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scorer-shell .scorer-start-lineup,
+    .scorer-shell .scorer-start-match { animation: none; }
+}
+
 .scorer-shell > .scorer-header {
     min-height: 54px;
     height: auto;

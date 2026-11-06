@@ -1,8 +1,9 @@
+import './VisQuickEntry.css';
 import { useEffect, useRef, useState } from 'react';
 import { parseVisRally, rallyCode } from '../../utils/vis/visRally';
 import { visSkillNames } from '../../utils/vis/visPresentation';
 
-export default function VisQuickEntry({ teams, locked, send, commandContext, servingTeam, score, lastSavedOperationId, onUndo, undoDisabled }) {
+export default function VisQuickEntry({ teams, locked, finished = false, send, commandContext, servingTeam, score, lastSavedOperationId, onUndo, undoDisabled, onTimingStart }) {
     const [draft, setDraft] = useState('');
     const [choice, setChoice] = useState(0);
     const [skip, setSkip] = useState(false);
@@ -40,6 +41,7 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
     const append = code => { update(draft + code); input.current?.focus(); };
     const update = value => {
         if (locked || busy.current) return;
+        if (value.trim()) onTimingStart?.();
         if (!draft) context.current = commandContext;
         setDraft(value); setChoice(0); setSkip(false); setNotice('');
     };
@@ -83,8 +85,8 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
                 <button type="button" disabled={locked} onClick={() => setSkip(true)} className={chip}>ไม่ใส่ <kbd>Esc</kbd></button>
             </div><p className="mt-1 text-right text-[10px] text-slate-500">↑↓ เลือก · Tab / Space รับ · Enter บันทึก</p>
         </div>}
-        <div className="relative rounded-md border border-sky-500 bg-slate-950/80 focus-within:ring-1 focus-within:ring-sky-400">
-            <div ref={paintedCode} aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre px-3 py-2 font-mono text-base leading-6">{draft.split(/(\s+)/).map((token, index) => <span key={index} className={token.startsWith('*') || token.startsWith('A:') ? 'text-blue-400' : /^a(?!:)|^B:/i.test(token) ? 'text-red-400' : 'text-slate-200'}>{token}</span>)}</div>
+        <div className="vis-code-editor relative rounded-md border border-sky-500 bg-slate-950/80 focus-within:ring-1 focus-within:ring-sky-400">
+            <div ref={paintedCode} aria-hidden="true" className="vis-code-text pointer-events-none absolute inset-0 overflow-hidden whitespace-pre px-3 py-2 font-mono text-base leading-6">{draft.split(/(\s+)/).map((token, index) => <span key={index} className={token.startsWith('*') || token.startsWith('A:') ? 'text-blue-400' : /^a(?!:)|^B:/i.test(token) ? 'text-red-400' : 'text-slate-200'}>{token}</span>)}</div>
             <input id="vis-code-input" ref={input} value={draft} readOnly={locked} onChange={event => update(event.target.value)} onScroll={event => { if (paintedCode.current) paintedCode.current.scrollLeft = event.currentTarget.scrollLeft; }}
             onKeyDown={event => {
                 if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -95,8 +97,8 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
                 if (event.key === ' ' && suggestion && !parsed.automatic) { event.preventDefault(); auto(); }
                 if (event.key === 'Escape') { event.preventDefault(); if (suggestion && !parsed.automatic) setSkip(true); else { update(''); context.current = null; } }
                 if (event.key === 'Enter' && event.repeat) event.preventDefault();
-            }} autoComplete="off" spellCheck={false} placeholder="*03S a 10#" aria-invalid={Boolean(parsed.errors.length)} aria-describedby="vis-code-preview"
-            className="relative block h-10 w-full min-w-0 bg-transparent px-3 py-2 font-mono text-base leading-6 text-transparent caret-white placeholder:text-slate-600 selection:bg-sky-800/60" />
+            }} autoComplete="off" spellCheck={false} placeholder={finished ? 'การแข่งขันจบแล้ว' : '7   10#   4B#   *OP#   aT='} aria-invalid={Boolean(parsed.errors.length)} aria-describedby="vis-code-preview"
+            className="vis-code-text relative block h-10 w-full min-w-0 bg-transparent px-3 py-2 font-mono text-base leading-6 text-transparent caret-white placeholder:text-slate-600 selection:bg-sky-800/60" />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-1"><button type="button" disabled={locked} onClick={auto} className={`${chip} !border-sky-700 text-sky-300`}>↗ {suggestion ? rallyCode(suggestion) : 'AUTO'} <kbd className="text-[9px] opacity-60">Tab</kbd></button>
             {Object.values(teams).map(team => <button type="button" key={team.key} disabled={locked} onClick={() => append(`${draft && !/\s$/.test(draft) ? ' ' : ''}${team.key === 'home' ? '*' : 'a'}`)} className={chip}><span className={teamColor(team.key)}>{team.key === 'home' ? '*' : 'a'}</span><span className="max-w-24 truncate">{team.name}</span></button>)}

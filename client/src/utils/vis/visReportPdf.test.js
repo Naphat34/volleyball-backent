@@ -35,3 +35,11 @@ test('long rosters paginate without dropping players, and optional history adds 
     assert.ok(pdf.getPageCount() > 4);
     assert.ok(pdf.getPages().filter(page => page.getWidth() === 595.28).length >= 4);
 });
+
+test('standalone P-2 excludes summary and statistics pages and paginates full rosters', async () => {
+    const single = await createReport(12, { resultOnly: true });
+    assert.equal(single.getPageCount(), 1);
+    assert.deepEqual(single.getPages()[0].getSize(), { width: 595.28, height: 841.89 });
+    const long = await createReport(30, { resultOnly: true });
+    assert.equal(long.getPageCount(), 3);
+});

@@ -1,4 +1,5 @@
-const { projectOfficialState, applyRally, resolveContext, visDashboardSummary, fail } = require('./visWorkflow');
+const { projectOfficialState, applyRally, resolveContext, visDashboardSummary, configureVisSettings, fail } = require('./visWorkflow');
+const { normalizeVisTiming } = require('./visTiming');
 const keys = ['home', 'away'];
 const clone = value => JSON.parse(JSON.stringify(value));
 function validateInput(input) {
@@ -72,7 +73,10 @@ function commandPayload(previous, operation) {
     if (!command || ['confirmed', 'cancelled'].includes(payload.lifecycle)) fail('แมตช์ถูกล็อกแล้ว', 409);
     let response = {};
     const setup = payload.match.vis_state;
-    if (command.type === 'SET_LINEUP') {
+    if (command.type === 'CONFIGURE_SETTINGS') {
+        if (state.phase === 'MATCH_FINISHED') fail('Match is finished', 409);
+        configureVisSettings(setup, state, command);
+    } else if (command.type === 'SET_LINEUP') {
         if (state.phase === 'MATCH_FINISHED' || payload.actions.some(a => a.set_number === state.currentSet)) fail('ไม่สามารถแก้ไลน์อัปหลังเริ่มเซต', 409);
         for (const key of keys) {
             const ids = command.lineups?.[key];
@@ -90,13 +94,14 @@ function commandPayload(previous, operation) {
         if (!state.setupComplete || state.phase === 'MATCH_FINISHED') fail('กรุณาจัดไลน์อัปก่อน', 409);
         const context = resolveContext(state, [], command.context);
         const result = applyRally(state, command.events);
+        const timing = normalizeVisTiming(operation.timing, state.currentSet);
         const events = command.events.map((event, index) => {
             const player = payload.config[event.team].players.find(p => p.id === event.player);
             const code = `${event.team === 'home' ? '*' : 'a'}${player ? String(player.number).padStart(2, '0') : ''}${event.skill}${event.grade}`;
             return { id: payload.nextId++, action_type: 'VIS_STAT', set_number: state.currentSet, set_id: state.currentSet,
-                team_id: payload.match[`${event.team}_team_id`], player_id: event.player, skill: event.skill, grade: event.grade || '!',
+                team_id: payload.match[`${event.team}_team_id`], player_id: event.player, skill: event.skill, grade: event.grade || '!', created_at: timing?.recordedAt || null,
                 score_home: result.state.score.home, score_away: result.state.score.away, event_code: code,
-                details: { vis: true, rallyId: operation.operationId, rallyPoint: index === command.events.length - 1,
+                details: { vis: true, visTiming: timing, rallyId: operation.operationId, rallyPoint: index === command.events.length - 1,
                     statisticalRallyWinner: result.winner, event_code: code, jersey_number: player?.number,
                     visContext: { ...context, scoreBefore: context.score, scoreAfter: result.state.score } } };
         });
@@ -119,7 +124,7 @@ function commandPayload(previous, operation) {
         const details = {};
         if (command.type === 'TIMEOUT' && state.timeouts[team] >= 2) fail('ขอเวลานอกครบแล้ว');
         if (command.type === 'SUBSTITUTION') {
-            if (state.substitutions[team] >= 6 || !state.lineups[team].includes(command.playerOut) || state.lineups[team].includes(command.playerIn)
+            if (state.substitutions[team] >= state.substitutionLimit || !state.lineups[team].includes(command.playerOut) || state.lineups[team].includes(command.playerIn)
                 || !payload.config[team].players.some(p => p.id === command.playerIn)) fail('คู่เปลี่ยนตัวไม่ถูกต้องหรือครบโควตา');
             const starters = setup.setups[state.currentSet].lineups[team];
             const controls = setup.controls.filter(e => e.set_id === state.currentSet && e.team === team && e.skill === 'SUBSTITUTION');

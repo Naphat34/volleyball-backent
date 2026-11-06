@@ -12,7 +12,12 @@
     "preview": "vite preview",
     "test": "node --test src/**/*.test.js",
     "test:unit": "node --test src/**/*.test.js",
-    "test:pwa": "node scripts/checkVisPwa.mjs"
+    "test:pwa": "node scripts/checkVisPwa.mjs",
+    "test:admin-vis": "node --test src/utils/vis/adminVims.test.js",
+    "test:admin-center": "node --test src/utils/admin/controlCenter.test.js src/utils/vis/adminVims.test.js",
+    "test:vis:timing": "node --test src/utils/vis/visTiming.test.js src/offline/visEngine.test.js src/utils/vis/visReportData.test.js src/utils/vis/visReportPdf.test.js",
+    "test:vis:set-scores": "node --test src/utils/vis/visSetScores.test.js",
+    "test:vis:p2": "node --test src/utils/vis/visP2Scores.test.js src/utils/vis/visReportData.test.js src/utils/vis/visReportPdf.test.js src/utils/vis/visMatchResultPdf.test.js"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

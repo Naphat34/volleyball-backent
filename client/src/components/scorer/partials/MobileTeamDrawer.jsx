@@ -1,3 +1,4 @@
+import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
 import React from 'react';
 import { X } from 'lucide-react';
 import TeamInfoPanel from './TeamInfoPanel';
@@ -6,7 +7,6 @@ import { getContrastColorHex } from '../../../utils/common/colorUtils';
 export default function MobileTeamDrawer({
     mobilePanelTeam,
     onClose,
-    matchData,
     leftTeam,
     rightTeam,
     workflowStep,
@@ -36,9 +36,9 @@ export default function MobileTeamDrawer({
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3
                         className="min-w-0 flex-1 truncate pr-3 text-base font-extrabold uppercase text-slate-800"
-                        title={mobilePanelTeam === 'home' ? matchData.teamHome : matchData.teamAway}
+                        title={team.name}
                     >
-                        {mobilePanelTeam === 'home' ? matchData.teamHome : matchData.teamAway}
+                        {team.shortName?.trim() || getTeamCode(team.name)}
                     </h3>
                     <button
                         onClick={onClose}

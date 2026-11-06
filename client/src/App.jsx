@@ -1,3 +1,4 @@
+import VisTheme from './components/vis/VisTheme';
 import PageBoundary from './components/layout/PageBoundary';
 import React, { lazy, Suspense } from 'react';
 import { Feedback } from './components/ui/SystemUI';
@@ -54,14 +55,14 @@ function App() {
       <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title="กำลังเปิดหน้า / Loading page…" /></div>}>
       <Routes>
         <Route path="/scorer-offline" element={<PrivateRoute roleRequired={['admin','score','scorer','statistician']}><ScorerOfflineHome /></PrivateRoute>} />
-        <Route path="/adminvis" element={<PrivateRoute roleRequired={['admin', 'statistician']}><AdminVis /></PrivateRoute>} />
-        <Route path="/adminvis/match/:matchId" element={<PrivateRoute roleRequired={['admin', 'statistician']}><AdminVis /></PrivateRoute>} />
+        <Route path="/adminvis" element={<PrivateRoute roleRequired={['admin', 'statistician']}><VisTheme><AdminVis /></VisTheme></PrivateRoute>} />
+        <Route path="/adminvis/match/:matchId" element={<PrivateRoute roleRequired={['admin', 'statistician']}><VisTheme><AdminVis /></VisTheme></PrivateRoute>} />
         {/* หน้า AdminScorer สำหรับ role score */}
         <Route
           path="/adminscorer"
           element={
             <PrivateRoute roleRequired={['admin', 'score', 'scorer', 'statistician', 'referee']}>
-              <AdminScorer />
+              <VisTheme><AdminScorer /></VisTheme>
             </PrivateRoute>
           }
         />
@@ -142,7 +143,7 @@ function App() {
         <Route path="/teams" element={<PublicTeams />} />
         <Route path="/matches" element={<PublicMatches />} />
         <Route path="/match-centre/:matchId" element={<MatchCentrePage />} />
-        <Route path="/vis-live/:token" element={<PublicVisMatch />} />
+        <Route path="/vis-live/:token" element={<VisTheme><PublicVisMatch /></VisTheme>} />
 
         {/* ตัวดักจับ URL ผิด (Catch-all) ต้องเอาไว้ล่างสุดเสมอ! */}
         <Route path="*" element={<Navigate to="/login" replace />} />

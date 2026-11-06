@@ -1,0 +1,38 @@
+const db = require('../config/db');
+const { buildAdminVisMatch } = require('../utils/adminVisSnapshot');
+
+exports.overview = async (req, res) => {
+    let connection;
+    try {
+        connection = await db.connect();
+        await connection.beginTransaction();
+        const regular = await connection.query(`SELECT m.*, c.title AS competition_name, COALESCE(c.max_sets, 5) AS max_sets,
+            COALESCE(ms.home_sets,m.home_set_score) AS home_set_score, COALESCE(ms.away_sets,m.away_set_score) AS away_set_score,
+            ag.name AS age_group_name, ht.name AS home_team, at.name AS away_team, ht.code AS home_team_code, at.code AS away_team_code
+            FROM matches m LEFT JOIN competitions c ON c.id=m.competition_id
+            LEFT JOIN age_groups ag ON ag.id=COALESCE(m.age_group_id,c.age_group_id)
+            LEFT JOIN teams ht ON ht.id=m.home_team_id LEFT JOIN teams at ON at.id=m.away_team_id
+            LEFT JOIN (SELECT match_id, SUM(home_score>away_score) AS home_sets, SUM(away_score>home_score) AS away_sets
+                FROM match_sets WHERE end_time IS NOT NULL GROUP BY match_id) ms ON ms.match_id=m.id
+            WHERE m.manual_owner_id IS NULL ORDER BY m.id DESC`);
+        const actions = await connection.query(`SELECT a.*, CONCAT_WS(' ',p.first_name,p.last_name) AS player_name, p.number AS player_number
+            FROM match_actions a JOIN matches m ON m.id=a.match_id LEFT JOIN players p ON p.id=a.player_id
+            WHERE a.action_type='VIS_STAT' AND m.manual_owner_id IS NULL ORDER BY a.id`);
+        const custom = await connection.query(`SELECT v.*, u.username AS owner_username FROM custom_vis_matches v
+            LEFT JOIN users u ON u.id=v.owner_id ORDER BY v.created_at DESC`);
+        const byMatch = new Map();
+        for (const action of actions.rows) {
+            const key = String(action.match_id);
+            if (!byMatch.has(key)) byMatch.set(key, []);
+            byMatch.get(key).push(action);
+        }
+        const matches = [...regular.rows.map(row => buildAdminVisMatch(row, byMatch.get(String(row.id)) || [])),
+            ...custom.rows.map(row => buildAdminVisMatch(row, [], true))];
+        await connection.commit();
+        res.json({ matches, fetched_at: new Date().toISOString(), scope: 'server', offline_queue_visible: false });
+    } catch (error) {
+        if (connection) await connection.rollback();
+        console.error('Admin VIMS overview:', error.message);
+        res.status(500).json({ error: 'ไม่สามารถโหลดข้อมูล VIMS ได้ กรุณาตรวจสอบการเชื่อมต่อและ migrations ของระบบ' });
+    } finally { connection?.release(); }
+};
