@@ -14,6 +14,8 @@
     "test:unit": "node --test tests/**/*.test.js",
     "test:dashboard": "node --test tests/matchDashboard.test.js tests/matchDashboard.mysql.test.js",
     "test:manual-scorer": "node --test tests/manualScorer.test.js tests/manualScorer.mysql.test.js",
+    "test:manual-statistics": "node --test tests/manualVisAccess.test.js tests/manualScorer.test.js tests/manualScorer.mysql.test.js tests/visRallyController.test.js tests/visLineup.test.js",
+    "migrate:manual-statistics": "node scripts/migrateManualStatistics.js --apply",
     "test:vis:lineup": "node --test tests/visLineup.test.js",
     "test:admin-vis": "node --test tests/adminVisSnapshot.test.js tests/adminVisController.test.js",
     "test:admin-center": "node --test tests/adminReports.test.js tests/adminVisSnapshot.test.js tests/adminVisController.test.js",

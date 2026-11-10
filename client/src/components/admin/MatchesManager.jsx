@@ -1,8 +1,9 @@
+import { Trophy, Calendar, Edit3, Save, X, PlusCircle, Shield, Settings, CalendarDays as UiCalendarDays } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback } from 'react';
 import api, { api as apiHelper } from '../../api'; // Path to your api setup
-import { Trophy, Calendar, CheckCircle, Edit3, Save, X, PlusCircle, Shield, Settings } from 'lucide-react';
+
 import Swal from 'sweetalert2';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
 import { cleanCompetitionTitle, formatForInput, formatThaiDateTime } from '../../utils/formatters';
@@ -582,7 +583,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                     <h3 className="font-bold text-lg leading-tight">
                                         {editingMatchId ? ui('แก้ไขข้อมูลการแข่งขัน') : ui('เพิ่มแมตช์การแข่งขันใหม่')}
                                     </h3>
-                                    <p className="text-xs text-blue-100 font-medium">{ui("Tournament:")}{' '}{cleanCompetitionTitle(competition?.title || competition?.name)}</p>
+                                    <p className="text-xs text-blue-100 font-medium">{ui("Tournament:")}{' '}{cleanCompetitionTitle(displayNames.competitionName(competition))}</p>
                                 </div>
                             </div>
                             <button 
@@ -752,7 +753,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
 
                             {newMatchForm.start_time && (
                                 <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 text-center animate-in fade-in duration-200">
-                                    <p className="text-xs text-blue-700 font-bold">{ui("📅 กำหนดการแข่งขัน:")}{formatThaiDateTime(newMatchForm.start_time)}
+                                    <p className="text-xs text-blue-700 font-bold"><><UiCalendarDays size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("📅 กำหนดการแข่งขัน:").replace(/📅\uFE0F?/gu, '').trim()}</>{formatThaiDateTime(newMatchForm.start_time)}
                                     </p>
                                 </div>
                             )}

@@ -1,3 +1,4 @@
+import { X as UiX, ArrowUpRight as UiArrowUpRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useState } from 'react';
@@ -49,13 +50,13 @@ export default function VisCreateMatch({ matchId, onClose, onSaved, sources = []
         onSaved(response.data.match.id, start);
     });
     return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-3 text-white"><section role="dialog" aria-modal="true" aria-label={ui("สร้างและจัดการแมตช์ VIMS")} className="flex max-h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-600 bg-slate-900">
-        <header className="flex items-center justify-between border-b border-slate-700 p-4"><h2 className="font-bold">{matchId ? ui('จัดการแมตช์สร้างเอง') : ui('+ สร้างแมตช์ VIMS')} · {step}/3</h2><button disabled={busy} onClick={onClose} aria-label={ui("ปิด")}>✕</button></header>
+        <header className="flex items-center justify-between border-b border-slate-700 p-4"><h2 className="font-bold">{matchId ? ui('จัดการแมตช์สร้างเอง') : ui('+ สร้างแมตช์ VIMS')} · {step}/3</h2><button disabled={busy} onClick={onClose} aria-label={ui("ปิด")}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></header>
         <div className="space-y-4 overflow-y-auto p-4">
             {error && <p role="alert" className="rounded bg-red-950 p-3 text-sm text-red-200">{ui(error)}</p>}
             {match && <div className="space-y-2 rounded bg-slate-800 p-3 text-sm"><p>{ui("สถานะ:")}{' '}{({ draft: 'ฉบับร่าง', ready: 'พร้อมแข่งขัน', playing: 'กำลังแข่งขัน', review: 'รอตรวจสอบผล', confirmed: 'ยืนยันผลแล้ว', cancelled: 'ยกเลิก' })[match.vis_lifecycle]}</p><p>{ui("การเผยแพร่จะแสดงชื่อทีม ชื่อนักกีฬา เบอร์ คะแนน และสถิติ ให้ทุกคนที่มีลิงก์เข้าถึงได้")}</p>
                 {match.is_offline_vis && <p className="text-amber-200">{ui("แมตช์ในเครื่อง: กรุณาซิงค์และคืนสิทธิ์ แล้วเปิดแมตช์เซิร์ฟเวอร์เพื่อตรวจสอบยืนยันผลหรือเผยแพร่")}</p>}
                 <button disabled={busy || match.is_offline_vis || match.vis_lifecycle === 'cancelled'} className={btn} onClick={() => run(async () => { const response = await api.publishCustomVis(matchId, !match.published); setMatch({ ...match, ...response.data }); })}>{match.published ? ui('ปิดการเผยแพร่') : ui('เปิดเผยแพร่ Livescore สาธารณะ')}</button>
-                {match.published && <a className="ml-3 text-sky-300 underline" href={`/vis-live/${match.public_token}`} target="_blank" rel="noreferrer">{ui("เปิดลิงก์สาธารณะ ↗")}</a>}
+                {match.published && <a className="ml-3 text-sky-300 underline" href={`/vis-live/${match.public_token}`} target="_blank" rel="noreferrer"><><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("เปิดลิงก์สาธารณะ ↗").replace(/↗\uFE0F?/gu, '').trim()}</></a>}
                 {match.vis_lifecycle === 'confirmed' && <button disabled={busy} className={`${btn} ml-2`} onClick={() => run(async () => { await api.reopenCustomVis(matchId); onSaved(matchId, true); })}>{ui("เปิดตรวจแก้ไขผล")}</button>}
                 {!['confirmed', 'cancelled'].includes(match.vis_lifecycle) && <button disabled={busy} className={`${btn} ml-2 !bg-red-900`} onClick={() => run(async () => { const response = await api.getVisState(matchId); await api.saveVisCommand(matchId, { operationId: crypto.randomUUID(), revision: response.data.state.revision, command: { type: 'CANCEL' } }); onSaved(matchId, false); })}>{ui("ยกเลิกแมตช์ (เก็บประวัติ)")}</button>}
                 {locked && <p className="text-xs text-slate-400">{ui("ข้อมูลทีมและรายชื่อถูกล็อกหลังเริ่มบันทึก ย้อนรายการและยืนยันผลได้ในหน้าคีย์")}</p>}

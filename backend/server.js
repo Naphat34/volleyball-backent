@@ -147,12 +147,13 @@ function createSocketIo(server) {
     }
     if (!matchId || !/^\d+$/.test(String(matchId))) return false;
     if (!['viewer', 'referee', 'staff', 'scorer'].includes(String(role || 'viewer'))) return false;
-    const manual = (await db.query('SELECT manual_owner_id, manual_published, manual_lifecycle FROM matches WHERE id=?', [matchId])).rows[0];
+    const manual = (await db.query('SELECT manual_owner_id, manual_published, manual_lifecycle, manual_vis_shared, status FROM matches WHERE id=?', [matchId])).rows[0];
     if (manual?.manual_owner_id) {
       let user;
       try { user = socket.user || await getSocketUser(socket); } catch { user = null; }
       const owner = user && (user.role === 'admin' || String(user.id) === String(manual.manual_owner_id)) && roleHasPermission(user.role, 'match.score');
-      if (!owner && !(role === 'viewer' && manual.manual_published && manual.manual_lifecycle !== 'draft')) return false;
+      const statisticsReader = ['viewer', 'scorer'].includes(role) && require('./utils/manualVisAccess').canReadStatistics(user, manual);
+      if (!owner && !statisticsReader && !(role === 'viewer' && manual.manual_published && manual.manual_lifecycle !== 'draft')) return false;
       if (user) socket.user = user;
     }
     if (role === 'viewer' || role === 'referee') return true;

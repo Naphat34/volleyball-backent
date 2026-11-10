@@ -8,15 +8,16 @@ const crypto = require('node:crypto');
 test('manual scorer endpoints persist isolated matches, enforce privacy and confirm real set results', { skip: process.env.RUN_MYSQL_MANUAL_SCORER_TESTS !== '1' }, async () => {
     const db = require('../config/db');
     const connection = await db.connect();
-    const tables = ['matches','teams','players','match_sets','match_events','match_actions','audit_logs'];
+    const tables = ['matches','teams','players','team_staff','match_sets','match_events','match_actions','audit_logs'];
     const rewrite = sql => tables.reduce((result, name) => result.replace(new RegExp(`\\b${name}\\b`, 'g'), `${name}_manual_test`), sql);
     const proxy = { query: async (sql, args) => {
         let statement = rewrite(sql);
         // MySQL temporary tables cannot be opened twice in one query.
-        if (statement.includes('teams_manual_test t2')) {
+        if (statement.includes('teams_manual_test t2') || statement.includes('teams_manual_test a ')) {
             await connection.query('DELETE FROM teams_manual_away_test');
             await connection.query('INSERT INTO teams_manual_away_test SELECT * FROM teams_manual_test');
             statement = statement.replace(/teams_manual_test t2/g, 'teams_manual_away_test t2');
+            statement = statement.replace(/teams_manual_test a /g, 'teams_manual_away_test a ');
         }
         return connection.query(statement, args);
     }, beginTransaction: () => connection.beginTransaction(), commit: () => connection.commit(), rollback: () => connection.rollback(), release() {} };
@@ -35,6 +36,9 @@ test('manual scorer endpoints persist isolated matches, enforce privacy and conf
     };
     try {
         for (const table of tables) await connection.query(`CREATE TEMPORARY TABLE ${table}_manual_test LIKE ${table}`);
+        const columns = new Set((await connection.query('SHOW COLUMNS FROM players_manual_test')).rows.map(column => column.Field));
+        if (!columns.has('birth_date')) await connection.query('ALTER TABLE players_manual_test ADD COLUMN birth_date DATE NULL');
+        if (!columns.has('nationality')) await connection.query('ALTER TABLE players_manual_test ADD COLUMN nationality VARCHAR(10) NULL');
         await connection.query('CREATE TEMPORARY TABLE teams_manual_away_test LIKE teams');
         const manual = load('../controllers/manualScorerController');
         const scorer = load('../controllers/scorerController');
@@ -52,11 +56,38 @@ test('manual scorer endpoints persist isolated matches, enforce privacy and conf
         let actionReq = request(id, { published: true }); actionReq.params.action = 'publish';
         assert.equal((await call(manual, 'action', actionReq)).code, 409);
         assert.equal((await call(manual, 'save', request(id, { ...config, ready: true }))).code, 200);
+        const homeId = (await proxy.query('SELECT home_team_id FROM matches WHERE id=?', [id])).rows[0].home_team_id;
+        await proxy.query("UPDATE players SET first_name_en='Registered', last_name_en='Athlete', birth_date='2004-03-08', nationality='THA' WHERE team_id=? AND number=1", [homeId]);
+        await proxy.query("INSERT INTO team_staff(team_id, first_name, last_name, role, gender) VALUES (?, 'Match', 'Coach', 'Head Coach', 'Male')", [homeId]);
+        const share = request(id, { shared: true }); share.params.action = 'statistics-access';
+        assert.equal((await call(manual, 'action', share)).code, 200);
+        const statistics = load('../controllers/manualVisController');
+        const visible = await call(statistics, 'list', request(null, {}, { id: 777003, role: 'statistician' }));
+        assert.equal(visible.code, 200);
+        assert.equal(visible.data.length, 1);
+        assert.equal(visible.data[0].id, id);
+        assert.equal(visible.data[0].is_manual_scorer, 1);
+        const assignment = (user, action) => ({ ...request(id, {}, user), params: { id, assignment: action } });
+        const statistician = { id: 777003, role: 'statistician' };
+        const colleague = { id: 777004, role: 'statistician' };
+        assert.equal((await call(statistics, 'assignment', assignment(statistician, 'claim'))).code, 200);
+        assert.equal((await call(statistics, 'assignment', assignment(statistician, 'claim'))).code, 200);
+        assert.equal((await call(statistics, 'assignment', assignment(colleague, 'claim'))).code, 409);
+        assert.equal((await proxy.query('SELECT manual_vis_assignee_id FROM matches WHERE id=?', [id])).rows[0].manual_vis_assignee_id, statistician.id);
+        assert.equal((await call(statistics, 'assignment', assignment(colleague, 'release'))).code, 403);
+        assert.equal((await call(statistics, 'assignment', assignment(statistician, 'release'))).code, 200);
+        assert.equal((await call(statistics, 'assignment', assignment(colleague, 'claim'))).code, 200);
         const details = await call(scorer, 'getMatchDetails', request(id));
         assert.equal(details.data.max_sets, 3); assert.equal(details.data.competition_name, config.title);
         const rosterResponse = await call(scorer, 'getMatchRosterData', request(id));
         assert.equal(rosterResponse.code, 200); assert.equal(rosterResponse.data.home.players.length, 6);
         assert.equal(rosterResponse.data.away.players.length, 6);
+        const registered = rosterResponse.data.home.players.find(player => Number(player.number) === 1);
+        assert.equal(registered.first_name_en, 'Registered');
+        assert.equal(registered.last_name_en, 'Athlete');
+        assert.equal(registered.nationality, 'THA');
+        assert.equal(registered.birth_date, '2004-03-08');
+        assert.equal(rosterResponse.data.home.staff[0].first_name, 'Match');
         const auth = {
             verifyToken(req, res, next) { if (!req.user) return res.status(401).json({ error: 'No token' }); return next(); },
             requireApprovedUser(req, res, next) { return next(); }
@@ -67,6 +98,14 @@ test('manual scorer endpoints persist isolated matches, enforce privacy and conf
             const res = { code: 200, status(code) { this.code = code; return this; }, json(data) { this.data = data; } };
             let allowed = false; await guard(req, res, () => { allowed = true; }); return { ...res, allowed };
         }
+        assert.equal((await access(statistician)).allowed, true);
+        assert.equal((await access(colleague, 'POST', '/vis')).allowed, true);
+        assert.equal((await access(statistician, 'POST', '/vis')).code, 409);
+        assert.equal((await access(statistician, 'POST', '/event')).code, 404);
+        const revoke = request(id, { shared: false }); revoke.params.action = 'statistics-access';
+        assert.equal((await call(manual, 'action', revoke)).code, 200);
+        assert.equal((await call(statistics, 'list', request(null, {}, statistician))).data.length, 0);
+        assert.equal((await access(colleague, 'POST', '/vis')).code, 404);
         assert.equal((await access(null)).code, 401);
         assert.equal((await access({ id: 777002, role: 'scorer' })).code, 404);
         assert.equal((await access({ id: 777001, role: 'scorer' })).allowed, true);

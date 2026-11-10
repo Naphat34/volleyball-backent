@@ -1,3 +1,7 @@
+import { competitionName } from '../../utils/i18n/competitionNames';
+import { readLanguage } from '../../utils/i18n/language';
+import VisThemeToggle from '../../components/vis/VisThemeToggle';
+import { Users, Trophy, UserPlus, Plus, Calendar, Shield, Briefcase, Activity, Edit2, PlayCircle, Trash2, MapPin, User, X, Star, Clock, Search, Download, LogOut, BarChart2, Swords, Printer, Upload, Palette, Home, Building2, Check as SystemCheck } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { Panel } from '../../components/ui/SystemUI';
@@ -5,38 +9,10 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../../api';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
-import {
-    Users,
-    Trophy,
-    UserPlus,
-    Plus,
-    Calendar,
-    Shield,
-    Briefcase,
-    Activity,
-    Edit2,
-    PlayCircle,
-    Trash2,
-    MapPin,
-    User,
-    X,
-    Star,
-    Clock,
-    Search,
-    Download,
-    LogOut,
-    BarChart2,
-    Swords,
-    Printer,
-    Upload,
-    Palette,
-    Home,
-    Building2
-} from 'lucide-react';
+
 
 import { cleanCompetitionTitle, formatThaiDate, calculateAge } from '../../utils/formatters';
 import O2FormLoader from '../../components/reports/O2FormLoader';
-import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import { useLanguage } from '../../context/LanguageContext';
 
 // Toast Configuration
@@ -67,13 +43,11 @@ const DEFAULT_UNIFORM_COLORS = {
 
 
 const normalizeCompetitionTitle = (competition) => {
-    return cleanCompetitionTitle(competition?.competition_title || competition?.title || competition?.name || 'Untitled Competition');
+    return cleanCompetitionTitle(competitionName(competition, readLanguage()) || 'Untitled Competition');
 };
 
 const getScheduleCompetitionName = (item = {}) => (
-    normalizeCompetitionTitle({
-        title: item.competition_name || item.title || item.name
-    })
+    normalizeCompetitionTitle(item)
 );
 
 const getGenderLabel = (gender) => {
@@ -1314,8 +1288,8 @@ export default function TeamDashboard() {
                             </button>*/}
                         </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-                        <VisThemeToggle compact />
+                    <div className="flex shrink-0 items-center gap-2 sm:gap-4"><VisThemeToggle compact />
+
                         {/* Language Selector */}
                         <div className="flex items-center gap-1 bg-white/12 border border-white/25 p-1 rounded-md">
                             <button
@@ -2452,7 +2426,7 @@ export default function TeamDashboard() {
                                                 <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
                                                     selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'
                                                 }`}>
-                                                    {selected ? '✓' : ''}
+                                                    {selected ? <SystemCheck size={16} aria-hidden="true" /> : null}
                                                 </div>
                                             </button>
                                         );

@@ -31,22 +31,45 @@ function harness() {
         } };
     const sandbox = { exports: {}, console: { error() {} }, require: name => {
         if (name === '../config/db') return { connect: async () => connection };
+        if (name === '../utils/manualVisAccess') return require('../utils/manualVisAccess');
         if (name === '../utils/visWorkflow') return workflow;
         if (name === '../utils/visEventCode') return { ...require('../utils/visEventCode'), getVisJerseyNumber: async (connection, match, team, player) => player };
         throw Error(name);
     } };
     vm.runInNewContext(fs.readFileSync(require.resolve('../controllers/visController'), 'utf8'), sandbox);
     return { match, rows: () => rows, failPlayer: player => { badPlayer = player; },
-        send: async (command, operationId = 'rally-operation-123456', timing) => {
+        send: async (command, operationId = 'rally-operation-123456', timing, user) => {
             const state = workflow.projectOfficialState(match, rows).state;
             const res = { code: 200, status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
-            await sandbox.exports.command({ params: { matchId: 1 }, body: { operationId, timing, revision: state.revision,
+            await sandbox.exports.command({ user, params: { matchId: 1 }, body: { operationId, timing, revision: state.revision,
                 command: { ...command, context: { key: state.context.key } } }, app: { get: () => null } }, res);
             return res;
         } };
 }
 const events = [{ team: 'home', player: 1, skill: 'S', grade: '' },
     { team: 'away', player: 12, skill: 'A', grade: '#' }, { team: 'home', player: null, skill: 'T', grade: '=' }];
+
+test('assigned statistician records a scorer-created rally without changing official scoring', async () => {
+    const h = harness();
+    Object.assign(h.match, { manual_owner_id: 7, manual_vis_shared: 1, manual_lifecycle: 'ready', manual_vis_assignee_id: 9 });
+    const official = h.match.live_state;
+    const result = await h.send({ type: 'RALLY', events }, 'manual-rally-operation', undefined, { id: 9, role: 'statistician' });
+    assert.equal(result.code, 200);
+    assert.equal(h.rows().length, 3);
+    assert.equal(h.match.live_state, official);
+});
+
+test('revocation, another assignee, and match-rule changes reject before saving statistics', async () => {
+    for (const scenario of ['revoked', 'other', 'rules']) {
+        const h = harness();
+        Object.assign(h.match, { manual_owner_id: 7, manual_vis_shared: scenario === 'revoked' ? 0 : 1,
+            manual_lifecycle: 'ready', manual_vis_assignee_id: scenario === 'other' ? 10 : 9 });
+        const result = await h.send(scenario === 'rules' ? { type: 'CONFIGURE_SETTINGS' } : { type: 'RALLY', events },
+            'rejected-manual-rally', undefined, { id: 9, role: 'statistician' });
+        assert.equal(result.code, scenario === 'other' ? 409 : 403);
+        assert.equal(h.rows().length, 0);
+    }
+});
 
 test('official VIS keeps original device timing across the saved rally and refreshed projection', async () => {
     const h = harness();

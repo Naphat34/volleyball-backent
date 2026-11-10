@@ -53,6 +53,7 @@ html[data-app-theme="dark"] :where(.bg-gray-800):not([data-theme-paper], [data-t
 html[data-app-theme="light"] :where(.bg-gray-900):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *):not(button, a, input) { background-color:var(--app-surface); color:var(--app-text); }
 html[data-app-theme="dark"] :where(.bg-gray-900):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { background-color:var(--app-surface); }
 html[data-app-theme="dark"] :where(.bg-gray-900\/50):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { background-color:color-mix(in srgb, var(--app-surface) 50%, transparent); }
+html[data-app-theme="dark"] :where(.bg-gray-900\/60):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { background-color:color-mix(in srgb, var(--app-surface) 60%, transparent); }
 html[data-app-theme="dark"] :where(.bg-gray-950\/40):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { background-color:color-mix(in srgb, var(--app-surface) 40%, transparent); }
 html[data-app-theme="dark"] :where(.bg-gray-950\/50):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { background-color:color-mix(in srgb, var(--app-surface) 50%, transparent); }
 html[data-app-theme="dark"] :where(.bg-green-100):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { background-color:var(--app-success-bg); }

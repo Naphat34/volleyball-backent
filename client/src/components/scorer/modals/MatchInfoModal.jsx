@@ -1,3 +1,4 @@
+import { Shirt as UiShirt } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import React from 'react';
@@ -7,7 +8,7 @@ export default function MatchInfoModal({ isOpen, matchData, onConfirm, onCancel 
     const st = useScorerTranslation();
     // จำลองฟอร์มเบื้องต้น ดึงข้อมูลชื่อทีมและรายการมาจาก matchData
     const formData = {
-        competition: matchData?.competitionName || 'TEST Competition - TEST Championship',
+        competition: displayNames.competitionName(matchData) || st('Volleyball Competition'),
         matchNo: matchData?.matchNo || '',
         date: matchData?.matchDate || '',
         teamHome: matchData?.teamHome || '<Choose a team>',
@@ -80,9 +81,7 @@ export default function MatchInfoModal({ isOpen, matchData, onConfirm, onCancel 
                         {/* Team A (Blue) */}
                         <div className="flex-1 flex items-center gap-2">
                             {/* Shirt Icon */}
-                            <svg viewBox="0 0 24 24" fill="#0066ff" className="w-10 h-10 drop-shadow-md">
-                                <path d="M4 6 L10 2 L14 2 L20 6 L18 12 L16 10 L16 22 L8 22 L8 10 L6 12 Z" stroke="#000" strokeWidth="1" />
-                            </svg>
+                            <UiShirt className="w-10 h-10 drop-shadow-md" color="#0066ff" />
                             <select className="flex-1 bg-[#0066ff] text-white border-2 border-[#0044cc] h-8 font-bold text-base px-2 shadow-sm text-center">
                                 <option>{displayNames.matchTeamName(formData, 'home')}</option>
                             </select>
@@ -93,9 +92,7 @@ export default function MatchInfoModal({ isOpen, matchData, onConfirm, onCancel 
                                 <option>{displayNames.matchTeamName(formData, 'away')}</option>
                             </select>
                             {/* Shirt Icon */}
-                            <svg viewBox="0 0 24 24" fill="#ff00ff" className="w-10 h-10 drop-shadow-md">
-                                <path d="M4 6 L10 2 L14 2 L20 6 L18 12 L16 10 L16 22 L8 22 L8 10 L6 12 Z" stroke="#000" strokeWidth="1" />
-                            </svg>
+                            <UiShirt className="w-10 h-10 drop-shadow-md" color="#ff00ff" />
                         </div>
                     </div>
 

@@ -1,0 +1,27 @@
+-- Preserve legacy names and add explicitly registered translations. Safe to re-run.
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='competitions' AND COLUMN_NAME='title_th'),'SELECT 1','ALTER TABLE competitions ADD COLUMN title_th VARCHAR(255) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='competitions' AND COLUMN_NAME='title_en'),'SELECT 1','ALTER TABLE competitions ADD COLUMN title_en VARCHAR(255) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='competitions' AND COLUMN_NAME='short_title_th'),'SELECT 1','ALTER TABLE competitions ADD COLUMN short_title_th VARCHAR(60) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='competitions' AND COLUMN_NAME='short_title_en'),'SELECT 1','ALTER TABLE competitions ADD COLUMN short_title_en VARCHAR(60) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='competitions' AND COLUMN_NAME='details_th'),'SELECT 1','ALTER TABLE competitions ADD COLUMN details_th TEXT NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='competitions' AND COLUMN_NAME='details_en'),'SELECT 1','ALTER TABLE competitions ADD COLUMN details_en TEXT NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='stadiums' AND COLUMN_NAME='name_th'),'SELECT 1','ALTER TABLE stadiums ADD COLUMN name_th VARCHAR(255) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='stadiums' AND COLUMN_NAME='name_en'),'SELECT 1','ALTER TABLE stadiums ADD COLUMN name_en VARCHAR(255) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='age_groups' AND COLUMN_NAME='name_th'),'SELECT 1','ALTER TABLE age_groups ADD COLUMN name_th VARCHAR(100) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+SET @competition_ddl=IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='age_groups' AND COLUMN_NAME='name_en'),'SELECT 1','ALTER TABLE age_groups ADD COLUMN name_en VARCHAR(100) NULL');
+PREPARE competition_stmt FROM @competition_ddl; EXECUTE competition_stmt; DEALLOCATE PREPARE competition_stmt;
+UPDATE competitions SET title_th=title WHERE title_th IS NULL AND title REGEXP '[ก-๙]';
+UPDATE competitions SET title_en=title WHERE title_en IS NULL AND title NOT REGEXP '[ก-๙]' AND title REGEXP '[A-Za-z]';
+UPDATE stadiums SET name_th=name WHERE name_th IS NULL AND name REGEXP '[ก-๙]';
+UPDATE stadiums SET name_en=name WHERE name_en IS NULL AND name NOT REGEXP '[ก-๙]' AND name REGEXP '[A-Za-z]';
+UPDATE age_groups SET name_th=name WHERE name_th IS NULL AND name REGEXP '[ก-๙]';
+UPDATE age_groups SET name_en=name WHERE name_en IS NULL AND name NOT REGEXP '[ก-๙]' AND name REGEXP '[A-Za-z]';

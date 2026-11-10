@@ -1,12 +1,13 @@
+import { Settings, Timer, Volleyball, ArrowDown, ArrowUp } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import { formatScorerEvent } from '../../../utils/scorer/scorerEventPresentation';
 import useScorerTranslation from '../useScorerTranslation';
 import { historyTeamName, abbreviateHistoryTeams } from '../../../utils/scorer/historyTeamNames';
 import { getContrastClass } from '../../../utils/common/colorUtils';
 import React from 'react';
-import { Settings, Timer } from 'lucide-react';
 
-import Logo from '../../../assets/img/volleyball.png';
+
+
 
 const getTeamBadgeStyle = (color) => {
     const backgroundColor = /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(String(color || '').trim())
@@ -306,7 +307,7 @@ const MatchHistorySidebar = ({
                                                 {isLeftEvent && (
                                                     <>
                                                         <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 opacity-80" style={{ backgroundColor: `${accentColor}18` }}>
-                                                           <img src={Logo} alt={st("Point")} className="w-4 h-4" />
+                                                           <Volleyball size={16} aria-label={st("Point")} />
                                                         </div>
                                                         <span className="text-[10px] font-semibold text-slate-500 truncate">{st("Point")}{' '}{eventTeamName}</span>
                                                     </>
@@ -324,7 +325,7 @@ const MatchHistorySidebar = ({
                                                     <>
                                                         <span className="text-[10px] font-semibold text-slate-500 truncate">{st("Point")}{' '}{eventTeamName}</span>
                                                         <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 opacity-80" style={{ backgroundColor: `${accentColor}18` }}>
-                                                            <img src={Logo} alt={st("Point")} className="w-4 h-4" />
+                                                            <Volleyball size={16} aria-label={st("Point")} />
                                                         </div>
                                                     </>
                                                 )}
@@ -361,11 +362,11 @@ const MatchHistorySidebar = ({
                                         <div className={`flex flex-col gap-0.5 text-[11px] ${isRightEvent ? 'items-end text-right' : 'items-start'}`}>
                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{st(label)} {eventTeamName}</span>
                                             <div className="flex items-center gap-1.5">
-                                                <span className="text-emerald-600 font-bold">↓ {mt.out}</span>
+                                                <span className="text-emerald-600 font-bold"><ArrowDown size={14} className="inline-block" aria-hidden="true" /> {mt.out}</span>
                                                 {(eventPlayerName(mt.out) || mt.outName) && <span className="text-slate-600">{eventPlayerName(mt.out) || mt.outName}</span>}
                                             </div>
                                             <div className="flex items-center gap-1.5">
-                                                <span className="text-red-600 font-bold">↑ {mt.in}</span>
+                                                <span className="text-red-600 font-bold"><ArrowUp size={14} className="inline-block" aria-hidden="true" /> {mt.in}</span>
                                                 {(eventPlayerName(mt.in) || mt.inName) && <span className="text-slate-600">{eventPlayerName(mt.in) || mt.inName}</span>}
                                             </div>
                                         </div>

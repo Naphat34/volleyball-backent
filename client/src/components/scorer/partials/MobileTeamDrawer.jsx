@@ -1,3 +1,4 @@
+import { ArrowRightToLine, Video, Timer, Replace, CirclePlus } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
@@ -79,7 +80,7 @@ export default function MobileTeamDrawer({
                                 disabled={isRallyOrLineup}
                                 className="border text-[11px] font-bold py-2 rounded bg-white hover:bg-slate-50 disabled:opacity-50 animate-pulse"
                                 style={{ borderColor: activeColor, color: '#000' }}
-                            >{st("Libero in")}</button>
+                            ><span className="flex items-center justify-center gap-1 px-1"><ArrowRightToLine size={14} className="shrink-0" aria-hidden="true" />{st("Libero in")}</span></button>
                         </div>
 
                         {/* Actions */}
@@ -96,7 +97,7 @@ export default function MobileTeamDrawer({
                                     className="flex-1 bg-white text-[10px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
                                     title={challengeEnabled ? st('Video challenge') : st('Challenge system is not enabled for this match')}
-                                >{st("Video chall.")}</button>
+                                ><span className="flex items-center justify-center gap-1 px-1"><Video size={14} className="shrink-0" aria-hidden="true" />{st("Video chall.")}</span></button>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -115,7 +116,7 @@ export default function MobileTeamDrawer({
                                     disabled={timeouts[mobilePanelTeam] >= 2 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
-                                >{st("Timeout")}</button>
+                                ><span className="flex items-center justify-center gap-1 px-1"><Timer size={14} className="shrink-0" aria-hidden="true" />{st("Timeout")}</span></button>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -134,7 +135,7 @@ export default function MobileTeamDrawer({
                                     disabled={isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
-                                >{st("Substitution")}</button>
+                                ><span className="flex items-center justify-center gap-1 px-1"><Replace size={14} className="shrink-0" aria-hidden="true" />{st("Substitution")}</span></button>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -154,7 +155,7 @@ export default function MobileTeamDrawer({
                         disabled={workflowStep !== 'RALLY'}
                         className="w-full font-bold py-3 rounded-md text-[13px] hover:opacity-90 disabled:opacity-50 transition-opacity"
                         style={{ backgroundColor: activeColor, color: contrastColor }}
-                    >{st("Point scored")}</button>
+                    ><span className="flex items-center justify-center gap-1 px-1"><CirclePlus size={14} className="shrink-0" aria-hidden="true" />{st("Point scored")}</span></button>
                 </div>
             </div>
         </div>

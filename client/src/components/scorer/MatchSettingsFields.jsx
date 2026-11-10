@@ -1,3 +1,4 @@
+import { X as UiX } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 
@@ -62,7 +63,7 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
                 <td><select aria-label={`${t('ตำแหน่ง', 'Position')} ${p.number}`} disabled={teamsDisabled || p.role.startsWith('L')} value={p.role.startsWith('L') ? 'L' : p.position || ''} onChange={event => updateRow(side, 'players', index, 'position', event.target.value)}>{['', 'S', 'OH', 'MB', 'OPP', 'L'].map(position => <option key={position} value={position} disabled={position === 'L'}>{position || '–'}</option>)}</select></td>
                 <td><input type="checkbox" aria-label={`${t('ลิเบอโร', 'Libero')} ${p.number}`} disabled={teamsDisabled} checked={p.role.startsWith('L')} onChange={event => updateRole(side, index, event.target.checked, p.role.includes('C'))}/></td>
                 <td><input type="checkbox" aria-label={`${t('กัปตัน', 'Captain')} ${p.number}`} disabled={teamsDisabled} checked={p.role.includes('C')} onChange={event => updateRole(side, index, p.role.startsWith('L'), event.target.checked)}/></td>
-                <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p)}`} onClick={() => teamChange(side, { players: draft[side].players.filter((_, i) => i !== index) })}>×</button></td>
+                <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p)}`} onClick={() => teamChange(side, { players: draft[side].players.filter((_, i) => i !== index) })}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></td>
             </tr>)}</tbody></table></div>
             <label className="smm-field">{t('เพิ่มนักกีฬาจากรายชื่อทีม', 'Add a registered player')}<select value="" disabled={teamsDisabled} onChange={event => {
                 const p = settings.available[side].find(player => String(player.id) === event.target.value);

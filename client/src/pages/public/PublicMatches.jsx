@@ -1,3 +1,4 @@
+import { Calendar, Clock, MapPin, Trophy, Filter, Activity, Circle as UiCircle } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback } from '../../components/ui/SystemUI';
@@ -6,7 +7,7 @@ import PublicHeader from '../../components/layout/PublicHeader';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import client from '../../api';
-import { Calendar, Clock, MapPin, Trophy, Filter, Activity } from 'lucide-react';
+
 import { formatThaiDate, formatThaiTime } from '../../utils/formatters';
 import { useLanguage } from '../../context/LanguageContext';
 import { groupPublicCompetitionCategories } from '../../utils/scorer/publicCompetitionGrouping';
@@ -102,7 +103,7 @@ export default function PublicMatches() {
             case 'live':
             case 'SET_PLAYING':
             case 'in_progress':
-                return <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-xl font-bold animate-pulse">● {language === 'THA' ? ui('กำลังแข่ง') : ui('Live')}</span>;
+                return <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-xl font-bold animate-pulse"><UiCircle size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /> {language === 'THA' ? ui('กำลังแข่ง') : ui('Live')}</span>;
             default:
                 return <span className="bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-xl font-bold">{language === 'THA' ? ui('ยังไม่เริ่ม') : ui('Scheduled')}</span>;
         }

@@ -1,3 +1,4 @@
+import VisThemeToggle from '../vis/VisThemeToggle';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -30,7 +31,7 @@ export default function PublicHeader() {
             <nav aria-label={language === 'THA' ? ui('เมนูหลัก') : ui('Main navigation')} className="public-desktop-nav">
                 {links.map(([to, key]) => <Link key={to} to={to} aria-current={pathname === to ? 'page' : undefined} className={`public-nav-link ${pathname === to ? 'is-active' : ''}`}>{t(`nav.${key}`)}</Link>)}
             </nav>
-            <div className="public-desktop-actions">{languageControls}<Link to="/login" className="ui-button ui-button-primary"><LogIn size={16} />{t('nav.login')}</Link></div>
+            <VisThemeToggle compact /><div className="public-desktop-actions">{languageControls}<Link to="/login" className="ui-button ui-button-primary"><LogIn size={16} />{t('nav.login')}</Link></div>
             <button type="button" className="public-menu-toggle ui-button ui-button-secondary" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="public-mobile-menu" aria-label={language === 'THA' ? open ? ui('ปิดเมนู') : ui('เปิดเมนู') : open ? ui('Close menu') : ui('Open menu')}>{open ? <X size={21} /> : <Menu size={21} />}</button>
         </div>
         {open && <nav id="public-mobile-menu" className="public-mobile-nav" aria-label={language === 'THA' ? ui('เมนูมือถือ') : ui('Mobile navigation')}>

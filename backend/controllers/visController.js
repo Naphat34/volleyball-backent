@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { canReadStatistics, assertStatisticsWriter } = require('../utils/manualVisAccess');
 const { projectOfficialState, resolveContext, applyCommand, applyRally, configureVisSettings, normalizeVisTiming, isLiberoPlayer, validateLiberoReplacement, substitutionPairs, fail } = require('../utils/visWorkflow');
 const { formatVisEventCode, getVisJerseyNumber } = require('../utils/visEventCode');
 const teamId = (match, team) => match[`${team}_team_id`];
@@ -36,6 +37,7 @@ exports.getState = async (req, res) => {
         connection = await db.connect();
         await connection.beginTransaction();
         const match = await getMatch(connection, req.params.matchId);
+        if (match.manual_owner_id && !canReadStatistics(req.user, match)) fail('แมตช์นี้ยังไม่เปิดให้เจ้าหน้าที่สถิติเข้าถึง', 403);
         const { state, session, rallies, events } = await read(connection, match);
         await connection.commit();
         res.json({ state, rallies, events, legacy: false, operations: session.operations || [],
@@ -54,6 +56,10 @@ exports.command = async (req, res) => {
         connection = await db.connect();
         await connection.beginTransaction();
         const match = await getMatch(connection, req.params.matchId, true);
+        if (match.manual_owner_id) {
+            assertStatisticsWriter(req.user, match);
+            if (command.type === 'CONFIGURE_SETTINGS') fail('กติกาและรายชื่อของแมตช์นี้จัดการโดยสกอร์', 403);
+        }
         const visLease = parse(match.vis_state).offlineVis?.payload?.offlineLease;
         if (!req.offlineReplay && visLease?.expiresAt > Date.now()) fail('แมตช์ถูกจองสำหรับ VIMS Offline กรุณาซิงค์และคืนสิทธิ์ก่อน', 409);
         if (['cancelled', 'canceled'].includes(match.status)) fail('Match is cancelled', 409);

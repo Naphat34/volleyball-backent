@@ -1,26 +1,9 @@
+import { X, ChevronRight, ChevronLeft, ChevronsRight, RotateCcw, AlertCircle, Info, Calendar, FileText, MapPin, User, Plus, Pencil, Save, LoaderCircle, Swords, CheckCircle, ChevronDown as UiChevronDown } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import { editablePersonNames } from '../../../utils/i18n/names';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useEffect } from 'react';
-import {
-    X,
-    ChevronRight,
-    ChevronLeft,
-    ChevronsRight,
-    RotateCcw,
-    AlertCircle,
-    Info,
-    Calendar,
-    FileText,
-    MapPin,
-    User,
-    Plus,
-    Pencil,
-    Save,
-    LoaderCircle,
-    Swords,
-    CheckCircle
-} from 'lucide-react';
+
 import { api } from '../../../api';
 
 // Helper Component for Inputs
@@ -66,7 +49,7 @@ const SelectField = ({ label, value, onChange, options }) => {
                 ))}
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                <UiChevronDown className="w-5 h-5" />
             </div>
         </div>
     </div>
@@ -550,6 +533,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     };
 
     const competitionTitle =
+        displayNames.competitionName(match) ||
         match?.competition?.title ||
         match?.competitionName ||
         match?.competition_title ||
@@ -912,7 +896,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                 {ageGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
                                             </select>
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                                <UiChevronDown className="w-5 h-5" />
                                             </div>
                                         </div>
                                     </div>

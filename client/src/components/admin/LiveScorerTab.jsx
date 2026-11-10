@@ -1,9 +1,10 @@
+import { Swords, Calendar, MapPin, PlayCircle, Trophy, X, User, CheckCircle, FileText, Monitor, ChevronDown as UiChevronDown } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { useNavigate, Link } from 'react-router-dom';
-import { Swords, Calendar, MapPin, PlayCircle, Trophy, X, Save, User, CheckCircle, Flag, FileText, Monitor } from 'lucide-react';
+
 import { EmptyState } from './AdminShared';
 import { formatThaiDate, formatThaiTime, formatThaiDateTime } from '../../utils/formatters';
 
@@ -301,7 +302,7 @@ export default function LiveScorerTab({ darkMode }) {
                         >
                             {uniqueBaseNames.length === 0 && <option value="">{ui("Loading...")}</option>}
                             {uniqueBaseNames.map(name => (
-                                <option key={name} value={name}>{name}</option>
+                                <option key={name} value={name}>{displayNames.competitionGroupName(name, competitions)}</option>
                             ))}
                         </select>
                     </div>
@@ -555,7 +556,7 @@ const SelectGroup = ({ label, name, val, onChange, options = [], icon }) => {
                 ))}
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                <UiChevronDown className="w-5 h-5" />
             </div>
         </div>
     </div>

@@ -1,3 +1,4 @@
+import { X as UiX } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useState } from 'react';
 import { api } from '../../api';
@@ -32,7 +33,7 @@ export default function VisOpenMatchFile({ mode, onClose, onOpened }) {
         catch (error) { setError(error.response?.data?.error || 'นำเข้าแมตช์ไม่สำเร็จ'); }
         finally { setBusy(false); }
     };
-    return <div className="vd-overlay"><section role="dialog" aria-modal="true" aria-label={ui("เปิดไฟล์แมตช์")} className="vd-dialog"><header><h2>{mode === 'web' ? ui('☁ ไฟล์บนเว็บ') : mode === 'seava' ? ui('เปิดไฟล์ .seava') : ui('นำเข้า JSON')}</h2><button disabled={busy} onClick={onClose} aria-label={ui("ปิด")}>✕</button></header>
+    return <div className="vd-overlay"><section role="dialog" aria-modal="true" aria-label={ui("เปิดไฟล์แมตช์")} className="vd-dialog"><header><h2>{mode === 'web' ? ui('☁ ไฟล์บนเว็บ') : mode === 'seava' ? ui('เปิดไฟล์ .seava') : ui('นำเข้า JSON')}</h2><button disabled={busy} onClick={onClose} aria-label={ui("ปิด")}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></header>
         <p>{ui("เปิดไฟล์สำรอง VOLLEY VIMS เป็นแมตช์ส่วนตัวใหม่ พร้อมรายชื่อ ไลน์อัป และประวัติแรลลี่ ผลคะแนนจะคำนวณใหม่และต้องตรวจสอบก่อนยืนยัน")}</p>
         {mode === 'web' ? <form onSubmit={event => { event.preventDefault(); load(url); }}><input aria-label={ui("ลิงก์ไฟล์ JSON")} type="url" required value={url} onChange={event => setUrl(event.target.value)} placeholder={ui("https://…/match.json")} /><button disabled={busy}>{ui("โหลดไฟล์")}</button><p className="vd-muted">{ui("เว็บต้นทางต้องอนุญาตให้อ่านไฟล์จากเว็บไซต์นี้ (CORS)")}</p></form>
             : <input aria-label={ui("เลือกไฟล์แมตช์")} type="file" disabled={busy} accept={mode === 'seava' ? '.seava' : '.json,application/json'} onChange={event => { if (event.target.files?.[0]) load(event.target.files[0]); }} />}

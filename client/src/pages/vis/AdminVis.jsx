@@ -11,6 +11,7 @@ import LiveMatchScorer from './LiveMatchScorer';
 import VisDashboard from '../../components/vis/VisDashboard';
 import { dashboardRefresh } from '../../utils/navigation/dashboardRefresh';
 import { getVisMatchGate } from '../../offline/visMatchGate';
+import { offlineMode } from '../../offline/offlineAuth';
 
 const normalizeStatus = status => {
     const value = String(status || 'scheduled').toLowerCase();
@@ -34,6 +35,13 @@ export default function AdminVis() {
     const [search, setSearch] = useState('');
     const [loggingOut, setLoggingOut] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
+    const [connected, setConnected] = useState(null);
+
+    useEffect(() => {
+        const disconnected = () => setConnected(false);
+        window.addEventListener('offline', disconnected);
+        return () => window.removeEventListener('offline', disconnected);
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -47,16 +55,19 @@ export default function AdminVis() {
                 if (!cancelled) {
                     if (fromServer) gate.serverMatchesLoaded = true;
                     setMatches(response.data.map(match => ({ ...match, status: normalizeStatus(match.status) })));
-                    setLastUpdated(new Date());
+                    const serverConnected = !offlineMode() && navigator.onLine;
+                    if (serverConnected) setLastUpdated(new Date());
+                    setConnected(serverConnected);
                     setError('');
                     if (fromServer) void Swal.fire({ uiTextLocalized: true,  icon: 'success', title: th ? ui('ดึงแมตช์สำเร็จ') : ui('Matches loaded'),
-                        text: th ? ui(`ดึงแมตช์จาก Admin จำนวน {0} แมตช์`, [response.serverMatchCount]) : ui(`Loaded {0} Admin matches`, [response.serverMatchCount]),
+                        text: th ? ui(`ดึงแมตช์จากเซิร์ฟเวอร์รวม {0} แมตช์`, [response.serverMatchCount]) : ui(`Loaded {0} server matches`, [response.serverMatchCount]),
                         confirmButtonText: th ? ui('ตกลง') : ui('OK'), background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
                 }
             } catch (loadError) {
                 if (!cancelled) {
                     const message = loadError.response?.data?.error || loadError.message || (th ? 'โหลดรายการแมตช์ไม่สำเร็จ' : 'Unable to load matches');
                     setError(message);
+                    setConnected(false);
                     if (fromServer) void Swal.fire({ uiTextLocalized: true,  icon: 'error', title: th ? ui('ดึงแมตช์ไม่สำเร็จ') : ui('Unable to load matches'), text: ui(message),
                         confirmButtonText: th ? ui('ตกลง') : ui('OK'), background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
                 }
@@ -90,7 +101,7 @@ export default function AdminVis() {
     const activeMatch = matchId ? matches.find(match => String(match.id) === matchId) : null;
 
     if (matchId && !loading && !error && activeMatch && activeMatch.status !== 'cancelled' && activeMatch.home_team_id && activeMatch.away_team_id) {
-        return <LiveMatchScorer key={activeMatch.id} match={activeMatch} isReadOnly={activeMatch.status === 'completed'}
+        return <LiveMatchScorer key={activeMatch.id} match={activeMatch} isReadOnly={activeMatch.status === 'completed' || Boolean(activeMatch.manual_owner_id && String(activeMatch.manual_vis_assignee_id) !== String(user?.id))}
             onClose={() => navigate('/adminvis')} />;
     }
 
@@ -99,6 +110,6 @@ export default function AdminVis() {
         competitions={competitions} competitionLabel={competitionLabel}
         competition={competition} setCompetition={setCompetition} status={status} setStatus={setStatus}
         search={search} setSearch={setSearch} reload={reload} logout={logout} loggingOut={loggingOut}
-        lastUpdated={lastUpdated} serverMatchesLoaded={gate.serverMatchesLoaded}
+        lastUpdated={lastUpdated} connected={connected} serverMatchesLoaded={gate.serverMatchesLoaded}
     />;
 }

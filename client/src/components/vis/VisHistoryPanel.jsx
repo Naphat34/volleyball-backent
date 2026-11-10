@@ -1,3 +1,5 @@
+import { ChevronUp as WinnerIcon } from 'lucide-react';
+import { X as UiX, ChevronLeft as UiChevronLeft, ChevronRight as UiChevronRight, AlertTriangle as UiAlertTriangle, ArrowRight as UiArrowRight, Grip as SystemGrip, Circle as SystemCircle } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useVisTranslation from './useVisTranslation';
@@ -60,18 +62,18 @@ export default function VisHistoryPanel({ onClosePanel, matchData, actionLog, pl
     return <aside className={`vis-history ${className}`} aria-label={vt("โค้ดและประวัติ")}>
         <div className="vis-history-inner">
             <header className="vis-history-header">
-                <strong><span className="vis-history-grip">⠿</span>{vt(" โค้ดและประวัติ")}</strong>
+                <strong><span className="vis-history-grip"><SystemGrip size={14} className="inline-block" aria-hidden="true" /></span>{vt(" โค้ดและประวัติ")}</strong>
                 <span className="vis-history-count">{actionLog.length}{vt(" รายการ")}</span>
                 <div className="vis-history-modes" aria-label={vt("รูปแบบประวัติ")}>
                     <button type="button" aria-pressed={!descriptions} onClick={() => setDescriptions(false)}>{ui("CODE")}</button>
                     <button type="button" aria-pressed={descriptions} onClick={() => setDescriptions(true)}>{vt("+ คำอธิบาย")}</button>
                 </div>
                 <div className="vis-zoom"><button onClick={() => setZoom(value => Math.max(80, value - 10))} aria-label={vt("ย่อประวัติ")}>{ui("A−")}</button><span>{zoom}%</span><button onClick={() => setZoom(value => Math.min(140, value + 10))} aria-label={vt("ขยายประวัติ")}>{ui("A+")}</button></div><label><input type="checkbox" checked={grouped} onChange={event => { setGrouped(event.target.checked); setSelected(null); }} />{vt(" รวมตามแรลลี่")}</label>
-                {onClosePanel && <button type="button" className="vis-panel-close" aria-label={vt("ปิดแผงโค้ดและประวัติ")} title={vt("ปิดแผง")} onClick={onClosePanel}>×</button>}
+                {onClosePanel && <button type="button" className="vis-panel-close" aria-label={vt("ปิดแผงโค้ดและประวัติ")} title={vt("ปิดแผง")} onClick={onClosePanel}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button>}
             </header>
             <div className="vis-history-body">
                 <nav className="vis-history-rail" aria-label={vt("คะแนนแต่ละแรลลี่")}>
-                    <div className="vis-history-set"><button type="button" aria-label={vt("เซตก่อนหน้า")} disabled={sets.indexOf(activeSet) <= 0} onClick={() => changeSet(-1)}>‹</button><b>{ui("Set")}{' '}{activeSet}</b><button type="button" aria-label={vt("เซตถัดไป")} disabled={sets.indexOf(activeSet) >= sets.length - 1} onClick={() => changeSet(1)}>›</button></div>
+                    <div className="vis-history-set"><button type="button" aria-label={vt("เซตก่อนหน้า")} disabled={sets.indexOf(activeSet) <= 0} onClick={() => changeSet(-1)}><UiChevronLeft size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button><b>{ui("Set")}{' '}{activeSet}</b><button type="button" aria-label={vt("เซตถัดไป")} disabled={sets.indexOf(activeSet) >= sets.length - 1} onClick={() => changeSet(1)}><UiChevronRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></div>
                     <div className="vis-history-teamheads"><span title={displayNames.matchTeamName(matchData, 'home')}>{names.home}</span><span title={displayNames.matchTeamName(matchData, 'away')}>{names.away}</span></div>
                     {visible.map((group, index) => <button type="button" key={group.key} className={`vis-history-scorelink ${group.winner || 'neutral'} ${activeKey === group.key ? 'selected' : ''}`} onClick={() => choose(group.key)} aria-label={`${vt("รายการ ")}${index + 1}${vt(" คะแนน ")}${group.score.home ?? '—'}${vt(" ต่อ ")}${group.score.away ?? '—'}`} aria-current={activeKey === group.key ? 'true' : undefined}><span>{group.score.home ?? '—'}</span><span>{group.score.away ?? '—'}</span></button>)}
                 </nav>
@@ -100,12 +102,12 @@ export default function VisHistoryPanel({ onClosePanel, matchData, actionLog, pl
                                 ? `${details.jersey_number != null || player ? `#${details.jersey_number ?? player.number} ${displayNames.personName(player) || [displayNames.personFirstName(player), displayNames.personLastName(player)].filter(Boolean).join(' ')}` : ''} ${vt(visSkillNames[entry.skill])}${grade ? ` → ${vt(describeVisGrade(entry.skill, grade).label)}` : ''}`
                                 : describeVisEvent(entry, players, vt);
                             return <div key={entry.id} className={`vis-history-event ${team}`}>
-                                <div className="vis-history-eventline"><code>{getVisEventCode(entry, players) || entry.skill}</code>{descriptions && <span>{description}</span>}{descriptions && (scoring || error) && <small className={scoring ? 'positive' : 'negative'}>{scoring ? '● +' : '● −'} {names[team]}</small>}</div>
-                                {entry.referenceNeedsReview && <div className="vis-history-warning">{vt("⚠ รายการนี้ถูกแก้ไขใน eScoreControl · กรุณาตรวจสอบสถิติ")}</div>}
-                                {descriptions && details.playerOut && <div className="vis-history-detail">{vt("ออก #")}{players.find(item => Number(item.id) === Number(details.playerOut))?.number ?? '?'}{vt(" → เข้า #")}{players.find(item => Number(item.id) === Number(details.playerIn))?.number ?? '?'}</div>}
+                                <div className="vis-history-eventline"><code>{getVisEventCode(entry, players) || entry.skill}</code>{descriptions && <span>{description}</span>}{descriptions && (scoring || error) && <small className={scoring ? 'positive' : 'negative'}><SystemCircle size={10} className="inline-block" aria-hidden="true" />{scoring ? ' +' : ' −'} {names[team]}</small>}</div>
+                                {entry.referenceNeedsReview && <div className="vis-history-warning"><><UiAlertTriangle size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{vt("⚠ รายการนี้ถูกแก้ไขใน eScoreControl · กรุณาตรวจสอบสถิติ").replace(/⚠\uFE0F?/gu, '').trim()}</></div>}
+                                {descriptions && details.playerOut && <div className="vis-history-detail">{vt("ออก #")}{players.find(item => Number(item.id) === Number(details.playerOut))?.number ?? '?'}<><UiArrowRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{vt(" → เข้า #").replace(/→\uFE0F?/gu, '').trim()}</>{players.find(item => Number(item.id) === Number(details.playerIn))?.number ?? '?'}</div>}
                             </div>;
                         })}</div>
-                        <footer className="vis-history-cardfooter"><span>#{index + 1}</span><div><span className={group.winner === 'home' ? 'home' : ''}>{group.winner === 'home' ? '▴ ' : ''}{names.home} <b>{group.score.home ?? '—'}</b></span><span>–</span><span className={group.winner === 'away' ? 'away' : ''}><b>{group.score.away ?? '—'}</b> {names.away}{group.winner === 'away' ? ' ▴' : ''}</span></div></footer>
+                        <footer className="vis-history-cardfooter"><span>#{index + 1}</span><div><span className={group.winner === 'home' ? 'home' : ''}>{group.winner === 'home' ? <WinnerIcon size={14} className="inline-block" aria-hidden="true" /> : null}{names.home} <b>{group.score.home ?? '—'}</b></span><span>–</span><span className={group.winner === 'away' ? 'away' : ''}><b>{group.score.away ?? '—'}</b> {names.away}{group.winner === 'away' ? <WinnerIcon size={14} className="inline-block" aria-hidden="true" /> : null}</span></div></footer>
                     </li>)}</ol>
                     {completedSet && <section className="vis-history-set-ended" role="status">
                         <strong>{th ? vt('จบเซตที่') : ui('Set finished ·')} {activeSet}</strong>

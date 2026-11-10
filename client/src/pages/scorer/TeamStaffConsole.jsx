@@ -1,9 +1,10 @@
+import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X, ArrowRight as UiArrowRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X } from 'lucide-react';
+
 import client, { api, getSocketServerUrl } from '../../api';
 import Swal from 'sweetalert2';
 import { isPlayerLibero, filterActivePlayers, getPlayerId, getPlayerNumber as readPlayerNumber } from '../../utils/scorer/playerFilters';
@@ -1684,7 +1685,7 @@ export default function TeamStaffConsole() {
                                             <div key={i} className="flex items-center justify-between text-sm border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
                                                 <div className="flex items-center gap-2 font-bold text-slate-700">
                                                     <span className="text-rose-500">#{getPlayerNumber(sub.outPlayer)}</span>
-                                                    <span className="text-slate-400">➡️</span>
+                                                    <span className="text-slate-400"><UiArrowRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></span>
                                                     <span className="text-emerald-600">#{getPlayerNumber(sub.inPlayer)}</span>
                                                 </div>
                                                 <span className="text-[11px] text-slate-400 font-mono">{ui("Score:")}{sub.score}

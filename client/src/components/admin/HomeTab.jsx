@@ -282,7 +282,7 @@ export default function HomeTab() {
                                 onChange={(e) => setSelectedBaseName(e.target.value)}
                             >
                                 {uniqueBaseNames.map(name => (
-                                    <option key={name} value={name}>{name}</option>
+                                    <option key={name} value={name}>{displayNames.competitionGroupName(name, competitions)}</option>
                                 ))}
                             </select>
                         </div>

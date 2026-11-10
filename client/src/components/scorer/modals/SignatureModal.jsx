@@ -1,7 +1,8 @@
+import { PenTool, XCircle, CheckCircle, AlertTriangle as UiAlertTriangle } from 'lucide-react';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useRef, useState, useEffect } from 'react';
 import SignaturePad from '../partials/SignaturePad';
-import { PenTool, XCircle, CheckCircle } from 'lucide-react';
+
 
 const SignatureBox = ({ title, value, onClick }) => {
     const st = useScorerTranslation();
@@ -221,7 +222,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                             >{st("กลับหน้าหลัก")}<CheckCircle size={18} />
                             </button>
                         ) : (
-                            <div className="w-full py-4 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl font-bold text-xs text-center px-4 animate-pulse">{st("⚠️ กรุณาลงนามกัปตันทั้งสองทีม และผู้ตัดสินที่ 1-2 ให้ครบเพื่อเปิดปุ่มกลับหน้าหลัก")}</div>
+                            <div className="w-full py-4 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl font-bold text-xs text-center px-4 animate-pulse"><><UiAlertTriangle size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("⚠️ กรุณาลงนามกัปตันทั้งสองทีม และผู้ตัดสินที่ 1-2 ให้ครบเพื่อเปิดปุ่มกลับหน้าหลัก").replace(/⚠\uFE0F?/gu, '').trim()}</></div>
                         )
                     ) : (
                         <div className="grid grid-cols-2 gap-4">

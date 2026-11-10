@@ -18,6 +18,7 @@ function harness(extraPlayers = false) {
     const context = { exports: {}, console: { error() {} }, require: name => {
         if (name === './scorerOfflineController') return { scopedController: () => ({}), call: async () => Object.fromEntries(['home', 'away'].map((team, index) => [team, { players: Array.from({length:extraPlayers ? 10 : 8}, (_, i) => ({id: index * 10 + i + 1, position: i === 7 ? 'L' : 'OH'})) }])) };
         if (name === '../config/db') return { connect: async () => connection };
+        if (name === '../utils/manualVisAccess') return require('../utils/manualVisAccess');
         if (name === '../utils/visWorkflow') return workflow;
         if (name === '../utils/visEventCode') return { ...require('../utils/visEventCode'), getVisJerseyNumber: async () => 0 };
         throw Error(name);

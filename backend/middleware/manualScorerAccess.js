@@ -2,6 +2,7 @@ const db = require('../config/db');
 const auth = require('./authMiddleware');
 const { canManage, parseConfig } = require('../utils/manualScorer');
 const { roleHasPermission } = require('../config/permissions');
+const { canReadStatistics, assertStatisticsWriter } = require('../utils/manualVisAccess');
 
 // Cover the existing console, viewer, report, team and legacy action routes.
 module.exports = async (req, res, next) => {
@@ -20,6 +21,17 @@ module.exports = async (req, res, next) => {
         if (!match) return next();
         const read = ['GET', 'HEAD'].includes(req.method);
         const authorize = () => {
+            // Statistics access never grants permission to scorer events, rosters or offline leases.
+            if (matchId && canReadStatistics(req.user, match)) {
+                if (read && /^\/scorer\/match\/\d+(?:\/(?:vis|roster|scoresheet|events|lineup|state|settings))?$/.test(path)) {
+                    req.manualScorerMatch = match; return next();
+                }
+                if (/^\/scorer\/match\/\d+\/vis$/.test(path)) {
+                    try { assertStatisticsWriter(req.user, match); }
+                    catch (error) { return res.status(error.status).json({ error: error.message }); }
+                    req.manualScorerMatch = match; return next();
+                }
+            }
             if (read && match.manual_published && match.manual_lifecycle !== 'draft') return next();
             if (!canManage(req.user, match) || !roleHasPermission(req.user?.role, 'match.score')) return res.status(404).json({ error: 'ไม่พบแมตช์ของบัญชีนี้' });
             if (!read) {

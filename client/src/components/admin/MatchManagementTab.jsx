@@ -607,7 +607,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                             className="w-full p-2.5 text-sm font-medium rounded-lg border border-gray-200 transition-all hover:border-blue-400 focus:outline-none focus:border-blue-500 bg-white shadow-sm text-gray-700"
                         >
                             {uniqueBaseNames.map(name => (
-                                <option key={name} value={name}>{name}</option>
+                                <option key={name} value={name}>{displayNames.competitionGroupName(name, competitions)}</option>
                             ))}
                         </select>
                     </div>

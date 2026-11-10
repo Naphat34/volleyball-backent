@@ -1,3 +1,4 @@
+import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useVisTheme } from '../../components/vis/visThemeContext';
 import GlobalSearch from '../../components/layout/GlobalSearch';
@@ -9,7 +10,7 @@ import {
     LayoutDashboard, MapPin, Flag,
     UserCheck, LogOut, Users, Trophy, Swords, Shield,
     Star, BarChart2, Menu, X, User, Bell,
-    PanelLeftClose, PanelLeftOpen, ListChecks, FileText, Sun, Moon
+    PanelLeftClose, PanelLeftOpen, ListChecks, FileText
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useLanguage } from '../../context/LanguageContext';
@@ -41,7 +42,7 @@ export default function AdminDashboard() {
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [adminContext, setAdminContext] = useState(null);
-    const { theme: adminTheme, setTheme: setAdminTheme } = useVisTheme();
+    const { theme: adminTheme } = useVisTheme();
     const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
     const [clubSearch, setGlobalSearch] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -286,8 +287,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex items-center gap-2 lg:gap-4">
-                        <button className="admin-theme-switch" onClick={() => setAdminTheme(value => value === 'dark' ? 'light' : 'dark')} aria-label={tr('สลับโหมดสว่างและมืด', 'Toggle light and dark mode')}>{adminTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
-                        <GlobalSearch onSelect={(tab, label) => changeTab(tab, label)} />
+                        <VisThemeToggle compact /><GlobalSearch onSelect={(tab, label) => changeTab(tab, label)} />
                         <div className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm md:flex">
                             <Shield size={15} className="text-blue-500" />{ui("Admin Panel")}</div>
 

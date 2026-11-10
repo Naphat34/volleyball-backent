@@ -16,7 +16,8 @@ import { visSetScoreSlots, visMatchFinished } from '../../utils/vis/visSetScores
 import VisCourtPanel from '../../components/vis/VisCourtPanel';
 import { buildSetStats } from '../../utils/vis/visStatsCsv';
 import { useLanguage } from '../../context/LanguageContext';
-import { Settings, Maximize, Tablet, Wifi, Clock3, Timer, ArrowLeftRight } from 'lucide-react';
+import { Settings, Tablet, Wifi, Clock3, Timer, ArrowLeftRight } from 'lucide-react';
+import FullscreenToggle from '../../components/ui/FullscreenToggle';
 import VisRecordingPanel from '../../components/vis/VisRecordingPanel';
 import { useEffect, useRef, useState } from 'react';
 import VisToolbar from '../../components/vis/VisToolbar';
@@ -174,7 +175,7 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly: requestedR
         <header className="vis-app-header">
             <strong>{ui("VIMS")}</strong><div className="vis-match-heading"><b>{names.home}{' '}{ui("vs")}{' '}{names.away}</b>{matchData.competition_name && <span> · {matchData.competition_name.replace(/\s*\(Male\)/gi, '').trim()}</span>}</div>
             <div className="vis-app-actions"><button onClick={() => { setShowCourt(true); setShowVideo(false); }}><Tablet size={14} />{ui("Tablet")}</button>
-                <button title={vt("เต็มหน้าจอ")} aria-label={vt("เต็มหน้าจอ")} onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen?.(); }}><Maximize size={16} /></button>
+                <FullscreenToggle size={16} />
                 <button title={vt("ตั้งค่า")} aria-label={vt("ตั้งค่า")} onClick={() => setDialog('settings')}><Settings size={17} /></button>
                 <div className="vis-language"><button aria-pressed={language === 'THA'} onClick={() => setLanguage('THA')}>{ui("ไทย")}</button><button aria-pressed={language === 'ENG'} onClick={() => setLanguage('ENG')}>{ui("EN")}</button></div>
                 <span className={`vis-sync-status ${syncError || pending ? 'vis-sync-warning' : ''}`}><Wifi size={13} />{isSaving ? vt('กำลังบันทึก') : pending ? vt('รอส่ง') : syncError ? vt('ซิงค์ขัดข้อง') : vt('Sync พร้อม')}</span>

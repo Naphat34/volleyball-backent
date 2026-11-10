@@ -29,6 +29,7 @@ function harness({ failure, revision = 0, foreignPlayer = false, undo = false, m
         } };
     const context = { exports: {}, console: { error() {} }, require: name => {
         if (name === '../config/db') return { connect: async () => connection };
+        if (name === '../utils/manualVisAccess') return require('../utils/manualVisAccess');
         if (name === '../utils/visWorkflow') return workflow;
         if (name === '../utils/visEventCode') return require('../utils/visEventCode');
         throw new Error(name);
@@ -54,6 +55,7 @@ test('S21# persists statistics at official 8-4 and never updates any official fi
     assert.ok(h.calls.includes('commit'));
     assert.ok(h.calls.filter(call => call.sql?.startsWith('UPDATE')).every(call => call.sql === 'UPDATE matches SET vis_state = ? WHERE id = ?'));
 });
+
 test('retry is idempotent even after an official score change', async () => {
     const h = harness(); await h.run();
     h.match.live_state = JSON.stringify({ ...JSON.parse(h.match.live_state), score: { home: 9, away: 4 } });

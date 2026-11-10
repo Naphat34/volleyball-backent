@@ -102,7 +102,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
         const groups = new Map();
 
         myCompetitions.forEach((competition) => {
-            const title = cleanCompetitionTitle(competition);
+            const title = cleanCompetitionTitle({ ...competition, title: displayNames.competitionName(competition) });
             const ageGroupId = getAgeGroupId(competition);
             const key = `${title.toLowerCase()}__${ageGroupId}`;
             const ageGroupName = resolveAgeGroupName(competition, ageGroupNameMap);
@@ -130,7 +130,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                 }),
             }))
             .sort((a, b) => a.label.localeCompare(b.label, 'th'));
-    }, [myCompetitions, ageGroupNameMap]);
+    }, [myCompetitions, ageGroupNameMap, displayNames]);
 
     useEffect(() => {
         if (competitionGroups.length === 1 && !selectedGroupKey) {
@@ -200,7 +200,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
         const gender = normalizeGender(competition.gender || competition.competition_gender || competition.entry_gender);
         const ageGroupName = resolveAgeGroupName(competition, ageGroupNameMap);
         const competitionName = [
-            cleanCompetitionTitle(competition),
+            cleanCompetitionTitle({ ...competition, title: displayNames.competitionName(competition) }),
             ageGroupName,
             gender === 'Male' ? 'MEN' : gender === 'Female' ? 'WOMEN' : '',
         ].filter(Boolean).join(' - ');

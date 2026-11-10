@@ -1,3 +1,4 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api';
@@ -53,6 +54,7 @@ const readImageFileAsDataUrl = (file) => new Promise((resolve, reject) => {
 });
 
 export default function CreateTeam() {
+    const displayNames = useDisplayNames();
     const ui = useUiTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -276,7 +278,7 @@ export default function CreateTeam() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`font-semibold text-sm ${isSelected ? 'text-white' : 'text-gray-900'}`}>
-                          {comp.title}
+                          {displayNames.competitionName(comp)}
                         </p>
                         <div className={`flex flex-wrap gap-3 text-[10px] mt-1 font-bold ${isSelected ? 'text-indigo-100' : 'text-gray-400'}`}>
                           <span className="flex items-center gap-1"><Trophy size={12} /> {getAgeGroupLabel(comp)}</span>

@@ -1,7 +1,8 @@
+import VisThemeToggle from './VisThemeToggle';
+import { ListOrdered, BookOpen, Columns3, Rows3, RotateCcw, PanelsTopLeft, Video, ClipboardList, ChartColumn, Share2, Download, HelpCircle, ArrowLeft as UiArrowLeft, X as UiX } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useVisTranslation from './useVisTranslation';
-import VisThemeToggle from './VisThemeToggle';
-import { ListOrdered, BookOpen, Columns3, Rows3, RotateCcw, PanelsTopLeft, Video, ClipboardList, ChartColumn, Share2, Download, HelpCircle } from 'lucide-react';
+
 import { useState } from 'react';
 import { exportVisMatch } from '../../utils/vis/visMatchFiles';
 
@@ -28,9 +29,9 @@ export default function VisToolbar({ match, onClose, orientation, onOrientation,
     };
     return <header className="vis-toolbar">
         <nav aria-label={vt("แถบเครื่องมือ VIMS")} className="vis-toolbar-nav">
-            <button className={button} onClick={onClose}>{vt("← รายการแมตช์")}</button>
+            <button className={button} onClick={onClose}><><UiArrowLeft size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{vt("← รายการแมตช์").replace(/←\uFE0F?/gu, '').trim()}</></button>
             <button className={button} onClick={onHelp}><HelpCircle size={13} />{vt("วิธีใช้")}</button>
-            <div className="vis-toolbar-spacer" /><VisThemeToggle />
+            <div className="vis-toolbar-spacer" /><VisThemeToggle compact />
             <div className="vis-tool-group" role="group" aria-label={vt("จัดเรียงแผง")}>
                 <button className={selected(orientation === 'row')} aria-pressed={orientation === 'row'} title={vt("จัดแผงซ้าย–ขวา")} onClick={() => onOrientation('row')}><Columns3 size={17} /></button>
                 <button className={selected(orientation === 'column')} aria-pressed={orientation === 'column'} title={vt("จัดแผงบน–ล่าง")} onClick={() => onOrientation('column')}><Rows3 size={17} /></button>
@@ -50,6 +51,6 @@ export default function VisToolbar({ match, onClose, orientation, onOrientation,
             {liveEnabled && (!match.is_custom_vis || match.published) && <a className="vis-live-link" href={match.is_custom_vis ? `/vis-live/${match.public_token}` : `/match-centre/${match.is_offline_vis && match.server_id ? match.server_id : match.id}`} target="_blank" rel="noreferrer">{ui("LIVE:")}{' '}{(match.match_number) || (ui('VIMS'))}</a>}
             {pending && !isSaving && <button className={button} onClick={retrySave}>{vt("ลองส่งรายการค้าง")}</button>}
         </nav>
-        {notice && <div role="status" className="vis-toolbar-notice"><span>{vt(notice)}</span><button onClick={() => setNotice('')} aria-label={vt("ปิดข้อความ")}>✕</button></div>}
+        {notice && <div role="status" className="vis-toolbar-notice"><span>{vt(notice)}</span><button onClick={() => setNotice('')} aria-label={vt("ปิดข้อความ")}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></div>}
     </header>;
 }

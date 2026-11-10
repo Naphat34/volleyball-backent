@@ -1,3 +1,4 @@
+import { ArrowDown as UiArrowDown, ArrowLeftRight as UiArrowLeftRight, ArrowUp as UiArrowUp, Check as UiCheck, X as UiX, CircleAlert as UiCircleAlert, Frown as UiFrown, CircleHelp as UiCircleHelp, ArrowRight as UiArrowRight } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useEffect } from 'react';
@@ -146,7 +147,7 @@ export default function SubstitutionModal({
                                 <div className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter mb-2">{st("Player Out")}</div>
                                 <div className="w-full aspect-[3/4] bg-rose-50 rounded-2xl border-2 border-rose-100 flex flex-col items-center justify-center relative overflow-hidden shadow-sm group">
                                     <div className="absolute top-2 left-2 p-1.5 bg-rose-500 rounded-lg text-white">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                                        <UiArrowDown width="16" height="16" />
                                     </div>
                                     <span className="text-6xl font-black text-rose-600 mb-1 leading-none">{localPlayerOut?.number}</span>
                                     <span className="text-xs font-bold text-rose-700 px-3 truncate w-full text-center">{displayNames.personFirstName(localPlayerOut) || displayNames.personName(localPlayerOut)}</span>
@@ -156,7 +157,7 @@ export default function SubstitutionModal({
                             {/* VS/ARROW AREA */}
                             <div className="flex flex-col items-center gap-2">
                                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold shadow-inner">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20"/></svg>
+                                    <UiArrowLeftRight width="24" height="24" />
                                 </div>
                             </div>
 
@@ -165,7 +166,7 @@ export default function SubstitutionModal({
                                 <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter mb-2">{st("Player In")}</div>
                                 <div className="w-full aspect-[3/4] bg-emerald-50 rounded-2xl border-2 border-emerald-100 flex flex-col items-center justify-center relative overflow-hidden shadow-sm group">
                                     <div className="absolute top-2 right-2 p-1.5 bg-emerald-500 rounded-lg text-white">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                                        <UiArrowUp width="16" height="16" />
                                     </div>
                                     <span className="text-6xl font-black text-emerald-600 mb-1 leading-none">{selectedPlayerIn?.number}</span>
                                     <span className="text-xs font-bold text-emerald-700 px-3 truncate w-full text-center">{displayNames.personFirstName(selectedPlayerIn) || displayNames.personName(selectedPlayerIn)}</span>
@@ -186,7 +187,7 @@ export default function SubstitutionModal({
                                 onClick={finalizeSubstitution} 
                                 className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{st("Confirm")}</button>
+                                <UiCheck width="20" height="20" />{st("Confirm")}</button>
                             <button 
                                 onClick={() => setIsConfirmStep(false)} 
                                 className="px-8 h-14 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95"
@@ -210,7 +211,7 @@ export default function SubstitutionModal({
                 <div className="bg-white px-8 py-6 flex justify-between items-center shrink-0 border-b border-slate-50">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20"/></svg>
+                            <UiArrowLeftRight width="24" height="24" />
                         </div>
                         <div>
                             <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">{st("Substitution")}</h3>
@@ -221,7 +222,7 @@ export default function SubstitutionModal({
                         onClick={onClose}
                         className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-all flex items-center justify-center"
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                        <UiX width="20" height="20" />
                     </button>
                 </div>
 
@@ -232,7 +233,7 @@ export default function SubstitutionModal({
                         <div className="flex items-center justify-between mb-4 px-2">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                                    <UiArrowDown width="18" height="18" />
                                 </div>
                                 <span className="font-black text-slate-900 text-sm uppercase tracking-wider">{st("Out")}</span>
                             </div>
@@ -282,7 +283,7 @@ export default function SubstitutionModal({
                     {/* MIDDLE DIVIDER */}
                     <div className="w-px bg-slate-50 relative flex items-center justify-center">
                         <div className="w-8 h-8 rounded-full bg-white border border-slate-100 text-slate-300 flex items-center justify-center absolute">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20"/></svg>
+                            <UiArrowLeftRight width="16" height="16" />
                         </div>
                     </div>
 
@@ -291,7 +292,7 @@ export default function SubstitutionModal({
                         <div className="flex items-center justify-between mb-4 px-2">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                                    <UiArrowUp width="18" height="18" />
                                 </div>
                                 <span className="font-black text-slate-900 text-sm uppercase tracking-wider">{st("In")}</span>
                             </div>
@@ -315,7 +316,7 @@ export default function SubstitutionModal({
                             {isError && !isExceptional ? (
                                 <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
                                     <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-3">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                        <UiCircleAlert width="24" height="24" />
                                     </div>
                                     <div className="text-xs font-bold text-slate-600 uppercase mb-1">{st("Rule Violation")}</div>
                                     <div className="text-[10px] font-medium text-slate-400">{st(ruleMessage)}</div>
@@ -358,7 +359,7 @@ export default function SubstitutionModal({
                                     })}
                                     {eligibleBenchPlayers.length === 0 && (
                                         <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-2 opacity-20"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                                            <UiFrown width="32" height="32" className="mb-2 opacity-20" />
                                             <div className="text-xs font-bold uppercase tracking-widest">{st("No Players")}</div>
                                         </div>
                                     )}
@@ -372,7 +373,7 @@ export default function SubstitutionModal({
                 <div className="bg-slate-50 px-10 py-8 flex items-center justify-between gap-6">
                     <div className="flex-1 flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-300">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            <UiCircleHelp width="20" height="20" />
                         </div>
                         <div className="flex-1">
                             <p className="text-xs font-bold text-slate-900 leading-tight">{st("Need assistance?")}</p>
@@ -393,7 +394,7 @@ export default function SubstitutionModal({
                                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100' 
                                 : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                             }`}
-                        >{st("Proceed to Preview")}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        >{st("Proceed to Preview")}<UiArrowRight width="18" height="18" />
                         </button>
                     </div>
                 </div>

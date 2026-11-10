@@ -269,3 +269,9 @@ html {
     margin: 1cm;
   }
 }
+
+/* Lucide supplies the complete status icon inside SweetAlert dialogs and toasts. */
+.swal2-icon.swal2-lucide-icon { border: 0; }
+.swal2-icon.swal2-lucide-icon .swal2-icon-content { display: flex; align-items: center; justify-content: center; }
+
+.swal2-toast .swal2-lucide-icon svg { width: 24px; height: 24px; }

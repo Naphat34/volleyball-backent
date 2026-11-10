@@ -108,8 +108,8 @@ const getTeamFontSize = (name, baseSize = 12) => {
 const joinName = (...parts) => parts.filter(Boolean).join(' ').trim();
 
 export default function ScoreSheet({ matchId }) {
-    const displayNames = useDisplayNames();
-    const ui = useUiTranslation();
+    const displayNames = useDisplayNames('ENG');
+    const ui = useUiTranslation('ENG');
     const params = useParams();
     const effectiveMatchId = matchId || params.matchId;
     const navigate = useNavigate();
@@ -203,7 +203,7 @@ export default function ScoreSheet({ matchId }) {
     if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-xl">{ui("Loading FIVB Score Sheet...")}</div>;
     if (!matchData) return <div className="min-h-screen flex items-center justify-center font-bold text-xl text-red-500">{ui("Match data not found.")}</div>;
 
-    const compName = cleanCompetitionTitle(matchData.title || matchData.competition_title || matchData.competition_name || '');
+    const compName = cleanCompetitionTitle(displayNames.competitionName(matchData));
     const city = matchData.city || matchData.stadium_city || '';
     const time = matchData.start_time ? matchData.start_time.substring(0, 5) : '';
     const matchNumber = matchData.match_number || '';
@@ -814,7 +814,7 @@ export default function ScoreSheet({ matchId }) {
     else if (totalWonB > totalWonA) { matchWinner = teamB; matchScore = `${totalWonB} : ${totalWonA}`; }
 
     return (
-        <div className="min-h-screen bg-slate-100 p-4 font-sans ">
+        <div lang="en" className="min-h-screen bg-slate-100 p-4 font-sans ">
             {/* Action Bar (Hidden when printing) */}
             <div className="sticky top-0 mb-4 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 z-50 print:hidden">
                 <button
@@ -843,7 +843,7 @@ export default function ScoreSheet({ matchId }) {
             </div>
 
             {showO4 ? (
-                <MatchResultReportO4 matchData={matchData} scoreData={scoreData} rosterData={rosterData} />
+                <MatchResultReportO4 language="ENG" matchData={matchData} scoreData={scoreData} rosterData={rosterData} />
             ) : (
                 /* พื้นที่กระดาษ (ตั้งค่าขนาดสำหรับ A3 แนวนอนตอนพิมพ์) */
                 <div data-theme-paper className="a3-container w-[1587px] h-[1123px] mx-auto bg-white border border-gray-300 shadow-2xl overflow-hidden text-[12px] leading-tight text-black relative box-border p-2 flex flex-col gap-1 pb-4">
@@ -885,7 +885,7 @@ export default function ScoreSheet({ matchId }) {
                                             <div className="flex border border-black h-[24px]">
                                                 <div className="w-12 border-r border-black flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? new Date(matchData.match_date).getDate().toString().padStart(2, '0') : ''}</div>
                                                 <div className="w-12 border-r border-black flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? (new Date(matchData.match_date).getMonth() + 1).toString().padStart(2, '0') : ''}</div>
-                                                <div className="w-12 flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? (new Date(matchData.match_date).getFullYear() + 543).toString().slice(-2) : ''}</div>
+                                                <div className="w-12 flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? new Date(matchData.match_date).getFullYear().toString().slice(-2) : ''}</div>
                                             </div>
                                             <div className="flex w-full text-[9px] text-center mt-[2px] font-bold">
                                                 <span className="flex-1">{ui("D")}</span><span className="flex-1">{ui("M")}</span><span className="flex-1">{ui("Y")}</span>
@@ -1107,7 +1107,7 @@ export default function ScoreSheet({ matchId }) {
                                             const TeamMark = ({ label, marked }) => (
                                                 <div className="relative w-[12px] h-[12px] rounded-full border border-black flex items-center justify-center pb-[1px]">
                                                     <span>{ui(label)}</span>
-                                                    {marked && <span className="absolute inset-0 flex items-center justify-center text-[15px] leading-none font-black">{ui("ร—")}</span>}
+                                                    {marked && <span className="absolute inset-0 flex items-center justify-center text-[15px] leading-none font-black">&times;</span>}
                                                 </div>
                                             );
                                             return (
@@ -1593,7 +1593,7 @@ export default function ScoreSheet({ matchId }) {
 
 // 1. หัวข้อแถวด้านซ้ายสุด (Row Header)
 const RowHeader = () => {
-    const ui = useUiTranslation();
+    const ui = useUiTranslation('ENG');
     return (<div className="w-[8%] flex flex-col border-r-2 border-black text-[10px] font-bold bg-white">
         <div className="flex-[1.5] border-b-2 border-black"></div>
 
@@ -1647,7 +1647,7 @@ const CircleSR = ({ type, isCrossed }) => (
 
 // 2. กล่องหลักสำหรับแต่ละ Set
 const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, endTime, lineupL, lineupR, subsL, subsR, toL, toR, scoreL = 0, scoreR = 0, isTeamAServesFirst, serviceScoresL = [], serviceScoresR = [], isGreyedOut }) => {
-    const ui = useUiTranslation();
+    const ui = useUiTranslation('ENG');
     const isSetStarted = (lineupL && lineupL.some(p => p !== '')) || (lineupR && lineupR.some(p => p !== '')) || !!startTime || !!endTime;
 
     // Clear everything if greyed out to prevent duplicate displays in Set 3 / Set 5
@@ -1831,7 +1831,7 @@ const TeamGrid = ({ startingPlayers = Array(6).fill(''), subs = Array(6).fill(nu
 
 // 4. คอลัมน์คะแนน 1-48
 const PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => {
-    const ui = useUiTranslation();
+    const ui = useUiTranslation('ENG');
     return (<div className="flex flex-col w-full h-full bg-white">
         <div className="flex-[7] flex divide-x border-black overflow-hidden">
             {[0, 12, 24, 36].map((offset) => (
@@ -1865,7 +1865,7 @@ const PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => {
 // ---------------------------------------------------------
 
 const Set5RowHeader = () => {
-    const ui = useUiTranslation();
+    const ui = useUiTranslation('ENG');
     return (<div className="w-[12%] flex flex-col border-r-2 border-black text-[10px] font-bold bg-white">
         <div className="flex-[1.5] border-b-2 border-black"></div>
         <div className="flex-[5] flex border-b border-black">
@@ -1899,7 +1899,7 @@ const Set5RowHeader = () => {
 };
 
 const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lineupL, lineupR, subsL, subsR, toL, toR, scoreL = 0, scoreR = 0, serviceScoresL = [], serviceScoresR = [], isTeamLServesFirst }) => {
-    const ui = useUiTranslation();
+    const ui = useUiTranslation('ENG');
     const isSetStarted = (lineupL && lineupL.some(p => p !== '')) || (lineupR && lineupR.some(p => p !== '')) || !!startTime || !!endTime;
 
     // Clear everything if the set has not started yet
@@ -2163,7 +2163,7 @@ const Set5TeamGrid = ({ startingPlayers = Array(6).fill(''), subs = Array(6).fil
 );
 
 const Set5PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => {
-    const ui = useUiTranslation();
+    const ui = useUiTranslation('ENG');
     return (<div className="flex flex-col w-full h-full bg-white">
         <div className="flex-[6] flex divide-x border-black overflow-hidden">
             {[0, 10, 20].map((offset) => (

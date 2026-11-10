@@ -44,7 +44,7 @@ module.exports = {
             const orderDate = hasMatchDate ? 'COALESCE(c.match_date, c.start_date)' : 'c.start_date';
 
             const [rows] = await db.query(`
-                SELECT c.id, c.title, c.gender, ${scoringConfigSelect}, ${logoSelect}, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
+                SELECT c.id, c.title, c.title_th, c.title_en, c.short_title_th, c.short_title_en, c.details_th, c.details_en, c.gender, ${scoringConfigSelect}, ${logoSelect}, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
                        ${maxSetsSelect}, ${ageGroupSelect}
                 FROM competitions c
                 ${ageGroupJoin}
@@ -171,7 +171,7 @@ module.exports = {
                     m.match_number,
                     m.round_name,
                     m.competition_id,
-                    c.title AS competition_name,
+                    c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en,
                     c.max_sets,
                     m.start_time AS raw_start_time,
                     m.match_date,

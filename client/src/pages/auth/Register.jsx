@@ -1,9 +1,10 @@
+import { User, Lock, Trophy, MapPin, ImagePlus, X, Check as SystemCheck, Circle as SystemCircle } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState } from 'react';
 import { api } from '../../api';
 import { useNavigate, Link } from 'react-router-dom';
 import Swal from 'sweetalert2';
-import { User, Lock, Trophy, MapPin, ImagePlus, X } from 'lucide-react';
+
 import { useLanguage } from '../../context/LanguageContext';
 
 const initialForm = {
@@ -177,7 +178,7 @@ export default function Register() {
             <ul aria-live="polite" className="-mt-2 space-y-1 text-xs font-medium">
               {passwordChecks.map(({ label, valid }) => (
                 <li key={label} className={valid ? 'text-emerald-700' : 'text-gray-500'}>
-                  <span aria-hidden="true" className="mr-2">{valid ? '✓' : '○'}</span>{ui(label)}
+                  <span aria-hidden="true" className="mr-2">{valid ? <SystemCheck size={14} className="inline-block" /> : <SystemCircle size={14} className="inline-block" />}</span>{ui(label)}
                 </li>
               ))}
             </ul>

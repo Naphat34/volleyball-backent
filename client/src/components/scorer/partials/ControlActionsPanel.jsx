@@ -1,28 +1,13 @@
+import { PenTool, Trophy, Flag, Clock, Users, RotateCcw, AlertTriangle, X as UiX, Cross as SystemCross, ShieldAlert as SystemShieldAlert } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState } from 'react';
 import './ControlActionsPanel.css';
-import {
-    PenTool, Trophy, Flag, Clock, Users, RotateCcw, AlertTriangle
-} from 'lucide-react';
 
-const CompactInjuryIcon = () => (
-    <div className="relative h-11 w-11">
-        <span className="absolute inset-0 rounded-full bg-blue-100" />
-        <span className="absolute inset-[3px] rounded-full border-[3px] border-blue-500 bg-white shadow-sm" />
-        <span className="absolute left-1/2 top-1/2 h-5 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-orange-500" />
-        <span className="absolute left-1/2 top-1/2 h-2 w-5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-orange-500" />
-    </div>
-);
 
-const CompactSanctionIcon = () => (
-    <div className="relative h-10 w-11">
-        <span className="absolute right-0 top-1 h-7 w-5 rounded-[4px] bg-amber-300 shadow-sm" />
-        <span className="absolute right-2 top-0 h-8 w-5 rounded-[4px] bg-orange-500 shadow-md" />
-        <span className="absolute bottom-1 left-2 h-3 w-5 rounded-full bg-sky-100" />
-        <span className="absolute bottom-0 left-5 h-5 w-5 rounded-full border-2 border-sky-200 bg-white shadow-sm" />
-    </div>
-);
+const CompactInjuryIcon = () => <SystemCross size={40} className="text-orange-500" aria-hidden="true" />;
+
+const CompactSanctionIcon = () => <SystemShieldAlert size={40} className="text-orange-500" aria-hidden="true" />;
 
 const OfficialActionPill = ({ label, icon, disabled, onClick, accentClass = '' }) => {
     const st = useScorerTranslation();
@@ -82,9 +67,7 @@ const TeamChoiceModal = ({ isOpen, title, subtitle, leftTeam, rightTeam, onCance
 };
 
 const XIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-        <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    <UiX width="20" height="20" aria-hidden="true" />
 );
 
 const ControlActionsPanel = ({

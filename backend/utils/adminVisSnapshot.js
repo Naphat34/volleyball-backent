@@ -3,7 +3,7 @@ const { view } = require('./customVis');
 const parse = value => { try { return typeof value === 'string' ? JSON.parse(value) : value || {}; } catch { return {}; } };
 const safeDate = value => value instanceof Date ? value.toISOString() : value || null;
 const dateOnly = value => value instanceof Date ? value.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }) : String(value || '').slice(0, 10);
-const fields = ['id', 'match_number', 'competition_id', 'competition_name', 'age_group_name', 'category', 'gender', 'round_name', 'pool_name', 'location', 'home_team_id', 'away_team_id', 'home_team', 'away_team', 'home_team_code', 'away_team_code', 'max_sets', 'status', 'home_set_score', 'away_set_score', 'vis_summary', 'official_summary', 'is_custom_vis', 'vis_lifecycle'];
+const fields = ['id', 'match_number', 'competition_id', 'competition_name', 'competition_name_th', 'competition_name_en', 'age_group_name', 'category', 'gender', 'round_name', 'pool_name', 'location', 'home_team_id', 'away_team_id', 'home_team', 'away_team', 'home_team_code', 'away_team_code', 'max_sets', 'status', 'home_set_score', 'away_set_score', 'vis_summary', 'official_summary', 'is_custom_vis', 'vis_lifecycle'];
 
 function summarizePlayers(actions, match, roster = []) {
     const players = new Map();

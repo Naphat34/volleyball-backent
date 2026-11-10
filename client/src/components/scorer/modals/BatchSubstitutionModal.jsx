@@ -1,7 +1,8 @@
+import { X, ArrowRight as UiArrowRight } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+
 import { applySubstitutionBatch } from '../../../utils/scorer/substitutionBatch';
 
 export default function BatchSubstitutionModal({ isOpen, onClose, teamName, roster, currentLineup, playerOut, posIndex, subTracker, disqualifiedPlayers = [], onConfirmBatch }) {
@@ -70,14 +71,14 @@ export default function BatchSubstitutionModal({ isOpen, onClose, teamName, rost
                             </div>
                             {!bench.length && <p className="py-4 text-sm text-amber-500">{st("ไม่มีผู้เล่นที่เปลี่ยนเข้าได้ หรือใช้โควตาครบแล้ว")}</p>}
                         </>}
-                        {selectedOut && selectedIn && <button type="button" disabled={busy} onClick={addPair} className="mt-4 rounded-lg bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500">{st("Add · #")}{selectedOut.number} → #{selectedIn.number}</button>}
+                        {selectedOut && selectedIn && <button type="button" disabled={busy} onClick={addPair} className="mt-4 rounded-lg bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500">{st("Add · #")}{selectedOut.number} <UiArrowRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /> #{selectedIn.number}</button>}
                     </section>
                     <section className="rounded-xl border border-slate-200 p-4" aria-labelledby="sub-pending">
                         <h3 id="sub-pending" className="mb-3 font-bold text-slate-700">{st("3. รายการเปลี่ยนตัว (")}{pairs.length})</h3>
                         {!pairs.length && <p className="py-6 text-center text-sm text-slate-500">{st("เลือกผู้เล่นออกและเข้า แล้วกด Add")}</p>}
                         <div className="space-y-2">{pairs.map((pair, index) => <div key={pair.posIndex} className="relative rounded-lg border border-slate-200 p-3 pr-7">
-                            <div className="flex items-center gap-2 font-black"><span className="text-rose-500">#{pair.playerOut.number}</span><span className="text-slate-400">→</span><span className="text-emerald-500">#{pair.playerIn.number}</span></div>
-                            <div className="mt-1 text-xs text-slate-500">{displayNames.personName(pair.playerOut)} → {displayNames.personName(pair.playerIn)}</div>
+                            <div className="flex items-center gap-2 font-black"><span className="text-rose-500">#{pair.playerOut.number}</span><span className="text-slate-400"><UiArrowRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></span><span className="text-emerald-500">#{pair.playerIn.number}</span></div>
+                            <div className="mt-1 text-xs text-slate-500">{displayNames.personName(pair.playerOut)} <UiArrowRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /> {displayNames.personName(pair.playerIn)}</div>
                             <button type="button" disabled={busy} aria-label={st(`Remove pair {0}`, [index + 1])} onClick={() => { setPairs(pairs.filter((_, i) => i !== index)); setIncoming(''); setError(''); }} className="absolute right-1 top-1 p-1 text-slate-500 hover:text-rose-500"><X size={12}/></button>
                         </div>)}</div>
                     </section>

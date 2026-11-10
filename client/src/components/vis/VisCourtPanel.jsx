@@ -1,8 +1,9 @@
+import { Columns2, Rows2, ArrowLeftRight, LockKeyhole, UnlockKeyhole, Users, ListOrdered, PlusCircle, X as UiX, Grip as SystemGrip } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useVisTranslation from './useVisTranslation';
 import { useState } from 'react';
-import { Columns2, Rows2, ArrowLeftRight, LockKeyhole, UnlockKeyhole, Users, ListOrdered, PlusCircle } from 'lucide-react';
+
 import VisMatchControls from './VisMatchControls';
 
 export default function VisCourtPanel({ teams, onClosePanel, setStats = [], onReverse, selectedPlayer, onSelect, server, servingTeam, locked, reviewMode, onLineup, send, timeouts, substitutions, substitutionLimit }) {
@@ -14,7 +15,7 @@ export default function VisCourtPanel({ teams, onClosePanel, setStats = [], onRe
     const [zoom, setZoom] = useState(100);
     const ordered = teams;
     return <section className="vis-court-panel" aria-label={vt("สนามและการควบคุม")}>
-        <header className="vis-panel-title"><span>{vt("⠿ สนามและการควบคุม")}</span><div className="vis-zoom"><button onClick={() => setZoom(value => Math.max(80, value - 10))} aria-label={vt("ย่อสนาม")}>{ui("A−")}</button><span>{zoom}%</span><button onClick={() => setZoom(value => Math.min(130, value + 10))} aria-label={vt("ขยายสนาม")}>{ui("A+")}</button></div>{onClosePanel && <button type="button" className="vis-panel-close" aria-label={vt("ปิดแผงสนามและการควบคุม")} title={vt("ปิดแผง")} onClick={onClosePanel}>×</button>}</header>
+        <header className="vis-panel-title"><span><SystemGrip size={14} className="inline-block" aria-hidden="true" />{vt("⠿ สนามและการควบคุม").replace("⠿", "").trim()}</span><div className="vis-zoom"><button onClick={() => setZoom(value => Math.max(80, value - 10))} aria-label={vt("ย่อสนาม")}>{ui("A−")}</button><span>{zoom}%</span><button onClick={() => setZoom(value => Math.min(130, value + 10))} aria-label={vt("ขยายสนาม")}>{ui("A+")}</button></div>{onClosePanel && <button type="button" className="vis-panel-close" aria-label={vt("ปิดแผงสนามและการควบคุม")} title={vt("ปิดแผง")} onClick={onClosePanel}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button>}</header>
         <div className="vis-court-scroll"><div style={{ zoom: zoom / 100 }}>
             <div className="vis-court-card">
                 <div className="vis-court-tools"><button type="button" title={stackedCourt ? vt('แสดงสนามซ้าย–ขวา') : vt('แสดงสนามบน–ล่าง')} aria-label={stackedCourt ? vt('แสดงสนามซ้าย–ขวา') : vt('แสดงสนามบน–ล่าง')} aria-pressed={stackedCourt} onClick={() => setStackedCourt(value => !value)}>{stackedCourt ? <Rows2 size={16} /> : <Columns2 size={16} />}</button><button title={vt("สลับฝั่งแสดงผล")} aria-label={vt("สลับฝั่งแสดงผล")} onClick={onReverse}><ArrowLeftRight size={16} /></button><button aria-pressed={courtLocked} onClick={() => setCourtLocked(value => !value)}>{courtLocked ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}{vt("ล็อค")}</button><span className="vis-court-legend">* {displayNames.teamName(teams.find(team => team.key === 'home'))}{' '}{ui("⇄ a")}{' '}{displayNames.teamName(teams.find(team => team.key === 'away'))}</span></div>

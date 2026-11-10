@@ -1,3 +1,4 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api'; // ตรวจสอบ path ให้ถูกต้อง
@@ -16,6 +17,7 @@ import {
 import { cleanCompetitionTitle, formatThaiDate } from '../../utils/formatters';
 
 export default function Competitions() {
+    const displayNames = useDisplayNames();
     const ui = useUiTranslation();
     const [competitions, setCompetitions] = useState([]);
     // เพิ่ม field status ใน form
@@ -175,7 +177,7 @@ export default function Competitions() {
 
                                 <div className="flex-1 pl-2">
                                     <div className="flex items-center gap-3 mb-1">
-                                        <h3 className="font-bold text-gray-900 text-lg">{cleanCompetitionTitle(c.title || c.name)}</h3>
+                                        <h3 className="font-bold text-gray-900 text-lg">{cleanCompetitionTitle(displayNames.competitionName(c))}</h3>
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
                                             c.status === 'open' 
                                             ? 'bg-green-100 text-green-700 border-green-200' 

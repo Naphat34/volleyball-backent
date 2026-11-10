@@ -1,7 +1,9 @@
+import { MapPin, Edit2, Trash2, Plus, X, Building, Users } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../../api';
-import { MapPin, Edit2, Trash2, Plus, X, Building, Users } from 'lucide-react';
+
+import BrandIcon from '../ui/BrandIcon';
 import Swal from 'sweetalert2';
 
 export default function StadiumsTab() {
@@ -167,7 +169,7 @@ export default function StadiumsTab() {
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold uppercase mb-1 block">{ui("Google Map URL")}</label>
+                                <label className="text-xs font-bold uppercase mb-1 block"><BrandIcon brand="googleMaps" size={14} className="mr-1" />{ui("Google Map URL")}</label>
                                 <input className="w-full p-2 rounded border border-gray-300 bg-white text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
                                     value={formData.google_map_url} onChange={e => setFormData({ ...formData, google_map_url: e.target.value })} placeholder={ui("https://maps.google.com/...")} />
                             </div>

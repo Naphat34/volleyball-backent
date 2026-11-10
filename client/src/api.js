@@ -186,6 +186,7 @@ export const api = {
     readLocal: async () => (await listLocal({ readOnly: true })).map(item => localView(item).match),
     getRegular: async () => (await apiClient.get('/scorer/matches', { timeout: 15000 })).data,
     getCustom: async () => (await apiClient.get('/vis-custom', { timeout: 15000 })).data,
+    getManual: async () => (await apiClient.get('/scorer/manual-vis-matches', { timeout: 15000 })).data,
     getRegularMatch: async id => { const { data } = await apiClient.get(`/scorer/match/${id}`, { timeout: 15000 }); return { ...data, home_team: data.home_team_name, away_team: data.away_team_name }; },
   }),
   saveVisCommand: async (matchId, data) => isLocalVis(matchId) ? { data: await saveLocal(matchId, data) } : apiClient.post(customVis(matchId) ? `/vis-custom/${matchId}/command` : `/scorer/match/${matchId}/vis`, data),
@@ -218,6 +219,9 @@ export const api = {
 
   // --- Scorer System ---
   getManualScorerMatches: () => apiClient.get('/scorer/manual-matches'),
+  setManualStatisticsAccess: (id, shared) => apiClient.post(`/scorer/manual-matches/${id}/statistics-access`, { shared }),
+  claimManualStatistics: id => apiClient.post(`/scorer/manual-vis-matches/${id}/claim`),
+  releaseManualStatistics: id => apiClient.post(`/scorer/manual-vis-matches/${id}/release`),
   getManualScorerMatch: id => apiClient.get(`/scorer/manual-matches/${id}`),
   createManualScorerMatch: data => apiClient.post('/scorer/manual-matches', data),
   updateManualScorerMatch: (id, data) => apiClient.put(`/scorer/manual-matches/${id}`, data),

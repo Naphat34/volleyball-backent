@@ -5,6 +5,7 @@ const { normalizeManualMatch, assertReady, parseConfig, canManage } = require('.
 const { attachDashboardSummaries } = require('../utils/matchDashboard');
 const { writeAuditLog } = require('../utils/auditLogger');
 const { playerNameFields, teamNameFields } = require('../utils/bilingualNames');
+const { canReadStatistics } = require('../utils/manualVisAccess');
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 const sendError = (res, error) => {
@@ -86,6 +87,11 @@ exports.save = async (req, res) => {
             if (duplicate) { await connection.commit(); return res.status(200).json({ match: duplicate }); }
         }
         if (match && (match.status !== 'scheduled' || match.first_serve_team_id || !['draft', 'ready'].includes(match.manual_lifecycle))) throw httpError(409, 'แมตช์เริ่มเตรียมการแข่งขันแล้ว ไม่สามารถแก้กติกาหรือรายชื่อจากหน้านี้ได้');
+        if (match) {
+            if (match.manual_vis_assignee_id) throw httpError(409, 'กรุณาคืนงานสถิติก่อนแก้ไขกติกาหรือรายชื่อ');
+            const statistics = (await connection.query("SELECT COUNT(*) AS count FROM match_actions WHERE match_id=? AND action_type='VIS_STAT'", [match.id])).rows[0];
+            if (Number(statistics.count)) throw httpError(409, 'เริ่มบันทึกสถิติแล้ว ไม่สามารถเปลี่ยนกติกาหรือรายชื่อได้');
+        }
         if (match?.manual_published && !start) throw httpError(409, 'กรุณาหยุดเผยแพร่ก่อนเปลี่ยนแมตช์กลับเป็นฉบับร่าง');
         const homeId = await saveTeam(connection, config.home, req.user.id, match?.home_team_id);
         const awayId = await saveTeam(connection, config.away, req.user.id, match?.away_team_id);
@@ -122,6 +128,19 @@ exports.action = async (req, res) => {
             if (typeof req.body.published !== 'boolean') throw httpError(400, 'กรุณาระบุสถานะเผยแพร่');
             if (req.body.published && match.manual_lifecycle === 'draft') throw httpError(409, 'เตรียมแมตช์ให้พร้อมก่อนเผยแพร่');
             await connection.query('UPDATE matches SET manual_published=? WHERE id=?', [req.body.published ? 1 : 0, match.id]);
+        } else if (action === 'statistics-access') {
+            if (typeof req.body.shared !== 'boolean') throw httpError(400, 'กรุณาระบุสิทธิ์เข้าถึงสถิติ');
+            if (req.body.shared && (match.manual_lifecycle === 'draft' || ['cancelled', 'canceled'].includes(match.status))) throw httpError(409, 'กรุณาเตรียมแมตช์ให้พร้อมก่อนเปิดให้บันทึกสถิติ');
+            if (req.body.shared) {
+                const config = await actualConfig(connection, match);
+                for (const side of ['home', 'away']) config[side].players = config[side].players.map(player => ({ ...player,
+                    is_captain: Boolean(player.is_captain || player.role === 'C' || String(player.role || '').endsWith('+C')),
+                    position: String(player.role || '').startsWith('L') ? 'L' : player.position }));
+                assertReady(config);
+            }
+            if (Number(match.manual_vis_shared) !== Number(req.body.shared)) {
+                await connection.query('UPDATE matches SET manual_vis_shared=?, manual_vis_assignee_id=NULL, manual_vis_claimed_at=NULL WHERE id=?', [req.body.shared ? 1 : 0, match.id]);
+            }
         } else if (action === 'confirm') {
             if (match.status !== 'completed') throw httpError(409, 'ยืนยันผลได้หลังจบการแข่งขันเท่านั้น');
             const config = parseConfig(match.manual_config);
@@ -139,12 +158,15 @@ exports.action = async (req, res) => {
         } else throw httpError(400, 'คำสั่งไม่ถูกต้อง');
         await writeAuditLog(req, `manual_match.${action}`, 'match', match.id, req.body, connection);
         await connection.commit();
-        if (action === 'publish' && !req.body.published) {
+        if ((action === 'publish' && !req.body.published) || (action === 'statistics-access' && !req.body.shared)) {
+            const current = { ...match,
+                manual_published: action === 'publish' ? Number(req.body.published) : match.manual_published,
+                manual_vis_shared: action === 'statistics-access' ? Number(req.body.shared) : match.manual_vis_shared };
             const io = req.app.get('io');
             const room = `match_${match.id}`;
             for (const id of io?.sockets.adapter.rooms.get(room) || []) {
                 const socket = io.sockets.sockets.get(id);
-                if (socket && !canManage(socket.user, match)) {
+                if (socket && !canManage(socket.user, current) && !canReadStatistics(socket.user, current) && !Number(current.manual_published)) {
                     socket.leave(room);
                     socket.emit('join_error', { error: 'Match is private' });
                 }

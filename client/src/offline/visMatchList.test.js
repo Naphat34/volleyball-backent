@@ -49,3 +49,22 @@ test('fetch choice survives route remounts but resets on a different login sessi
     assert.equal(getVisMatchGate('7:login-two').serverMatchesLoaded, false);
     assert.equal(getVisMatchGate('8:login-two').serverMatchesLoaded, false);
 });
+
+test('explicit fetch includes shared scorer matches once and refresh keeps their assignments', async () => {
+    const { options } = fixture();
+    let calls = 0;
+    const getManual = async () => { calls++; return [{ id: 8, manual_owner_id: 2, manual_vis_assignee_id: 9 }, { id: 10, manual_owner_id: 3 }]; };
+    await loadVisMatchList({ ...options, getManual });
+    assert.equal(calls, 0);
+    for (const flags of [{ fromServer: true }, { includeServerMatches: true }]) {
+        const result = await loadVisMatchList({ ...options, getManual, ...flags });
+        assert.equal(result.data.filter(match => String(match.id) === '8').length, 1);
+        assert.equal(result.data.find(match => match.id === 8).manual_vis_assignee_id, 9);
+        assert.equal(result.serverMatchCount, 3);
+        assert.ok(result.data.some(match => match.id === 10));
+    }
+    assert.equal(calls, 2);
+    await assert.rejects(loadVisMatchList({ ...options, getManual: async () => { throw Error('shared matches unavailable'); }, fromServer: true }), /unavailable/);
+    await loadVisMatchList({ ...options, getManual, offline: true });
+    assert.equal(calls, 2);
+});

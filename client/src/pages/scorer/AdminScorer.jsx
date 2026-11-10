@@ -1,13 +1,19 @@
+import { competitionName } from '../../utils/i18n/competitionNames';
+import { readLanguage } from '../../utils/i18n/language';
+import { matchSchedule, matchScheduleDate, matchScheduleSortKey } from '../../utils/scorer/matchSchedule';
+import VisThemeToggle from '../../components/vis/VisThemeToggle';
+import FullscreenToggle from '../../components/ui/FullscreenToggle';
+import { Download as FetchIcon, ChevronDown as FetchOptionsIcon } from 'lucide-react';
+import { CloudOff, LogOut, ArrowUpRight as UiArrowUpRight, Circle as UiCircle, X as UiX, ChevronLeft as UiChevronLeft, ChevronRight as UiChevronRight, ChevronDown as SystemChevronDown, ChevronUp as SystemChevronUp, ArrowUpDown as SystemArrowUpDown } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import ScorerActionDropdown from '../../components/scorer/ScorerActionDropdown';
 import { readDashboardCache, writeDashboardCache, mergeRefereeMatches, readDashboardPreferences, writeDashboardPreferences } from '../../offline/scorerDashboardCache';
 import ScorerMatchModal from '../../components/scorer/ScorerMatchModal';
-import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import AccessStatus from '../../components/auth/AccessStatus';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CloudOff, LogOut } from 'lucide-react';
+
 import { api } from '../../api';
 import { clearAuthSession, getAccessSession, getAuthSessionVersion, getStoredUser } from '../../auth/authStorage';
 import Swal from 'sweetalert2';
@@ -22,7 +28,7 @@ import { visStatusLabel } from '../../utils/vis/dashboardStatus';
 import '../../components/vis/VisDashboard.css';
 
 const statuses = { scheduled: ['ยังไม่เริ่ม', 'Scheduled'], live: ['กำลังแข่งขัน', 'Live'], completed: ['จบการแข่งขัน', 'Completed'], cancelled: ['ยกเลิก', 'Cancelled'] };
-const titleOf = competition => String(competition.competition_title || competition.title || competition.competition_name || '').replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
+const titleOf = competition => String(competitionName(competition, readLanguage())).replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
 const normalizeStatus = value => ['finished','match_finished'].includes(String(value).toLowerCase()) ? 'completed' : String(value || 'scheduled').toLowerCase();
 
 export default function AdminScorer() {
@@ -45,6 +51,12 @@ export default function AdminScorer() {
     const serverRows = useRef([]);
     const matches = cacheReady ? [...serverMatches, ...manualMatches] : [];
     const [loading, setLoading] = useState(false), [error, setError] = useState(''), [reloadKey, setReloadKey] = useState(0), [lastUpdated, setLastUpdated] = useState(null);
+    const [connected, setConnected] = useState(null);
+    useEffect(() => {
+        const disconnected = () => setConnected(false);
+        window.addEventListener('offline', disconnected);
+        return () => window.removeEventListener('offline', disconnected);
+    }, []);
     const [search, setSearch] = useState(''), [status, setStatus] = useState(''), [team, setTeam] = useState('');
     const [sort, setSort] = useState({ field: 'number', descending: false }), [page, setPage] = useState(1), [pageSize, setPageSize] = useState(10);
     const [offlineOpen, setOfflineOpen] = useState(false);
@@ -56,7 +68,7 @@ export default function AdminScorer() {
     }, [userId, role, sessionVersion]);
     useEffect(() => {
         let active = true;
-        setMatches([]); setCompetitions([]); setManualMatches([]); setLoading(false); setError(''); setManualError(''); setCacheNotice(''); setRestored(false);
+        setMatches([]); setCompetitions([]); setManualMatches([]); setLoading(false); setError(''); setManualError(''); setCacheNotice(''); setRestored(false); setConnected(null); setLastUpdated(null);
         const preferences = readDashboardPreferences(userId, role);
         setSearch(preferences.search); setStatus(preferences.status); setTeam(preferences.team);
         setSort(preferences.sort); setPage(preferences.page); setPageSize(preferences.pageSize); setPreferencesScope(scope);
@@ -105,7 +117,7 @@ export default function AdminScorer() {
         const fromServer = manualRequested.current;
         manualRequested.current = false;
         const load = async (silent = false) => {
-            if (!navigator.onLine || getAccessSession().kind !== 'online' || !sameSession()) { if (active) setLoading(false); return; }
+            if (!navigator.onLine || getAccessSession().kind !== 'online' || !sameSession()) { if (active) { setLoading(false); setConnected(false); } return; }
             if (!silent) setLoading(true);
             try {
                 const response = await api.getOpenCompetitions();
@@ -125,6 +137,7 @@ export default function AdminScorer() {
                 const partialError = partialCompetitionIds.length ? (th ? 'อัปเดตได้บางรายการ เก็บข้อมูลเดิมของรายการที่โหลดไม่สำเร็จไว้แล้ว' : 'Partial update. Previous rows were kept for failed competitions.') : '';
                 serverRows.current = loaded; setCompetitions(open); setMatches(loaded);
                 gate.serverMatchesLoaded = true; setLastUpdated(new Date(updatedAt)); setRestored(false); setError(partialError);
+                setConnected(!partialError);
                 setCacheNotice(partialCompetitionIds.length ? 'partial' : '');
                 try { await writeDashboardCache(userId, role, 'server', { matches: loaded, competitions: open, updatedAt, partialCompetitionIds }); }
                 catch { if (active && sameSession()) setCacheNotice('storage'); }
@@ -135,7 +148,7 @@ export default function AdminScorer() {
             } catch (failure) {
                 if (!active || !sameSession()) return;
                 const message = failure.response?.data?.error || failure.message || 'Unable to load matches';
-                setError(message); setRestored(true);
+                setError(message); setRestored(true); setConnected(false);
                 if (fromServer && !silent) void Swal.fire({ uiTextLocalized: true,  icon: 'error', title: th ? ui('ดึงแมตช์ไม่สำเร็จ') : ui('Unable to load matches'), text: ui(message),
                     confirmButtonText: th ? ui('ตกลง') : ui('OK'), background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
             } finally { if (active && sameSession() && !silent) setLoading(false); }
@@ -164,13 +177,15 @@ export default function AdminScorer() {
         && (!status || match.status === status) && (!team || [match.home_team,match.away_team].includes(team))
         && (!query || [match.home_team,match.away_team,match.match_number,label(match),match.location,match.round_name,match.pool_name].some(value => String(value || '').toLocaleLowerCase().includes(query))))
         .sort((a,b) => {
-            const value = match => sort.field === 'number' ? match.match_number || match.id : sort.field === 'date' ? match.match_date || match.raw_start_time || '' : sort.field === 'match' ? `${match.home_team} ${match.away_team}` : sort.field === 'competition' ? label(match) : sort.field === 'score' ? `${match.home_set_score || 0}:${match.away_set_score || 0}` : match.status;
+            const value = match => sort.field === 'number' ? match.match_number || match.id : sort.field === 'date' ? matchScheduleSortKey(match) : sort.field === 'match' ? `${match.home_team} ${match.away_team}` : sort.field === 'competition' ? label(match) : sort.field === 'score' ? `${match.home_set_score || 0}:${match.away_set_score || 0}` : match.status;
             return String(value(a)).localeCompare(String(value(b)),th ? 'th':'en',{numeric:true}) * (sort.descending ? -1:1);
         });
     const pages = Math.max(1,Math.ceil(filtered.length/pageSize)), currentPage = Math.min(page,pages), rows = filtered.slice((currentPage-1)*pageSize,currentPage*pageSize);
     const reset = () => { setParams({}); setSearch(''); setStatus(''); setTeam(''); setPage(1); };
+    const connectionFailed = connected === false || Boolean(error || manualError);
+    const connectionStatus = connectionFailed ? 'error' : connected === true ? 'success' : 'pending';
     const date = value => { const parsed = value ? new Date(value) : null; const dateOnly = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value); return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toLocaleString(th ? 'th-TH':'en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',year:'2-digit',...(!dateOnly ? {hour:'2-digit',minute:'2-digit'}:{})}) : '—'; };
-    const heading = (field,text) => <button onClick={() => { setSort(old => ({field,descending:old.field === field ? !old.descending:false})); setPage(1); }}>{text}<span className={sort.field === field ? 'vd-sort-active':''}>{sort.field === field ? sort.descending ? ' ▼':' ▲':' ↕'}</span></button>;
+    const heading = (field,text) => <button onClick={() => { setSort(old => ({field,descending:old.field === field ? !old.descending:false})); setPage(1); }}>{text}<span className={sort.field === field ? 'vd-sort-active':''}>{sort.field === field ? sort.descending ? <SystemChevronDown size={14} /> : <SystemChevronUp size={14} /> : <SystemArrowUpDown size={14} />}</span></button>;
     const run = async action => { setBusy(true); setNotice(''); try { await action(); } catch (error) { setNotice(error.response?.data?.error || error.message); } finally { setBusy(false); } };
     const logout = () => run(async () => { try { await api.logout(); } catch { /* Local logout remains available offline. */ } finally { clearAuthSession(); navigate('/login',{replace:true}); } });
     const manualAction = action => run(async () => { await action(); setManualReload(value => value + 1); });
@@ -184,10 +199,11 @@ export default function AdminScorer() {
         {['ready','live'].includes(match.manual_lifecycle) && <Link className="vd-primary" to={`/scorer/${match.id}`}>{ui("บันทึกคะแนน")}</Link>}
         {match.manual_lifecycle !== 'draft' && <button type="button" onClick={() => setMatchPanel({ match, mode: match.is_manual_scorer ? 'review' : 'details' })}>{ui("ตั้งค่าแมตซ์")}</button>}
         <ScorerActionDropdown label={ui(`เมนูแมตช์สร้างเอง {0}`, [match.id])}>
+            {match.manual_lifecycle !== 'draft' && <button disabled={busy} onClick={() => manualAction(() => api.setManualStatisticsAccess(match.id, !Number(match.manual_vis_shared)))}>{Number(match.manual_vis_shared) ? (th ? 'ปิดการเข้าถึงของเจ้าหน้าที่สถิติ' : 'Disable statistics access') : (th ? 'เปิดให้เจ้าหน้าที่สถิติเข้าถึง' : 'Enable statistics access')}</button>}
             <button disabled={busy} onClick={() => manualAction(() => api.downloadManualScorerBackup(match.id))}>{ui("สำรอง JSON")}</button>
             <a href={`/scoresheet/${encodeURIComponent(match.id)}`} target="_blank" rel="noreferrer">{ui("Preview Scorer Sheet")}</a>
             {match.manual_lifecycle !== 'draft' && <button disabled={busy} onClick={() => manualAction(() => api.publishManualScorerMatch(match.id, !match.manual_published))}>{match.manual_published ? ui('หยุดเผยแพร่ Livescore') : ui('เผยแพร่ Livescore')}</button>}
-            {match.manual_published ? <a href={`/match/${match.id}/viewer`} target="_blank" rel="noreferrer">{ui("Livescore ↗")}</a> : null}
+            {match.manual_published ? <a href={`/match/${match.id}/viewer`} target="_blank" rel="noreferrer"><><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("Livescore ↗").replace(/↗\uFE0F?/gu, '').trim()}</></a> : null}
             {match.manual_lifecycle === 'review' && <button disabled={busy} onClick={() => setMatchPanel({match, mode:'review'})}>{ui("ตรวจสอบแล้ว · ยืนยันผล")}</button>}
         </ScorerActionDropdown>
         {reportButtons(match)}
@@ -195,35 +211,35 @@ export default function AdminScorer() {
     return <div className="vis-dash">
         {matchPanel && <ScorerMatchModal key={`${matchPanel.match.id}:${matchPanel.mode}`} source={matchPanel.match} canConfirm={!isReferee && matchPanel.match.is_manual_scorer && (role === 'admin' || String(matchPanel.match.manual_owner_id) === String(userId))} onClose={() => setMatchPanel(null)} onConfirmed={() => { setManualReload(value => value + 1); setReloadKey(value => value ? value + 1 : value); }} />}
         {createMatch && <ScorerCreateMatch matchId={createMatch.id} sources={matches} onClose={() => setCreateMatch(null)} onSaved={(id, start) => { setCreateMatch(null); setManualReload(value => value + 1); if (start) navigate(`/scorer/${id}`); }} />}
-        <header className="vd-account-bar"><Link to="/adminscorer" className="vd-brand">{ui("VOLLEY")}{' '}<span>/ {isReferee ? ui('REFEREE') : ui('SCORER')}</span>{navbarCompetition && <> / {navbarCompetition}</>}</Link><div className="vd-account">
-            <VisThemeToggle iconOnly />
+        <header className="vd-account-bar"><Link to="/adminscorer" className="vd-brand">{ui("VOLLEY")}{' '}<span>/ {isReferee ? ui('REFEREE') : ui('SCORER')}</span>{navbarCompetition && <> / {navbarCompetition}</>}</Link><div className="vd-account"><VisThemeToggle compact /><FullscreenToggle className="vd-fullscreen-toggle" />
+
             <div className="vd-languages" aria-label={ui("ภาษา")}>{[['THA','ไทย'],['ENG','EN']].map(([value,text]) => <button key={value} aria-pressed={language === value} className={language === value ? 'is-active':''} onClick={() => setLanguage(value)}>{text}</button>)}</div>
             <span>{(displayNames.personFirstName(user) || user?.username) || (ui('Scorer'))} <b className="vd-badge">{isReferee ? ui('REFEREE') : ui('SCORER')}</b></span>
-            <details className="vd-sync"><summary className={error ? 'vd-error':''}>● {loading ? ui('กำลังโหลด') : error ? ui('โหลดไม่ครบ') : !lastUpdated ? ui('ยังไม่ได้ดึงแมตช์') : ui('ข้อมูลล่าสุด')}</summary><div><p>{ui("ดึงข้อมูลเมื่อ")}{' '}{date(lastUpdated)}</p><p>{matches.length}{' '}{ui("แมตช์ ·")}{' '}{competitionOptions.length}{' '}{ui("รายการแข่งขัน")}</p><button disabled={loading || busy} onClick={() => reload(true)}>{ui("ดึงข้อมูลอีกครั้ง")}</button></div></details>
-            {['admin','statistician'].includes(user?.role) && <Link to="/adminvis">{ui("VIMS")}</Link>}{user?.role === 'admin' && <Link to="/admin">{ui("Admin")}</Link>}<button disabled={busy} onClick={logout} aria-label={ui("ออกจากระบบ")}><LogOut size={18} /></button>
+            <details className="vd-sync"><summary className={`vd-connection-status is-${connectionStatus}`}><UiCircle size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" className="inline-block shrink-0 align-middle" /><span role="status">{loading ? ui('กำลังโหลด') : connectionFailed ? (th ? 'เชื่อมต่อไม่สำเร็จ' : 'Connection failed') : connected === true ? ui('ข้อมูลล่าสุด') : (th ? 'รอเชื่อมต่อ' : 'Awaiting connection')}{lastUpdated && !Number.isNaN(lastUpdated.getTime()) && <time dateTime={lastUpdated.toISOString()} className="vd-connection-time"> · {date(lastUpdated)}</time>}</span></summary><div><p>{ui("ดึงข้อมูลเมื่อ")}{' '}{date(lastUpdated)}</p><p>{matches.length}{' '}{ui("แมตช์ ·")}{' '}{competitionOptions.length}{' '}{ui("รายการแข่งขัน")}</p><button disabled={loading || busy} onClick={() => reload(true)}>{ui("ดึงข้อมูลอีกครั้ง")}</button></div></details>
+            {['admin','statistician'].includes(user?.role) && <Link to="/adminvis">{ui("VIMS")}</Link>}{user?.role === 'admin' && <Link to="/admin">{ui("Admin")}</Link>}<button disabled={busy} onClick={logout} aria-label={ui("ออกจากระบบ")}><LogOut size={18} aria-hidden="true" /></button>
         </div></header>
         <main className="vd-main"><AccessStatus /><div className="vd-heading"><h1>{th ? ui('การแข่งขัน') : ui('Matches')} · {isReferee ? ui('Referee') : ui('ScorerControl')}</h1><div className="vd-actions">
-            <div className="vd-split"><button disabled={loading || busy} onClick={() => reload(true)}>⇩ {th ? ui('ดึงแมตช์จากเซิร์ฟเวอร์') : ui('Fetch matches')}</button><details><summary aria-label={ui("ตัวเลือกดึงข้อมูล")}>▾</summary><div><button disabled={loading || busy} onClick={() => { reset(); reload(true); }}>{ui("ดึงทั้งหมดและล้างตัวกรอง")}</button></div></details></div>
+            <div className="vd-split"><button disabled={loading || busy} onClick={() => reload(true)}><FetchIcon size={16} aria-hidden="true" /> {th ? ui('ดึงแมตช์จากเซิร์ฟเวอร์') : ui('Fetch matches')}</button><details><summary aria-label={ui("ตัวเลือกดึงข้อมูล")}><FetchOptionsIcon size={16} aria-hidden="true" /></summary><div><button disabled={loading || busy} onClick={() => { reset(); reload(true); }}>{ui("ดึงทั้งหมดและล้างตัวกรอง")}</button></div></details></div>
             {!isReferee && <button type="button" className={`vd-offline-toggle ${offlineOpen ? 'is-active':''}`} aria-label={ui("ScorerControl Offline")} title={ui("ScorerControl Offline · ข้อมูลในเครื่อง")} aria-haspopup="dialog" aria-expanded={offlineOpen} aria-controls={offlineOpen ? 'scorer-dashboard-offline' : undefined} onClick={() => setOfflineOpen(true)}><CloudOff size={21} aria-hidden="true" /> {th ? ui('เตรียมแมตช์ Offline') : ui('Prepare offline matches')}</button>}
             {!isReferee && <button className="vd-primary" disabled={busy || !navigator.onLine} onClick={() => setCreateMatch({})}>+ {th ? ui('สร้างแมตช์เอง') : ui('New match')}</button>}
         </div></div>
         {!isReferee && offlineOpen && <ScorerOfflineModal onClose={() => setOfflineOpen(false)} />}
         {!cacheReady && <p className="vd-notice" role="status">{th ? ui('กำลังอ่านรายการในเครื่อง…') : ui('Reading saved matches…')}</p>}
         {cacheReady && (restored || cacheNotice) && <p className="vd-notice" role="status">{cacheNotice === 'storage' ? th ? ui('เก็บหรืออ่านข้อมูลในเครื่องไม่สำเร็จ กรุณาอนุญาตการจัดเก็บข้อมูลของเว็บไซต์') : ui('Local storage is unavailable. Matches remain visible, but may need fetching after reload.') : cacheNotice === 'partial' ? th ? ui('ข้อมูลบางรายการยังเป็นสำเนาเดิม กรุณาลองอัปเดตอีกครั้ง') : ui('Some competitions still show previous data. Retry the update.') : th ? ui('แสดงรายการที่เก็บในเครื่อง ระบบจะตรวจอัปเดตเมื่อออนไลน์') : ui('Showing saved matches. Updates will be checked when online.')}</p>}
-        {(notice || error || manualError) && <div className="vd-notice" role="status"><span>{notice || error || manualError}</span>{notice && <button onClick={() => setNotice('')} aria-label={ui("ปิดข้อความ")}>✕</button>}</div>}
+        {(notice || error || manualError) && <div className="vd-notice" role="status"><span>{notice || error || manualError}</span>{notice && <button onClick={() => setNotice('')} aria-label={ui("ปิดข้อความ")}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button>}</div>}
         {cacheReady && (reloadKey > 0 || manualMatches.length > 0) && <section className="vd-table-panel" aria-label={ui("รายการแมตช์ Scorer")}><div className="vd-filters">
             <input value={search} aria-label={ui("ค้นหาแมตช์")} placeholder={th ? ui('ค้นหา…') : ui('Search…')} onChange={event => { setSearch(event.target.value); setPage(1); }} />
             <select value={competition} aria-label={ui("รายการแข่งขัน")} onChange={event => { setParams(event.target.value ? {view:'matches',compId:event.target.value}:{}); setPage(1); }}><option value="">{th ? ui('ทุกรายการแข่งขัน') : ui('All competitions')}</option>{competitionOptions.map(item => <option key={item.id} value={item.id}>{titleOf(item)}</option>)}{selectedCompetition && !competitionOptions.some(item => String(item.id) === competition) && <option value={competition}>{titleOf(selectedCompetition)}</option>}{manualTitles.map(title => <option key={title} value={`manual:${title}`}>{ui(title)}{' '}{ui("· สร้างเอง")}</option>)}</select>
             <select value={status} aria-label={ui("สถานะแมตช์")} onChange={event => { setStatus(event.target.value); setPage(1); }}><option value="">{th ? ui('ทุกสถานะ') : ui('All statuses')}</option>{Object.entries(statuses).map(([value,text]) => <option key={value} value={value}>{text[th?0:1]}</option>)}</select>
             <select value={team} aria-label={ui("ทีม")} onChange={event => { setTeam(event.target.value); setPage(1); }}><option value="">{th ? ui('ทุกทีม') : ui('All teams')}</option>{teamNames.map(name => <option key={name}>{name}</option>)}</select>
             {(search || competition || status || team) && <button className="vd-muted" onClick={reset}>{ui("ล้างตัวกรอง")}</button>}
-        </div><div className="vd-table-scroll"><table className="vd-table"><thead><tr><th>{heading('date',th?'วันที่':'Date')}</th><th>{heading('number',th?'แมตช์':'Match')}</th><th>{heading('competition',th?'รายการ / สนาม':'Competition / venue')}</th><th>{heading('score',th?'ผล':'Result')}</th><th>{heading('status',th?'สถานะ':'Status')}</th><th aria-label={ui("การจัดการ")} /></tr></thead><tbody>
-            {!rows.length ? <tr><td colSpan={6} className="vd-empty" role="status">{loading ? ui('กำลังโหลดแมตช์…') : (error) || (ui('ไม่พบแมตช์ตามเงื่อนไข'))}</td></tr> : rows.map(match => <tr key={match.id}>
-                <td className="vd-date">{date(match.match_date || match.raw_start_time)}</td><td className="vd-match"><strong><span>{(displayNames.matchTeamName(match, 'home')) || (ui('TBA'))}</span> <i>{ui("vs")}</i> <span>{(displayNames.matchTeamName(match, 'away')) || (ui('TBA'))}</span></strong><small>#{match.match_number || match.id}</small><small>{([match.round_name,match.pool_name].filter(Boolean).join(' · ')) || (ui('ตารางแข่งขันจาก Admin'))}</small></td>
+        </div><div className="vd-table-scroll"><table className="vd-table"><thead><tr><th>{heading('number', 'Match Number')}</th><th>{heading('date',th?'วัน / เวลาแข่งขัน':'Match date / time')}</th><th>{heading('match',th?'คู่แข่งขัน':'Match')}</th><th>{heading('competition',th?'รายการ / สนาม':'Competition / venue')}</th><th>{heading('score',th?'ผล':'Result')}</th><th>{heading('status',th?'สถานะ':'Status')}</th><th aria-label={ui("การจัดการ")} /></tr></thead><tbody>
+            {!rows.length ? <tr><td colSpan={7} className="vd-empty" role="status">{loading ? ui('กำลังโหลดแมตช์…') : (error) || (ui('ไม่พบแมตช์ตามเงื่อนไข'))}</td></tr> : rows.map(match => <tr key={match.id}>
+                <td className="vd-number">{match.match_number ?? '—'}</td><td className="vd-date"><div className="vd-fixture-schedule"><span>{matchScheduleDate(match, th)}</span><span>{matchSchedule(match).time || (th ? 'ยังไม่ระบุเวลา' : 'Time not set')}</span></div></td><td className="vd-match"><strong><span>{(displayNames.matchTeamName(match, 'home')) || (ui('TBA'))}</span> <i>{ui("vs")}</i> <span>{(displayNames.matchTeamName(match, 'away')) || (ui('TBA'))}</span></strong><small>{([match.round_name,match.pool_name].filter(Boolean).join(' · ')) || (ui('ตารางแข่งขันจาก Admin'))}</small></td>
                 <td className="vd-competition"><span>{label(match)}</span><small>{match.location || '—'}</small></td><td className="vd-score"><MatchDashboardScore match={match} th={th} source="official" /></td><td><div className="vd-badges">{match.is_manual_scorer ? <><span className={`vd-badge vd-${match.status}`}>{manualLabels[match.manual_lifecycle]}</span><span className="vd-badge">{ui("สร้างเอง ·")}{' '}{match.manual_published ? ui('เผยแพร่') : ui('ส่วนตัว')}</span></> : <><span className={`vd-badge vd-${match.status}`}>{th ? ui('ทางการ') : ui('Official')} · {(statuses[match.status]?.[th?0:1]) || (ui(match.status))}</span>{match.vis_summary?.hasActivity && <span className="vd-badge">{ui("VIMS ·")}{' '}{visStatusLabel(match, th)}</span>}<span className="vd-badge">{ui("เซิร์ฟเวอร์")}</span></>}</div></td>
-                <td>{match.is_manual_scorer ? manualActions(match) : <div className="vd-row-actions">{!isReferee && !['cancelled','completed'].includes(match.status) && match.home_team_id && match.away_team_id && <Link to={`/scorer/${match.id}`} className="vd-primary">{th ? ui('บันทึกคะแนน') : ui('Score')}</Link>}<button type="button" onClick={() => setMatchPanel({ match, mode: match.is_manual_scorer ? 'review' : 'details' })}>{th ? ui('ตั้งค่าแมตซ์') : ui('Match settings')}</button><ScorerActionDropdown label={ui(`เมนูแมตช์ {0}`, [match.match_number || match.id])}><a href={`/match/${match.id}/viewer`} target="_blank" rel="noreferrer">{ui("Livescore ↗")}</a><a href={`/scoresheet/${encodeURIComponent(match.id)}`} target="_blank" rel="noreferrer">{ui("Preview Scorer Sheet")}</a><a href={`/match/${match.id}`} target="_blank" rel="noreferrer">{ui("เปิดข้อมูลแท็บใหม่ ↗")}</a></ScorerActionDropdown>{reportButtons(match)}</div>}</td>
+                <td>{match.is_manual_scorer ? manualActions(match) : <div className="vd-row-actions">{!isReferee && !['cancelled','completed'].includes(match.status) && match.home_team_id && match.away_team_id && <Link to={`/scorer/${match.id}`} className="vd-primary">{th ? ui('บันทึกคะแนน') : ui('Score')}</Link>}<button type="button" onClick={() => setMatchPanel({ match, mode: match.is_manual_scorer ? 'review' : 'details' })}>{th ? ui('ตั้งค่าแมตซ์') : ui('Match settings')}</button><ScorerActionDropdown label={ui(`เมนูแมตช์ {0}`, [match.match_number || match.id])}><a href={`/match/${match.id}/viewer`} target="_blank" rel="noreferrer"><><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("Livescore ↗").replace(/↗\uFE0F?/gu, '').trim()}</></a><a href={`/scoresheet/${encodeURIComponent(match.id)}`} target="_blank" rel="noreferrer">{ui("Preview Scorer Sheet")}</a><a href={`/match/${match.id}`} target="_blank" rel="noreferrer"><><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("เปิดข้อมูลแท็บใหม่ ↗").replace(/↗\uFE0F?/gu, '').trim()}</></a></ScorerActionDropdown>{reportButtons(match)}</div>}</td>
             </tr>)}
-        </tbody></table></div><footer className="vd-pagination"><span>{th ? ui('แสดง') : ui('Showing')} {filtered.length ? (currentPage-1)*pageSize+1:0}–{Math.min(currentPage*pageSize,filtered.length)} {th ? ui('จาก') : ui('of')} {filtered.length}</span><div>{pages>1 && <><button disabled={currentPage===1} onClick={() => setPage(currentPage-1)}>‹</button><span>{currentPage} / {pages}</span><button disabled={currentPage===pages} onClick={() => setPage(currentPage+1)}>›</button></>}<select aria-label={ui("จำนวนต่อหน้า")} value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>{[10,25,50].map(size => <option key={size} value={size}>{size} / {th ? ui('หน้า') : ui('page')}</option>)}</select></div></footer></section>}
+        </tbody></table></div><footer className="vd-pagination"><span>{th ? ui('แสดง') : ui('Showing')} {filtered.length ? (currentPage-1)*pageSize+1:0}–{Math.min(currentPage*pageSize,filtered.length)} {th ? ui('จาก') : ui('of')} {filtered.length}</span><div>{pages>1 && <><button disabled={currentPage===1} onClick={() => setPage(currentPage-1)}><UiChevronLeft size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button><span>{currentPage} / {pages}</span><button disabled={currentPage===pages} onClick={() => setPage(currentPage+1)}><UiChevronRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></>}<select aria-label={ui("จำนวนต่อหน้า")} value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>{[10,25,50].map(size => <option key={size} value={size}>{size} / {th ? ui('หน้า') : ui('page')}</option>)}</select></div></footer></section>}
         </main>
     </div>;
 }

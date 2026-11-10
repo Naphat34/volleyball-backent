@@ -1389,7 +1389,7 @@ module.exports = {
                     m.*, 
                     t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en, t1.code as home_team_code, t1.logo_url as home_logo_url, t1.coach as home_coach,
                     t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en, t2.code as away_team_code, t2.logo_url as away_logo_url, t2.coach as away_coach,
-                    COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title,
+                    COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title, CASE WHEN m.manual_title IS NULL THEN c.title_th END as competition_name_th, CASE WHEN m.manual_title IS NULL THEN c.title_en END as competition_name_en,
                     c.gender as competition_gender, c.sport as competition_sport,
                     c.start_date as start_date, c.end_date as end_date,
                     COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
@@ -1472,6 +1472,22 @@ module.exports = {
                 `${playerLibero1Expr} as is_libero1`,
                 `${playerLibero2Expr} as is_libero2`
             ];
+
+            // Report identity fields must come from the registered athlete record.
+            for (const field of playerNameFields) {
+                if (playerColumnNames.has(field)) {
+                    playerSelectFields.push(`p.${field}`);
+                    fallbackSelectFields.push(`p.${field}`);
+                }
+            }
+            for (const [alias, candidates] of Object.entries({ nationality: ['nationality', 'country'], birth_date: ['birth_date', 'birthdate', 'date_of_birth', 'dob'] })) {
+                const field = candidates.find(candidate => playerColumnNames.has(candidate));
+                if (field) {
+                    const expression = alias === 'birth_date' ? `DATE_FORMAT(p.${field}, '%Y-%m-%d')` : `p.${field}`;
+                    playerSelectFields.push(`${expression} AS ${alias}`);
+                    fallbackSelectFields.push(`${expression} AS ${alias}`);
+                }
+            }
             playerSelectFields.push('p.position AS playing_position'); fallbackSelectFields.push('p.position AS playing_position');
             for (const field of ['first_name_th','last_name_th','first_name_en','last_name_en']) if (playerColumnNames.has(field)) {
                 playerSelectFields.push('p.' + field); fallbackSelectFields.push('p.' + field);
@@ -1570,7 +1586,7 @@ module.exports = {
                     m.*, 
                     t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en, t1.code as home_team_code,
                     t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en, t2.code as away_team_code,
-                    COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title, c.gender as competition_gender, c.gender as competition_category,
+                    COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title, CASE WHEN m.manual_title IS NULL THEN c.title_th END as competition_name_th, CASE WHEN m.manual_title IS NULL THEN c.title_en END as competition_name_en, c.gender as competition_gender, c.gender as competition_category,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     ag.name as age_group_name,
                     COALESCE(c.max_sets, m.max_sets, 5) as max_sets,

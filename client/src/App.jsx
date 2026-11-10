@@ -1,5 +1,4 @@
 import useUiTranslation from './hooks/useUiTranslation';
-import AppThemeControl from './components/layout/AppThemeControl';
 import PageBoundary from './components/layout/PageBoundary';
 import React, { lazy, Suspense } from 'react';
 import { Feedback } from './components/ui/SystemUI';
@@ -53,7 +52,6 @@ function App() {
     const ui = useUiTranslation();
   return (
     <BrowserRouter>
-      <AppThemeControl />
       <PageBoundary>
       <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title={ui("กำลังเปิดหน้า / Loading page…")} /></div>}>
       <Routes>

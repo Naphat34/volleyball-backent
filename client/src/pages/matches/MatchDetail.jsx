@@ -2,12 +2,12 @@ import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { LogOut, User, Edit3, Shield, Menu, X } from "lucide-react";
+import { LogOut, User, Edit3, Shield, Menu, X, Volleyball } from "lucide-react";
 import { api } from "../../api";
 import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../../utils/formatters";
 import { getStoredUser } from "../../auth/authStorage";
 
-import whistleIcon from "../../assets/img/whistle.png";
+
 import Logo from '../../assets/img/Logo_Phatthalung.png';
 import backgroundImage from '../../assets/img/bg.png';
 
@@ -216,7 +216,7 @@ const MatchDetail = () => {
         </div>
           */}
         <div className="bg-white rounded-lg shadow-sm border border-blue-100 p-5 sm:p-7">
-          <h2 className="text-center text-xl font-bold text-blue-950 mb-2">{(cleanCompetitionTitle(match.competition_title || match.competition_name)) || (ui("รายการแข่งขัน"))}</h2>
+          <h2 className="text-center text-xl font-bold text-blue-950 mb-2">{(cleanCompetitionTitle(displayNames.competitionName(match))) || (ui("รายการแข่งขัน"))}</h2>
           <div className="flex items-center justify-center gap-6 my-7 flex-wrap">
             <div className="flex items-center justify-end gap-4 text-right flex-1 min-w-[200px]">
               <span className="text-xl font-bold text-slate-800">{displayNames.matchTeamName(match, 'home')}</span>
@@ -294,7 +294,7 @@ const MatchDetail = () => {
               </div>
               <div className="p-6 flex flex-col items-center justify-center flex-1 gap-5">
                 <div>
-                  <img src={whistleIcon} alt={ui("Whistle Icon")} className="w-20 h-20 object-contain" />
+                  <Volleyball size={80} aria-hidden="true" />
                 </div>
                 <button
                   onClick={() => window.open(`/match/${matchId}/referee`, '_blank')}

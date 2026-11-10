@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2';
+import { alertIcons } from './alertIcons.js';
 import { translateUi } from './uiTranslations.js';
 import { readLanguage } from './language.js';
 
@@ -219,6 +220,17 @@ const patchFire = (target) => {
       ? localizedArgs[0]
       : { title: localizedArgs[0], text: localizedArgs[1], icon: localizedArgs[2] };
 
+    if (alertIcons[options.icon] && !options.iconHtml) {
+      options.iconHtml = alertIcons[options.icon];
+      options.customClass = {
+        ...options.customClass,
+        icon: [options.customClass?.icon, 'swal2-lucide-icon'].filter(Boolean).join(' ')
+      };
+      for (const key of ['title', 'titleText']) {
+        if (typeof options[key] === 'string') options[key] = options[key].replace(/^[✅⚠]\uFE0F?\s*/u, '');
+      }
+    }
+
     // Treat simple status/validation alerts as compact notifications. Keep dialogs
     // that ask for a choice or input as regular SweetAlert dialogs.
     const isChoiceDialog = requestedOptions.showCancelButton || requestedOptions.showDenyButton || requestedOptions.input ||
@@ -242,7 +254,7 @@ const patchFire = (target) => {
         }
       });
     }
-    return originalFire(...localizedArgs);
+    return originalFire(options);
   };
   Object.defineProperty(target, '__volleyAlertLocalePatched', { value: true });
   return target;

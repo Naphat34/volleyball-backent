@@ -1,3 +1,5 @@
+import VisThemeToggle from '../../components/vis/VisThemeToggle';
+import { scorerIcons } from '../../utils/i18n/alertIcons';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useScorerTranslation from '../../components/scorer/useScorerTranslation';
@@ -6,7 +8,6 @@ import { getContrastColorHex } from '../../utils/common/colorUtils';
 import { formatScorerDateTime } from '../../utils/scorer/scorerUiTranslations';
 import { getScorerTeamName, getScorerTeamNameFields } from '../../utils/scorer/scorerTeamNames';
 import { useVisTheme } from '../../components/vis/visThemeContext';
-import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import BatchSubstitutionModal from '../../components/scorer/modals/BatchSubstitutionModal';
 import { applySubstitutionBatch } from '../../utils/scorer/substitutionBatch';
 import { hasMatchPlayActivity, normalizeWorkflowStepForMatch } from '../../utils/scorer/scorerWorkflow';
@@ -1160,6 +1161,8 @@ export default function ScorerConsole() {
                     hasChallenge: Boolean(Number(m.has_challenge)),
                     matchId: matchId,
                     competitionName: competitionName,
+                    competition_name_th: m.competition_name_th || m.competition_title_th,
+                    competition_name_en: m.competition_name_en || m.competition_title_en,
                     matchNo: m.match_number || m.matchNo || matchDataRef.current?.matchNo,
                     gender: m.gender || matchDataRef.current?.gender,
                     category: m.category_name || m.category || matchDataRef.current?.category,
@@ -1734,9 +1737,7 @@ export default function ScorerConsole() {
                                 
                                 <div style="display: flex; align-items: flex-start;">
                                     <div style="display: flex; align-items: center; margin-right: 10px; margin-top: 25px;">
-                                        <svg width="24" height="45" viewBox="0 0 24 45">
-                                            <path d="M12 0 L24 15 L16 15 L16 45 L8 45 L8 15 L0 15 Z" fill="#00b050" stroke="#000" stroke-width="1.5"/>
-                                        </svg>
+                                        <span style="color: #00b050">${scorerIcons.arrowUp}</span>
                                         <span class="libero-alert-label" style="font-size: 24px; font-weight: 900; color: #000; margin-left: 5px;">IN</span>
                                     </div>
                                     
@@ -1751,9 +1752,7 @@ export default function ScorerConsole() {
                                 </div>
 
                                 <div style="margin: 0 5px; padding-top: 40px;">
-                                    <svg width="45" height="24" viewBox="0 0 45 24">
-                                        <path d="M0 8 L30 8 L30 0 L45 12 L30 24 L30 16 L0 16 Z" fill="#00b050" stroke="#000" stroke-width="1.5"/>
-                                    </svg>
+                                    <span style="color: #00b050">${scorerIcons.arrowRight}</span>
                                 </div>
 
                                 <div style="display: flex; align-items: flex-start;">
@@ -1768,9 +1767,7 @@ export default function ScorerConsole() {
 
                                     <div style="display: flex; align-items: center; margin-left: 10px; margin-top: 25px;">
                                         <span class="libero-alert-label" style="font-size: 24px; font-weight: 900; color: #000; margin-right: 5px;">OUT</span>
-                                        <svg width="24" height="45" viewBox="0 0 24 45">
-                                            <path d="M8 0 L16 0 L16 30 L24 30 L12 45 L0 30 L8 30 Z" fill="#ff0000" stroke="#000" stroke-width="1.5"/>
-                                        </svg>
+                                        <span style="color: #ff0000">${scorerIcons.arrowDown}</span>
                                     </div>
                                 </div>
 
@@ -3939,7 +3936,7 @@ export default function ScorerConsole() {
                     </div>
                 </div>
 
-                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2"><VisThemeToggle compact />
                     <div role="group" aria-label={st('Interface language')} className="flex shrink-0 items-center rounded-md border border-slate-200 bg-white p-0.5">
                         {[['THA', 'THAI'], ['ENG', 'EN']].map(([code, label]) => (
                             <button
@@ -3966,7 +3963,7 @@ export default function ScorerConsole() {
                     >
                         {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                     </button>
-                    <VisThemeToggle iconOnly />
+
                     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
                         <span tabIndex={0} className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${scorerOfflineActive(matchId) ? 'bg-slate-100 text-slate-600' : realtimeConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}
                             title={scorerOfflineActive(matchId) ? st('Offline · เครื่องหลัก') : realtimeConnected ? st('เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live') : st('ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting')}>

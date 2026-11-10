@@ -275,7 +275,7 @@ export const generateScoresheetPDF = async (data, options = {}) => {
             // วาดเบอร์เสื้อ (ฟอนต์ขนาด 8)
             drawText(player.number, homeStartX, currentY, 8); 
             // วาดชื่อ (ลดระยะห่างเหลือ +15 และลดฟอนต์ขนาด 7)
-            drawText(formatName(personNameParts(player, options.language || readLanguage()).first, personNameParts(player, options.language || readLanguage()).last), homeStartX + 15, currentY, 7);
+            drawText(formatName(personNameParts(player, 'ENG').first, personNameParts(player, 'ENG').last), homeStartX + 15, currentY, 7);
         });
 
         // วาดทีมเยือน (Away)
@@ -286,7 +286,7 @@ export const generateScoresheetPDF = async (data, options = {}) => {
             // วาดเบอร์เสื้อ (ฟอนต์ขนาด 8)
             drawText(player.number, awayStartX, currentY, 8); 
             // วาดชื่อ (ลดระยะห่างเหลือ +15 และลดฟอนต์ขนาด 7)
-            drawText(formatName(personNameParts(player, options.language || readLanguage()).first, personNameParts(player, options.language || readLanguage()).last), awayStartX + 15, currentY, 7);
+            drawText(formatName(personNameParts(player, 'ENG').first, personNameParts(player, 'ENG').last), awayStartX + 15, currentY, 7);
         });
         if (options.includeVisReport) appendVisReportPages(pdfDoc, customFont, data, { ...options, fontLayout: fontkit.create(fontBytes) });
         // 5. บันทึกผลลัพธ์

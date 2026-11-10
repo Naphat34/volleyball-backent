@@ -6,7 +6,7 @@ exports.overview = async (req, res) => {
     try {
         connection = await db.connect();
         await connection.beginTransaction();
-        const regular = await connection.query(`SELECT m.*, c.title AS competition_name, COALESCE(c.max_sets, m.max_sets, 5) AS max_sets,
+        const regular = await connection.query(`SELECT m.*, c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en, COALESCE(c.max_sets, m.max_sets, 5) AS max_sets,
             COALESCE(ms.home_sets,m.home_set_score) AS home_set_score, COALESCE(ms.away_sets,m.away_set_score) AS away_set_score,
             ag.name AS age_group_name, ht.name AS home_team, at.name AS away_team, ht.code AS home_team_code, at.code AS away_team_code
             FROM matches m LEFT JOIN competitions c ON c.id=m.competition_id

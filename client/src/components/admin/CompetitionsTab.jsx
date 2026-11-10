@@ -7,11 +7,12 @@ import { Toast, Input, Button, EmptyState } from './AdminShared';
 import Swal from 'sweetalert2';
 import { cleanCompetitionTitle, formatThaiDate } from '../../utils/formatters';
 import MatchesManager from './MatchesManager';
+import CompetitionWizard from './CompetitionWizard';
 
 const genderOrder = { Male: 1, Female: 2, Mixed: 3 };
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_COMP_FORM = {
-    name: '', start_date: '', end_date: '', location: '', stadium_id: '',
+    name: '', title_th: '', title_en: '', short_title_th: '', short_title_en: '', details_th: '', details_en: '', categories: [], start_date: '', end_date: '', location: '', stadium_id: '',
     sport: 'Volleyball', gender: '', age_group: '',
 status: 'open', max_sets: 3, max_players: 14, logo_url: ''
 };
@@ -61,6 +62,7 @@ export default function CompetitionsTab() {
     const [competitions, setCompetitions] = useState([]);
     const [compForm, setCompForm] = useState(DEFAULT_COMP_FORM);
     const [editingCompId, setEditingCompId] = useState(null);
+    const [saving, setSaving] = useState(false);
     const [stadiums, setStadiums] = useState([]);
     const [ageGroups, setAgeGroups] = useState([]);
     const [viewingTeamsComp, setViewingTeamsComp] = useState(null);
@@ -70,7 +72,7 @@ export default function CompetitionsTab() {
     const [updatingStatusIds, setUpdatingStatusIds] = useState([]);
 
     const groupedCompetitionSections = Object.values(competitions.reduce((acc, current) => {
-        const title = normalizeCompetitionTitle(current);
+        const title = normalizeCompetitionTitle({ ...current, title: displayNames.competitionName(current) });
         const ageGroupLabel = getAgeGroupLabel(current);
 
         if (!acc[title]) {
@@ -144,39 +146,41 @@ export default function CompetitionsTab() {
         fetchAll();
     }, []);
 
-    const handleCompSubmit = async (e) => {
+    const handleCompSubmit = async (e, onSaved) => {
         e.preventDefault();
-        if (!compForm.name || !compForm.gender || !compForm.age_group) {
-            return Toast.fire({ icon: 'warning', title: 'Please fill in Name, Gender, and Age Group' });
+        if (saving) return;
+        if (!compForm.title_th?.trim() || !compForm.title_en?.trim() || !compForm.categories?.length || !compForm.start_date || !compForm.end_date || !compForm.stadium_id) {
+            return Toast.fire({ icon: 'warning', title: ui('กรุณากรอกชื่อไทย–อังกฤษ วันที่ สนาม และประเภทแข่งขันให้ครบ') });
         }
-
+        if (compForm.end_date < compForm.start_date) return Toast.fire({ icon: 'warning', title: ui('วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น') });
+        setSaving(true);
         try {
-            const selectedAgeGroups = compForm.age_group
-                ? String(compForm.age_group).split(',').filter(Boolean)
-                : [];
+            const category = compForm.categories[0];
             const payload = {
                 ...compForm,
-                title: compForm.name,
-                age_group_id: editingCompId ? compForm.age_group : selectedAgeGroups[0],
-                age_group_ids: selectedAgeGroups,
-                stadium_id: compForm.stadium_id
+                title: compForm.title_th.trim(),
+                gender: editingCompId ? category.gender : [...new Set(compForm.categories.map(row => row.gender))].join(','),
+                age_group_id: category.age_group_id,
+                age_group_ids: [...new Set(compForm.categories.map(row => row.age_group_id))],
+                max_sets: editingCompId ? category.max_sets || compForm.max_sets : compForm.max_sets,
             };
 
             if (editingCompId) {
                 await api.updateCompetition(editingCompId, payload);
                 Toast.fire({ icon: 'success', title: 'Competition updated' });
             } else {
-                await api.createCompetition(payload);
-                Toast.fire({ icon: 'success', title: 'Competition created' });
+                const result = await api.createCompetition(payload);
+                Toast.fire({ icon: 'success', title: ui('สร้าง {0} ประเภทแข่งขัน ข้ามรายการซ้ำ {1} ประเภท', [result.data.created_count, result.data.skipped_count || 0]) });
             }
 
+            onSaved?.();
             setCompForm(DEFAULT_COMP_FORM);
             setEditingCompId(null);
             setShowModal(false);
             fetchCompetitions();
         } catch (err) {
             Toast.fire({ icon: 'error', title: err.response?.data?.error || 'Failed to save' });
-        }
+        } finally { setSaving(false); }
     };
 
     const handleCompetitionLogoFileChange = async (event) => {
@@ -197,6 +201,12 @@ export default function CompetitionsTab() {
     const handleEditComp = (c) => {
         setCompForm({
             name: c.title || c.name,
+            title_th: c.title_th || (/[ก-๙]/.test(c.title || '') ? normalizeCompetitionTitle(c) : ''),
+            title_en: c.title_en || (!/[ก-๙]/.test(c.title || '') ? normalizeCompetitionTitle(c) : ''),
+            short_title_th: c.short_title_th || '', short_title_en: c.short_title_en || '',
+            details_th: c.details_th || '', details_en: c.details_en || '',
+            scoring_config: c.scoring_config,
+            categories: [{ age_group_id: c.age_group_id, gender: c.gender }],
             start_date: c.start_date ? c.start_date.split('T')[0] : '',
             end_date: c.end_date ? c.end_date.split('T')[0] : '',
             location: c.location || '',
@@ -414,175 +424,8 @@ export default function CompetitionsTab() {
             </div>
 
             {/* Modal Form Section */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="official-panel w-full max-w-lg rounded-md overflow-hidden flex flex-col">
-                        <div className="official-panel-header px-6 py-4 flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                                <Trophy size={20} className="text-blue-600" />
-                                {editingCompId ? ui('Edit Competition') : ui('New Competition')}
-                            </h2>
-                            <button onClick={() => {
-                                setShowModal(false);
-                                setEditingCompId(null);
-                                setCompForm(DEFAULT_COMP_FORM);
-                            }} className="p-1 rounded-md hover:bg-gray-100 transition-colors">
-                                <X size={18} className="text-gray-500 hover:text-red-600" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleCompSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[80vh]">
-                            <Input label={ui("Name")} value={compForm.name} onChange={e => setCompForm({ ...compForm, name: e.target.value })} required />
-                            <div className="space-y-1.5">
-                                <label className="block text-sm font-medium text-gray-700">{ui("Competition Logo / Symbol")}</label>
-                                <div className="flex items-center gap-4 rounded-md border border-gray-200 bg-gray-50 p-3">
-                                    <div className="h-20 w-20 shrink-0 rounded-md border border-gray-200 bg-white flex items-center justify-center overflow-hidden">
-                                        {compForm.logo_url ? (
-                                            <img src={compForm.logo_url} alt={(compForm.name) || (ui('Competition logo'))} className="h-full w-full object-contain p-1.5" />
-                                        ) : (
-                                            <ImageIcon size={24} className="text-gray-300" />
-                                        )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <label className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 cursor-pointer transition">
-                                                <Upload size={16} />{ui("Browse")}<input type="file" accept="image/*" className="hidden" onChange={handleCompetitionLogoFileChange} />
-                                            </label>
-                                            {compForm.logo_url && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setCompForm(prev => ({ ...prev, logo_url: '' }))}
-                                                    className="inline-flex items-center justify-center h-10 w-10 rounded-md border border-gray-300 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600 transition"
-                                                    aria-label={ui("Remove competition logo")}
-                                                >
-                                                    <X size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                        <p className="mt-2 text-xs text-gray-500">{ui("JPG, PNG, WebP or GIF up to 2MB")}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input label={ui("Start Date")} type="date" value={compForm.start_date} onChange={e => setCompForm({ ...compForm, start_date: e.target.value })} required />
-                                <Input label={ui("End Date")} type="date" value={compForm.end_date} onChange={e => setCompForm({ ...compForm, end_date: e.target.value })} required />
-                            </div>
+            {showModal && <CompetitionWizard form={compForm} setForm={setCompForm} ageGroups={ageGroups} stadiums={stadiums} editing={editingCompId} saving={saving} onSubmit={handleCompSubmit} onLogo={handleCompetitionLogoFileChange} onClose={() => { setShowModal(false); setEditingCompId(null); setCompForm(DEFAULT_COMP_FORM); }} />}
 
-                            <div className="space-y-1.5">
-                                <label className="block text-sm font-medium text-gray-700">{ui("Stadium")}</label>
-                                <select
-                                    value={compForm.stadium_id || ''}
-                                    onChange={(e) => {
-                                        const selected = stadiums.find(s => s.id.toString() === e.target.value);
-                                        setCompForm({ ...compForm, stadium_id: e.target.value, location: selected ? selected.name : '' });
-                                    }}
-                                    className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                    required
-                                >
-                                    <option value="">{ui("-- Select Stadium --")}</option>
-                                    {stadiums.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-medium text-gray-700">{ui("Age Groups")}</label>
-                                    {editingCompId ? (
-                                        <select required value={compForm.age_group} onChange={e => setCompForm({ ...compForm, age_group: e.target.value })} className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
-                                            <option value="">{ui("-- Age Group --")}</option>
-                                            {ageGroups.map(ag => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
-                                        </select>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {ageGroups.map((ag) => {
-                                                const selectedAgeGroups = compForm.age_group ? compForm.age_group.split(',').filter(Boolean) : [];
-                                                const isSelected = selectedAgeGroups.includes(String(ag.id));
-                                                return (
-                                                    <button
-                                                        key={ag.id}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const nextAgeGroups = isSelected
-                                                                ? selectedAgeGroups.filter(id => id !== String(ag.id))
-                                                                : [...selectedAgeGroups, String(ag.id)];
-                                                            setCompForm({ ...compForm, age_group: nextAgeGroups.join(',') });
-                                                        }}
-                                                        className={`rounded-md border px-3 py-2 text-sm font-medium transition ${
-                                                            isSelected
-                                                                ? 'border-blue-600 bg-blue-600 text-white'
-                                                                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                                                        }`}
-                                                    >
-                                                        {ag.name}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="block text-sm font-medium text-gray-700">{ui("Gender Categories")}</label>
-                                <div className="flex gap-2">
-                                    {['Male', 'Female', 'Mixed'].map((g) => {
-                                        const currentGenders = compForm.gender ? compForm.gender.split(',').filter(x => x) : [];
-                                        const isSelected = currentGenders.includes(g);
-                                        return (
-                                            <button
-                                                key={g}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (editingCompId) {
-                                                        // Single-select when editing (cannot have multiple genders for an existing category)
-                                                        setCompForm({ ...compForm, gender: g });
-                                                    } else {
-                                                        // Multi-select when creating
-                                                        const newGenders = isSelected
-                                                            ? currentGenders.filter(x => x !== g)
-                                                            : [...currentGenders, g];
-                                                        setCompForm({ ...compForm, gender: newGenders.join(',') });
-                                                    }
-                                                }}
-                                                className={`flex-1 py-2 text-sm font-medium rounded-md border transition-all ${
-                                                    isSelected
-                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                {g}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">{ui("Match Rule")}</label>
-                                <select
-                                    value={compForm.max_sets || 3}
-                                    onChange={e => setCompForm({ ...compForm, max_sets: Number(e.target.value) })}
-                                    className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all mb-4"
-                                    required
-                                >
-                                    <option value={3}>{ui("2 Sets (Best of 3)")}</option>
-                                    <option value={5}>{ui("3 Sets (Best of 5)")}</option>
-                                </select>
-                                <Input label={ui("Max Players")} type="number" value={compForm.max_players} onChange={e => setCompForm({ ...compForm, max_players: parseInt(e.target.value, 10) || '' })} />
-                            </div>
-                            <div className="pt-2 flex justify-end gap-3">
-                                <button type="button" onClick={() => {
-                                    setShowModal(false);
-                                    setEditingCompId(null);
-                                    setCompForm(DEFAULT_COMP_FORM);
-                                }} className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white border-gray-300 hover:bg-gray-50 font-semibold shadow-sm transition">{ui("Cancel")}</button>
-                                <Button type="submit" label={editingCompId ? ui("Update") : ui("Create")} icon={editingCompId ? <Edit2 size={18} /> : <PlusCircle size={18} />} />
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Teams Modal */}
             {viewingTeamsComp && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="official-panel max-h-[90vh] w-full max-w-4xl rounded-md overflow-hidden flex flex-col">

@@ -25,7 +25,7 @@ const reportQueries = {
     title: 'Matches Report',
     columns: ['id', 'competition_name', 'round_name', 'match_number', 'home_team', 'away_team', 'status', 'home_set_score', 'away_set_score', 'match_date', 'start_time'],
     sql: `
-      SELECT m.id, c.title AS competition_name, m.round_name, m.match_number,
+      SELECT m.id, c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en, m.round_name, m.match_number,
         ht.name AS home_team, at.name AS away_team, m.status, m.home_set_score, m.away_set_score,
         m.match_date, m.start_time
       FROM matches m

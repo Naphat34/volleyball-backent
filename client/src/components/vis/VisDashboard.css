@@ -9,11 +9,18 @@
 .vd-brand span { color:#38bdf8; }
 .vd-account { display:flex; flex-wrap:wrap; align-items:center; gap:14px; color:var(--vis-da3b0c5, #a3b0c5); font-size:14px; }
 .vd-account button,.vd-account a { color:inherit; }
+.vd-account .vd-fullscreen-toggle { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:6px; border:1px solid var(--vis-d344258, #344258); border-radius:6px; background:transparent; }
+.vd-account .vd-fullscreen-toggle:hover { background:var(--vis-d35455d, #35455d); }
 .vd-languages { display:flex; gap:5px; }
 .vd-languages button { padding:3px 5px; border-radius:4px; }
 .vd-languages .is-active { background:var(--vis-d25344c, #25344c); color:#38bdf8; }
 .vd-sync { position:relative; }
 .vd-sync summary { list-style:none; color:var(--vis-d75cfa9, #75cfa9); }
+.vd-sync summary.vd-connection-status { display:flex; align-items:center; gap:6px; }
+.vd-sync summary.vd-connection-status.is-success { color:#16a34a; }
+.vd-sync summary.vd-connection-status.is-error { color:#dc2626; }
+.vd-sync summary.vd-connection-status.is-pending { color:var(--vis-da3b0c5, #a3b0c5); }
+.vd-connection-time { font-variant-numeric:tabular-nums; }
 .vd-sync>div { position:absolute; top:24px; right:0; z-index:45; width:260px; border:1px solid var(--vis-d3b4b63, #3b4b63); border-radius:8px; background:var(--vis-d1c293b, #1c293b); padding:12px; box-shadow:0 8px 24px #0005; line-height:1.8; }
 .vd-sync button { margin-top:6px; color:#38bdf8; }
 .vd-main { max-width:1800px; margin:auto; padding:12px; }
@@ -52,6 +59,8 @@
 .vd-table tbody tr:last-child td { border-bottom:0; }
 .vd-table tbody tr:hover { background:var(--vis-d223146, #223146); }
 .vd-date { width:100px; white-space:nowrap; font-size:14px; color:var(--vis-de1e7f0, #e1e7f0); }
+.vd-fixture-schedule { display:flex; flex-direction:column; align-items:flex-start; gap:4px; font-size:12px; font-weight:400; line-height:1.5; font-variant-numeric:tabular-nums; }
+.vd-fixture-schedule > span { font:inherit; color:inherit; }
 .vd-match { min-width:220px; }
 .vd-match strong { display:block; font-size:15px; font-weight:700; }
 .vd-match strong span:first-child { color:#4d8dff; }

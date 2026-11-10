@@ -59,9 +59,9 @@ const getCalculatedSetDuration = (r, fallbackStart) => {
 };
 
 // Main FIVB O-4 Match Result Report Component
-export default function MatchResultReportO4({ matchData, scoreData, rosterData }) {
-    const displayNames = useDisplayNames();
-    const ui = useUiTranslation();
+export default function MatchResultReportO4({ matchData, scoreData, rosterData, language }) {
+    const displayNames = useDisplayNames(language);
+    const ui = useUiTranslation(language);
     if (!matchData) return null;
 
     // --- Parse Live State from Scorer Console ---
@@ -70,7 +70,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
         try { liveState = JSON.parse(liveState); } catch { liveState = {}; }
     }
 
-    const compName = cleanCompetitionTitle(matchData.title || matchData.competition_title || matchData.competition_name || '');
+    const compName = cleanCompetitionTitle(displayNames.competitionName(matchData));
     const city = matchData.city || matchData.stadium_city || '';
     const time = matchData.start_time ? matchData.start_time.substring(0, 5) : '';
     const matchNumber = matchData.match_number || '';
@@ -545,7 +545,9 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                     <div className="w-[180px] flex items-center justify-center border border-black p-1 bg-white h-7 gap-1">
                         <span className="font-bold text-[10px]">{ui("DATE :")}</span>
                         <span className="font-bold text-[11px]">
-                            {matchData.match_date ? formatThaiDate(matchData.match_date) : '__/__/____'}
+                            {matchData.match_date ? language === 'ENG'
+                                ? new Date(matchData.match_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+                                : formatThaiDate(matchData.match_date) : '__/__/____'}
                         </span>
                     </div>
                     <div className="w-[130px] flex items-center justify-center border border-black p-1 bg-white h-7 gap-1">
@@ -928,7 +930,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
             {/* --- 7. FOOTER --- */}
             <div className="flex justify-between items-center text-[7.5px] font-bold text-gray-400 border-t border-gray-200 pt-1 mt-2 shrink-0">
-                <span>{ui("Print:")}{' '}{new Date().toLocaleString()}{' '}{ui("eScorersheet Version DEMO 2026.06.11")}</span>
+                <span>{ui("Print:")}{' '}{new Date().toLocaleString(language === 'ENG' ? 'en-GB' : undefined)}{' '}{ui("eScorersheet Version DEMO 2026.06.11")}</span>
                 <span>{ui("Phatthalung Provincial Volleyball Association")}</span>
             </div>
         </div>

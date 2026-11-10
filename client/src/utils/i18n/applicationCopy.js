@@ -1,5 +1,9 @@
 // Authored application copy. Data values and official codes are never translated here.
 export const applicationCopy = `
+สร้าง {0} ประเภทแข่งขัน ข้ามรายการซ้ำ {1} ประเภท|Created {0} categories; skipped {1} existing categories
+กรุณากรอกชื่อไทย–อังกฤษ วันที่ สนาม และประเภทแข่งขันให้ครบ|Complete both competition names, dates, venue and categories.
+วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น|End date must not precede start date
+
 โหลดรายชื่อนักกีฬาหรือเจ้าหน้าที่ไม่สำเร็จ กรุณาลองใหม่ก่อนสร้างเอกสาร|Could not load players or officials. Retry before generating the document.
 ดาวน์โหลด Team composition|Download Team composition
 สร้างเอกสาร Team composition แยกประเภทชายและหญิงสำหรับทีม |Generate a separate Team composition PDF for each gender for team 

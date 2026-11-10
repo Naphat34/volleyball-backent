@@ -1,3 +1,5 @@
+import { Undo2 } from 'lucide-react';
+import { Check as UiCheck, ArrowUpRight as UiArrowUpRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useVisTranslation from './useVisTranslation';
@@ -80,7 +82,7 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
         <label htmlFor="vis-code-input" className="sr-only">{vt("คีย์ทั้งแรลลี่")}</label>
         <div id="vis-code-preview" className="mb-2 space-y-1 text-[11px] leading-4" aria-live="polite">
             {events.map((event, index) => <div key={index} className={`flex flex-wrap items-baseline gap-x-2 ${event.generated ? 'opacity-60' : ''}`}>
-                <span className={event.generated ? 'text-sky-400' : 'text-emerald-400'}>✓</span><code className={`min-w-12 font-bold ${teamColor(event.team)}`}>{rallyCode(event)}</code>
+                <span className={event.generated ? 'text-sky-400' : 'text-emerald-400'}><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></span><code className={`min-w-12 font-bold ${teamColor(event.team)}`}>{rallyCode(event)}</code>
                 <span className={teamColor(event.team)}>{describe(event)}</span>{event.generated && <span className="italic text-slate-400">{vt("แนะนำ → ↑↓ เปลี่ยน · Tab / Space รับ · Esc ไม่ใส่")}</span>}
             </div>)}
             {parsed.errors.map(error => <p key={error} className="text-red-300">✗ {ui(error)}</p>)}
@@ -109,11 +111,11 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
             }} autoComplete="off" spellCheck={false} placeholder={ui("7   10#   4B#   *OP#   aT=")} aria-invalid={Boolean(parsed.errors.length)} aria-describedby="vis-code-preview"
             className="vis-code-text relative block h-10 w-full min-w-0 bg-transparent px-3 py-2 font-mono text-base leading-6 text-transparent caret-white placeholder:text-slate-600 selection:bg-sky-800/60" />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1"><button type="button" disabled={locked} onClick={auto} className={`${chip} !border-sky-700 text-sky-300`}>↗ {suggestion ? rallyCode(suggestion) : ui('AUTO')} <kbd className="text-[9px] opacity-60">{ui("Tab")}</kbd></button>
+        <div className="mt-1 flex flex-wrap items-center gap-1"><button type="button" disabled={locked} onClick={auto} className={`${chip} !border-sky-700 text-sky-300`}><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /> {suggestion ? rallyCode(suggestion) : ui('AUTO')} <kbd className="text-[9px] opacity-60">{ui("Tab")}</kbd></button>
             {Object.values(teams).map(team => <button type="button" key={team.key} disabled={locked} onClick={() => append(`${draft && !/\s$/.test(draft) ? ' ' : ''}${team.key === 'home' ? '*' : 'a'}`)} className={chip}><span className={teamColor(team.key)}>{team.key === 'home' ? '*' : ui('a')}</span><span className="max-w-24 truncate">{displayNames.teamName(team)}</span></button>)}
             {['S', 'R', 'A', 'B', 'D', 'E', '#', '+', '!', '-', '=', '/'].map(code => <button type="button" key={code} title={vt(visSkillNames[code]) || code} disabled={locked} onClick={() => append(code)} className={`${chip} !px-1.5 font-mono`}>{code}</button>)}
             {teamCommands.map(({ team, code }) => <button type="button" key={`${team.key}-${code}`} disabled={locked} onClick={() => append(`${draft && !/\s$/.test(draft) ? ' ' : ''}${team.key === 'home' ? '*' : 'a'}${code}`)} className={chip}><span className="max-w-20 truncate">{displayNames.teamName(team)}</span><code>{code}</code></button>)}
-            <span className="ml-auto flex gap-1"><button type="button" disabled={undoDisabled} onClick={onUndo} className={chip}>{vt("↶ ย้อนกลับ")}</button><button disabled={locked || !valid} className={`${chip} !border-sky-700 text-sky-200`}>{vt("บันทึก ↵")}</button></span>
+            <span className="ml-auto flex gap-1"><button type="button" disabled={undoDisabled} onClick={onUndo} className={chip}><Undo2 size={16} aria-hidden="true" />{vt("↶ ย้อนกลับ").replace("↶", "").trim()}</button><button disabled={locked || !valid} className={`${chip} !border-sky-700 text-sky-200`}>{vt("บันทึก ↵")}</button></span>
         </div>
         {notice && <p className="mt-1 text-[11px] text-amber-200" role="status">{vt(notice)}</p>}
         <details className="mt-2 text-xs leading-relaxed text-slate-300">

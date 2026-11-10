@@ -3,6 +3,7 @@ const { createHash } = require('node:crypto');
 const { normalizeTeam, parseSetup } = require('../utils/matchSetup');
 const { roleHasPermission } = require('../config/permissions');
 const { canManage, assertReady } = require('../utils/manualScorer');
+const { canReadStatistics } = require('../utils/manualVisAccess');
 const { writeAuditLog } = require('../utils/auditLogger');
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const officialFields = { referee_1_id: 'referees', referee_2_id: 'referees', scorer_id: 'scorers', line_judge_1_id: 'line_judges', line_judge_2_id: 'line_judges', line_judge_3_id: 'line_judges', line_judge_4_id: 'line_judges' };
@@ -42,8 +43,8 @@ async function snapshot(connection, req) {
 exports.read = async (req, res) => {
     try {
         if (!roleHasPermission(req.user?.role, 'match.score') && req.user?.role !== 'referee') fail('ไม่มีสิทธิ์ดูการตั้งค่าแมตซ์', 403);
-        const match = (await db.query('SELECT manual_owner_id FROM matches WHERE id=?', [req.params.matchId])).rows[0];
-        if (!match || match.manual_owner_id && !canManage(req.user, match)) fail('ไม่พบแมตซ์', 404);
+        const match = (await db.query('SELECT * FROM matches WHERE id=?', [req.params.matchId])).rows[0];
+        if (!match || match.manual_owner_id && !canManage(req.user, match) && !canReadStatistics(req.user, match)) fail('ไม่พบแมตซ์', 404);
         const data = await snapshot(db, req);
         const [referees, scorers, lineJudges] = await Promise.all(['referees', 'scorers', 'line_judges'].map(table => db.query(`SELECT id, firstname, lastname FROM ${table} ORDER BY firstname, lastname`)));
         const ageGroups = (await db.query('SELECT id, name FROM age_groups ORDER BY name')).rows;

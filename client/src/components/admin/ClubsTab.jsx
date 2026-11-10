@@ -372,7 +372,7 @@ export default function ClubsTab({ initialSearch = '' }) {
         >
           <option value="open">{ui("ทุกรายการแข่งขันที่เปิดรับสมัคร")}</option>
           {openCompetitions.map((competition) => (
-            <option key={competition.id} value={String(competition.id)}>{(competition.title || competition.name || competition.competition_title) || (ui(`รายการแข่งขัน #{0}`, [competition.id]))}</option>
+            <option key={competition.id} value={String(competition.id)}>{displayNames.competitionName(competition) || (ui(`รายการแข่งขัน #{0}`, [competition.id]))}</option>
           ))}
           <option value="all">{ui("ดูทีมจากทุกรายการแข่งขัน (รวมรายการปิด)")}</option>
         </select>

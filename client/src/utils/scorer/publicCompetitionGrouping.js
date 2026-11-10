@@ -1,3 +1,4 @@
+import { competitionName, localizedReference } from '../i18n/competitionNames.js';
 import { cleanCompetitionTitle } from '../formatters';
 
 export const normalizePublicGender = (value) => {
@@ -26,7 +27,7 @@ export const getPublicGenderLabel = (value, language = 'THA') => {
 
 export const getPublicCompetitionVariantLabel = (competition, language = 'THA') => {
   const labels = [
-    getPublicAgeGroupLabel(competition),
+    localizedReference({ name: getPublicAgeGroupLabel(competition), name_th: competition?.age_group_name_th, name_en: competition?.age_group_name_en }, language),
     getPublicGenderLabel(competition?.gender, language)
   ].filter(Boolean);
 
@@ -53,7 +54,7 @@ export const groupPublicCompetitionCategories = (competitions = [], language = '
   return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label, language === 'THA' ? 'th' : 'en'));
 };
 
-export const groupPublicCompetitions = (competitions = []) => {
+export const groupPublicCompetitions = (competitions = [], language = 'THA') => {
   const groups = new Map();
 
   competitions.forEach((competition) => {
@@ -62,7 +63,7 @@ export const groupPublicCompetitions = (competitions = []) => {
     if (!groups.has(key)) {
       groups.set(key, {
         key,
-        title,
+        title: cleanCompetitionTitle(competitionName(competition, language)),
         logo_url: competition.logo_url || '',
         items: []
       });

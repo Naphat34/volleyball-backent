@@ -39,7 +39,8 @@ test('MySQL: VIS save, retry and Undo preserve eScore scores and a newer officia
             VALUES (1,?,?,1,8,4,0,0,'live',?)`, [player.team_id, player.team_id + 1, JSON.stringify(live)]);
         const context = { exports: {}, console, require: name => {
             if (name === '../config/db') return { connect: async () => transaction };
-            if (name === '../utils/visWorkflow') return require('../utils/visWorkflow');
+            if (name === '../utils/manualVisAccess') return require('../utils/manualVisAccess');
+        if (name === '../utils/visWorkflow') return require('../utils/visWorkflow');
             if (name === '../utils/visEventCode') return require('../utils/visEventCode');
             throw new Error(name);
         } };

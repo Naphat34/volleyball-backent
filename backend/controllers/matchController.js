@@ -1,3 +1,4 @@
+const { normalizeMatchSchedule } = require('../utils/matchSchedule');
 const db = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLogger');
 const { roleHasPermission } = require('../config/permissions');
@@ -211,7 +212,7 @@ module.exports = {
         try {
             const result = await db.query(`
                 SELECT
-                    m.id, m.match_setup, m.competition_id, c.title as competition_name, m.round_name,
+                    m.id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
                     m.start_time as raw_start_time, m.location, m.status, m.vis_state, m.live_state,
                     m.match_number, m.pool_name, m.gender,
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
@@ -250,47 +251,7 @@ module.exports = {
                     m.id DESC
             `);
 
-            const normalizedRows = result.rows.map(row => {
-                let match_date = row.match_date;
-                let start_time_str = null;
-                const rawStart = row.raw_start_time;
-
-                if (rawStart) {
-                    const dateObj = new Date(rawStart);
-                    if (!isNaN(dateObj.getTime())) {
-                        try {
-                            if (typeof rawStart === 'string' && rawStart.includes('T')) {
-                                const parts = rawStart.split('T');
-                                match_date = parts[0];
-                                start_time_str = parts[1].substring(0, 5);
-                            } else {
-                                const year = dateObj.getFullYear();
-                                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                                const day = String(dateObj.getDate()).padStart(2, '0');
-                                match_date = `${year}-${month}-${day}`;
-
-                                const hours = String(dateObj.getHours()).padStart(2, '0');
-                                const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-                                start_time_str = `${hours}:${minutes}`;
-                            }
-                        } catch (e) {
-                            start_time_str = String(rawStart);
-                        }
-                    } else {
-                        start_time_str = String(rawStart);
-                    }
-                }
-
-                // Delete temporary raw field to keep payload clean
-                delete row.raw_start_time;
-
-                return {
-                    ...row,
-                    match_date,
-                    start_time: start_time_str,
-                    status: row.status ? row.status.toLowerCase() : row.status
-                };
-            });
+            const normalizedRows = result.rows.map(row => ({ ...normalizeMatchSchedule(row), status: row.status ? row.status.toLowerCase() : row.status }));
             res.json(await attachDashboardSummaries(db, normalizedRows));
         } catch (err) {
             console.error("Get All Matches Error:", err);

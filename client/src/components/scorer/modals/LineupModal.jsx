@@ -1,9 +1,10 @@
+import { X, PenTool, Lock, Check as UiCheck } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import { isPlayerLibero } from '../../../utils/scorer/playerFilters';
 import { isLineupSetupLocked } from '../../../utils/scorer/scorerHelpers';
 import React, { useState, useRef } from 'react';
-import { X, PenTool, Lock } from 'lucide-react';
+
 import SignaturePad from '../partials/SignaturePad';
 import { getContrastClass, getContrastColorHex } from '../../../utils/common/colorUtils';
 
@@ -246,7 +247,7 @@ const LineupModal = ({
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(homeColor, signatures.homeCaptain)}
                                 >{st("Captain")}{homeCode}
-                                    {signatures.homeCaptain && <span className="block mt-1 text-[10px]">{st("✓ Signed · Locked")}</span>}
+                                    {signatures.homeCaptain && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
                                 </button>
                                 <button
                                     onClick={() => handleButtonClick('homeCoach')}
@@ -254,7 +255,7 @@ const LineupModal = ({
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(homeColor, signatures.homeCoach)}
                                 >{st("Coach")}{homeCode}
-                                    {signatures.homeCoach && <span className="block mt-1 text-[10px]">{st("✓ Signed · Locked")}</span>}
+                                    {signatures.homeCoach && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
                                 </button>
                             </div>
                         </div>
@@ -391,7 +392,7 @@ const LineupModal = ({
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(awayColor, signatures.awayCaptain)}
                                 >{st("Captain")}{awayCode}
-                                    {signatures.awayCaptain && <span className="block mt-1 text-[10px]">{st("✓ Signed · Locked")}</span>}
+                                    {signatures.awayCaptain && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
                                 </button>
                                 <button
                                     onClick={() => handleButtonClick('awayCoach')}
@@ -399,7 +400,7 @@ const LineupModal = ({
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(awayColor, signatures.awayCoach)}
                                 >{st("Coach")}{awayCode}
-                                    {signatures.awayCoach && <span className="block mt-1 text-[10px]">{st("✓ Signed · Locked")}</span>}
+                                    {signatures.awayCoach && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
                                 </button>
                             </div>
                         </div>

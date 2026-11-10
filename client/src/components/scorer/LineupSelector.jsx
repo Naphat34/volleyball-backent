@@ -1,7 +1,8 @@
+import { Shield, CheckCircle, Check as SystemCheck } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useScorerTranslation from './useScorerTranslation';
 import React, { useState, useEffect } from 'react';
-import { Shield, CheckCircle } from 'lucide-react';
+
 
 const LineupSelector = ({ teamName, players, onConfirm }) => {
     const displayNames = useDisplayNames();
@@ -91,7 +92,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                                             : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:text-gray-900'
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
-                                    {isStarter ? st('✓ Starter') : st('Starter')}
+                                    {<>{isStarter && <SystemCheck size={14} aria-hidden="true" />}{st('Starter')}</>}
                                 </button>
                                 <button 
                                     onClick={() => selectLibero(player)} 
@@ -102,7 +103,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                                             : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:text-gray-900'
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
-                                    {isLibero ? st('✓ Libero') : st('Libero')}
+                                    {<>{isLibero && <SystemCheck size={14} aria-hidden="true" />}{st('Libero')}</>}
                                 </button>
                             </div>
                         </div>

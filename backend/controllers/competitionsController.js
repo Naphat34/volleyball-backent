@@ -1,3 +1,4 @@
+const { competitionInput } = require('../utils/competitionInput');
 const { athleteError } = require('../utils/athleteIntegrity');
 const db = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLogger');
@@ -241,7 +242,7 @@ module.exports = {
   async getAllCompetitions(req, res) {
     try {
       const result = await db.query(`
-        SELECT c.*, ag.name as age_group_name, s.name as stadium_name,
+        SELECT c.*, DATE_FORMAT(c.start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(c.end_date, '%Y-%m-%d') as end_date, ag.name as age_group_name, s.name as stadium_name,
         (SELECT COUNT(*) FROM team_entries te WHERE te.competition_id = c.id) as team_count
         FROM competitions c
         LEFT JOIN age_groups ag ON c.age_group_id = ag.id
@@ -263,12 +264,13 @@ module.exports = {
 
     try {
         const { title, details, sport, scoring_config, gender, age_group_id, age_group_ids, start_date, end_date, location, status, max_sets, max_players, stadium_id, logo_url } = req.body;
-        const baseTitle = String(title || '').trim();
+        const names = competitionInput(req.body);
+        const baseTitle = names.title;
         const rawAgeGroups = Array.isArray(age_group_ids)
           ? age_group_ids
           : String(age_group_ids || age_group_id || '').split(',');
-        const selectedAgeGroupIds = [...new Set(rawAgeGroups.map(parseNullableInt).filter(Boolean))];
-        const selectedGenders = gender ? gender.split(',').map(g => g.trim()).filter(Boolean) : [];
+        const selectedAgeGroupIds = [...new Set(names.categories.map(row => row.age_group_id))];
+        const selectedGenders = [...new Set(names.categories.map(row => row.gender))];
         const cleanMaxPlayers = resolveMaxPlayers(null, max_players);
         const cleanMaxSets = resolveMaxSets(null, max_sets);
         const cleanScoringConfig = buildScoringConfig(null, scoring_config);
@@ -288,6 +290,8 @@ module.exports = {
         }
 
         await client.query('BEGIN');
+        const ageRows = await client.query('SELECT id FROM age_groups WHERE id IN (' + selectedAgeGroupIds.map(() => '?').join(',') + ')', selectedAgeGroupIds);
+        if (ageRows.rows.length !== selectedAgeGroupIds.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Invalid age group' }); }
 
         const existingRes = await client.query('SELECT id, title, gender, age_group_id FROM competitions');
         const existingKeys = new Set((existingRes.rows || []).map((row) => (
@@ -298,6 +302,8 @@ module.exports = {
         let skippedCount = 0;
         for (const ageGroupId of selectedAgeGroupIds) {
             for (const selectedGender of selectedGenders) {
+                const category = names.categories.find(row => row.age_group_id === ageGroupId && row.gender === selectedGender);
+                if (!category) continue;
                 const cleanGender = String(selectedGender).trim();
                 const key = `${normalizeCompetitionTitle(baseTitle)}|${cleanGender.toLowerCase()}|${ageGroupId}`;
                 if (existingKeys.has(key)) {
@@ -305,13 +311,13 @@ module.exports = {
                     continue;
                 }
 
-                const suffix = selectedGenders.length > 1 ? ` (${cleanGender})` : '';
-                const finalTitle = `${baseTitle}${suffix}`;
+                // Category is stored separately; never append it to official names.
+                const finalTitle = baseTitle;
 
                 await client.query(
                     `INSERT INTO competitions
-                    (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, scoring_config, stadium_id, logo_url)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, scoring_config, stadium_id, logo_url, title_th, title_en, short_title_th, short_title_en, details_th, details_en)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         finalTitle,
                         details,
@@ -322,11 +328,11 @@ module.exports = {
                         cleanEndDate,
                         location,
                         status,
-                        cleanMaxSets,
-                        cleanMaxPlayers,
+                        category.max_sets,
+                        category.max_players,
                         cleanScoringConfig,
                         cleanStadium,
-                        cleanLogoUrl
+                        cleanLogoUrl, names.title_th, names.title_en, names.short_title_th, names.short_title_en, names.details_th, names.details_en
                     ]
                 );
                 existingKeys.add(key);
@@ -349,7 +355,7 @@ module.exports = {
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Create Competition Error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     } finally {
         client.release();
     }
@@ -380,11 +386,13 @@ module.exports = {
         return res.status(400).json({ error: 'Please select an age group' });
       }
 
-      const currentCompetitionRes = await db.query('SELECT id, title FROM competitions WHERE id = ?', [id]);
+      const currentCompetitionRes = await db.query('SELECT * FROM competitions WHERE id = ?', [id]);
       if (currentCompetitionRes.rows.length === 0) {
         return res.status(404).json({ error: "Competition not found" });
       }
 
+      const names = competitionInput(req.body, currentCompetitionRes.rows[0]);
+      if (names.categories.length !== 1) return res.status(400).json({ error: 'Edit one competition category at a time' });
       const currentBaseTitle = normalizeCompetitionTitle(currentCompetitionRes.rows[0].title);
       const nextBaseTitle = normalizeCompetitionTitle(title);
       const siblingRes = await db.query('SELECT id, title FROM competitions');
@@ -397,11 +405,11 @@ module.exports = {
 
       await db.query(
         `UPDATE competitions 
-         SET title=?, details=?, sport=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, scoring_config=?, stadium_id=?, logo_url=?
+         SET title=?, details=?, sport=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, scoring_config=?, stadium_id=?, logo_url=?, title_th=?, title_en=?, short_title_th=?, short_title_en=?, details_th=?, details_en=?
          WHERE id=?`,
         [
-          title, details, sport, singleGender, // ใช้ค่าเดียว
-          cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxSets, cleanMaxPlayers, cleanScoringConfig, cleanStadium, cleanLogoUrl,
+          names.title, details, sport, singleGender, // ใช้ค่าเดียว
+          cleanAgeGroup, cleanStartDate, cleanEndDate, location, status, cleanMaxSets, cleanMaxPlayers, cleanScoringConfig, cleanStadium, cleanLogoUrl, names.title_th, names.title_en, names.short_title_th, names.short_title_en, names.details_th, names.details_en,
           id
         ]
       );
@@ -422,7 +430,7 @@ module.exports = {
       res.json(updatedCompetition.rows[0]);
     } catch (err) {
       console.error("Update Competition Error:", err);
-      res.status(500).json({ error: err.message });
+      res.status(err.status || 500).json({ error: err.message });
     }
   },
 
@@ -572,7 +580,7 @@ module.exports = {
           te.*,
           t.name as organization_name,
           t.code as organization_code,
-          c.title as competition_title,
+          c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
           c.sport,
           c.gender as competition_gender,
           c.start_date,
@@ -605,7 +613,7 @@ module.exports = {
       const entryRes = await db.query(`
         SELECT
           te.*,
-          c.title as competition_title,
+          c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
           c.gender as competition_gender,
           c.max_players,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
@@ -700,7 +708,7 @@ module.exports = {
       const entryRes = await client.query(`
         SELECT
           te.*,
-          c.title as competition_title,
+          c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
           c.gender as competition_gender,
           c.max_players,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
@@ -786,7 +794,7 @@ module.exports = {
             p.number,
             p.first_name,
             p.last_name,
-            c.title as competition_title,
+            c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
             c.gender as competition_gender,
             ag.name as age_group_name
           FROM team_entry_players tep
@@ -887,7 +895,7 @@ module.exports = {
       const entryRes = await db.query(`
         SELECT
           te.*,
-          c.title as competition_title,
+          c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
           c.gender as competition_gender,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
           ag.name as age_group_name
@@ -1262,7 +1270,7 @@ module.exports = {
           te.competition_id,
           te.display_name,
           te.status,
-          c.title as competition_title,
+          c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
           t.name as team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
         FROM team_entries te
         LEFT JOIN competitions c ON c.id = te.competition_id

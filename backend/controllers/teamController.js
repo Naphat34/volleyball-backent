@@ -628,7 +628,7 @@ exports.getMyTeamStaff = async (req, res) => {
         tes.staff_id,
         te.id as team_entry_id,
         te.competition_id,
-        c.title as competition_title,
+        c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
         c.gender as competition_gender,
         COALESCE(te.gender, c.gender) as entry_gender,
         COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
@@ -872,7 +872,7 @@ exports.getMyPlayers = async (req, res) => {
           tep.player_id,
           te.id as team_entry_id,
           te.competition_id,
-          c.title as competition_title,
+          c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
           COALESCE(c.gender, te.gender) as competition_gender,
           COALESCE(te.age_group_id, c.age_group_id) as age_group_id,
           ag.name as age_group_name,
@@ -1174,7 +1174,7 @@ exports.getAllTeamEntries = async (req, res) => {
         t.coach,
         t.phone,
         t.email,
-        c.title as competition_title,
+        c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
         c.sport,
         c.gender as competition_gender,
         ag.name as age_group_name,
@@ -1622,7 +1622,7 @@ exports.getMyMatches = async (req, res) => {
 
     const result = await db.query(`
         SELECT
-            m.id, m.competition_id, c.title as competition_name, m.round_name, m.match_date, m.start_time, m.location, m.status,
+            m.id, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name, m.match_date, m.start_time, m.location, m.status,
             m.match_number, m.pool_name, COALESCE(m.gender, c.gender) as gender,
             COALESCE(m.age_group_id, c.age_group_id) as age_group_id,
             ag.name as age_group_name,
@@ -1677,7 +1677,7 @@ exports.getMyMatchesByGender = async (req, res) => {
 
     const result = await db.query(`
         SELECT
-            m.id, m.competition_id, c.title as competition_name, m.round_name, m.match_date, m.start_time, m.location, m.status,
+            m.id, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name, m.match_date, m.start_time, m.location, m.status,
             m.match_number, m.pool_name, m.gender,
             m.home_set_score, m.away_set_score, m.set_scores,
 
