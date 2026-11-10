@@ -6,6 +6,8 @@ router.use(auth.verifyApprovedToken, auth.canScoreMatches);
 router.get('/offline-permit', controller.offlinePermit);
 router.get('/', controller.list);
 router.post('/', controller.create);
+router.get('/athlete-options', controller.athleteOptions);
+router.put('/:id/athletes', controller.linkAthlete);
 router.get('/:id', controller.read);
 router.post('/:id/offline-checkout', controller.offlineCheckout);
 router.post('/:id/offline-cancel-checkout', controller.offlineCancelCheckout);

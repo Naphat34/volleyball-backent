@@ -1,7 +1,9 @@
+import useScorerTranslation from '../useScorerTranslation';
 import React, { useEffect, useState } from 'react';
 import { X, Clock, Play, Pause, RotateCcw } from 'lucide-react';
 
 const TimeoutTimerModal = ({ isOpen, onClose, duration = 30, title = 'Timeout', startTime = null }) => {
+    const st = useScorerTranslation();
     const [timeLeft, setTimeLeft] = useState(duration);
     const [isRunning, setIsRunning] = useState(true);
     const [visible, setVisible] = useState(false);
@@ -76,11 +78,11 @@ const TimeoutTimerModal = ({ isOpen, onClose, duration = 30, title = 'Timeout', 
                             <Clock className="text-yellow-600 dark:text-yellow-400" size={24} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-wider">{title}</h3>
+                            <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-wider">{st(title)}</h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold">{durationText}</p>
                         </div>
                     </div>
-                    <button 
+                    <button aria-label={st('Close')}
                         onClick={onClose}
                         className="bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-500 dark:text-gray-300 p-2 rounded-full transition-colors"
                     >
@@ -118,7 +120,7 @@ const TimeoutTimerModal = ({ isOpen, onClose, duration = 30, title = 'Timeout', 
                                     : 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/30'
                             }`}
                         >
-                            {isRunning ? <><Pause size={24}/> PAUSE</> : <><Play size={24}/> RESUME</>}
+                            {isRunning ? <><Pause size={24}/>{' '}{st("PAUSE")}</> : <><Play size={24}/>{' '}{st("RESUME")}</>}
                         </button>
                         <button 
                             onClick={() => { setTimeLeft(duration); setIsRunning(true); }}

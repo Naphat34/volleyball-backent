@@ -44,7 +44,7 @@ export function rankAdminVis(matches, includeUnconfirmed = false) {
     const players = new Map(), teams = new Map();
     for (const match of eligible) for (const stat of match.statistics || []) {
         const prefix = match.is_custom_vis ? `custom:${match.id}` : 'official';
-        const teamKey = `${prefix}:${stat.team_id}`, playerKey = `${teamKey}:${stat.id}`;
+        const teamKey = `${prefix}:${stat.team_id}`, playerKey = stat.master_player_id != null ? `athlete:${stat.master_player_id}` : !match.is_custom_vis ? `athlete:${stat.id}` : `${teamKey}:${stat.id}`;
         const add = (map, key, name, extra = {}) => {
             if (!map.has(key)) map.set(key, { key, name, ...extra, attack: 0, block: 0, serve: 0, attackAttempts: 0, attackErrors: 0, attackBlocked: 0, matches: new Set() });
             const row = map.get(key);
@@ -70,7 +70,7 @@ function csvTable(rows) {
 }
 
 export function adminVisCsv(matches) {
-    return csvTable([['Match', 'Competition', 'Date', 'Time', 'Home', 'Away', 'Sets', 'Match status', 'VIS status', 'Owner', 'Source', 'Last sync', 'Issues'],
+    return csvTable([['Match', 'Competition', 'Date', 'Time', 'Home', 'Away', 'Sets', 'Match status', 'VIMS status', 'Owner', 'Source', 'Last sync', 'Issues'],
         ...matches.map(m => [m.match_number || m.id, m.competition_name, m.match_date, m.start_time, m.home_team, m.away_team, dashboardSetResult(m), dashboardMatchStatus(m), m.vis_summary?.status, m.owner, m.source, m.last_synced_at, adminVisIssues(m).join(' | ')])]);
 }
 

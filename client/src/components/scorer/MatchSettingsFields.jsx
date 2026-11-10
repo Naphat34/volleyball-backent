@@ -1,4 +1,6 @@
-import { playerName } from '../../utils/scorer/matchReview';
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
+
 
 const shirtColors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f8fafc', '#1e293b'];
 const staffRoles = [
@@ -11,8 +13,10 @@ const staffRoles = [
 ];
 
 export default function MatchSettingsFields({ tab, draft, settings, disabled, isManual, onChange, t }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const teamsDisabled = disabled || !settings.editableTeams;
-    const field = (key, label, type = 'text', locked = false) => <label className="smm-field" key={key}>{label}<input type={type} value={draft[key] ?? ''} disabled={disabled || locked} onChange={event => onChange({ ...draft, [key]: event.target.value })}/></label>;
+    const field = (key, label, type = 'text', locked = false) => <label className="smm-field" key={key}>{ui(label)}<input type={type} value={draft[key] ?? ''} disabled={disabled || locked} onChange={event => onChange({ ...draft, [key]: event.target.value })}/></label>;
     const teamChange = (side, value) => onChange({ ...draft, [side]: { ...draft[side], ...value } });
     const updateRow = (side, collection, index, key, value) => teamChange(side, { [collection]: draft[side][collection].map((row, i) => i === index ? { ...row, [key]: value } : row) });
     const updateRole = (side, index, libero, captain) => {
@@ -46,35 +50,35 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
             ].map(({ key, label, fallback }) => {
                 const selected = draft[side][key] || fallback;
                 return <div key={key}>
-                    <label className="smm-field">{label}<span className="smm-shirt-color"><input type="color" aria-label={`${label} ${draft[side].name}`} value={selected} disabled={teamsDisabled} onChange={event => teamChange(side, { [key]: event.target.value })}/><span>{selected.toUpperCase()}</span></span></label>
+                    <label className="smm-field">{ui(label)}<span className="smm-shirt-color"><input type="color" aria-label={`${label} ${draft[side].name}`} value={selected} disabled={teamsDisabled} onChange={event => teamChange(side, { [key]: event.target.value })}/><span>{selected.toUpperCase()}</span></span></label>
                     <div className="smm-shirt-palette" role="group" aria-label={`${label} ${draft[side].name}`}>
                         {shirtColors.map(color => <button type="button" key={color} aria-label={`${label} ${color}`} aria-pressed={selected.toLowerCase() === color} disabled={teamsDisabled} style={{ backgroundColor: color }} onClick={() => teamChange(side, { [key]: color })}/>)}
                     </div>
                 </div>;
             })}</div>
             <p>{t('ผู้เล่น', 'Players')} {draft[side].players.length} · {t('ลิเบอโร', 'Liberos')} {draft[side].players.filter(p => p.role.startsWith('L')).length} · {t('กัปตัน', 'Captain')} {draft[side].players.find(p => p.role.includes('C'))?.number || '–'}</p>
-            <div className="smm-scroll"><table><thead><tr>{[t('เบอร์', 'No.'), t('ชื่อ', 'First name'), t('นามสกุล', 'Last name'), t('ตำแหน่ง', 'Position'), 'L', 'C', ''].map((label, i) => <th key={i}>{label}</th>)}</tr></thead><tbody>{draft[side].players.map((p, index) => <tr key={p.id}>
+            <div className="smm-scroll"><table><thead><tr>{[t('เบอร์', 'No.'), t('ชื่อ', 'First name'), t('นามสกุล', 'Last name'), t('ตำแหน่ง', 'Position'), 'L', 'C', ''].map((label, i) => <th key={i}>{ui(label)}</th>)}</tr></thead><tbody>{draft[side].players.map((p, index) => <tr key={p.id}>
                 {['number', 'first_name', 'last_name'].map(key => <td key={key} className={key === 'number' ? 'smm-player-number' : undefined}><input aria-label={`${draft[side].name} ${key} ${index + 1}`} type={key === 'number' ? 'number' : 'text'} disabled={teamsDisabled} value={p[key]} onChange={event => updateRow(side, 'players', index, key, event.target.value)}/></td>)}
                 <td><select aria-label={`${t('ตำแหน่ง', 'Position')} ${p.number}`} disabled={teamsDisabled || p.role.startsWith('L')} value={p.role.startsWith('L') ? 'L' : p.position || ''} onChange={event => updateRow(side, 'players', index, 'position', event.target.value)}>{['', 'S', 'OH', 'MB', 'OPP', 'L'].map(position => <option key={position} value={position} disabled={position === 'L'}>{position || '–'}</option>)}</select></td>
                 <td><input type="checkbox" aria-label={`${t('ลิเบอโร', 'Libero')} ${p.number}`} disabled={teamsDisabled} checked={p.role.startsWith('L')} onChange={event => updateRole(side, index, event.target.checked, p.role.includes('C'))}/></td>
                 <td><input type="checkbox" aria-label={`${t('กัปตัน', 'Captain')} ${p.number}`} disabled={teamsDisabled} checked={p.role.includes('C')} onChange={event => updateRole(side, index, p.role.startsWith('L'), event.target.checked)}/></td>
-                <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${playerName(p)}`} onClick={() => teamChange(side, { players: draft[side].players.filter((_, i) => i !== index) })}>×</button></td>
+                <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p)}`} onClick={() => teamChange(side, { players: draft[side].players.filter((_, i) => i !== index) })}>×</button></td>
             </tr>)}</tbody></table></div>
             <label className="smm-field">{t('เพิ่มนักกีฬาจากรายชื่อทีม', 'Add a registered player')}<select value="" disabled={teamsDisabled} onChange={event => {
                 const p = settings.available[side].find(player => String(player.id) === event.target.value);
                 if (p) teamChange(side, { players: [...draft[side].players, { id: p.id, number: p.number || '', first_name: p.first_name || '', last_name: p.last_name || '', role: '' }] });
-            }}><option value="">{t('เลือกนักกีฬา', 'Select player')}</option>{settings.available[side].filter(p => !draft[side].players.some(row => Number(row.id) === Number(p.id))).map(p => <option key={p.id} value={p.id}>#{p.number} {playerName(p)}</option>)}</select></label>
+            }}><option value="">{t('เลือกนักกีฬา', 'Select player')}</option>{settings.available[side].filter(p => !draft[side].players.some(row => Number(row.id) === Number(p.id))).map(p => <option key={p.id} value={p.id}>#{p.number} {displayNames.personName(p)}</option>)}</select></label>
         </> : <>
             <div className="smm-scroll smm-staff-table"><table aria-label={`${t('เจ้าหน้าที่ทีม', 'Team staff')} ${draft[side].name}`}>
-                <thead><tr>{[t('ตำแหน่ง', 'Position'), t('ชื่อ', 'First name'), t('นามสกุล', 'Last name'), t('จัดการ', 'Actions')].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+                <thead><tr>{[t('ตำแหน่ง', 'Position'), t('ชื่อ', 'First name'), t('นามสกุล', 'Last name'), t('จัดการ', 'Actions')].map(label => <th scope="col" key={label}>{ui(label)}</th>)}</tr></thead>
                 <tbody>{draft[side].staff.length ? draft[side].staff.map((p, index) => <tr key={index}>
                     <td><select aria-label={`${draft[side].name} ${t('ตำแหน่ง', 'Position')} ${index + 1}`} disabled={teamsDisabled} value={p.role} onChange={event => updateRow(side, 'staff', index, 'role', event.target.value)}>
                         <option value="">{t('เลือกตำแหน่ง', 'Select position')}</option>
-                        {p.role && !staffRoles.some(([value]) => value === p.role) && <option value={p.role}>{p.role}</option>}
+                        {p.role && !staffRoles.some(([value]) => value === p.role) && <option value={p.role}>{ui(p.role)}</option>}
                         {staffRoles.map(([value, label]) => <option key={value} value={value}>{t(label, value)}</option>)}
                     </select></td>
                     {['first_name', 'last_name'].map((key, i) => <td key={key}><input type="text" aria-label={`${draft[side].name} ${[t('ชื่อ', 'First name'), t('นามสกุล', 'Last name')][i]} ${index + 1}`} disabled={teamsDisabled} value={p[key]} onChange={event => updateRow(side, 'staff', index, key, event.target.value)}/></td>)}
-                    <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${playerName(p) || index + 1}`} onClick={() => teamChange(side, { staff: draft[side].staff.filter((_, i) => i !== index) })}>{t('นำออก', 'Remove')}</button></td>
+                    <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p) || index + 1}`} onClick={() => teamChange(side, { staff: draft[side].staff.filter((_, i) => i !== index) })}>{t('นำออก', 'Remove')}</button></td>
                 </tr>) : <tr><td colSpan={4}>{t('ยังไม่มีเจ้าหน้าที่ทีม', 'No team staff added.')}</td></tr>}</tbody>
             </table></div>
             <button type="button" disabled={teamsDisabled} onClick={() => teamChange(side, { staff: [...draft[side].staff, { role: '', first_name: '', last_name: '' }] })}>+ {t('เพิ่มเจ้าหน้าที่ทีม', 'Add team staff')}</button>
@@ -83,6 +87,6 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
     if (tab === 'officials') return <div className="smm-form-grid">{[
         ['referee_1_id', t('ผู้ตัดสินที่ 1', 'First referee'), 'referees'], ['referee_2_id', t('ผู้ตัดสินที่ 2', 'Second referee'), 'referees'], ['scorer_id', t('ผู้บันทึกคะแนน', 'Scorer'), 'scorers'],
         ...[1,2,3,4].map(n => [`line_judge_${n}_id`, `${t('ผู้กำกับเส้น', 'Line judge')} ${n}`, 'lineJudges'])
-    ].map(([key, label, list]) => <label key={key} className="smm-field">{label}<select disabled={disabled} value={draft[key]} onChange={event => onChange({ ...draft, [key]: event.target.value })}><option value="">{t('ยังไม่ระบุ', 'Not assigned')}</option>{settings.officials[list].map(p => <option key={p.id} value={p.id}>{p.firstname} {p.lastname}</option>)}</select></label>)}</div>;
+    ].map(([key, label, list]) => <label key={key} className="smm-field">{ui(label)}<select disabled={disabled} value={draft[key]} onChange={event => onChange({ ...draft, [key]: event.target.value })}><option value="">{t('ยังไม่ระบุ', 'Not assigned')}</option>{settings.officials[list].map(p => <option key={p.id} value={p.id}>{displayNames.personFirstName(p)} {displayNames.personLastName(p)}</option>)}</select></label>)}</div>;
     return null;
 }

@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import client, { api } from '../../api';
 import {
@@ -16,6 +18,8 @@ const normalizeRoundName = (value) => {
 };
 
 export default function MatchManagementTab({ initialCompetitionId, initialMatchId }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     // --- State Management ---
     const [competitions, setCompetitions] = useState([]);
     const [matches, setMatches] = useState([]);
@@ -341,7 +345,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
     // --- Handlers ---
     const handleOpenCreate = () => {
         if (!selectedBaseName) {
-            return Swal.fire('Warning', 'Please select a competition first', 'warning');
+            return Swal.fire({uiTextLocalized:true,title:ui('Warning'),text:ui('Please select a competition first'),icon:'warning'});
         }
         // หาแมตช์ล่าสุดเพื่อ Auto Run Number
         const nextMatchNum = matches.length > 0
@@ -486,13 +490,13 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
     };
 
     const handleDeleteMatch = async (id) => {
-        const result = await Swal.fire({
-            title: 'Delete Match?',
-            text: "You won't be able to revert this!",
+        const result = await Swal.fire({ uiTextLocalized: true,
+            title: ui('Delete Match?'),
+            text: ui("You won't be able to revert this!"),
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
+            confirmButtonText: ui('Yes, delete it!')
         });
 
         if (result.isConfirmed) {
@@ -588,17 +592,15 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                         <Swords className="text-blue-600" size={24} />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
-                            Match Management
-                        </h2>
-                        <p className="text-sm text-gray-500 font-medium">Organize and manage volleyball matches</p>
+                        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{ui("Match Management")}</h2>
+                        <p className="text-sm text-gray-500 font-medium">{ui("Organize and manage volleyball matches")}</p>
                     </div>
                 </div>
 
                 {/* Competition Selector Group */}
                 <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto flex-1 justify-end">
                     <div className="w-full md:w-64">
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Competition</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Competition")}</label>
                         <select
                             value={selectedBaseName}
                             onChange={(e) => setSelectedBaseName(e.target.value)}
@@ -611,14 +613,12 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gender</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Gender")}</label>
                         <div className="flex rounded-lg p-1 border border-gray-200 bg-gray-50 shadow-sm">
                             <button
                                 onClick={() => setFilterGender('All')}
                                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filterGender === 'All' ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
-                            >
-                                All
-                            </button>
+                            >{ui("All")}</button>
                             {availableGenders.map(g => (
                                 <button
                                     key={g}
@@ -632,13 +632,13 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                     </div>
 
                     <div className="w-full md:w-48">
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Age Group</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Age Group")}</label>
                         <select
                             value={filterAgeGroup}
                             onChange={(e) => setFilterAgeGroup(e.target.value)}
                             className="w-full p-2.5 text-sm font-medium rounded-lg border border-gray-200 transition-all hover:border-blue-400 focus:outline-none focus:border-blue-500 bg-white shadow-sm text-gray-700"
                         >
-                            <option value="All">All</option>
+                            <option value="All">{ui("All")}</option>
                             {pageAgeGroups.map(ag => (
                                 <option key={ag.id} value={ag.id}>{ag.name}</option>
                             ))}
@@ -656,8 +656,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                 : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
                             }`}
                     >
-                        <PlusCircle size={18} /> Add Match
-                    </button>
+                        <PlusCircle size={18} />{ui("Add Match")}</button>
                 </div>
             </div>
 
@@ -665,7 +664,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
             {loading ? (
                 <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                    <span className="ml-3 text-lg">Loading matches...</span>
+                    <span className="ml-3 text-lg">{ui("Loading matches...")}</span>
                 </div>
             ) : matches.length === 0 ? (
                 <div className="text-center py-16 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 relative overflow-hidden">
@@ -676,9 +675,9 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                     </div>
                     <div className="relative z-10">
                         <Trophy className="mx-auto mb-4 text-gray-400" size={64} />
-                        <h3 className="text-xl font-bold mb-2">No matches found</h3>
+                        <h3 className="text-xl font-bold mb-2">{ui("No matches found")}</h3>
                         <p className="text-gray-500">
-                            {selectedBaseName ? "Create your first match to get started!" : "Please select a competition to view matches."}
+                            {selectedBaseName ? ui("Create your first match to get started!") : ui("Please select a competition to view matches.")}
                         </p>
                     </div>
                 </div>
@@ -689,13 +688,13 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                             <thead>
                                 <tr className="bg-gray-50 text-gray-500 text-xs font-medium border-b border-gray-200">
                                     <th className="px-6 py-4">#</th>
-                                    <th className="px-6 py-4">Round / Pool</th>
-                                    <th className="px-6 py-4">Teams</th>
-                                    <th className="px-6 py-4 text-center">Score</th>
-                                    <th className="px-6 py-4">Schedule</th>
-                                    <th className="px-6 py-4">Venue</th>
-                                    <th className="px-6 py-4">Gender</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                                    <th className="px-6 py-4">{ui("Round / Pool")}</th>
+                                    <th className="px-6 py-4">{ui("Teams")}</th>
+                                    <th className="px-6 py-4 text-center">{ui("Score")}</th>
+                                    <th className="px-6 py-4">{ui("Schedule")}</th>
+                                    <th className="px-6 py-4">{ui("Venue")}</th>
+                                    <th className="px-6 py-4">{ui("Gender")}</th>
+                                    <th className="px-6 py-4 text-right">{ui("Actions")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -712,8 +711,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                             </div>
                                             {match.pool_name && (
                                                 <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-bold text-gray-500 uppercase">
-                                                        Pool {match.pool_name}
+                                                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-bold text-gray-500 uppercase">{ui("Pool")}{match.pool_name}
                                                     </span>
                                                 </div>
                                             )}
@@ -727,7 +725,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                         ) : <Shield size={12} className="text-gray-300" />}
                                                     </div>
                                                     <span className={`text-[13px] font-bold truncate ${match.home_set_score > match.away_set_score && match.status === 'completed' ? 'text-blue-600' : 'text-gray-700'}`}>
-                                                        {registeredTeams.find(t => t.id == match.home_team_id)?.name || match.home_team || 'TBD'}
+                                                        {(displayNames.teamName(registeredTeams.find(t => t.id == match.home_team_id)) || displayNames.matchTeamName(match, 'home')) || (ui('TBD'))}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2.5">
@@ -737,7 +735,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                         ) : <Shield size={12} className="text-gray-300" />}
                                                     </div>
                                                     <span className={`text-[13px] font-bold truncate ${match.away_set_score > match.home_set_score && match.status === 'completed' ? 'text-blue-600' : 'text-gray-700'}`}>
-                                                        {registeredTeams.find(t => t.id == match.away_team_id)?.name || match.away_team || 'TBD'}
+                                                        {(displayNames.teamName(registeredTeams.find(t => t.id == match.away_team_id)) || displayNames.matchTeamName(match, 'away')) || (ui('TBD'))}
                                                     </span>
                                                 </div>
                                             </div>
@@ -756,7 +754,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col items-center">
-                                                    <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-tighter">vs</span>
+                                                    <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-tighter">{ui("vs")}</span>
                                                 </div>
                                             )}
                                         </td>
@@ -764,18 +762,18 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                             <div className="flex flex-col gap-1.5 min-w-[120px]">
                                                 <div className="flex items-center gap-2 text-xs font-bold text-gray-600">
                                                     <Calendar size={14} className="text-blue-600" />
-                                                    {match.match_date ? formatThaiDate(match.match_date) : (match.start_time && match.start_time.includes('T') ? formatThaiDate(match.start_time) : 'TBD')}
+                                                    {match.match_date ? formatThaiDate(match.match_date) : match.start_time && match.start_time.includes('T') ? formatThaiDate(match.start_time) : ui('TBD')}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500">
                                                     <Clock size={14} className="text-indigo-400" />
-                                                    {match.start_time ? (match.start_time.includes('T') ? formatThaiTime(match.start_time) : match.start_time.substring(0, 5)) : 'TBD'}
+                                                    {match.start_time ? match.start_time.includes('T') ? formatThaiTime(match.start_time) : match.start_time.substring(0, 5) : ui('TBD')}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2 text-xs font-medium text-gray-600 max-w-[150px]">
                                                 <MapPin size={14} className="text-rose-500 shrink-0" />
-                                                <span className="truncate">{match.location || 'TBD'}</span>
+                                                <span className="truncate">{(match.location) || (ui('TBD'))}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -786,31 +784,29 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                             ? 'bg-purple-50 text-purple-600 border-purple-100'
                                                             : 'bg-blue-50 text-blue-600 border-blue-100'
                                                     }`}>
-                                                    {match.gender || 'Male'}
+                                                    {(match.gender) || (ui('Male'))}
                                                 </span>
                                                 {match.status === 'completed' && (
                                                     <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 uppercase">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                                        Completed
-                                                    </div>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>{ui("Completed")}</div>
                                                 )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-end gap-1">
-                                                <button onClick={() => handleEditMatch(match)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="Edit">
+                                                <button onClick={() => handleEditMatch(match)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Edit")}>
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title="Score">
+                                                <button onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title={ui("Score")}>
                                                     <Trophy size={16} />
                                                 </button>
-                                                <button onClick={() => window.open('/roster-verification/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="Print Roster Verification">
+                                                <button onClick={() => window.open('/roster-verification/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Print Roster Verification")}>
                                                     <Users size={16} />
                                                 </button>
-                                                <button onClick={() => window.open('/scoresheet/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title="View & Print Scoresheet">
+                                                <button onClick={() => window.open('/scoresheet/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("View & Print Scoresheet")}>
                                                     <Printer size={16} />
                                                 </button>
-                                                <button onClick={() => handleDeleteMatch(match.id)} className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all" title="Delete">
+                                                <button onClick={() => handleDeleteMatch(match.id)} className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all" title={ui("Delete")}>
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>
@@ -830,10 +826,10 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                         <div className="px-5 py-4 border-b border-gray-200 bg-white">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Match' : 'Create New Match'}</h3>
-                                    <p className="mt-0.5 text-xs text-gray-500">{selectedBaseName || 'Competition'} / {matchForm.gender || 'Gender'} / {modalAgeGroups.find(ag => String(ag.id) === String(matchForm.age_group_id || matchForm.category))?.name || 'Age group'}</p>
+                                    <h3 className="text-lg font-semibold text-gray-900">{isEditing ? ui('Edit Match') : ui('Create New Match')}</h3>
+                                    <p className="mt-0.5 text-xs text-gray-500">{(selectedBaseName) || (ui('Competition'))} / {(matchForm.gender) || (ui('Gender'))} / {(modalAgeGroups.find(ag => String(ag.id) === String(matchForm.age_group_id || matchForm.category))?.name) || (ui('Age group'))}</p>
                                 </div>
-                                <button type="button" onClick={() => setShowModal(false)} className="p-2 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" aria-label="Close">
+                                <button type="button" onClick={() => setShowModal(false)} className="p-2 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" aria-label={ui("Close")}>
                                     <X size={18} />
                                 </button>
                             </div>
@@ -843,9 +839,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                             {/* Row 1: Key Info */}
                             <div className={`${modalSectionClass} grid grid-cols-1 md:grid-cols-4 gap-4`}>
                                 <div className="space-y-2">
-                                    <label className={modalLabelClass}>
-                                        Age Group
-                                    </label>
+                                    <label className={modalLabelClass}>{ui("Age Group")}</label>
                                     <select
                                         value={matchForm.age_group_id || matchForm.category || ''}
                                         onChange={e => setMatchForm({
@@ -858,27 +852,23 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                         })}
                                         className={modalInputClass}
                                     >
-                                        <option value="">-- Select Category --</option>
+                                        <option value="">{ui("-- Select Category --")}</option>
                                         {modalAgeGroups.map(ag => (
                                             <option key={ag.id} value={ag.id}>{ag.name}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={modalLabelClass}>
-                                        City
-                                    </label>
+                                    <label className={modalLabelClass}>{ui("City")}</label>
                                     <input
                                         value={matchForm.city || ''}
                                         onChange={e => setMatchForm({ ...matchForm, city: e.target.value })}
-                                        placeholder="City Name"
+                                        placeholder={ui("City Name")}
                                         className={modalInputClass}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={modalLabelClass}>
-                                        Match Date
-                                    </label>
+                                    <label className={modalLabelClass}>{ui("Match Date")}</label>
                                     <input
                                         type="date"
                                         value={matchForm.match_date || ''}
@@ -887,9 +877,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={modalLabelClass}>
-                                        Start Time
-                                    </label>
+                                    <label className={modalLabelClass}>{ui("Start Time")}</label>
                                     <input
                                         type="time"
                                         value={matchForm.start_time || ''}
@@ -902,15 +890,13 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                             {/* Row 2: Match Details */}
                             <div className={`${modalSectionClass} grid grid-cols-1 md:grid-cols-3 gap-4`}>
                                 <div className="space-y-2">
-                                    <label className={modalLabelClass}>
-                                        Stadium
-                                    </label>
+                                    <label className={modalLabelClass}>{ui("Stadium")}</label>
                                     <select
                                         value={matchForm.location}
                                         onChange={e => setMatchForm({ ...matchForm, location: e.target.value })}
                                         className={modalInputClass}
                                     >
-                                        <option value="">-- Select Stadium --</option>
+                                        <option value="">{ui("-- Select Stadium --")}</option>
                                         {stadiums.map(s => (
                                             <option key={s.id} value={s.name}>{s.name}</option>
                                         ))}
@@ -918,9 +904,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className={modalLabelClass}>
-                                            Match No.
-                                        </label>
+                                        <label className={modalLabelClass}>{ui("Match No.")}</label>
                                         <input
                                             type="number"
                                             value={matchForm.match_number}
@@ -930,9 +914,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={modalLabelClass}>
-                                            Gender
-                                        </label>
+                                        <label className={modalLabelClass}>{ui("Gender")}</label>
                                         <select
                                             value={matchForm.gender}
                                             onChange={e => setMatchForm({
@@ -950,9 +932,9 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                 <option key={g} value={g}>{g}</option>
                                             )) : (
                                                 <>
-                                                    <option value="Male">Male</option>
-                                                    <option value="Female">Female</option>
-                                                    <option value="Mix">Mix</option>
+                                                    <option value="Male">{ui("Male")}</option>
+                                                    <option value="Female">{ui("Female")}</option>
+                                                    <option value="Mix">{ui("Mix")}</option>
                                                 </>
                                             )}
                                         </select>
@@ -960,9 +942,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
-                                        <label className={modalLabelClass}>
-                                            Round
-                                        </label>
+                                        <label className={modalLabelClass}>{ui("Round")}</label>
                                         <select
                                             value={matchForm.round_name}
                                             onChange={e => setMatchForm({ ...matchForm, round_name: e.target.value })}
@@ -970,23 +950,21 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                             required
                                         >
                                             
-                                            <option value="">-- Select Round --</option>
-                                            <option value="จัดอันดับ">จัดอันดับ</option>
-                                            <option value="Preliminary">Preliminary</option>
-                                            <option value="Round 2">Round 2</option>
-                                            <option value="Quarter Final">Quarter Final</option>
-                                            <option value="Semi Final">Semi Final</option>
-                                            <option value="Final">Final</option>
+                                            <option value="">{ui("-- Select Round --")}</option>
+                                            <option value="จัดอันดับ">{ui("จัดอันดับ")}</option>
+                                            <option value="Preliminary">{ui("Preliminary")}</option>
+                                            <option value="Round 2">{ui("Round 2")}</option>
+                                            <option value="Quarter Final">{ui("Quarter Final")}</option>
+                                            <option value="Semi Final">{ui("Semi Final")}</option>
+                                            <option value="Final">{ui("Final")}</option>
                                         </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className={modalLabelClass}>
-                                            Pool
-                                        </label>
+                                        <label className={modalLabelClass}>{ui("Pool")}</label>
                                         <input
                                             value={matchForm.pool_name}
                                             onChange={e => setMatchForm({ ...matchForm, pool_name: e.target.value })}
-                                            placeholder="e.g. A"
+                                            placeholder={ui("e.g. A")}
                                             className={modalInputClass}
                                         />
                                     </div>
@@ -995,19 +973,15 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                             {/* Row 2: Teams */}
                             <div className={modalSectionClass}>
                                 <div className="mb-4 flex items-center justify-between gap-3">
-                                    <h4 className="text-sm font-semibold text-gray-900">Teams</h4>
-                                    <span className="text-xs text-gray-500">{modalTeams.length} registered</span>
+                                    <h4 className="text-sm font-semibold text-gray-900">{ui("Teams")}</h4>
+                                    <span className="text-xs text-gray-500">{modalTeams.length}{' '}{ui("registered")}</span>
                                 </div>
                                 {!loadingModalTeams && modalTeams.length < 2 && (
-                                    <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                        Need at least 2 registered teams in this age group and gender before creating a match.
-                                    </p>
+                                    <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{ui("Need at least 2 registered teams in this age group and gender before creating a match.")}</p>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-3">
-                                        <label className={modalLabelClass}>
-                                            Home Team
-                                        </label>
+                                        <label className={modalLabelClass}>{ui("Home Team")}</label>
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center">
                                                 {modalTeams.find(t => t.id == matchForm.home_team_id)?.logo_url ? (
@@ -1021,7 +995,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                 className={`${modalInputClass} flex-1`}
                                             >
                                                 <option value="">
-                                                    {loadingModalTeams ? 'Loading teams...' : '-- Select Home Team --'}
+                                                    {loadingModalTeams ? ui('Loading teams...') : ui('-- Select Home Team --')}
                                                 </option>
                                                 {modalTeams
                                                     .filter(t => String(t.id) !== String(matchForm.away_team_id))
@@ -1033,9 +1007,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                     </div>
 
                                     <div className="space-y-3">
-                                        <label className={modalLabelClass}>
-                                            Away Team
-                                        </label>
+                                        <label className={modalLabelClass}>{ui("Away Team")}</label>
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-50 flex items-center justify-center">
                                                 {modalTeams.find(t => t.id == matchForm.away_team_id)?.logo_url ? (
@@ -1049,7 +1021,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                 className={`${modalInputClass} flex-1`}
                                             >
                                                 <option value="">
-                                                    {loadingModalTeams ? 'Loading teams...' : '-- Select Away Team --'}
+                                                    {loadingModalTeams ? ui('Loading teams...') : ui('-- Select Away Team --')}
                                                 </option>
                                                 {modalTeams
                                                     .filter(t => String(t.id) !== String(matchForm.home_team_id))
@@ -1070,16 +1042,14 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                     type="button"
                                     onClick={() => setShowModal(false)}
                                     className="rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
+                                >{ui("Cancel")}</button>
                                 <button
                                     type="submit"
                                     disabled={loadingModalTeams || modalTeams.length < 2}
                                     className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                                 >
                                     <Save size={16} />
-                                    {isEditing ? 'Update Match' : 'Create Match'}
+                                    {isEditing ? ui('Update Match') : ui('Create Match')}
                                 </button>
                             </div>
                         </form>
@@ -1098,7 +1068,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                         <Trophy className="text-green-600" size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="text-xl font-bold text-gray-900 tracking-tight">Update Match Score</h3>
+                                        <h3 className="text-xl font-bold text-gray-900 tracking-tight">{ui("Update Match Score")}</h3>
                                     </div>
                                 </div>
                                 <button onClick={() => setScoringMatch(null)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">
@@ -1108,24 +1078,23 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                         </div>
                         <div className="p-6 space-y-6">
                             <div className="text-center bg-gray-50 border border-gray-100 p-4 rounded-lg">
-                                <p className="text-sm text-blue-600 font-semibold mb-2">Match #{scoringMatch.match_number}</p>
+                                <p className="text-sm text-blue-600 font-semibold mb-2">{ui("Match #")}{scoringMatch.match_number}</p>
                                 <h4 className="font-bold text-lg text-gray-900 flex items-center justify-center gap-2">
-                                    <span className="text-blue-600">{registeredTeams.find(t => t.id == scoringMatch.home_team_id)?.name}</span>
-                                    <span className="text-gray-400 font-medium">vs</span>
-                                    <span className="text-rose-600">{registeredTeams.find(t => t.id == scoringMatch.away_team_id)?.name}</span>
+                                    <span className="text-blue-600">{displayNames.teamName(registeredTeams.find(t => t.id == scoringMatch.home_team_id))}</span>
+                                    <span className="text-gray-400 font-medium">{ui("vs")}</span>
+                                    <span className="text-rose-600">{displayNames.teamName(registeredTeams.find(t => t.id == scoringMatch.away_team_id))}</span>
                                 </h4>
                             </div>
 
                             <div>
                                 <label className="flex items-center gap-2 text-sm font-bold uppercase mb-4 text-gray-700">
-                                    <Trophy size={16} className="text-green-500" /> Set Scores (Points)
-                                </label>
+                                    <Trophy size={16} className="text-green-500" />{ui("Set Scores (Points)")}</label>
                                 <div className={`grid grid-cols-5 gap-3`}>
                                     {scoreForm.set_scores.map((val, idx) => (
                                         <div key={idx} className="text-center">
                                             <input
                                                 type="text"
-                                                placeholder={`Set ${idx + 1}`}
+                                                placeholder={ui(`Set {0}`, [idx + 1])}
                                                 value={val}
                                                 onChange={(e) => {
                                                     const newScores = [...scoreForm.set_scores];
@@ -1134,21 +1103,17 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                 }}
                                                 className="w-full p-3 text-center border-2 rounded-md focus:ring-2 focus:ring-green-500 outline-none transition-all font-mono text-lg bg-white border-gray-300"
                                             />
-                                            <p className="text-xs text-gray-500 mt-1">Set {idx + 1}</p>
+                                            <p className="text-xs text-gray-500 mt-1">{ui("Set")}{' '}{idx + 1}</p>
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-xs text-center mt-4 text-gray-500 bg-gray-50 p-2 rounded-lg">Format: "25-20" (home-away)</p>
+                                <p className="text-xs text-center mt-4 text-gray-500 bg-gray-50 p-2 rounded-lg">{ui("Format: \"25-20\" (home-away)")}</p>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
-                                <button type="button" onClick={() => setScoringMatch(null)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all font-medium text-sm">
-                                    Cancel
-                                </button>
+                                <button type="button" onClick={() => setScoringMatch(null)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all font-medium text-sm">{ui("Cancel")}</button>
                                 <button onClick={handleSaveScore} className="px-6 py-2.5 text-sm font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all flex items-center gap-2">
-                                    <Save size={18} />
-                                    Update Score
-                                </button>
+                                    <Save size={18} />{ui("Update Score")}</button>
                             </div>
                         </div>
                     </div>

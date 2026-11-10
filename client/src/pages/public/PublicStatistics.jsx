@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback } from '../../components/ui/SystemUI';
 import PublicHeader from '../../components/layout/PublicHeader';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -42,6 +44,7 @@ const mergeStatistics = (statResponses) => {
 };
 
 export default function PublicStatistics() {
+    const ui = useUiTranslation();
 
     const { language, t } = useLanguage();
     const [competitions, setCompetitions] = useState([]);
@@ -101,26 +104,26 @@ export default function PublicStatistics() {
         <div className="app-page min-h-screen text-gray-800 pb-20">
             {/* Navbar */}
             <PublicHeader />
-            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load data'} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} retryLabel={language === 'THA' ? 'ลองใหม่' : 'Retry'} /></div>}
+            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? ui('โหลดข้อมูลไม่สำเร็จ') : ui('Unable to load data')} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} retryLabel={language === 'THA' ? 'ลองใหม่' : 'Retry'} /></div>}
             <div id="main-content" tabIndex={-1} />
 
             {/* Header */}
             <div className="bg-[#122b52] text-white py-12 px-4 shadow-lg mb-8">
                 <div className="w-full max-w-[1400px] mx-auto text-center">
                     <h1 className="text-4xl font-extrabold flex items-center justify-center gap-3 mb-2">
-                        <Activity className="text-yellow-400" size={40} /> {language === 'THA' ? 'สถิติการแข่งขัน' : 'Tournament Statistics'}
+                        <Activity className="text-yellow-400" size={40} /> {language === 'THA' ? ui('สถิติการแข่งขัน') : ui('Tournament Statistics')}
                     </h1>
-                    <p className="text-indigo-200">{language === 'THA' ? 'อันดับผู้เล่นยอดเยี่ยมในแต่ละทักษะ' : 'Top player rankings by skill category'}</p>
+                    <p className="text-indigo-200">{language === 'THA' ? ui('อันดับผู้เล่นยอดเยี่ยมในแต่ละทักษะ') : ui('Top player rankings by skill category')}</p>
                 </div>
             </div>
 
             {/* Category filter */}
             <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <span className="font-bold text-gray-700">{language === 'THA' ? '\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17:' : 'Category:'}</span>
+                    <span className="font-bold text-gray-700">{language === 'THA' ? ui('\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17:') : ui('Category:')}</span>
                     <div className="flex w-full flex-wrap gap-2 md:justify-end">
-                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? '\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14' : 'All'}</button>
-                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{category.label}</button>)}
+                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14') : ui('All')}</button>
+                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</button>)}
                     </div>
                 </div>
             </div>
@@ -134,14 +137,14 @@ export default function PublicStatistics() {
                     </div>
                 ) : !stats ? (
                     <div className="text-center py-20 bg-white rounded-xl shadow-sm">
-                        <p className="text-gray-400">{language === 'THA' ? 'ยังไม่มีข้อมูลสถิติสำหรับการแข่งขันนี้' : 'No stats information available for this tournament yet.'}</p>
+                        <p className="text-gray-400">{language === 'THA' ? ui('ยังไม่มีข้อมูลสถิติสำหรับการแข่งขันนี้') : ui('No stats information available for this tournament yet.')}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         
                         {/* 1. Best Scorers (ทำคะแนนรวมสูงสุด) */}
                         <StatCategoryCard 
-                            title="Best Scorers" 
+                            title={ui("Best Scorers")}
                             icon={<Trophy className="text-yellow-500" />} 
                             data={stats.best_scorers} 
                             valueLabel="Points"
@@ -150,7 +153,7 @@ export default function PublicStatistics() {
 
                         {/* 2. Best Spikers (ตบทำคะแนน) */}
                         <StatCategoryCard 
-                            title="Best Spikers" 
+                            title={ui("Best Spikers")}
                             icon={<Zap className="text-red-500" />} 
                             data={stats.best_spikers} 
                             valueLabel="Kills"
@@ -159,7 +162,7 @@ export default function PublicStatistics() {
 
                         {/* 3. Best Blockers (บล็อก) */}
                         <StatCategoryCard 
-                            title="Best Blockers" 
+                            title={ui("Best Blockers")}
                             icon={<Shield className="text-green-600" />} 
                             data={stats.best_blockers} 
                             valueLabel="Blocks"
@@ -168,7 +171,7 @@ export default function PublicStatistics() {
 
                         {/* 4. Best Servers (เสิร์ฟเอซ) */}
                         <StatCategoryCard 
-                            title="Best Servers" 
+                            title={ui("Best Servers")}
                             icon={<Target className="text-blue-500" />} 
                             data={stats.best_servers} 
                             valueLabel="Aces"
@@ -177,7 +180,7 @@ export default function PublicStatistics() {
 
                         {/* 5. Best Setters (เซตบอล) */}
                         <StatCategoryCard 
-                            title="Best Setters" 
+                            title={ui("Best Setters")}
                             icon={<HandMetal className="text-purple-500" />} 
                             data={stats.best_setters} 
                             valueLabel="Assists"
@@ -186,7 +189,7 @@ export default function PublicStatistics() {
 
                         {/* 6. Best Diggers (รับตบ) */}
                         <StatCategoryCard 
-                            title="Best Diggers" 
+                            title={ui("Best Diggers")}
                             icon={<ArrowUp className="text-orange-500" />} 
                             data={stats.best_diggers} 
                             valueLabel="Digs"
@@ -202,6 +205,8 @@ export default function PublicStatistics() {
 
 // --- Sub-Component: การ์ดแสดงแต่ละหมวดหมู่ ---
 function StatCategoryCard({ title, icon, data, valueLabel, colorClass }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     if (!data || data.length === 0) return null; // ถ้าไม่มีข้อมูลไม่ต้องแสดง
 
     const topPlayer = data[0]; // คนที่ 1
@@ -212,7 +217,7 @@ function StatCategoryCard({ title, icon, data, valueLabel, colorClass }) {
             {/* Header */}
             <div className="p-4 flex items-center gap-2 border-b border-gray-100 bg-white/50">
                 <div className="p-2 bg-white rounded-full shadow-sm">{icon}</div>
-                <h3 className="font-bold text-lg text-gray-800 uppercase tracking-wide">{title}</h3>
+                <h3 className="font-bold text-lg text-gray-800 uppercase tracking-wide">{ui(title)}</h3>
             </div>
 
             {/* Top 1 Player (Highlight) */}
@@ -229,7 +234,7 @@ function StatCategoryCard({ title, icon, data, valueLabel, colorClass }) {
                     <div className="absolute bottom-0 right-0 bg-yellow-400 text-white text-xs font-bold px-2 py-0.5 rounded-tl-md">#1</div>
                 </div>
                 <h4 className="text-lg font-bold text-gray-900 truncate">{topPlayer.name}</h4>
-                <p className="text-sm text-gray-500 mb-2">{topPlayer.team_name}</p>
+                <p className="text-sm text-gray-500 mb-2">{displayNames.linkedTeamName(topPlayer)}</p>
                 <div className="inline-block px-4 py-1 bg-gray-900 text-white rounded-full text-sm font-bold shadow-sm">
                     {topPlayer.value} <span className="text-gray-400 font-normal text-xs">{valueLabel}</span>
                 </div>
@@ -249,8 +254,8 @@ function StatCategoryCard({ title, icon, data, valueLabel, colorClass }) {
                                 )}
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-gray-700 leading-tight">{player.name}</span>
-                                <span className="text-xs text-gray-400">{player.team_name}</span>
+                                <span className="text-sm font-semibold text-gray-700 leading-tight">{displayNames.personName(player)}</span>
+                                <span className="text-xs text-gray-400">{displayNames.linkedTeamName(player)}</span>
                             </div>
                         </div>
                         <span className="font-bold text-gray-800 text-sm">{player.value}</span>

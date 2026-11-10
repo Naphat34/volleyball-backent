@@ -6,7 +6,7 @@ exports.overview = async (req, res) => {
     try {
         connection = await db.connect();
         await connection.beginTransaction();
-        const regular = await connection.query(`SELECT m.*, c.title AS competition_name, COALESCE(c.max_sets, 5) AS max_sets,
+        const regular = await connection.query(`SELECT m.*, c.title AS competition_name, COALESCE(c.max_sets, m.max_sets, 5) AS max_sets,
             COALESCE(ms.home_sets,m.home_set_score) AS home_set_score, COALESCE(ms.away_sets,m.away_set_score) AS away_set_score,
             ag.name AS age_group_name, ht.name AS home_team, at.name AS away_team, ht.code AS home_team_code, at.code AS away_team_code
             FROM matches m LEFT JOIN competitions c ON c.id=m.competition_id
@@ -26,8 +26,13 @@ exports.overview = async (req, res) => {
             if (!byMatch.has(key)) byMatch.set(key, []);
             byMatch.get(key).push(action);
         }
+        const athleteLinks = await connection.query('SELECT match_id,side,local_player_id,player_id FROM custom_vis_player_links');
         const matches = [...regular.rows.map(row => buildAdminVisMatch(row, byMatch.get(String(row.id)) || [])),
             ...custom.rows.map(row => buildAdminVisMatch(row, [], true))];
+        for (const match of matches) if (match.is_custom_vis) for (const stat of match.statistics || []) {
+            const link = athleteLinks.rows.find(link => link.match_id === match.id && link.side === stat.team && Number(link.local_player_id) === Number(stat.id));
+            if (link) stat.master_player_id = Number(link.player_id);
+        }
         await connection.commit();
         res.json({ matches, fetched_at: new Date().toISOString(), scope: 'server', offline_queue_visible: false });
     } catch (error) {

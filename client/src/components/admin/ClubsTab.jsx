@@ -1,3 +1,5 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
+import useDisplayNames from '../../hooks/useDisplayNames';
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api';
 import {
@@ -47,6 +49,8 @@ const teamMatchesSearch = (team, searchTerm) => {
 };
 
 export default function ClubsTab({ initialSearch = '' }) {
+  const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
   useEffect(() => { setSearchTerm(initialSearch); }, [initialSearch]);
   const [teams, setTeams] = useState([]);
   const [teamEntries, setTeamEntries] = useState([]);
@@ -128,10 +132,10 @@ export default function ClubsTab({ initialSearch = '' }) {
   const handleCreateTeam = async (event) => {
     event.preventDefault();
     if (!createForm.name.trim() || !createForm.code.trim()) {
-      return Swal.fire('Missing data', 'Team name and code are required.', 'warning');
+      return Swal.fire({uiTextLocalized:true,title:ui('Missing data'),text:ui('Team name and code are required.'),icon:'warning'});
     }
     if (createForm.create_account && (!createForm.username.trim() || !createForm.password.trim())) {
-      return Swal.fire('Missing account', 'Username and password are required.', 'warning');
+      return Swal.fire({uiTextLocalized:true,title:ui('Missing account'),text:ui('Username and password are required.'),icon:'warning'});
     }
 
     setIsCreating(true);
@@ -146,9 +150,9 @@ export default function ClubsTab({ initialSearch = '' }) {
       await fetchTeams();
       setIsCreateOpen(false);
       resetCreateForm();
-      Swal.fire('Created', 'Team and account were created successfully.', 'success');
+      Swal.fire({uiTextLocalized:true,title:ui('Created'),text:ui('Team and account were created successfully.'),icon:'success'});
     } catch (err) {
-      Swal.fire('Error', err.response?.data?.error || 'Could not create team.', 'error');
+      Swal.fire({uiTextLocalized:true,title:ui('Error'),text:(err.response?.data?.error) || (ui('Could not create team.')),icon:'error'});
     } finally {
       setIsCreating(false);
     }
@@ -216,35 +220,35 @@ export default function ClubsTab({ initialSearch = '' }) {
   );
 
   const handleDeleteTeam = (teamId) => {
-    Swal.fire({
-      title: 'ลบทีมแข่งขัน?',
-      text: 'การลบทีมจะลบข้อมูลนักกีฬา เจ้าหน้าที่ และข้อมูลที่เกี่ยวข้องกับทีมนี้',
+    Swal.fire({ uiTextLocalized: true,
+      title: ui('ลบทีมแข่งขัน?'),
+      text: ui('การลบทีมจะลบข้อมูลนักกีฬา เจ้าหน้าที่ และข้อมูลที่เกี่ยวข้องกับทีมนี้'),
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
-      confirmButtonText: 'ยืนยันการลบ',
-      cancelButtonText: 'ยกเลิก',
+      confirmButtonText: ui('ยืนยันการลบ'),
+      cancelButtonText: ui('ยกเลิก'),
     }).then((result) => {
       if (result.isConfirmed) {
         api.deleteTeam(teamId)
           .then(() => {
             fetchTeams();
-            Swal.fire('ลบเรียบร้อย', '', 'success');
+            Swal.fire({uiTextLocalized:true,title:ui('ลบเรียบร้อย'),text:'',icon:'success'});
           })
-          .catch((err) => Swal.fire('ผิดพลาด', err.response?.data?.error || 'ไม่สามารถลบทีมได้', 'error'));
+          .catch((err) => Swal.fire({uiTextLocalized:true,title:ui('ผิดพลาด'),text:(err.response?.data?.error) || (ui('ไม่สามารถลบทีมได้')),icon:'error'}));
       }
     });
   };
 
   const handleUpdateRegistrationStatus = async (entry, status) => {
     const label = status === 'approved' ? 'approve' : status === 'rejected' ? 'reject' : 'set pending';
-    const result = await Swal.fire({
-      title: `${label} registration?`,
+    const result = await Swal.fire({ uiTextLocalized: true,
+      title: ui(`{0} registration?`, [label]),
       text: `${entry.team_name || entry.name} / ${entry.age_group_name || 'General'} / ${entry.entry_gender || entry.competition_gender || '-'}`,
       icon: status === 'rejected' ? 'warning' : 'question',
       showCancelButton: true,
-      confirmButtonText: label,
-      cancelButtonText: 'Cancel',
+      confirmButtonText: ui(label),
+      cancelButtonText: ui('Cancel'),
       confirmButtonColor: status === 'rejected' ? '#ef4444' : '#059669',
     });
 
@@ -253,15 +257,15 @@ export default function ClubsTab({ initialSearch = '' }) {
     try {
       await api.updateTeamEntryStatus(entry.team_entry_id, status);
       await fetchTeams();
-      Swal.fire('Updated', `Registration is now ${status}.`, 'success');
+      Swal.fire({uiTextLocalized:true,title:ui('Updated'),text:ui(`Registration is now {0}.`, [status]),icon:'success'});
     } catch (err) {
-      Swal.fire('Error', err.response?.data?.error || 'Could not update registration status.', 'error');
+      Swal.fire({uiTextLocalized:true,title:ui('Error'),text:(err.response?.data?.error) || (ui('Could not update registration status.')),icon:'error'});
     }
   };
 
   const renderTeamRow = (team, isEntry = true) => {
     const teamId = isEntry ? team.team_id : team.id;
-    const teamName = isEntry ? team.team_name : team.name;
+    const teamName = isEntry ? displayNames.linkedTeamName(team) : displayNames.teamName(team);
     const teamCode = isEntry ? team.team_code : team.code;
 
     return (
@@ -298,12 +302,10 @@ export default function ClubsTab({ initialSearch = '' }) {
         <td className="px-6 py-4 text-center">
           {isEntry ? (
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-semibold ${statusClass(team.registration_status)}`}>
-              {statusLabel(team.registration_status)}
+              {ui(statusLabel(team.registration_status))}
             </span>
           ) : (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-semibold bg-gray-50 text-gray-500 border-gray-100">
-              ยังไม่ได้สมัคร
-            </span>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-semibold bg-gray-50 text-gray-500 border-gray-100">{ui("ยังไม่ได้สมัคร")}</span>
           )}
         </td>
         <td className="px-6 py-4 text-right">
@@ -314,23 +316,19 @@ export default function ClubsTab({ initialSearch = '' }) {
                 onClick={() => handleUpdateRegistrationStatus(team, 'approved')}
                 disabled={team.registration_status === 'approved'}
                 className="rounded-md border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
-              >
-                Approve
-              </button>
+              >{ui("Approve")}</button>
               <button
                 type="button"
                 onClick={() => handleUpdateRegistrationStatus(team, 'rejected')}
                 disabled={team.registration_status === 'rejected'}
                 className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
-              >
-                Reject
-              </button>
+              >{ui("Reject")}</button>
             </div>
           )}
           <button
             onClick={() => handleDeleteTeam(teamId)}
             className="p-2.5 text-gray-300 hover:text-red-500 rounded-md transition-all opacity-0 group-hover:opacity-100"
-            title="ลบทีม"
+            title={ui("ลบทีม")}
           >
             <Trash2 size={18} />
           </button>
@@ -343,21 +341,19 @@ export default function ClubsTab({ initialSearch = '' }) {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">ทีมแข่งขันตามรุ่นและประเภท</h2>
-          <p className="text-sm text-gray-500 mt-1">ตรวจสอบทีมที่สมัครในแต่ละรายการแข่งขัน รุ่นอายุ และประเภทชาย/หญิง</p>
+          <h2 className="text-xl font-semibold text-gray-900">{ui("ทีมแข่งขันตามรุ่นและประเภท")}</h2>
+          <p className="text-sm text-gray-500 mt-1">{ui("ตรวจสอบทีมที่สมัครในแต่ละรายการแข่งขัน รุ่นอายุ และประเภทชาย/หญิง")}</p>
         </div>
         <button
           onClick={openCreateModal}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600"
         >
-          <Plus size={18} />
-          Create Team Account
-        </button>
+          <Plus size={18} />{ui("Create Team Account")}</button>
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-4 top-3.5 text-gray-300" size={18} />
           <input
             type="text"
-            placeholder="ค้นหาทีม รายการ รุ่น หรือประเภท..."
+            placeholder={ui("ค้นหาทีม รายการ รุ่น หรือประเภท...")}
             className="w-full pl-12 pr-6 py-3.5 bg-white rounded-lg border border-gray-200 outline-none font-medium focus:ring-2 focus:ring-gray-100 focus:border-gray-400"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
@@ -366,9 +362,7 @@ export default function ClubsTab({ initialSearch = '' }) {
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <label htmlFor="team-competition-filter" className="text-sm font-semibold text-blue-950">
-          รายการแข่งขันที่เปิดรับสมัคร
-          <span className="ml-2 text-xs font-normal text-blue-700">{openCompetitions.length} รายการ</span>
+        <label htmlFor="team-competition-filter" className="text-sm font-semibold text-blue-950">{ui("รายการแข่งขันที่เปิดรับสมัคร")}<span className="ml-2 text-xs font-normal text-blue-700">{openCompetitions.length}{' '}{ui("รายการ")}</span>
         </label>
         <select
           id="team-competition-filter"
@@ -376,33 +370,31 @@ export default function ClubsTab({ initialSearch = '' }) {
           onChange={(event) => setSelectedCompetition(event.target.value)}
           className="min-h-10 w-full rounded-lg border border-blue-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-200 sm:max-w-md"
         >
-          <option value="open">ทุกรายการแข่งขันที่เปิดรับสมัคร</option>
+          <option value="open">{ui("ทุกรายการแข่งขันที่เปิดรับสมัคร")}</option>
           {openCompetitions.map((competition) => (
-            <option key={competition.id} value={String(competition.id)}>{competition.title || competition.name || competition.competition_title || `รายการแข่งขัน #${competition.id}`}</option>
+            <option key={competition.id} value={String(competition.id)}>{(competition.title || competition.name || competition.competition_title) || (ui(`รายการแข่งขัน #{0}`, [competition.id]))}</option>
           ))}
-          <option value="all">ดูทีมจากทุกรายการแข่งขัน (รวมรายการปิด)</option>
+          <option value="all">{ui("ดูทีมจากทุกรายการแข่งขัน (รวมรายการปิด)")}</option>
         </select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase">ทีมทั้งหมด</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase">{ui("ทีมทั้งหมด")}</p>
           <p className="text-2xl font-semibold text-gray-900 mt-1">{teams.length}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase">รายการสมัคร</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase">{ui("รายการสมัคร")}</p>
           <p className="text-2xl font-semibold text-gray-900 mt-1">{teamEntries.length}</p>
         </div>
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase">ยังไม่ได้สมัคร</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase">{ui("ยังไม่ได้สมัคร")}</p>
           <p className="text-2xl font-semibold text-gray-900 mt-1">{teams.length - registeredTeamIds.size}</p>
         </div>
       </div>
 
       {groupedEntries.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-10 text-center text-gray-500">
-          ไม่พบข้อมูลทีมที่สมัครแข่งขัน
-        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-10 text-center text-gray-500">{ui("ไม่พบข้อมูลทีมที่สมัครแข่งขัน")}</div>
       ) : (
         groupedEntries.map((group) => (
           <section key={group.key} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -416,12 +408,10 @@ export default function ClubsTab({ initialSearch = '' }) {
                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-50 border border-gray-100">
                     <Shield size={13} /> {group.ageGroupName}
                   </span>
-                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 border border-gray-100">
-                    ประเภท{genderLabel(group.gender)}
+                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 border border-gray-100">{ui("ประเภท")}{ui(genderLabel(group.gender))}
                   </span>
                   <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 border border-gray-100">
-                    {group.teams.length} ทีม
-                  </span>
+                    {group.teams.length}{ui("ทีม")}</span>
                 </div>
               </div>
               <span className="text-xs font-semibold text-gray-400 uppercase">{group.sport}</span>
@@ -430,11 +420,11 @@ export default function ClubsTab({ initialSearch = '' }) {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest">ทีม</th>
-                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest">ผู้จัดการ / โค้ช</th>
-                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest text-center">นักกีฬา</th>
-                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest text-center">สถานะ</th>
-                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest text-right">จัดการ</th>
+                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest">{ui("ทีม")}</th>
+                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest">{ui("ผู้จัดการ / โค้ช")}</th>
+                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest text-center">{ui("นักกีฬา")}</th>
+                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest text-center">{ui("สถานะ")}</th>
+                    <th className="px-6 py-3 text-[10px] font-semibold uppercase text-gray-400 tracking-widest text-right">{ui("จัดการ")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -450,9 +440,7 @@ export default function ClubsTab({ initialSearch = '' }) {
         <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <div className="flex items-center gap-2 text-gray-900 font-semibold">
-              <Users size={18} className="text-gray-500" />
-              ทีมที่ยังไม่ได้สมัครแข่งขัน
-            </div>
+              <Users size={18} className="text-gray-500" />{ui("ทีมที่ยังไม่ได้สมัครแข่งขัน")}</div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -469,8 +457,8 @@ export default function ClubsTab({ initialSearch = '' }) {
           <div className="w-full max-w-3xl max-h-[92vh] overflow-hidden rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Create Team Account</h3>
-                <p className="text-sm text-gray-500">Create a team and login account for team staff.</p>
+                <h3 className="text-lg font-semibold text-gray-900">{ui("Create Team Account")}</h3>
+                <p className="text-sm text-gray-500">{ui("Create a team and login account for team staff.")}</p>
               </div>
               <button
                 type="button"
@@ -484,7 +472,7 @@ export default function ClubsTab({ initialSearch = '' }) {
             <form onSubmit={handleCreateTeam} className="max-h-[calc(92vh-73px)] overflow-y-auto p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Team Name</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Team Name")}</label>
                   <div className="relative">
                     <Users className="absolute left-3 top-3 text-gray-400" size={18} />
                     <input
@@ -493,95 +481,95 @@ export default function ClubsTab({ initialSearch = '' }) {
                       onChange={handleCreateInput}
                       required
                       className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder="School / Club name"
+                      placeholder={ui("School / Club name")}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Team Code</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Team Code")}</label>
                   <input
                     name="code"
                     value={createForm.code}
                     onChange={handleCreateInput}
                     required
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm uppercase outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    placeholder="TEAM01"
+                    placeholder={ui("TEAM01")}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Team Type</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Team Type")}</label>
                   <select name="gender" value={createForm.gender} onChange={handleCreateInput} required className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
-                    <option value="Male">Men's team</option>
-                    <option value="Female">Women's team</option>
+                    <option value="Male">{ui("Men's team")}</option>
+                    <option value="Female">{ui("Women's team")}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Manager Name</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Manager Name")}</label>
                   <input
                     name="manager_name"
                     value={createForm.manager_name}
                     onChange={handleCreateInput}
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    placeholder="Manager"
+                    placeholder={ui("Manager")}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Coach</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Coach")}</label>
                   <input
                     name="coach"
                     value={createForm.coach}
                     onChange={handleCreateInput}
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    placeholder="Head coach"
+                    placeholder={ui("Head coach")}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Phone")}</label>
                   <input
                     name="phone"
                     value={createForm.phone}
                     onChange={handleCreateInput}
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    placeholder="Phone number"
+                    placeholder={ui("Phone number")}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Email")}</label>
                   <input
                     type="email"
                     name="email"
                     value={createForm.email}
                     onChange={handleCreateInput}
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    placeholder="team@example.com"
+                    placeholder={ui("team@example.com")}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Province</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Province")}</label>
                   <input
                     name="province"
                     value={createForm.province}
                     onChange={handleCreateInput}
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    placeholder="Province"
+                    placeholder={ui("Province")}
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Logo URL</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Logo URL")}</label>
                   <input
                     name="logo_url"
                     value={createForm.logo_url}
                     onChange={handleCreateInput}
                     className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    placeholder="https://..."
+                    placeholder={ui("https://...")}
                   />
                 </div>
               </div>
@@ -594,14 +582,12 @@ export default function ClubsTab({ initialSearch = '' }) {
                     checked={createForm.create_account}
                     onChange={handleCreateInput}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  Create login account for this team
-                </label>
+                  />{ui("Create login account for this team")}</label>
 
                 {createForm.create_account && (
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Username</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Username")}</label>
                       <div className="relative">
                         <Shield className="absolute left-3 top-3 text-gray-400" size={18} />
                         <input
@@ -610,13 +596,13 @@ export default function ClubsTab({ initialSearch = '' }) {
                           onChange={handleCreateInput}
                           required={createForm.create_account}
                           className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                          placeholder="team_username"
+                          placeholder={ui("team_username")}
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Password")}</label>
                       <div className="relative">
                         <Key className="absolute left-3 top-3 text-gray-400" size={18} />
                         <input
@@ -626,7 +612,7 @@ export default function ClubsTab({ initialSearch = '' }) {
                           onChange={handleCreateInput}
                           required={createForm.create_account}
                           className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                          placeholder="Initial password"
+                          placeholder={ui("Initial password")}
                         />
                       </div>
                     </div>
@@ -640,17 +626,13 @@ export default function ClubsTab({ initialSearch = '' }) {
                   onClick={closeCreateModal}
                   disabled={isCreating}
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
+                >{ui("Cancel")}</button>
                 <button
                   type="submit"
                   disabled={isCreating}
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:bg-gray-300"
                 >
-                  {isCreating ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                  Create
-                </button>
+                  {isCreating ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}{ui("Create")}</button>
               </div>
             </form>
           </div>

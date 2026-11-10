@@ -1,8 +1,10 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './ScorerActionDropdown.css';
 
 export default function ScorerActionDropdown({ label, children }) {
+    const ui = useUiTranslation();
     const [open, setOpen] = useState(false);
     const trigger = useRef(null), panel = useRef(null);
     const id = useId();
@@ -52,10 +54,10 @@ export default function ScorerActionDropdown({ label, children }) {
         items[next].focus();
     };
     return <>
-        <button ref={trigger} type="button" aria-label={label} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)} onKeyDown={event => {
+        <button ref={trigger} type="button" aria-label={ui(label)} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)} onKeyDown={event => {
             if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); }
         }}>⋯</button>
-        {open && createPortal(<div ref={panel} id={id} className="scorer-action-menu" role="region" aria-label={label} onKeyDown={navigate} onBlur={event => {
+        {open && createPortal(<div ref={panel} id={id} className="scorer-action-menu" role="region" aria-label={ui(label)} onKeyDown={navigate} onBlur={event => {
             if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget) && !trigger.current?.contains(event.relatedTarget)) setOpen(false);
         }} onClick={event => {
             if (event.target.closest('button:not(:disabled),a[href]')) { setOpen(false); trigger.current?.focus(); }

@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useScorerTranslation from './useScorerTranslation';
 import React from 'react';
 import ballIcon from '../../assets/img/match-court-ball.svg';
 import matchCourt from '../../assets/img/match-court.svg';
@@ -31,6 +33,8 @@ const PlayerToken = ({
     tokenNumberClass = 'text-[24px] lg:text-[46px]',
     tokenBoxClass = 'w-[45px] h-[45px] lg:w-[76px] lg:h-[76px]'
 }) => {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     if (hideTokens) return null;
     if (!player) return null;
 
@@ -82,7 +86,7 @@ const PlayerToken = ({
         >
             <div 
                 className={`
-                    relative
+                    relative scorer-player-token
                     ${tokenBoxClass}
                     rounded-md lg:rounded-xl border-[2px] border-white 
                     flex flex-col items-center justify-center 
@@ -94,7 +98,7 @@ const PlayerToken = ({
             >
                 {/* หมายเลขตรงกลาง */}
                 <span className={`
-                    ${tokenNumberClass} font-bold drop-shadow-sm leading-none
+                    scorer-player-number ${tokenNumberClass} font-bold drop-shadow-sm leading-none
                     ${finalTextColorClass}
                     ${isCaptain ? 'border-b-[3px] lg:border-b-[6px] border-current pb-0.5' : ''}
                 `}>
@@ -110,7 +114,7 @@ const PlayerToken = ({
 
                 {/* หมายเลข Libero ที่ถูกเปลี่ยนออก (กรณี Libero-to-Libero swap) */}
                 {(isLiberoSwap && player?.replacedLiberoNumber) && (
-                    <div className="absolute -bottom-1 -left-1 lg:-bottom-2 lg:-left-2 w-5 h-5 lg:w-7 lg:h-7 rounded-full flex items-center justify-center bg-amber-500 text-white text-[9px] lg:text-[12px] font-extrabold shadow-md border border-white leading-none" title={`ตัวรับอิสระที่ถูกเปลี่ยนตัวออกหมายเลข #${player.replacedLiberoNumber}`}>
+                    <div className="absolute -bottom-1 -left-1 lg:-bottom-2 lg:-left-2 w-5 h-5 lg:w-7 lg:h-7 rounded-full flex items-center justify-center bg-amber-500 text-white text-[9px] lg:text-[12px] font-extrabold shadow-md border border-white leading-none" title={st(`ตัวรับอิสระที่ถูกเปลี่ยนตัวออกหมายเลข #{0}`, [player.replacedLiberoNumber])}>
                         {player.replacedLiberoNumber}
                     </div>
                 )}
@@ -121,7 +125,7 @@ const PlayerToken = ({
                         className={"absolute bottom-1 right-1 lg:-bottom-1 lg:-right-2 w-6 h-6 lg:w-11 lg:h-7 rounded-sm flex items-center justify-center bg-white text-slate-900 text-[9px] lg:text-[12px] font-extrabold shadow-md leading-none"}
                         style={isHex ? { borderColor: colorClass, borderWidth: '2px' } : {}}
                     >
-                        <span className="text-rose-600 mr-1.5"><img src={AngleDownIcon} alt="Down" className="w-3 h-3"/></span>
+                        <span className="text-rose-600 mr-1.5"><img src={AngleDownIcon} alt={st("Down")} className="w-3 h-3"/></span>
                         <span>{starterNumber}</span>
                     </div>
                 )}
@@ -131,7 +135,7 @@ const PlayerToken = ({
                 {player && (
                     <div className="hidden lg:flex items-center justify-center gap-0.5 text-[10px] font-medium text-white drop-shadow-md w-full">
                         <span className="truncate max-w-[60px]">
-                            {player.name || `${player.first_name || ''} ${player.last_name || ''}`.trim()}
+                            {displayNames.personName(player) || `${displayNames.personFirstName(player) || ''} ${displayNames.personLastName(player) || ''}`.trim()}
                         </span>
                     </div>
                 )}
@@ -155,6 +159,7 @@ const CourtView = ({
     tokenBoxClass,
     className = 'max-w-3xl'
 }) => {
+    const st = useScorerTranslation();
 
     const leftColor = leftTeam?.bg || 'bg-blue-600';
     const rightColor = rightTeam?.bg || 'bg-pink-600';
@@ -183,7 +188,7 @@ const CourtView = ({
                 {/* Background Image */}
                 <img 
                     src={matchCourt} 
-                    alt="Volleyball Court" 
+                    alt={st("Volleyball Court")}
                     className="absolute inset-0 w-full h-full object-fill pointer-events-none z-0" 
                 />
 
@@ -202,7 +207,7 @@ const CourtView = ({
                                 <PlayerToken {...commonProps} side="left" posIndex={0} player={homePositions[0]} originalPlayer={leftSwaps[0]} colorClass={leftColor} onClick={() => onPlayerClick && onPlayerClick('home', 0)} /> {/* P1 */}
                                 {servingSide === 'left' && !hideTokens && (
                                     <div className="absolute -bottom-4 -left-2 lg:-bottom-5 lg:-left-3 drop-shadow-md z-20">
-                                        <img src={ballIcon} alt="ball" className="h-9 w-9 lg:h-12 lg:w-12" />
+                                        <img src={ballIcon} alt={st("ball")} className="h-9 w-9 lg:h-12 lg:w-12" />
                                     </div>
                                 )}
                             </div>
@@ -221,7 +226,7 @@ const CourtView = ({
                                 <PlayerToken {...commonProps} side="right" posIndex={0} player={awayPositions[0]} originalPlayer={rightSwaps[0]} colorClass={rightColor} onClick={() => onPlayerClick && onPlayerClick('away', 0)} /> {/* P1 */}
                                 {servingSide === 'right' && !hideTokens && (
                                     <div className="absolute -top-4 -right-2 lg:-top-5 lg:-right-3 drop-shadow-md z-20">
-                                        <img src={ballIcon} alt="ball" className="h-9 w-9 lg:h-12 lg:w-12" />
+                                        <img src={ballIcon} alt={st("ball")} className="h-9 w-9 lg:h-12 lg:w-12" />
                                     </div>
                                 )}
                             </div>

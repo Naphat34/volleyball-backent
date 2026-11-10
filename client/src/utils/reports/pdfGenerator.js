@@ -1,8 +1,12 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import Swal from 'sweetalert2';
 import { cleanCompetitionTitle } from '../formatters';
 import { getAuthToken } from '../../auth/authStorage';
 import { appendVisReportPages, visReportFilename } from '../vis/visReportPdf';
+import { personName, personNameParts } from '../i18n/names';
+import { readLanguage } from '../i18n/language';
+import { getScorerTeamName } from '../scorer/scorerTeamNames';
 
 /**
  * Helper function: จัดการการส่งออกไฟล์ (ดาวน์โหลด หรือ คืนค่า Data URL)
@@ -63,12 +67,44 @@ export const generateVisMatchPDF = async (data, options = {}) => {
     const font = await pdfDoc.embedFont(fontBytes);
     const boldFont = await pdfDoc.embedFont(boldBytes);
     const p2Assets = { competition: await pdfDoc.embedPng(competitionLogo), association: await pdfDoc.embedPng(associationLogo), partners: await pdfDoc.embedPng(partnersLogo) };
-    appendVisReportPages(pdfDoc, font, data, { ...options, exportedAt, fontLayout: fontkit.create(fontBytes), boldFont, boldLayout: fontkit.create(boldBytes), p2Assets });
+    appendVisReportPages(pdfDoc, font, data, { ...options, language: options.language || readLanguage(), exportedAt, fontLayout: fontkit.create(fontBytes), boldFont, boldLayout: fontkit.create(boldBytes), p2Assets });
     const filename = options.resultOnly ? `P-2_${visReportFilename(data.match, exportedAt).replace(/^Vis_match_/, '')}` : visReportFilename(data.match, exportedAt);
     return handleOutput(pdfDoc, filename, save, returnDataUrl);
 };
 
 export const generateVisMatchResultPDF = (data, options = {}) => generateVisMatchPDF(data, { ...options, resultOnly: true });
+
+export const previewVisMatchResultPDF = async (data, options = {}) => {
+    const exportedAt = options.exportedAt || new Date();
+    const bytes = await generateVisMatchResultPDF(data, { ...options, exportedAt, save: false, returnDataUrl: false });
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+    const filename = 'P-2_' + visReportFilename(data.match, exportedAt).replace(/^Vis_match_/, '');
+    const container = document.createElement('div');
+    const frame = document.createElement('iframe');
+    frame.src = url;
+    frame.title = 'Preview P-2';
+    frame.style.cssText = 'display:block;width:100%;height:70vh;border:0;background:#e2e8f0';
+    container.append(frame);
+    const fallback = document.createElement('a');
+    fallback.href = url;
+    fallback.target = '_blank';
+    fallback.rel = 'noopener';
+    fallback.textContent = 'เปิด Preview ในแท็บใหม่';
+    container.append(fallback);
+    try {
+        await Swal.fire({
+            title: 'Preview P-2', html: container, width: 'min(1100px, 96vw)',
+            showCancelButton: true, confirmButtonText: 'ดาวน์โหลด PDF', cancelButtonText: 'ปิด',
+            focusConfirm: false,
+            preConfirm: () => {
+                const link = document.createElement('a');
+                link.href = url; link.download = filename;
+                document.body.append(link); link.click(); link.remove();
+                return false;
+            },
+        });
+    } finally { URL.revokeObjectURL(url); }
+};
 
 export const generateScoresheetPDF = async (data, options = {}) => {
     const { save = true, returnDataUrl = false } = options;
@@ -239,7 +275,7 @@ export const generateScoresheetPDF = async (data, options = {}) => {
             // วาดเบอร์เสื้อ (ฟอนต์ขนาด 8)
             drawText(player.number, homeStartX, currentY, 8); 
             // วาดชื่อ (ลดระยะห่างเหลือ +15 และลดฟอนต์ขนาด 7)
-            drawText(formatName(player.first_name, player.last_name), homeStartX + 15, currentY, 7); 
+            drawText(formatName(personNameParts(player, options.language || readLanguage()).first, personNameParts(player, options.language || readLanguage()).last), homeStartX + 15, currentY, 7);
         });
 
         // วาดทีมเยือน (Away)
@@ -250,7 +286,7 @@ export const generateScoresheetPDF = async (data, options = {}) => {
             // วาดเบอร์เสื้อ (ฟอนต์ขนาด 8)
             drawText(player.number, awayStartX, currentY, 8); 
             // วาดชื่อ (ลดระยะห่างเหลือ +15 และลดฟอนต์ขนาด 7)
-            drawText(formatName(player.first_name, player.last_name), awayStartX + 15, currentY, 7); 
+            drawText(formatName(personNameParts(player, options.language || readLanguage()).first, personNameParts(player, options.language || readLanguage()).last), awayStartX + 15, currentY, 7);
         });
         if (options.includeVisReport) appendVisReportPages(pdfDoc, customFont, data, { ...options, fontLayout: fontkit.create(fontBytes) });
         // 5. บันทึกผลลัพธ์
@@ -396,8 +432,8 @@ export const generateMatchRosterPDF = async (data, options = {}) => {
         drawText(displayDate, 480, 36.5, 12);
         drawText(displayTime, 495, 51, 12);
 
-        drawText(match.home_team_name, 110, 150, 16);
-        drawText(match.away_team_name, 490, 150, 16);
+        drawText(getScorerTeamName(match, 'home', options.language || readLanguage()), 110, 150, 16);
+        drawText(getScorerTeamName(match, 'away', options.language || readLanguage()), 490, 150, 16);
 
         // กรองข้อมูลผู้เล่น
         const homeRegular = home.players.filter(p => p.position !== 'L');
@@ -407,7 +443,7 @@ export const generateMatchRosterPDF = async (data, options = {}) => {
         homeRegular.forEach((player, i) => {
             if (i >= 12) return;
             const y = startTableY + (i * rowH);
-            let pName = `${player.first_name} ${player.last_name}`;
+            let pName = personName(player, options.language || readLanguage());
             if (player.is_captain) pName += ' (C)';
             
             drawText(player.number, 75, y, 12);
@@ -420,7 +456,7 @@ export const generateMatchRosterPDF = async (data, options = {}) => {
         awayRegular.forEach((player, i) => {
             if (i >= 12) return;
             const y = startTableY + (i * rowH);
-            let pName = `${player.first_name} ${player.last_name}`;
+            let pName = personName(player, options.language || readLanguage());
             if (player.is_captain) pName += ' (C)';
             
             drawText(player.number, 458, y, 12);

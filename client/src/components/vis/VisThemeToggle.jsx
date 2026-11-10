@@ -1,14 +1,17 @@
-﻿import { Moon, Sun } from 'lucide-react';
+import useUiTranslation from '../../hooks/useUiTranslation';
+import useVisTranslation from './useVisTranslation';
 import { useVisTheme } from './visThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function VisThemeToggle({ iconOnly = false }) {
+export default function VisThemeToggle({ compact = false }) {
+    const ui = useUiTranslation();
+    const vt = useVisTranslation();
     const { theme, setTheme } = useVisTheme();
     const { language } = useLanguage();
     const dark = theme === 'dark';
-    const label = language === 'THA' ? (dark ? 'โหมดสว่าง' : 'โหมดมืด') : (dark ? 'Light mode' : 'Dark mode');
-    return <button type="button" className="vis-theme-toggle" aria-label={label} title={label}
-        aria-pressed={dark} onClick={() => setTheme(dark ? 'light' : 'dark')}>
-        {dark ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}{!iconOnly && label}
+    const label = language === 'THA' ? vt('โหมดมืด') : 'Dark mode';
+    return <button type="button" className={`vis-theme-toggle${compact ? ' vis-theme-toggle-compact' : ''}`} role="switch" aria-label={ui(label)} title={ui(label)}
+        aria-checked={dark} onClick={() => setTheme(dark ? 'light' : 'dark')}>
+        <span className="vis-theme-toggle-thumb" aria-hidden="true" />
     </button>;
 }

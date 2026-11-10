@@ -1,5 +1,7 @@
 const { randomUUID, randomBytes } = require('node:crypto');
 const db = require('../config/db');
+const { linkAthlete, retainUnchangedLinks } = require('../utils/customAthleteLinks');
+const { athleteError } = require('../utils/athleteIntegrity');
 const { createPayload, view, commandPayload } = require('../utils/customVis');
 const { fail } = require('../utils/visWorkflow');
 const { importCustomVis } = require('../utils/importCustomVis');
@@ -15,7 +17,7 @@ function endpoint(handler) {
     return async (req, res) => {
         let connection;
         try { connection = await db.connect(); await handler(req, res, connection); }
-        catch (error) { if (connection) await connection.rollback(); console.error('Custom VIS:', error.message); res.status(error.status || 500).json({ error: error.status ? error.message : error.code === 'ER_NO_SUCH_TABLE' ? 'กรุณาติดตั้ง migration 32 ก่อนใช้งานแมตช์สร้างเอง' : 'ไม่สามารถบันทึกข้อมูลแมตช์ VIS ได้' }); }
+        catch (error) { if (connection) await connection.rollback(); console.error('Custom VIMS:', error.message); res.status(error.code === 'ER_DUP_ENTRY' ? 409 : error.status || 500).json({ error: error.code === 'ER_DUP_ENTRY' ? athleteError(error).message : error.status ? error.message : error.code === 'ER_NO_SUCH_TABLE' ? 'กรุณาติดตั้ง migration 32 ก่อนใช้งานแมตช์สร้างเอง' : 'ไม่สามารถบันทึกข้อมูลแมตช์ VIMS ได้' }); }
         finally { if (connection) connection.release(); }
     };
 }
@@ -42,7 +44,8 @@ exports.read = endpoint(async (req, res, connection) => {
     const result = await connection.query('SELECT * FROM custom_vis_matches WHERE id = ?', [req.params.id]);
     const row = result.rows[0]; allowed(row, req);
     const payload = parse(row.payload);
-    res.json({ ...view(payload), match: decorate(row), config: payload.config,
+    const athleteLinks = await connection.query('SELECT side,local_player_id,player_id FROM custom_vis_player_links WHERE match_id=?', [row.id]);
+    res.json({ ...view(payload), athleteLinks: athleteLinks.rows, match: decorate(row), config: payload.config,
         offlinePayload: payload,
         backup: { config: payload.config, match: payload.match, actions: payload.actions } });
 });
@@ -53,6 +56,7 @@ exports.update = endpoint(async (req, res, connection) => {
     const payload = createPayload(req.body, req.params.id);
     payload.revision = previous.revision + 1; payload.operations = previous.operations;
     payload.audit = previous.audit || []; audit(payload, req, 'UPDATE_CONFIG');
+    await retainUnchangedLinks(connection, req.params.id, previous, payload);
     await connection.query('UPDATE custom_vis_matches SET payload = ? WHERE id = ?', [JSON.stringify(payload), req.params.id]);
     await connection.commit(); res.json({ match: decorate({ ...row, payload }) });
 });
@@ -109,7 +113,7 @@ exports.publicView = endpoint(async (req, res, connection) => {
 
 exports.offlinePermit = async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    res.json({ user: { id: req.user.id, role: req.user.role, username: req.user.username || `VIS ${req.user.id}` },
+    res.json({ user: { id: req.user.id, role: req.user.role, username: req.user.username || `VIMS ${req.user.id}` },
         issuedAt: Date.now(), expiresAt: Date.now() + 7 * 86400000 });
 };
 exports.offlineCheckout = endpoint(async (req, res, connection) => {
@@ -147,4 +151,22 @@ exports.offlineSync = endpoint(async (req, res, connection) => {
     const io = req.app.get('io');
     if (io) io.to(`match_${row.id}`).emit('vis_statistics_updated', { matchId: row.id });
     res.json({ payload: synced.payload, acknowledged: synced.acknowledged, match: decorate({ ...row, payload: synced.payload }) });
+});
+
+exports.athleteOptions = endpoint(async (req,res,connection) => {
+    if (!admin(req)) fail('เฉพาะผู้ดูแลระบบ',403);
+    const q = '%' + String(req.query.q || '').trim().slice(0,100) + '%';
+    const players = await connection.query(`SELECT p.id,p.number,p.first_name,p.last_name,t.name AS team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
+        FROM players p LEFT JOIN teams t ON t.id=p.team_id WHERE COALESCE(p.is_active,1)=1
+        AND (CONCAT_WS(' ',p.first_name,p.last_name) LIKE ? OR t.name LIKE ?) ORDER BY p.id LIMIT 200`,[q,q]);
+    res.json(players.rows);
+});
+exports.linkAthlete = endpoint(async (req,res,connection) => {
+    if (!admin(req)) fail('เฉพาะผู้ดูแลระบบ',403);
+    const row = await locked(req,connection), payload = parse(row.payload);
+    assertAvailable(payload);
+    await linkAthlete(connection,payload,row.id,req.user,req.body);
+    audit(payload,req,'LINK_ATHLETE');
+    await connection.query('UPDATE custom_vis_matches SET payload=? WHERE id=?',[JSON.stringify(payload),row.id]);
+    await connection.commit(); res.json({message:'บันทึกการเชื่อมตัวตนนักกีฬาแล้ว'});
 });

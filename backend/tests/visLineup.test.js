@@ -3,18 +3,20 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const workflow = require('../utils/visWorkflow');
-function harness() {
+function harness(extraPlayers = false) {
     const match = { id: 84, status: 'scheduled', home_team_id: 1, away_team_id: 2, live_state: '{"score":{"home":8,"away":4}}' };
     const writes = [], actions = [];
     const connection = { beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {},
         query: async (sql, params) => {
             if (sql.startsWith('SELECT m.*')) return { rows: [match] };
+            if (sql.startsWith('SELECT * FROM players WHERE team_id')) return { rows: Array.from({ length: extraPlayers ? 10 : 8 }, (_, i) => ({ id: (params[0] === 1 ? 1 : 11) + i, position: 'OH' })) };
             if (sql.startsWith('SELECT * FROM match_actions')) return { rows: actions };
-            if (sql.startsWith('SELECT id FROM players')) return { rows: params[0] <= 8 && params[1] === 1 || params[0] >= 11 && params[0] <= 16 && params[1] === 2 ? [{ id: params[0] }] : [] };
+            if (sql.startsWith('SELECT id FROM players')) return { rows: params[0] <= (extraPlayers ? 10 : 8) && params[1] === 1 || params[0] >= 11 && params[0] <= 16 && params[1] === 2 ? [{ id: params[0] }] : [] };
             if (sql.startsWith('UPDATE matches SET vis_state')) { writes.push(sql); match.vis_state = params[0]; return {}; }
             throw Error(sql);
         } };
     const context = { exports: {}, console: { error() {} }, require: name => {
+        if (name === './scorerOfflineController') return { scopedController: () => ({}), call: async () => Object.fromEntries(['home', 'away'].map((team, index) => [team, { players: Array.from({length:extraPlayers ? 10 : 8}, (_, i) => ({id: index * 10 + i + 1, position: i === 7 ? 'L' : 'OH'})) }])) };
         if (name === '../config/db') return { connect: async () => connection };
         if (name === '../utils/visWorkflow') return workflow;
         if (name === '../utils/visEventCode') return { ...require('../utils/visEventCode'), getVisJerseyNumber: async () => 0 };
@@ -208,4 +210,52 @@ test('substitution persists lineup, rejects invalid pairs, and Undo restores the
     assert.equal(result.code, 200);
     assert.equal(result.body.state.lineups.home[0], 1);
     assert.equal(result.body.state.substitutions.home, 0);
+});
+
+test('official VIS persists Libero controls, validates roster roles, and Undo restores court without quota', async () => {
+    const h = harness();
+    h.body.command.lineups.home[0] = 8;
+    assert.equal((await h.run()).code, 400);
+    h.body.command.lineups.home[0] = 1;
+    assert.equal((await h.run()).code, 200);
+    async function command(value) {
+        h.body.operationId = 'libero-official-' + String(h.body.revision).padStart(16,'0') + '-' + value.type.replaceAll('_','-');
+        h.body.revision = workflow.projectOfficialState(h.match, h.actions).state.revision;
+        h.body.command = value;
+        return h.run();
+    }
+    const swap = {type:'LIBERO_REPLACEMENT',team:'home',playerOut:5,playerIn:8};
+    assert.equal((await command({...swap,playerOut:2})).code,400);
+    const result = await command(swap);
+    assert.equal(result.code,200);
+    assert.equal(result.body.state.lineups.home[4],8);
+    assert.equal(result.body.state.substitutions.home,0);
+    assert.equal(workflow.projectOfficialState(h.match,h.actions).state.liberoReplacements.home.regular,5);
+    assert.equal((await command({type:'SUBSTITUTION',team:'home',playerOut:8,playerIn:7})).code,400);
+    assert.equal((await command({type:'LIBERO_REPLACEMENT',team:'home',playerOut:8,playerIn:5})).code,400);
+    const undone = await command({type:'UNDO'});
+    assert.equal(undone.code,200);
+    assert.equal(undone.body.state.lineups.home[4],5);
+    assert.equal(undone.body.state.liberoReplacements.home,null);
+});
+
+test('official substitutions save a whole batch once and Undo removes the whole batch', async () => {
+    const f = harness(true);
+    let res = await f.run(); assert.equal(res.code, 200);
+    f.body.operationId = 'batch-operation-123456'; f.body.revision = res.body.state.revision;
+    f.body.command = {type:'SUBSTITUTIONS',team:'home',pairs:[{playerOut:1,playerIn:7},{playerOut:2,playerIn:9}]};
+    res = await f.run(); assert.equal(res.code, 200, JSON.stringify(res.body));
+    assert.equal(res.body.events.length, 2); assert.equal(res.body.state.substitutions.home, 2);
+    assert.deepEqual(Array.from(res.body.state.lineups.home), [7,9,3,4,5,6]);
+    const writes = f.writes.length;
+    const duplicate = await f.run(); assert.equal(duplicate.body.duplicate, true); assert.equal(f.writes.length, writes);
+    f.body.operationId = 'undo-batch-operation-123456'; f.body.revision = res.body.state.revision; f.body.command = {type:'UNDO'};
+    res = await f.run(); assert.equal(res.code, 200); assert.equal(res.body.deletedEventIds.length, 2);
+    assert.equal(res.body.state.substitutions.home, 0); assert.deepEqual(Array.from(res.body.state.lineups.home), [1,2,3,4,5,6]);
+});
+test('invalid second pair does not save a partial official substitution batch', async () => {
+    const f = harness(true); const ready = await f.run(); const writes = f.writes.length;
+    f.body.operationId = 'invalid-batch-operation-123456'; f.body.revision = ready.body.state.revision;
+    f.body.command = {type:'SUBSTITUTIONS',team:'home',pairs:[{playerOut:1,playerIn:7},{playerOut:2,playerIn:8}]};
+    const res = await f.run(); assert.equal(res.code, 400); assert.equal(f.writes.length, writes);
 });

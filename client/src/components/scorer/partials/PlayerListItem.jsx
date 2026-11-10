@@ -1,15 +1,13 @@
+import useDisplayNames from '../../../hooks/useDisplayNames';
+import useScorerTranslation from '../useScorerTranslation';
 import React from 'react';
 
 const PlayerListItem = ({ player, label, align, isActive, isLibero, isSwappedLibero, isLastSwap }) => {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     const isRight = align === 'right';
-    
-    const getPlayerName = (p) => {
-        if (!p) return '';
-        if (p.name) return p.name;
-        if (p.firstname) return p.firstname + ' ' + (p.lastname || '');
-        if (p.first_name) return p.first_name + ' ' + (p.last_name || '');
-        return '';
-    };
+
+
 
     // New light theme tokens
     const activeClass = 'bg-white border-slate-100 shadow-sm';
@@ -31,14 +29,14 @@ const PlayerListItem = ({ player, label, align, isActive, isLibero, isSwappedLib
             </div>
             <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <div className={`text-xs truncate font-bold flex items-center gap-2 ${isActive ? nameActiveClass : nameInactiveClass} ${isRight ? 'flex-row-reverse' : ''}`}>
-                    <span>{getPlayerName(player)}</span>
+                    <span>{displayNames.personName(player)}</span>
                     {player?.isCaptain && (
-                        <span className={`text-[8px] font-semibold w-4 h-4 flex items-center justify-center rounded-full ${captainClass}`} title="Captain">C</span>
+                        <span className={`text-[8px] font-semibold w-4 h-4 flex items-center justify-center rounded-full ${captainClass}`} title={st("Captain")}>{st("C")}</span>
                     )}
                 </div>
             </div>
             {label && (
-                <div className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${labelClass}`}>{label}</div>
+                <div className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${labelClass}`}>{st(label)}</div>
             )}
         </div>
     );

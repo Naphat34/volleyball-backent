@@ -1,9 +1,13 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ArrowRightLeft, CheckCircle, Users, Disc, Shield, X, Grid, Trophy, MapPin } from 'lucide-react';
 import CourtView from './CourtView';
 
 export default function ScorerConsole() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const location = useLocation();
     const matchSetupData = location.state?.matchData || {
         title: "Volleyball League 2024",
@@ -126,7 +130,7 @@ export default function ScorerConsole() {
             {/* --- HEADER --- */}
             <header className="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0 shadow-md">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center font-bold text-lg">V</div>
+                    <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center font-bold text-lg">{ui("V")}</div>
                     <div>
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">{matchSetupData.title}</div>
                     </div>
@@ -134,14 +138,14 @@ export default function ScorerConsole() {
                 
                 {/* Scoreboard Preview */}
                 <div className="flex items-center gap-6 bg-black/40 px-6 py-1 rounded-lg border border-white/5">
-                    <span className="text-indigo-400 font-bold">{matchSetupData.teamHome}</span>
+                    <span className="text-indigo-400 font-bold">{displayNames.matchTeamName(matchSetupData, 'home')}</span>
                     <span className="text-xl font-mono font-black tracking-widest text-white">0 - 0</span>
-                    <span className="text-rose-400 font-bold">{matchSetupData.teamAway}</span>
+                    <span className="text-rose-400 font-bold">{displayNames.matchTeamName(matchSetupData, 'away')}</span>
                 </div>
 
                 <div className="text-right">
-                    <div className="text-xs font-bold text-green-400">LIVE</div>
-                    <div className="text-[10px] text-slate-500">Scorer Console</div>
+                    <div className="text-xs font-bold text-green-400">{ui("LIVE")}</div>
+                    <div className="text-[10px] text-slate-500">{ui("Scorer Console")}</div>
                 </div>
             </header>
 
@@ -163,18 +167,14 @@ export default function ScorerConsole() {
                             
                             {/* Footer / Status Bar */}
                             {step !== 'READY' && (
-                                <div className="absolute bottom-4 text-slate-500 text-xs">
-                                    Waiting for match start...
-                                </div>
+                                <div className="absolute bottom-4 text-slate-500 text-xs">{ui("Waiting for match start...")}</div>
                             )}
                         </div>
                         {/* 4. GAME READY CONTROLS (Bottom Panel) */}
                         {step === 'READY' && (
                             <div className="absolute bottom-0 w-full bg-slate-800 border-t border-slate-700 p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
                                 <div className="max-w-4xl mx-auto flex items-center justify-center gap-8 h-24 text-slate-500">
-                                    <div className="border border-dashed border-slate-600 rounded-lg px-8 py-4 bg-slate-900/50">
-                                        Score Controls & Match Log Component
-                                    </div>
+                                    <div className="border border-dashed border-slate-600 rounded-lg px-8 py-4 bg-slate-900/50">{ui("Score Controls & Match Log Component")}</div>
                                 </div>
                             </div>
                         )}
@@ -189,44 +189,42 @@ export default function ScorerConsole() {
                         <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
                             <div className="bg-slate-800 p-4 border-b border-slate-700 flex items-center gap-2">
                                 <Disc className="text-yellow-500" />
-                                <h2 className="font-bold text-lg">Pre-Match Decision</h2>
+                                <h2 className="font-bold text-lg">{ui("Pre-Match Decision")}</h2>
                             </div>
                             
                             <div className="p-6 space-y-6">
                                 {/* First Serve */}
                                 <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">First Service</label>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{ui("First Service")}</label>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button onClick={() => setServingTeam('home')} className={`py-3 px-4 rounded-lg border transition-all font-bold ${servingTeam === 'home' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                                            {matchSetupData.teamHome}
+                                            {displayNames.matchTeamName(matchSetupData, 'home')}
                                         </button>
                                         <button onClick={() => setServingTeam('away')} className={`py-3 px-4 rounded-lg border transition-all font-bold ${servingTeam === 'away' ? 'bg-rose-600/20 border-rose-500 text-rose-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                                            {matchSetupData.teamAway}
+                                            {displayNames.matchTeamName(matchSetupData, 'away')}
                                         </button>
                                     </div>
                                 </div>
 
                                 {/* Court Side */}
                                 <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Court Assignment</label>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{ui("Court Assignment")}</label>
                                     <div className="flex items-center justify-between bg-slate-800 rounded-xl p-2 border border-slate-700">
                                         <div className="flex-1 text-center py-2">
                                             <div className={`font-bold ${isHomeLeft ? 'text-indigo-400' : 'text-rose-400'}`}>{leftTeamName}</div>
-                                            <div className="text-[10px] text-slate-500">Left Court</div>
+                                            <div className="text-[10px] text-slate-500">{ui("Left Court")}</div>
                                         </div>
                                         <button onClick={() => setIsHomeLeft(!isHomeLeft)} className="p-2 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 hover:text-white transition shadow-lg">
                                             <ArrowRightLeft size={18} />
                                         </button>
                                         <div className="flex-1 text-center py-2">
                                             <div className={`font-bold ${!isHomeLeft ? 'text-indigo-400' : 'text-rose-400'}`}>{rightTeamName}</div>
-                                            <div className="text-[10px] text-slate-500">Right Court</div>
+                                            <div className="text-[10px] text-slate-500">{ui("Right Court")}</div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <button onClick={() => setStep('LINEUP')} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/20 transition-all mt-2">
-                                    Confirm & Set Lineups
-                                </button>
+                                <button onClick={() => setStep('LINEUP')} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/20 transition-all mt-2">{ui("Confirm & Set Lineups")}</button>
                             </div>
                         </div>
                     </div>
@@ -238,11 +236,9 @@ export default function ScorerConsole() {
                         {/* Modal Header */}
                         <div className="p-4 flex justify-between items-center max-w-6xl mx-auto w-full">
                             <h2 className="text-2xl font-bold flex items-center gap-3 text-white">
-                                <Users className="text-indigo-400"/> Starting Lineups
-                            </h2>
+                                <Users className="text-indigo-400"/>{ui("Starting Lineups")}</h2>
                             <button onClick={handleLineupConfirm} className="px-6 py-2 bg-green-600 hover:bg-green-500 rounded-lg font-bold shadow-lg shadow-green-500/20 flex items-center gap-2 transition active:scale-95">
-                                <CheckCircle size={18} /> Start Match
-                            </button>
+                                <CheckCircle size={18} />{ui("Start Match")}</button>
                         </div>
 
                         {/* Lineup Content */}
@@ -262,7 +258,7 @@ export default function ScorerConsole() {
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                         <div className="bg-slate-800 rounded-2xl shadow-2xl border border-slate-600 w-full max-w-sm overflow-hidden">
                             <div className="bg-slate-900 p-3 flex justify-between items-center border-b border-slate-700">
-                                <span className="font-bold text-slate-200 flex items-center gap-2"><Grid size={16}/> Select Player</span>
+                                <span className="font-bold text-slate-200 flex items-center gap-2"><Grid size={16}/>{' '}{ui("Select Player")}</span>
                                 <button onClick={() => setShowPlayerModal(false)}><X size={20} className="text-slate-400 hover:text-white"/></button>
                             </div>
                             <div className="p-5">
@@ -294,6 +290,7 @@ export default function ScorerConsole() {
 
 // --- SUB COMPONENT: Lineup Card ---
 const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClearPos, color, sideLabel }) => {
+    const ui = useUiTranslation();
     const themeColor = color === 'indigo' ? 'text-indigo-400 border-indigo-500/30' : 'text-rose-400 border-rose-500/30';
     const btnColor = color === 'indigo' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-rose-600 hover:bg-rose-500';
     const decoColor = color === 'indigo' ? 'bg-indigo-500/10' : 'bg-rose-500/10';
@@ -312,7 +309,7 @@ const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClear
             </div>
             
             {/* Starting 6 Grid (Rotated visually to match court logic roughly) */}
-            <div className="mb-2 text-xs font-bold text-slate-400 uppercase text-center">Starting Six</div>
+            <div className="mb-2 text-xs font-bold text-slate-400 uppercase text-center">{ui("Starting Six")}</div>
             <div className="grid grid-cols-3 gap-3 mb-6 bg-slate-900/50 p-4 rounded-xl border border-white/5">
                 {[3, 2, 1, 4, 5, 0].map((posIndex) => { 
                     const player = lineup[posIndex];
@@ -331,7 +328,7 @@ const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClear
                                 {player ? player.number : <span className="text-2xl font-light">+</span>}
                             </button>
                             <div className="mt-1 flex flex-col items-center">
-                                <span className="text-[9px] font-bold text-slate-500 bg-slate-800 px-1.5 rounded">P{posIndex + 1}</span>
+                                <span className="text-[9px] font-bold text-slate-500 bg-slate-800 px-1.5 rounded">{ui("P")}{posIndex + 1}</span>
                             </div>
                         </div>
                     )
@@ -341,8 +338,7 @@ const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClear
             {/* Libero Section */}
             <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
                 <div className="flex items-center gap-2 mb-2 text-yellow-500 font-bold text-[10px] uppercase tracking-wider">
-                    <Shield size={12}/> Liberos
-                </div>
+                    <Shield size={12}/>{ui("Liberos")}</div>
                 <div className="grid grid-cols-2 gap-3">
                     {['l1', 'l2'].map((key) => (
                         <div key={key} className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700 pr-3">
@@ -353,7 +349,7 @@ const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClear
                                     <button onClick={() => onClearPos(key)} className="text-slate-500 hover:text-rose-400"><X size={14}/></button>
                                 </div>
                             ) : (
-                                <button onClick={() => onSelectPos(key)} className="flex-1 text-left text-xs text-slate-500 hover:text-indigo-400 font-medium">+ Add</button>
+                                <button onClick={() => onSelectPos(key)} className="flex-1 text-left text-xs text-slate-500 hover:text-indigo-400 font-medium">{ui("+ Add")}</button>
                             )}
                         </div>
                     ))}

@@ -1,3 +1,4 @@
+const { normalizeNames, playerNameFields, teamNameFields } = require('./bilingualNames');
 const fail = message => { const error = new Error(message); error.status = 400; throw error; };
 const text = (value, max, label, required = false) => {
     if (value != null && typeof value !== 'string') fail(`${label}: รูปแบบไม่ถูกต้อง`);
@@ -36,13 +37,17 @@ function normalizeManualMatch(body = {}) {
             numbers.add(number);
             const position = text(p.position, 3, 'ตำแหน่ง');
             if (!['', 'S', 'OH', 'MB', 'OPP', 'L'].includes(position)) fail('ตำแหน่งไม่ถูกต้อง');
-            return { number, first_name: text(p.first_name, 50, 'ชื่อ', true), last_name: text(p.last_name, 50, 'นามสกุล'), position, is_captain: p.is_captain === true };
+            const names = normalizeNames(p);
+            return { number, first_name: text(names.first_name, 50, 'ชื่อ', true), last_name: text(names.last_name, 50, 'นามสกุล'),
+                ...Object.fromEntries(playerNameFields.filter(field => names[field] !== undefined).map(field => [field, names[field]])), position, is_captain: p.is_captain === true };
         });
         if (players.filter(p => p.is_captain).length > 1) fail('กำหนดกัปตันได้ทีมละหนึ่งคน');
         if (players.filter(p => p.position === 'L').length > 2) fail('กำหนด Libero ได้ทีมละไม่เกินสองคน');
         const color = text(team.color || (side === 'home' ? '#2563eb' : '#dc2626'), 7, 'สีเสื้อ');
         if (!/^#[0-9a-f]{6}$/i.test(color)) fail('สีเสื้อไม่ถูกต้อง');
-        config[side] = { name: text(team.name, 100, 'ชื่อทีม', true), color, players };
+        const names = normalizeNames(team, {}, true);
+        config[side] = { name: text(names.name, 100, 'ชื่อทีม', true),
+            ...Object.fromEntries(teamNameFields.filter(field => names[field] !== undefined).map(field => [field, names[field]])), color, players };
     }
     if (config.home.name === config.away.name) fail('ชื่อทีมทั้งสองต้องต่างกัน');
     return config;

@@ -1,4 +1,5 @@
-const { projectOfficialState, applyRally, resolveContext, visDashboardSummary, configureVisSettings, fail } = require('./visWorkflow');
+const { normalizeNames, playerNameFields } = require('./bilingualNames');
+const { projectOfficialState, applyRally, resolveContext, visDashboardSummary, configureVisSettings, isLiberoPlayer, validateLiberoReplacement, substitutionPairs, fail } = require('./visWorkflow');
 const { normalizeVisTiming } = require('./visTiming');
 const keys = ['home', 'away'];
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -13,22 +14,27 @@ function validateInput(input) {
     }
     const teams = {};
     for (const [index, key] of keys.entries()) {
-        const source = input[key];
+        const source = normalizeNames(input[key] || {}, {}, true);
         if (!text(source?.name)) fail('กรุณาระบุชื่อทีมทั้งสองทีม');
         if (!Array.isArray(source.players) || source.players.length > 30) fail('รายชื่อได้สูงสุดทีมละ 30 คน');
         const numbers = new Set();
         const players = source.players.map((p, n) => {
+            p = normalizeNames(p);
             const number = Number(p.number);
             if (!Number.isSafeInteger(number) || number < 1 || number > 999 || numbers.has(number)) fail(`เบอร์ผู้เล่นซ้ำหรือไม่ถูกต้องในทีม ${source.name}`);
             if (!text(p.first_name) || !text(p.last_name)) fail('กรุณาระบุชื่อและนามสกุลผู้เล่น');
             const position = text(p.position, 10).toUpperCase();
             if (position && !['S', 'OH', 'MB', 'OPP', 'OP', 'L'].includes(position)) fail('ตำแหน่งผู้เล่นไม่ถูกต้อง');
             numbers.add(number);
-            return { id: index * 1000 + n + 1, number, first_name: text(p.first_name), last_name: text(p.last_name),
+            return { ...Object.fromEntries(playerNameFields.map(field => [field,p[field] || null])), id: index * 1000 + n + 1, number, first_name: text(p.first_name), last_name: text(p.last_name),
                 name: `${text(p.first_name)} ${text(p.last_name)}`, position, is_captain: Boolean(p.is_captain) };
         });
+        if (players.filter(isLiberoPlayer).length > 2) fail('กำหนด Libero ได้สูงสุดสองคน');
         if (players.filter(p => p.is_captain).length > 1) fail('กำหนดกัปตันได้ทีมละหนึ่งคน');
-        teams[key] = { name: text(source.name), players };
+        const staff = source.staff === undefined ? [] : source.staff;
+        if (!Array.isArray(staff) || staff.length > 20) fail('รายชื่อเจ้าหน้าที่ทีมไม่ถูกต้อง');
+        teams[key] = { name: text(source.name), name_th: source.name_th || null, name_en: source.name_en || null, players,
+            staff: staff.map(person => ({first_name:text(person.first_name,50),last_name:text(person.last_name,50),role:text(person.role,50)})) };
     }
     return { title: text(input.title), maxSets: Number(input.maxSets), date: input.date || null,
         time: /^\d{2}:\d{2}$/.test(input.time || '') ? input.time : null, location: text(input.location), gender: text(input.gender, 20), ...teams };
@@ -41,12 +47,13 @@ function createPayload(input, id) {
 function view(payload) {
     const { config } = payload;
     const match = { ...payload.match, home_team: config.home.name, away_team: config.away.name,
-        home_team_name: config.home.name, away_team_name: config.away.name, competition_name: config.title,
+        home_team_name: config.home.name, away_team_name: config.away.name,
+        home_team_name_th: config.home.name_th, home_team_name_en: config.home.name_en, away_team_name_th: config.away.name_th, away_team_name_en: config.away.name_en, competition_name: config.title,
         competition_title: config.title, match_date: config.date, start_time: config.time, location: config.location,
         gender: config.gender, vis_lifecycle: payload.lifecycle };
     const projected = projectOfficialState(match, payload.actions);
     const state = projected.state;
-    state.liberos = payload.match.vis_state.setups?.[state.currentSet]?.liberos || { home: null, away: null };
+    state.liberos = Object.fromEntries(keys.map(key => [key, state.liberoReplacements[key]?.libero || config[key].players.find(isLiberoPlayer)?.id || null]));
     state.revision = payload.revision;
     state.isReadOnly = ['confirmed', 'cancelled'].includes(payload.lifecycle);
     match.vis_summary = visDashboardSummary(match, payload.actions, state);
@@ -63,7 +70,7 @@ function view(payload) {
     const all = [...payload.actions, ...controls];
     const events = [...state.history].reverse().map(item => all.find(event => String(event.id) === String(item.eventId))).filter(Boolean);
     return { match, state, events, rallies: [], operations: payload.operations,
-        roster: { match, home: { players: config.home.players }, away: { players: config.away.players } } };
+        roster: { match, home: { players: config.home.players, staff: config.home.staff || [] }, away: { players: config.away.players, staff: config.away.staff || [] } } };
 }
 function commandPayload(previous, operation) {
     if (!/^[\w-]{16,80}$/.test(operation.operationId || '')) fail('Invalid operation ID');
@@ -73,11 +80,27 @@ function commandPayload(previous, operation) {
     if (!command || ['confirmed', 'cancelled'].includes(payload.lifecycle)) fail('แมตช์ถูกล็อกแล้ว', 409);
     let response = {};
     const setup = payload.match.vis_state;
+    if (command.type === 'SUBSTITUTIONS') {
+        const pairs = substitutionPairs(command);
+        let next = payload;
+        const events = [];
+        for (const [index, pair] of pairs.entries()) {
+            const result = commandPayload(next, { ...operation, operationId: operation.operationId + '-' + index, revision: next.revision, command: { ...pair, team: command.team, type: 'SUBSTITUTION' } });
+            next = result.payload;
+            const event = next.match.vis_state.controls.at(-1);
+            event.details.batchId = operation.operationId;
+            events.push(event);
+        }
+        next.operations = [...previous.operations, operation.operationId];
+        next.revision = previous.revision + 1;
+        return { payload: next, response: { ...view(next), events: events.reverse() } };
+    }
+
     if (command.type === 'CONFIGURE_SETTINGS') {
         if (state.phase === 'MATCH_FINISHED') fail('Match is finished', 409);
         configureVisSettings(setup, state, command);
     } else if (command.type === 'SET_LINEUP') {
-        if (state.phase === 'MATCH_FINISHED' || payload.actions.some(a => a.set_number === state.currentSet)) fail('ไม่สามารถแก้ไลน์อัปหลังเริ่มเซต', 409);
+        if (state.phase === 'MATCH_FINISHED' || payload.actions.some(a => a.set_number === state.currentSet) || setup.controls.some(e => Number(e.set_id) === state.currentSet)) fail('ไม่สามารถแก้ไลน์อัปหลังเริ่มเซต', 409);
         for (const key of keys) {
             const ids = command.lineups?.[key];
             if (!Array.isArray(ids) || ids.length !== 6 || new Set(ids).size !== 6 || ids.some(id => !payload.config[key].players.some(p => p.id === id && p.position !== 'L'))) fail('เลือกผู้เล่นทั่วไปที่ไม่ใช่ลิเบอโร่ ไม่ซ้ำกันให้ครบทีมละ 6 คน');
@@ -111,19 +134,22 @@ function commandPayload(previous, operation) {
         const last = state.history.at(-1);
         if (!last) fail('ไม่มีรายการให้ย้อน');
         if (last.type === 'CONTROL') {
-            setup.controls = setup.controls.filter(e => String(e.id) !== String(last.eventId)); response.deletedEventId = last.eventId;
+            const batchId = setup.controls.find(e => String(e.id) === String(last.eventId))?.details?.batchId;
+            response.deletedEventIds = setup.controls.filter(e => batchId ? e.details?.batchId === batchId : String(e.id) === String(last.eventId)).map(e => e.id);
+            setup.controls = setup.controls.filter(e => !response.deletedEventIds.includes(e.id)); response.deletedEventId = last.eventId;
         } else {
             const row = payload.actions.find(e => e.id === last.eventId), group = row.details.rallyId;
             response.deletedEventIds = payload.actions.filter(e => group ? e.details.rallyId === group : e.id === row.id).map(e => e.id);
             payload.actions = payload.actions.filter(e => !response.deletedEventIds.includes(e.id));
         }
         payload.lifecycle = payload.actions.length ? 'playing' : 'ready';
-    } else if (['TIMEOUT', 'SUBSTITUTION'].includes(command.type)) {
+    } else if (['TIMEOUT', 'SUBSTITUTION', 'LIBERO_REPLACEMENT'].includes(command.type)) {
         const team = command.team;
         if (!keys.includes(team) || !state.setupComplete || state.phase === 'MATCH_FINISHED') fail('ไม่สามารถบันทึกรายการนี้');
-        const details = {};
+        const details = command.type === 'LIBERO_REPLACEMENT' ? validateLiberoReplacement(state, command, payload.config[team].players.filter(isLiberoPlayer).map(p => p.id)) : {};
         if (command.type === 'TIMEOUT' && state.timeouts[team] >= 2) fail('ขอเวลานอกครบแล้ว');
         if (command.type === 'SUBSTITUTION') {
+            if ([command.playerIn, command.playerOut].some(id => payload.config[team].players.some(p => p.id === id && isLiberoPlayer(p))) || state.liberoReplacements[team]?.regular === command.playerIn) fail('Use Libero replacement instead');
             if (state.substitutions[team] >= state.substitutionLimit || !state.lineups[team].includes(command.playerOut) || state.lineups[team].includes(command.playerIn)
                 || !payload.config[team].players.some(p => p.id === command.playerIn)) fail('คู่เปลี่ยนตัวไม่ถูกต้องหรือครบโควตา');
             const starters = setup.setups[state.currentSet].lineups[team];
@@ -143,7 +169,7 @@ function commandPayload(previous, operation) {
         payload.lifecycle = 'confirmed';
     } else if (command.type === 'REOPEN') fail('กรุณาใช้คำสั่งเปิดแก้ไขผลสำหรับเจ้าของแมตช์');
     else if (command.type === 'CANCEL') payload.lifecycle = 'cancelled';
-    else fail('Unsupported custom VIS command');
+    else fail('Unsupported custom VIMS command');
     payload.operations.push(operation.operationId); payload.revision++;
     return { payload, response: { ...view(payload), ...response } };
 }

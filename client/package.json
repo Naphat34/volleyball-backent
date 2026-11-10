@@ -13,6 +13,7 @@
     "test": "node --test src/**/*.test.js",
     "test:unit": "node --test src/**/*.test.js",
     "test:pwa": "node scripts/checkVisPwa.mjs",
+    "test:i18n": "node --test src/utils/i18n/*.test.js src/utils/scorer/scorerTeamNames.test.js && node scripts/checkUiLanguages.mjs",
     "test:admin-vis": "node --test src/utils/vis/adminVims.test.js",
     "test:admin-center": "node --test src/utils/admin/controlCenter.test.js src/utils/vis/adminVims.test.js",
     "test:vis:timing": "node --test src/utils/vis/visTiming.test.js src/offline/visEngine.test.js src/utils/vis/visReportData.test.js src/utils/vis/visReportPdf.test.js",

@@ -2,7 +2,7 @@ import { api } from '../../api';
 import { buildSeavaExport } from './seavaExport';
 export function validateVisFile(value) {
     if (!value || !['volley-vis', 'seava-vis'].includes(value.format) || value.version !== 1 || !value.backup?.config || !Array.isArray(value.backup.actions)) {
-        throw new Error('รองรับไฟล์ JSON หรือ .seava ที่ส่งออกจาก VOLLEY VIS และมีข้อมูลสำรองครบถ้วนเท่านั้น');
+        throw new Error('รองรับไฟล์ JSON หรือ .seava ที่ส่งออกจาก VOLLEY VIMS และมีข้อมูลสำรองครบถ้วนเท่านั้น');
     }
     return value;
 }

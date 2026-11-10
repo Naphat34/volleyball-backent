@@ -1,3 +1,5 @@
+import useDisplayNames from '../../../hooks/useDisplayNames';
+import useScorerTranslation from '../useScorerTranslation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, ShieldAlert, UserRound, Users, X } from 'lucide-react';
 
@@ -48,6 +50,8 @@ const SanctionModal = ({
     roster = [],
     onConfirm
 }) => {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     const normalizedTeams = useMemo(() => teams || {
         home: { name: teamName || 'Home', roster, staff: [] },
         away: { name: 'Away', roster: [], staff: [] }
@@ -107,28 +111,24 @@ const SanctionModal = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all">
+        <div className="scorer-dialog fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all">
             <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in duration-300">
                 <div className="bg-slate-50/70 p-6 border-b border-slate-100 flex justify-between items-start gap-4">
                     <div>
                         <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-3 tracking-tight">
                             <div className="bg-rose-500 p-2 rounded-xl text-white shadow-lg shadow-rose-100">
                                 <ShieldAlert size={21} />
-                            </div>
-                            Issue Sanction
-                        </h2>
-                        <p className="text-xs text-slate-500 font-semibold mt-2">
-                            Select receiver, team, sanction type, then submit.
-                        </p>
+                            </div>{st("Issue Sanction")}</h2>
+                        <p className="text-xs text-slate-500 font-semibold mt-2">{st("Select receiver, team, sanction type, then submit.")}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
+                    <button aria-label={st('Close')} onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
                         <X size={24} />
                     </button>
                 </div>
 
                 <div className="p-6 space-y-6 bg-white">
                     <section className="space-y-2">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">Receiver of sanction</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">{st("Receiver of sanction")}</label>
                         <div className="grid grid-cols-3 gap-3">
                             {RECEIVERS.map(option => (
                                 <button
@@ -139,16 +139,16 @@ const SanctionModal = ({
                                 >
                                     <div className="flex items-center gap-2 font-bold text-sm">
                                         {option.value === 'TEAM' ? <Users size={16} /> : option.value === 'PLAYER' ? <UserRound size={16} /> : <AlertTriangle size={16} />}
-                                        {option.label}
+                                        {st(option.label)}
                                     </div>
-                                    <div className="mt-1 text-[10px] font-semibold text-slate-400">{option.hint}</div>
+                                    <div className="mt-1 text-[10px] font-semibold text-slate-400">{st(option.hint)}</div>
                                 </button>
                             ))}
                         </div>
                     </section>
 
                     <section className="space-y-2">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">Team</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">{st("Team")}</label>
                         <div className="grid grid-cols-2 gap-3">
                             {['home', 'away'].map(code => (
                                 <button
@@ -167,27 +167,27 @@ const SanctionModal = ({
                     {needsPerson && (
                         <section className="space-y-2">
                             <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                {receiver === 'PLAYER' ? 'Penalized player' : 'Penalized staff'}
+                                {receiver === 'PLAYER' ? st('Penalized player') : st('Penalized staff')}
                             </label>
                             <select
                                 value={selectedPersonId}
                                 onChange={(e) => setSelectedPersonId(e.target.value)}
                                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-800 outline-none transition-all focus:border-blue-300 focus:ring-4 focus:ring-blue-50"
                             >
-                                <option value="">Select {receiver === 'PLAYER' ? 'player' : 'staff'}</option>
+                                <option value="">{st("Select")}{' '}{receiver === 'PLAYER' ? st('player') : st('staff')}</option>
                                 {receiver === 'PLAYER' ? (
                                     activeRoster.map(player => (
                                         <option key={player.id} value={player.id}>
-                                            #{getPlayerNumber(player) || '-'} - {getPersonName(player) || player.name || 'Player'}
+                                            #{getPlayerNumber(player) || '-'} - {displayNames.personName(player) || st('Player')}
                                         </option>
                                     ))
                                 ) : (
                                     activeStaff.map((staff, index) => {
                                         const id = staff.id || staff.staff_id || index;
-                                        const name = getPersonName(staff) || staff.name || staff.role || 'Staff';
+                                        const name = displayNames.personName(staff) || st(staff.role) || st('Staff');
                                         return (
                                             <option key={id} value={id}>
-                                                {staff.role || 'Staff'} - {name}
+                                                {st(staff.role) || st('Staff')} - {name}
                                             </option>
                                         );
                                     })
@@ -197,7 +197,7 @@ const SanctionModal = ({
                     )}
 
                     <section className="space-y-2">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">Sanction type</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">{st("Sanction type")}</label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {sanctionOptions.map(option => (
                                 <button
@@ -209,8 +209,8 @@ const SanctionModal = ({
                                     <div className="flex items-center gap-3">
                                         <span className={`h-8 w-5 rounded ${option.color}`} />
                                         <div>
-                                            <div className="font-bold text-sm">{option.label}</div>
-                                            <div className={`text-[10px] font-semibold ${sanctionType === option.value ? 'text-slate-300' : 'text-slate-400'}`}>{option.hint}</div>
+                                            <div className="font-bold text-sm">{st(option.label)}</div>
+                                            <div className={`text-[10px] font-semibold ${sanctionType === option.value ? 'text-slate-300' : 'text-slate-400'}`}>{st(option.hint)}</div>
                                         </div>
                                     </div>
                                 </button>
@@ -220,15 +220,12 @@ const SanctionModal = ({
                 </div>
 
                 <div className="p-6 bg-slate-50/70 border-t border-slate-100 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all">
-                        Cancel
-                    </button>
+                    <button onClick={onClose} className="px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all">{st("Cancel")}</button>
                     <button
                         onClick={handleConfirmClick}
                         disabled={!canSubmit}
                         className="px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest bg-slate-900 hover:bg-black text-white disabled:opacity-25 disabled:grayscale transition-all shadow-xl active:scale-95 flex items-center gap-3"
-                    >
-                        Submit Sanction <CheckCircle size={18} />
+                    >{st("Submit Sanction")}<CheckCircle size={18} />
                     </button>
                 </div>
             </div>

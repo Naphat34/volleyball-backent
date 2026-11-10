@@ -31,7 +31,7 @@ async function matchRow(connection, id) {
 exports.assertOnline = async (connection, id) => {
     const row = await matchRow(connection, id);
     const lease = parse(row.vis_state).offlineVis?.payload?.offlineLease;
-    if (lease && lease.expiresAt > Date.now()) fail('แมตช์ถูกจองสำหรับ VIS Offline กรุณาซิงค์และคืนสิทธิ์ก่อนแก้ไขออนไลน์', 409);
+    if (lease && lease.expiresAt > Date.now()) fail('แมตช์ถูกจองสำหรับ VIMS Offline กรุณาซิงค์และคืนสิทธิ์ก่อนแก้ไขออนไลน์', 409);
 };
 async function snapshot(connection, req) {
     const roster = await scorer().call(scorer().scopedController(connection), 'getMatchRosterData', req, {});
@@ -42,7 +42,8 @@ async function snapshot(connection, req) {
     setup.setups ||= {};
     if (setup.lineups && !setup.setups[1]) setup.setups[1] = { lineups: setup.lineups, servingTeam: setup.servingTeam, firstSetHomeLeft: setup.firstSetHomeLeft };
     const actions = (await connection.query("SELECT * FROM match_actions WHERE match_id=? AND action_type='VIS_STAT' ORDER BY id", [row.id])).rows.map(action => ({ ...action, details: parse(action.details || action.description), set_id: action.set_number }));
-    const match = { ...detail, ...row, max_sets: Number(detail.max_sets || 5), vis_state: setup, is_custom_vis: false };
+    const state = await scorer().call(controller(connection), 'getState', req, {});
+    const match = { ...detail, ...row, max_sets: Number(state.state.maxSets || detail.max_sets || 5), vis_state: setup, is_custom_vis: false };
     const config = { title: detail.competition_name || detail.competition_title || `Match ${row.id}`, maxSets: match.max_sets,
         date: dateOnly(detail.match_date), time: detail.start_time, location: detail.location, gender: detail.gender };
     for (const team of ['home', 'away']) config[team] = { name: detail[`${team}_team`] || detail[`${team}_team_name`] || team,
@@ -51,7 +52,8 @@ async function snapshot(connection, req) {
             name: player.name || `${player.first_name || ''} ${player.last_name || ''}`.trim() })) };
     const clean = { ...row, vis_state: setup }; delete clean.updated_at;
     const fingerprint = createHash('sha256').update(JSON.stringify({ match: clean, config, actions, home: roster.home, away: roster.away })).digest('hex');
-    const state = await scorer().call(controller(connection), 'getState', req, {});
+
+
     return { fingerprint, payload: { config, match, actions, revision: state.state.revision, nextId: Math.max(0, ...actions.map(a => Number(a.id))) + 1,
         operations: [], lifecycle: actions.length ? 'playing' : setup.lineups ? 'ready' : 'draft' } };
 }
@@ -72,13 +74,13 @@ function endpoint(action) {
             res.json(value);
         } catch (error) {
             if (connection) await connection.rollback();
-            if (!error.status) console.error('Admin VIS Offline:', error.message);
-            res.status(error.status || 500).json({ error: error.status ? error.message : 'ดำเนินการ VIS Offline ไม่สำเร็จ ข้อมูลในเครื่องยังอยู่' });
+            if (!error.status) console.error('Admin VIMS Offline:', error.message);
+            res.status(error.status || 500).json({ error: error.status ? error.message : 'ดำเนินการ VIMS Offline ไม่สำเร็จ ข้อมูลในเครื่องยังอยู่' });
         } finally { connection?.release(); }
     };
 }
 function owned(value, req) {
-    if (!value || String(value.owner) !== String(req.user.id) || value.payload.offlineDevice !== req.body.deviceId) fail('ไม่พบสิทธิ์ VIS Offline ของบัญชีและอุปกรณ์นี้', 409);
+    if (!value || String(value.owner) !== String(req.user.id) || value.payload.offlineDevice !== req.body.deviceId) fail('ไม่พบสิทธิ์ VIMS Offline ของบัญชีและอุปกรณ์นี้', 409);
 }
 exports.checkout = endpoint(async (connection, req, row) => {
     if (['completed', 'finished', 'match_finished', 'cancelled', 'canceled'].includes(row.status)) fail('แมตช์จบหรือยกเลิกแล้ว', 409);
@@ -125,10 +127,10 @@ exports.sync = endpoint(async (connection, req, row) => {
     if (!Array.isArray(req.body.operations)) fail('ข้อมูลซิงค์ไม่ถูกต้อง');
     if (!value.payload.offlineLease && (!req.body.release || req.body.operations.some(op => !value.payload.operations.includes(op?.operationId)))) fail('คืนสิทธิ์รอบนี้แล้ว กรุณาสำรองงานก่อนดาวน์โหลดใหม่', 409);
     const scoreLease = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=? FOR UPDATE', [row.id])).rows[0];
-    if (scoreLease && !scoreLease.released && Number(scoreLease.expires_at) > Date.now()) fail('แมตช์ถูกจองสำหรับ Scorer Offline กรุณาคืนสิทธิ์ก่อนซิงค์ VIS', 409);
+    if (scoreLease && !scoreLease.released && Number(scoreLease.expires_at) > Date.now()) fail('แมตช์ถูกจองสำหรับ Scorer Offline กรุณาคืนสิทธิ์ก่อนซิงค์ VIMS', 409);
     const fresh = await snapshot(connection, req);
     if (fresh.fingerprint !== value.fingerprint) fail('ข้อมูลแมตช์หรือรายชื่อบนเซิร์ฟเวอร์เปลี่ยน กรุณาสำรองก่อนตรวจสอบ ห้ามเขียนทับ', 409);
-    if (req.body.operations.some(op => !['CONFIGURE_SETTINGS', 'SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION'].includes(op?.command?.type))) fail('คำสั่งนี้ต้องทำออนไลน์หลังซิงค์และคืนสิทธิ์', 409);
+    if (req.body.operations.some(op => !['CONFIGURE_SETTINGS', 'SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION', 'SUBSTITUTIONS', 'LIBERO_REPLACEMENT'].includes(op?.command?.type))) fail('คำสั่งนี้ต้องทำออนไลน์หลังซิงค์และคืนสิทธิ์', 409);
     const result = syncPayload(value.payload, req.body);
     const official = controller(connection);
     for (const operation of req.body.operations) {

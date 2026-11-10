@@ -1,3 +1,4 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api';
 import { useNavigate } from 'react-router-dom';
@@ -52,6 +53,7 @@ const readImageFileAsDataUrl = (file) => new Promise((resolve, reject) => {
 });
 
 export default function CreateTeam() {
+    const ui = useUiTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
@@ -139,13 +141,13 @@ export default function CreateTeam() {
         await api.joinCompetition(competitionId);
       }
 
-      alert('Team created successfully.');
+      alert(ui('Team created successfully.'));
 
       const user = getStoredUser();
       navigate(user?.role === 'admin' ? '/admin-dashboard' : '/team-dashboard');
       window.location.reload();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to create team');
+      alert((err.response?.data?.error) || (ui('Failed to create team')));
       setLoading(false);
     }
   };
@@ -155,10 +157,8 @@ export default function CreateTeam() {
       <div className="ui-panel w-full max-w-6xl p-6 lg:p-10 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
           <div className="text-left">
-            <h1 className="text-3xl lg:text-4xl font-semibold text-gray-900 tracking-tight">
-              New <span className="text-blue-600">Club</span> Registration
-            </h1>
-            <p className="text-gray-400 mt-3 text-lg font-medium italic">ลงทะเบียนสโมสรใหม่และเลือกการแข่งขัน</p>
+            <h1 className="text-3xl lg:text-4xl font-semibold text-gray-900 tracking-tight">{ui("New")}<span className="text-blue-600">{ui("Club")}</span>{ui("Registration")}</h1>
+            <p className="text-gray-400 mt-3 text-lg font-medium italic">{ui("ลงทะเบียนสโมสรใหม่และเลือกการแข่งขัน")}</p>
           </div>
           <div className="bg-blue-50 p-5 rounded-[2rem] hidden md:block">
             <Users className="w-12 h-12 text-blue-600" />
@@ -169,17 +169,17 @@ export default function CreateTeam() {
           <div className="space-y-8">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-semibold">1</div>
-              <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-900">Club Profile</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-900">{ui("Club Profile")}</h3>
             </div>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">Team Name</label>
+                <div className="mb-3 grid grid-cols-2 gap-3">{[['name_th','ชื่อทีม (ไทย)'],['name_en','Team name (English)']].map(([key,label]) => <label key={key}>{ui(label)}<input name={key} value={formData[key] || ''} onChange={handleChange} maxLength={100} className="w-full rounded border p-3" /></label>)}</div><label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">{ui("Team Name")}</label>
                 <input
                   type="text"
                   name="name"
-                  placeholder="ชื่อทีมสโมสร"
-                  required
+                  placeholder={ui("ชื่อทีมสโมสร")}
+                  required={!formData.name_th && !formData.name_en}
                   className="w-full px-6 py-4 bg-gray-50 rounded-lg focus:bg-white focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-bold text-gray-800 shadow-sm shadow-gray-100"
                   onChange={handleChange}
                 />
@@ -187,11 +187,11 @@ export default function CreateTeam() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">Code</label>
+                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">{ui("Code")}</label>
                   <input
                     type="text"
                     name="code"
-                    placeholder="เช่น THA"
+                    placeholder={ui("เช่น THA")}
                     maxLength={10}
                     required
                     className="w-full px-6 py-4 bg-gray-50 rounded-lg focus:bg-white focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-mono font-semibold uppercase text-blue-600 shadow-sm shadow-gray-100"
@@ -200,11 +200,11 @@ export default function CreateTeam() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">Coach</label>
+                  <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">{ui("Coach")}</label>
                   <input
                     type="text"
                     name="coach"
-                    placeholder="ชื่อผู้ฝึกสอน"
+                    placeholder={ui("ชื่อผู้ฝึกสอน")}
                     className="w-full px-6 py-4 bg-gray-50 rounded-lg focus:bg-white focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-bold text-gray-800 shadow-sm shadow-gray-100"
                     onChange={handleChange}
                   />
@@ -212,15 +212,15 @@ export default function CreateTeam() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">Team Type</label>
+                <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">{ui("Team Type")}</label>
                 <select name="gender" value={formData.gender} onChange={handleChange} required className="w-full px-6 py-4 bg-white border border-gray-200 rounded-lg focus:ring-4 focus:ring-indigo-50 outline-none font-semibold text-gray-800 shadow-sm">
-                  <option value="Male">Men's team</option>
-                  <option value="Female">Women's team</option>
+                  <option value="Male">{ui("Men's team")}</option>
+                  <option value="Female">{ui("Women's team")}</option>
                 </select>
               </div>
 
               <ImageUploadField
-                label="Team Logo"
+                label={ui("Team Logo")}
                 value={formData.logo_url}
                 previewAlt={formData.name || 'Team logo'}
                 onFileSelect={handleLogoFileChange}
@@ -232,17 +232,17 @@ export default function CreateTeam() {
           <div className="space-y-8">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-semibold">2</div>
-              <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-900">Select Competition</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-900">{ui("Select Competition")}</h3>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">Age Group</label>
+              <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">{ui("Age Group")}</label>
               <select
                 value={selectedAgeGroup}
                 onChange={(e) => setSelectedAgeGroup(e.target.value)}
                 className="w-full px-6 py-4 bg-white border border-gray-200 rounded-lg focus:bg-white focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-semibold text-gray-800 shadow-sm shadow-gray-100"
               >
-                <option value="all">All Age Groups</option>
+                <option value="all">{ui("All Age Groups")}</option>
                 {ageGroupOptions.map((group) => (
                   <option key={group.name} value={group.name}>
                     {group.name} ({group.count})
@@ -255,7 +255,7 @@ export default function CreateTeam() {
               {visibleCompetitions.length === 0 ? (
                 <div className="text-center py-10 opacity-40">
                   <Trophy size={48} className="mx-auto mb-4" />
-                  <p className="font-bold">ไม่มีรายการที่เปิดรับสมัคร</p>
+                  <p className="font-bold">{ui("ไม่มีรายการที่เปิดรับสมัคร")}</p>
                 </div>
               ) : (
                 visibleCompetitions.map((comp) => {
@@ -293,7 +293,7 @@ export default function CreateTeam() {
             </div>
 
             <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
-              <span>Selected {selectedCompIds.length} category{selectedCompIds.length === 1 ? '' : 'ies'}</span>
+              <span>{ui("Selected")}{' '}{selectedCompIds.length}{' '}{ui("category")}{selectedCompIds.length === 1 ? '' : ui('ies')}</span>
             </div>
 
             <button
@@ -301,11 +301,9 @@ export default function CreateTeam() {
               disabled={loading}
               className="w-full py-5 bg-blue-600 text-white font-semibold text-xl rounded-3xl shadow-2xl shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:hover:scale-100"
             >
-              {loading ? 'Processing...' : (
-                <>
-                  Complete Registration <ChevronRight size={24} />
-                </>
-              )}
+              {loading ? ui('Processing...') : <>
+                  {ui('Complete Registration')} <ChevronRight size={24} />
+                </>}
             </button>
           </div>
         </form>
@@ -315,9 +313,10 @@ export default function CreateTeam() {
 }
 
 function ImageUploadField({ label, value, onFileSelect, onClear, previewAlt }) {
+    const ui = useUiTranslation();
   return (
     <div>
-      <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">{label}</label>
+      <label className="block text-[10px] font-semibold uppercase text-gray-400 mb-2 ml-1">{ui(label)}</label>
       <div className="flex items-center gap-4">
         <div className="w-20 h-20 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
           {value ? (
@@ -330,7 +329,7 @@ function ImageUploadField({ label, value, onFileSelect, onClear, previewAlt }) {
           <div className="flex items-center gap-2">
             <label className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gray-50 text-sm font-semibold text-gray-700 shadow-sm shadow-gray-100 hover:bg-white hover:ring-4 hover:ring-indigo-50 cursor-pointer transition-all">
               <Upload size={16} />
-              <span>Browse</span>
+              <span>{ui("Browse")}</span>
               <input type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
             </label>
             {value && (
@@ -338,13 +337,13 @@ function ImageUploadField({ label, value, onFileSelect, onClear, previewAlt }) {
                 type="button"
                 onClick={onClear}
                 className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition"
-                aria-label="Remove image"
+                aria-label={ui("Remove image")}
               >
                 <X size={16} />
               </button>
             )}
           </div>
-          <span className="text-xs text-gray-400">JPG, PNG, WebP up to 2MB</span>
+          <span className="text-xs text-gray-400">{ui("JPG, PNG, WebP up to 2MB")}</span>
         </div>
       </div>
     </div>

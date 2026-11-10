@@ -1,8 +1,10 @@
 import Swal from 'sweetalert2';
+import { translateUi } from './uiTranslations.js';
+import { readLanguage } from './language.js';
 
 const getCurrentLanguage = () => {
   try {
-    return localStorage.getItem('language') === 'ENG' ? 'ENG' : 'THA';
+    return readLanguage();
   } catch {
     return 'THA';
   }
@@ -144,13 +146,14 @@ const replaceDynamicPhrases = (value, language) => {
 
 export const localizeAlertText = (value, language = getCurrentLanguage()) => {
   if (typeof value !== 'string') return value;
+  const selected = translateUi(value, language);
+  if (selected !== value || translateUi(value, language === 'ENG' ? 'THA' : 'ENG') !== value) return selected;
 
   let translated = replaceDynamicPhrases(value, language);
   const dictionary = language === 'THA' ? phrases : reversePhrases;
 
   for (const [from, to] of dictionary) {
     if (translated === from) return to;
-    if (translated.includes(from)) translated = translated.replaceAll(from, to);
   }
 
   return translated;
@@ -160,6 +163,16 @@ const localizeAlertOptions = (options) => {
   if (!options || typeof options !== 'object') return options;
 
   const next = { ...options };
+  // Scorer dialogs translate their authored copy before inserting team/player names.
+  // Do not run global substring replacements over those interpolated values.
+  if (next.uiTextLocalized) {
+    delete next.uiTextLocalized;
+    const thai = getCurrentLanguage() === 'THA';
+    next.confirmButtonText ??= thai ? 'ตกลง' : 'OK';
+    next.cancelButtonText ??= thai ? 'ยกเลิก' : 'Cancel';
+    next.denyButtonText ??= thai ? 'ปฏิเสธ' : 'No';
+    return next;
+  }
   [
     'title',
     'titleText',

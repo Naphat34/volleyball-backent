@@ -27,14 +27,14 @@ export function getVisEventCode(event, players = []) {
         ? `${event.skill}${parsed}${event.grade}` : null;
 }
 
-export function describeVisEvent(event, players = []) {
-    if (!event) return 'เตรียมเซตถัดไป';
-    if (event.skill === 'OP') return 'คู่แข่งเสีย · ได้แต้ม';
-    if (event.skill === 'T') return 'ทีมผิดพลาด · เสียแต้ม';
+export function describeVisEvent(event, players = [], translate = value => value) {
+    if (!event) return translate('เตรียมเซตถัดไป');
+    if (event.skill === 'OP') return translate('คู่แข่งเสีย · ได้แต้ม');
+    if (event.skill === 'T') return translate('ทีมผิดพลาด · เสียแต้ม');
     const details = eventDetails(event);
     const player = players.find(item => Number(item.id) === Number(event.player_id));
     const actor = event.player_id ? `#${details.jersey_number ?? player?.number ?? '?'}` : '';
-    if (visSkillNames[event.skill]) return `${visSkillNames[event.skill]}${event.grade ? ` (${event.grade})` : ''}${actor ? ` · ${actor}` : ''}`;
+    if (visSkillNames[event.skill]) return `${translate(visSkillNames[event.skill])}${event.grade ? ` (${event.grade})` : ''}${actor ? ` · ${actor}` : ''}`;
     const labels = { LINEUP_CONFIRM: 'ยืนยันไลน์อัป', MATCH_START: 'เริ่มแมตช์', SET_START: 'เริ่มเซต', TIMEOUT: 'ขอเวลานอก', SUBSTITUTION: 'เปลี่ยนตัว', SUB: 'เปลี่ยนตัว', LIBERO_REPLACEMENT: 'เปลี่ยนลิเบอโร', LIBERO: 'เปลี่ยนลิเบอโร', SANCTION: details.card === 'red' ? 'ใบแดง' : details.card === 'yellow' ? 'ใบเหลือง' : 'ลงโทษ', COIN_TOSS_WINNER: 'ชนะการเสี่ยง', COURT_SIDE_LEFT: 'เลือกฝั่งซ้าย', FIRST_SERVE: 'เสิร์ฟก่อน' };
-    return `${labels[event.skill] || event.skill} ${actor}`.trim();
+    return `${translate(labels[event.skill] || event.skill)} ${actor}`.trim();
 }

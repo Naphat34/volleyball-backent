@@ -4,7 +4,7 @@ import { buildMatchResult } from './visMatchResult.js';
 
 const BLACK = rgb(0, 0, 0), WHITE = rgb(1, 1, 1), GREY = rgb(.89, .89, .89), LIGHT = rgb(.76, .76, .76);
 const clean = value => String(value ?? '').replace(/[\r\n\t]+/g, ' ');
-const playerName = p => p.name_th || p.name || [p.first_name, p.last_name].filter(Boolean).join(' ') || `#${p.number}`;
+const playerName = p => p.display_name || p.name_th || p.name || [p.first_name, p.last_name].filter(Boolean).join(' ') || `#${p.number}`;
 const duration = minutes => Number.isFinite(minutes) && minutes >= 0 ? `${Math.floor(Math.round(minutes) / 60)}:${String(Math.round(minutes) % 60).padStart(2, '0')}` : '';
 const elapsed = set => set?.duration_minutes != null ? Number(set.duration_minutes) : set?.start_time && set?.end_time ? Math.round((new Date(set.end_time) - new Date(set.start_time)) / 60000) : NaN;
 const clock = value => !value ? '' : /^\d{1,2}:\d{2}/.test(String(value)) ? String(value).slice(0, 5) : Number.isNaN(new Date(value).getTime()) ? '' : new Date(value).toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
@@ -142,7 +142,7 @@ export function appendMatchResultPages(pdf, font, data, report, drawText, option
         [['Atts = Attempts', 'Opp. = Opponent'], ['(C) = Captain', '(L) / L = Libero'], ['MB = Middle blocker', 'OP = Opposite'], ['S = Setter', 'OH = Outside Hitter']].forEach((items, i) => items.forEach((v, r) => text(v, M + [137, 236, 329, 450][i], yy + r * 10, 6.3)));
         image(options.p2Assets?.partners, W / 2 - 126, 764, 252, 42.56);
         line(M, 816, W - M, 816, .7);
-        text(options.p2Footer || 'VOLLEY VIS', M, 818, 6.5);
+        text(options.p2Footer || 'VOLLEY VIMS', M, 818, 6.5);
         centered(stamp, W / 2 - 90, 818, 180, 6.5);
         text(`Page ${chunk + 1} of ${chunks}`, W - M - 65, 818, 6.5, false, 65, 'right');
     }

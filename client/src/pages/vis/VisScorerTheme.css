@@ -85,7 +85,7 @@ html[data-vis-theme] .vis-workspace :is(
 html[data-vis-theme] .vis-workspace :is(.vis-guide-tabs button, .vis-main-history .vis-history-modes button) {color:var(--vs-muted);}
 html[data-vis-theme] .vis-workspace .vis-guide-tabs button[aria-pressed=true] {color:var(--vs-accent);border-color:var(--vs-accent);}
 html[data-vis-theme] .vis-workspace .vis-score-context > b {background:var(--vs-accent-bg);color:var(--vs-accent);}
-html[data-vis-theme] .vis-workspace .vis-score-context > b.vis-phase-finished {background:var(--vs-success-bg);color:var(--vs-success);}
+html[data-vis-theme] .vis-workspace .vis-score-context > b.vis-phase-finished {background:#facc15;color:#713f12;}
 html[data-vis-theme] .vis-workspace .vis-sync-status {color:var(--vs-success);border-color:var(--vs-success);}
 html[data-vis-theme] .vis-workspace :is(.vis-sync-warning, .vis-history-warning) {color:var(--vs-warning);}
 html[data-vis-theme] .vis-workspace :is(.vis-guide-hint, .vis-guide-manual, .vis-guide-action, .vis-toolbar-notice) {background:var(--vs-control);color:var(--vs-text);border-color:var(--vs-line);}

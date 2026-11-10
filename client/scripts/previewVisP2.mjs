@@ -32,7 +32,7 @@ const data = {
     sets: [23, 14, 12].map((score, i) => ({ set_number: i + 1, home_score: 25, away_score: score, duration_minutes: [21, 14, 13][i], end_time: '2026-10-25T06:29:00Z' })),
     lineups: [1, 2, 3].flatMap(set => [[10, homePlayers], [20, awayPlayers]].map(([team, players]) => ({ team_id: team, set_number: set, ...Object.fromEntries(players.slice(0, 6).map((player, i) => [`player_id_p${i + 1}`, player.id])) }))),
 };
-appendVisReportPages(pdf, font, data, { resultOnly: true, fontLayout: fontkit.create(regular), boldFont, boldLayout: fontkit.create(bold), p2Assets: assets, exportedAt: new Date('2026-10-27T04:48:00+07:00'), p2Footer: 'VOLLEY VIS - Layout preview / ข้อมูลตัวอย่างตรวจรูปแบบ' });
+appendVisReportPages(pdf, font, data, { resultOnly: true, fontLayout: fontkit.create(regular), boldFont, boldLayout: fontkit.create(bold), p2Assets: assets, exportedAt: new Date('2026-10-27T04:48:00+07:00'), p2Footer: 'VOLLEY VIMS - Layout preview / ข้อมูลตัวอย่างตรวจรูปแบบ' });
 const directory = new URL('../../output/pdf/', import.meta.url);
 await mkdir(directory, { recursive: true });
 await writeFile(new URL('P-2-layout-preview.pdf', directory), await pdf.save());

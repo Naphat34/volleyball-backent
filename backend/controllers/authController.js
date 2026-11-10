@@ -501,7 +501,7 @@ exports.getPendingUsers = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const result = await db.query(`
-        SELECT u.id, u.username, u.role, u.status, u.created_at, t.name as team_name,
+        SELECT u.id, u.username, u.role, u.status, u.created_at, t.name as team_name, t.name_th AS team_name_th, t.name_en AS team_name_en,
           COALESCE(s.firstname, r.firstname) AS firstname,
           COALESCE(s.lastname, r.lastname) AS lastname,
           COALESCE(s.country, r.country) AS country,

@@ -26,7 +26,7 @@ function syncPayload(previous, request, now = Date.now()) {
     let payload = structuredClone(previous);
     if (!acknowledged) {
         for (const operation of request.operations) {
-            if (!['CONFIGURE_SETTINGS', 'SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION', 'CANCEL'].includes(operation.command?.type)) fail('ต้องซิงค์ให้ครบก่อนยืนยันผลหรือเผยแพร่');
+            if (!['CONFIGURE_SETTINGS', 'SET_LINEUP', 'RALLY', 'UNDO', 'TIMEOUT', 'SUBSTITUTION', 'LIBERO_REPLACEMENT', 'CANCEL'].includes(operation.command?.type)) fail('ต้องซิงค์ให้ครบก่อนยืนยันผลหรือเผยแพร่');
             payload = commandPayload(payload, operation).payload;
         }
     }

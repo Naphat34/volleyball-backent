@@ -1,8 +1,12 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api';
 
 export default function ScoreViewSpectator() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const { matchId } = useParams();
     const [received, setReceived] = useState(false), [stale, setStale] = useState(false), [serverTime, setServerTime] = useState(null), [review, setReview] = useState(false);
 
@@ -87,10 +91,10 @@ export default function ScoreViewSpectator() {
         return dots;
     }
 
-    if (!received) return <main className="flex min-h-screen items-center justify-center bg-app-background text-app-ink">{stale ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ · ยังไม่มีคะแนนที่ยืนยันจากเซิร์ฟเวอร์' : 'กำลังโหลดคะแนนจากเซิร์ฟเวอร์…'}</main>;
+    if (!received) return <main className="flex min-h-screen items-center justify-center bg-app-background text-app-ink">{stale ? ui('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ · ยังไม่มีคะแนนที่ยืนยันจากเซิร์ฟเวอร์') : ui('กำลังโหลดคะแนนจากเซิร์ฟเวอร์…')}</main>;
     return (
         <div className="h-screen w-screen bg-app-background text-app-ink flex flex-col overflow-hidden font-sans relative selection:bg-transparent cursor-default">
-            <p className="absolute bottom-1 left-0 right-0 z-20 text-center text-xs text-slate-400">{stale ? 'ขาดการเชื่อมต่อ · ' : ''}ข้อมูลบนเซิร์ฟเวอร์ล่าสุด {serverTime ? new Date(serverTime).toLocaleString('th-TH') : 'ไม่ระบุเวลา'}{review ? ' · รอตรวจสอบผลทางการ' : ''} · ไม่รวมรายการ Offline ที่ยังไม่ซิงค์</p>
+            <p className="absolute bottom-1 left-0 right-0 z-20 text-center text-xs text-slate-400">{stale ? ui('ขาดการเชื่อมต่อ · ') : ''}{ui("ข้อมูลบนเซิร์ฟเวอร์ล่าสุด")}{' '}{serverTime ? new Date(serverTime).toLocaleString('th-TH') : ui('ไม่ระบุเวลา')}{review ? ui(' · รอตรวจสอบผลทางการ') : ''}{' '}{ui("· ไม่รวมรายการ Offline ที่ยังไม่ซิงค์")}</p>
             
             {/* Background design */}
             <div className="absolute inset-0 bg-gradient-to-br from-app-background to-app-surface pointer-events-none" />
@@ -105,7 +109,7 @@ export default function ScoreViewSpectator() {
                 {/* Header (Sets & Tournament info) */}
                 <div className="flex justify-center items-center shrink-0">
                     <div className="bg-app-surface/80 backdrop-blur-md px-8 py-2 md:px-12 md:py-3 rounded-full border border-app-border/20 shadow-2xl flex items-center gap-4 md:gap-6">
-                        <span className="text-xl md:text-3xl font-extrabold tracking-widest text-slate-300 uppercase">SET</span>
+                        <span className="text-xl md:text-3xl font-extrabold tracking-widest text-slate-300 uppercase">{ui("SET")}</span>
                         <span className="text-3xl md:text-5xl font-semibold text-app-ink">{matchData.currentSet}</span>
                     </div>
                 </div>
@@ -118,14 +122,14 @@ export default function ScoreViewSpectator() {
                         {/* Serving Indicator */}
                         <div className={`transition-opacity duration-300 absolute top-[-30px] lg:top-[-40px] left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-3 ${isLeftServing ? 'opacity-100' : 'opacity-0'}`}>
                             <div className="w-3.5 h-3.5 rounded-full bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,1)] animate-pulse" />
-                            <span className="text-yellow-400 uppercase tracking-widest font-bold text-xs md:text-sm">Serving</span>
+                            <span className="text-yellow-400 uppercase tracking-widest font-bold text-xs md:text-sm">{ui("Serving")}</span>
                         </div>
 
                         {/* Team Name Box */}
                         <div className="w-full bg-gradient-to-r from-app-surface/95 to-app-surface/80 backdrop-blur-xl border-t-8 rounded-b-3xl shadow-2xl flex flex-col overflow-hidden" style={{ borderColor: leftTeam.color }}>
                             <div className="p-4 sm:p-8 pb-2 sm:pb-4 text-center">
                                 <h1 className="text-3xl sm:text-5xl md:text-7xl font-semibold uppercase truncate text-app-ink drop-shadow-lg tracking-tight">
-                                    {leftTeam.name}
+                                    {displayNames.teamName(leftTeam)}
                                 </h1>
                             </div>
 
@@ -139,18 +143,18 @@ export default function ScoreViewSpectator() {
                             {/* Sets Won & Timeouts */}
                             <div className="flex items-center justify-between p-4 sm:p-8 bg-app-surface/60 border-t border-app-border/10">
                                 <div className="flex flex-col items-start gap-1">
-                                    <span className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest">Timeouts</span>
+                                    <span className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest">{ui("Timeouts")}</span>
                                     <div className="flex gap-1 sm:gap-2">
                                         {renderTimeouts(timeouts[leftTeam.code])}
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-center gap-0.5">
                                     <span className="text-3xl md:text-[3rem] font-semibold text-yellow-400 leading-none">{leftTeam.sets}</span>
-                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Sets Won</span>
+                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">{ui("Sets Won")}</span>
                                 </div>
                                 <div className="flex flex-col items-end gap-0.5">
                                     <span className="text-xl md:text-3xl font-semibold text-app-ink leading-none">{substitutions[leftTeam.code]}</span>
-                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Subs</span>
+                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">{ui("Subs")}</span>
                                 </div>
                             </div>
                         </div>
@@ -159,7 +163,7 @@ export default function ScoreViewSpectator() {
                     {/* Divider / VS indicator */}
                     <div className="flex flex-row lg:flex-col justify-center items-center w-full lg:w-32 shrink-0 py-2 lg:py-0">
                         <div className="h-1 lg:h-1/3 w-1/3 lg:w-1.5 bg-gradient-to-r lg:bg-gradient-to-b from-transparent to-white/20 rounded-full" />
-                        <div className="mx-4 lg:my-8 text-xl lg:text-4xl font-semibold text-app-ink/30 italic">VS</div>
+                        <div className="mx-4 lg:my-8 text-xl lg:text-4xl font-semibold text-app-ink/30 italic">{ui("VS")}</div>
                         <div className="h-1 lg:h-1/3 w-1/3 lg:w-1.5 bg-gradient-to-l lg:bg-gradient-to-t from-transparent to-white/20 rounded-full" />
                     </div>
 
@@ -168,14 +172,14 @@ export default function ScoreViewSpectator() {
                         {/* Serving Indicator */}
                         <div className={`transition-opacity duration-300 absolute top-[-30px] lg:top-[-40px] left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-3 ${isRightServing ? 'opacity-100' : 'opacity-0'}`}>
                             <div className="w-3.5 h-3.5 rounded-full bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,1)] animate-pulse" />
-                            <span className="text-yellow-400 uppercase tracking-widest font-bold text-xs md:text-sm">Serving</span>
+                            <span className="text-yellow-400 uppercase tracking-widest font-bold text-xs md:text-sm">{ui("Serving")}</span>
                         </div>
 
                         {/* Team Name Box */}
                         <div className="w-full bg-gradient-to-l from-app-surface/95 to-app-surface/80 backdrop-blur-xl border-t-8 rounded-b-3xl shadow-2xl flex flex-col overflow-hidden" style={{ borderColor: rightTeam.color }}>
                             <div className="p-4 sm:p-8 pb-2 sm:pb-4 text-center">
                                 <h1 className="text-3xl sm:text-5xl md:text-7xl font-semibold uppercase truncate text-app-ink drop-shadow-lg tracking-tight">
-                                    {rightTeam.name}
+                                    {displayNames.teamName(rightTeam)}
                                 </h1>
                             </div>
 
@@ -189,18 +193,18 @@ export default function ScoreViewSpectator() {
                             {/* Sets Won & Timeouts */}
                             <div className="flex items-center justify-between p-4 sm:p-8 bg-app-surface/60 border-t border-app-border/10 flex-row-reverse">
                                 <div className="flex flex-col items-end gap-1">
-                                    <span className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest">Timeouts</span>
+                                    <span className="text-[10px] md:text-sm font-bold text-slate-400 uppercase tracking-widest">{ui("Timeouts")}</span>
                                     <div className="flex gap-1 sm:gap-2 flex-row-reverse">
                                         {renderTimeouts(timeouts[rightTeam.code])}
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-center gap-0.5">
                                     <span className="text-3xl md:text-[3rem] font-semibold text-yellow-400 leading-none">{rightTeam.sets}</span>
-                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Sets Won</span>
+                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">{ui("Sets Won")}</span>
                                 </div>
                                 <div className="flex flex-col items-start gap-0.5">
                                     <span className="text-xl md:text-3xl font-semibold text-app-ink leading-none">{substitutions[rightTeam.code]}</span>
-                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Subs</span>
+                                    <span className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">{ui("Subs")}</span>
                                 </div>
                             </div>
                         </div>

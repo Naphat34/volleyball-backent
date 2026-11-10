@@ -18,7 +18,11 @@
     "test:admin-vis": "node --test tests/adminVisSnapshot.test.js tests/adminVisController.test.js",
     "test:admin-center": "node --test tests/adminReports.test.js tests/adminVisSnapshot.test.js tests/adminVisController.test.js",
     "test:vis:timing": "node --test tests/visTiming.test.js tests/visRallyController.test.js tests/officialVisOffline.test.js tests/customVis.test.js tests/visOffline.test.js",
-    "test:vis:history": "node --test tests/visSetHistory.test.js tests/visRallyController.test.js"
+    "test:vis:history": "node --test tests/visSetHistory.test.js tests/visRallyController.test.js",
+    "test:athletes": "node --test tests/athleteIntegrity.test.js tests/athleteIntegrity.mysql.test.js",
+    "migrate:athletes": "node scripts/migrateAthleteIntegrity.js",
+    "migrate:names": "node scripts/migrateBilingualNames.js",
+    "test:names": "node --test tests/bilingualNames.test.js tests/bilingualNames.mysql.test.js"
   },
   "keywords": [],
   "author": "",

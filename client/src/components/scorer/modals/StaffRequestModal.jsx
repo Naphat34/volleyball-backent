@@ -1,3 +1,5 @@
+import useScorerTranslation from '../useScorerTranslation';
+import useDisplayNames from '../../../hooks/useDisplayNames';
 import React from 'react';
 import { X, Check, ArrowUpRight, ArrowDownRight, Timer } from 'lucide-react';
 
@@ -33,6 +35,8 @@ export default function StaffRequestModal({
     onReject,
     onPostpone
 }) {
+    const st = useScorerTranslation();
+    const displayNames = useDisplayNames();
     if (!isOpen || !request) return null;
 
     const requestType = String(request.request_type || '').toUpperCase();
@@ -41,7 +45,7 @@ export default function StaffRequestModal({
     const isLineup = requestType === 'LINEUP';
     const isHomeTeam = String(request.team_id) === String(matchData.teamHomeId);
     const teamColor = isHomeTeam ? (teamColors.home || '#f59e0b') : (teamColors.away || '#2563eb');
-    const teamName = request.team_name || (isHomeTeam ? matchData.teamHome : matchData.teamAway) || 'Team';
+    const teamName = displayNames.linkedTeamName(request) || displayNames.matchTeamName(matchData, isHomeTeam ? 'home' : 'away') || st('Team');
     const title = isTimeout ? 'Timeout request' : isSubstitution ? 'Substitution request' : isLineup ? 'Lineup request' : 'Staff request';
     let requestDetails = request.details || {};
     if (typeof requestDetails === 'string') {
@@ -58,14 +62,14 @@ export default function StaffRequestModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/15 pointer-events-auto">
+        <div className="scorer-dialog fixed inset-0 z-[200] flex items-center justify-center bg-black/15 pointer-events-auto">
             <div className="w-[430px] max-w-[calc(100vw-24px)] bg-white border border-slate-300 shadow-xl rounded-sm overflow-hidden">
                 <div className="h-10 px-3 border-b border-slate-200 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-slate-800">{title}</h2>
+                    <h2 className="text-sm font-bold text-slate-800">{st(title)}</h2>
                     <button
                         onClick={handlePostpone}
                         className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
-                        title="Postpone"
+                        title={st("Postpone")}
                     >
                         <X size={18} />
                     </button>
@@ -80,14 +84,12 @@ export default function StaffRequestModal({
                         </div>
                     )}
 
-                    <p className="text-xl text-slate-700 leading-snug">
-                        Team{' '}
+                    <p className="text-xl text-slate-700 leading-snug">{st("Team")}{' '}
                         <span className="font-extrabold" style={{ color: teamColor }}>
                             {teamName}
-                        </span>{' '}
-                        requested a{' '}
+                        </span>{' '}{st("requested a")}{' '}
                         <span className="font-extrabold text-slate-800">
-                            {isTimeout ? 'time out' : isSubstitution ? 'substitution' : isLineup ? 'lineup' : 'request'}
+                            {isTimeout ? st('time out') : isSubstitution ? st('substitution') : isLineup ? st('lineup') : st('request')}
                         </span>
                     </p>
 
@@ -112,21 +114,15 @@ export default function StaffRequestModal({
                     <ActionButton
                         onClick={handlePostpone}
                         className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50"
-                    >
-                        Postpone
-                    </ActionButton>
+                    >{st("Postpone")}</ActionButton>
                     <ActionButton
                         onClick={() => onReject(request.id)}
                         className="bg-rose-500 text-white hover:bg-rose-600"
-                    >
-                        Reject
-                    </ActionButton>
+                    >{st("Reject")}</ActionButton>
                     <ActionButton
                         onClick={() => onAccept(request)}
                         className="bg-emerald-500 text-white hover:bg-emerald-600"
-                    >
-                        Accept
-                    </ActionButton>
+                    >{st("Accept")}</ActionButton>
                 </div>
             </div>
         </div>

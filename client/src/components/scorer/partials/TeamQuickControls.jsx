@@ -1,3 +1,4 @@
+import useScorerTranslation from '../useScorerTranslation';
 import React from 'react';
 import { getContrastColorHex } from '../../../utils/common/colorUtils';
 
@@ -14,6 +15,7 @@ export default function TeamQuickControls({
     onPointScored,
     challengeEnabled = true
 }) {
+    const st = useScorerTranslation();
     const isRallyOrLineup = workflowStep === 'RALLY' || workflowStep === 'LINEUP';
 
     return (
@@ -26,15 +28,9 @@ export default function TeamQuickControls({
                         disabled={isRallyOrLineup}
                         className="border text-[11px] font-bold py-1.5 rounded hover:bg-slate-50 disabled:opacity-50"
                         style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
-                    >
-                        Libero in
-                    </button>
-                    <button className="border border-slate-200 text-slate-300 text-[11px] font-bold py-1.5 rounded" disabled>
-                        Libero exchange
-                    </button>
-                    <button className="border border-slate-200 text-slate-300 text-[11px] font-bold py-1.5 rounded" disabled>
-                        New libero
-                    </button>
+                    >{st("Libero in")}</button>
+                    <button className="border border-slate-200 text-slate-300 text-[11px] font-bold py-1.5 rounded" disabled>{st("Libero exchange")}</button>
+                    <button className="border border-slate-200 text-slate-300 text-[11px] font-bold py-1.5 rounded" disabled>{st("New libero")}</button>
                 </div>
                 
                 {/* Right Col: Actions */}
@@ -46,10 +42,8 @@ export default function TeamQuickControls({
                             disabled={!challengeEnabled || challenges[team.code] <= 0 || isRallyOrLineup}
                             className="flex-1 bg-white text-[10px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                             style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
-                            title={challengeEnabled ? 'Video challenge' : 'Challenge system is not enabled for this match'}
-                        >
-                            Video chall.
-                        </button>
+                            title={challengeEnabled ? st('Video challenge') : st('Challenge system is not enabled for this match')}
+                        >{st("Video chall.")}</button>
                         <div
                             className="w-6 flex items-center justify-center text-[11px] font-bold"
                             style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}
@@ -65,9 +59,7 @@ export default function TeamQuickControls({
                             disabled={timeouts[team.code] >= 2 || isRallyOrLineup}
                             className="flex-1 bg-white text-[11px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                             style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
-                        >
-                            Timeout
-                        </button>
+                        >{st("Timeout")}</button>
                         <div
                             className="w-6 flex items-center justify-center text-[11px] font-bold"
                             style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}
@@ -83,9 +75,7 @@ export default function TeamQuickControls({
                             disabled={isRallyOrLineup}
                             className="flex-1 bg-white text-[11px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                             style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
-                        >
-                            Substitution
-                        </button>
+                        >{st("Substitution")}</button>
                         <div
                             className="w-6 flex items-center justify-center text-[11px] font-bold"
                             style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}
@@ -102,9 +92,7 @@ export default function TeamQuickControls({
                 disabled={workflowStep !== 'RALLY'}
                 className="w-full font-bold py-2.5 rounded-md text-[13px] hover:opacity-90 disabled:opacity-50 transition-opacity"
                 style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}
-            >
-                Point scored
-            </button>
+            >{st("Point scored")}</button>
         </div>
     );
 }

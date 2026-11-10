@@ -40,3 +40,11 @@ test('CSV escapes formulas and quotation marks', () => {
     assert.ok(ranking.includes('Attack efficiency'));
     assert.ok(ranking.includes('12.5%'));
 });
+
+test('only verified master identity links combine custom and official athlete statistics', () => {
+    const combined=rankAdminVis([matches[0],{...matches[1],statistics:[{...stat,master_player_id:1}]}],true);
+    assert.equal(combined.players.length,1);
+    assert.equal(combined.players[0].points,12);
+    assert.equal(combined.players[0].matches,2);
+    assert.equal(combined.teams.length,2);
+});

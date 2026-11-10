@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { api } from '../../api';
@@ -7,11 +9,13 @@ const emptyTeam = color => ({ name: '', color, players: [] });
 const initialForm = () => ({ title: '', date: '', time: '', location: '', matchNumber: '', gender: '', maxSets: 5, pointsPerSet: 25, decidingSetPoints: 15, hasChallenge: false, home: emptyTeam('#2563eb'), away: emptyTeam('#dc2626') });
 
 export default function ScorerCreateMatch({ matchId, sources = [], onClose, onSaved }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const dialog = useRef(null), inFlight = useRef(false);
     const [creationId] = useState(() => crypto.randomUUID());
     const [form, setForm] = useState(initialForm), [step, setStep] = useState(1);
     const [busy, setBusy] = useState(Boolean(matchId)), [error, setError] = useState('');
-    const sourceTeams = sources.filter(m => m.manual_lifecycle !== 'draft').flatMap(m => ['home', 'away'].map(side => ({ id: m.id, side, name: m[`${side}_team`] }))).filter(t => t.name);
+    const sourceTeams = sources.filter(m => m.manual_lifecycle !== 'draft').flatMap(m => ['home', 'away'].map(side => ({ id: m.id, side, name: m[`${side}_team`], name_th: m[`${side}_team_name_th`], name_en: m[`${side}_team_name_en`] }))).filter(t => t.name);
     useEffect(() => {
         const element = dialog.current, trigger = document.activeElement, overflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden'; element.showModal();
@@ -26,8 +30,8 @@ export default function ScorerCreateMatch({ matchId, sources = [], onClose, onSa
         return () => { active = false; };
     }, [matchId]);
     const update = (key, value) => setForm(previous => ({ ...previous, [key]: value }));
-    const team = (side, fields) => setForm(previous => ({ ...previous, [side]: { ...previous[side], ...fields } }));
-    const player = (side, index, fields) => team(side, { players: form[side].players.map((p, i) => i === index ? { ...p, ...fields } : p) });
+    const team = (side, fields) => setForm(previous => { const next = { ...previous[side], ...fields }; if ('name_th' in fields || 'name_en' in fields) next.name = next.name_th || next.name_en || next.name; return { ...previous, [side]: next }; });
+    const player = (side, index, fields) => team(side, { players: form[side].players.map((p, i) => i === index ? (() => { const next = { ...p, ...fields }; for (const part of ['first_name', 'last_name']) if (part + '_th' in fields || part + '_en' in fields) next[part] = next[part + '_th'] || next[part + '_en'] || ''; return next; })() : p) });
     const run = async action => {
         if (inFlight.current) return;
         inFlight.current = true; setBusy(true); setError('');
@@ -58,51 +62,52 @@ export default function ScorerCreateMatch({ matchId, sources = [], onClose, onSa
         if (value === '' || !source) return;
         void run(async () => {
             const { data } = await api.getMatchRosterData(source.id);
-            const players = data[source.side].players.map(p => ({ number: p.number, first_name: p.first_name || '', last_name: p.last_name || '', position: p.position === 'L' || p.is_libero1 || p.is_libero2 ? 'L' : ['S','OH','MB','OPP'].includes(p.position) ? p.position : '', is_captain: Boolean(p.is_captain) }));
-            team(side, { name: source.name, players });
+            const players = data[source.side].players.map(p => ({ ...Object.fromEntries(['first_name_th','last_name_th','first_name_en','last_name_en'].filter(field => p[field] !== undefined).map(field => [field,p[field]])), number: p.number, first_name: p.first_name || '', last_name: p.last_name || '', position: p.position === 'L' || p.is_libero1 || p.is_libero2 ? 'L' : ['S','OH','MB','OPP'].includes(p.position) ? p.position : '', is_captain: Boolean(p.is_captain) }));
+            team(side, { name: data[source.side].name || source.name, ...(data[source.side].name_th !== undefined ? { name_th: data[source.side].name_th } : {}), ...(data[source.side].name_en !== undefined ? { name_en: data[source.side].name_en } : {}), players });
         });
     };
     return <dialog ref={dialog} className="scm-dialog" aria-labelledby="scm-title" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
-        <header><div><h2 id="scm-title">{matchId ? 'จัดการแมตช์สร้างเอง' : 'สร้างแมตช์เอง'}</h2><p>ออนไลน์ · ส่วนตัวเมื่อสร้าง · แยกจากตารางคะแนนทางการ</p></div><button type="button" disabled={busy} aria-label="ปิด" onClick={onClose}><X size={20} /></button></header>
-        <nav aria-label="ขั้นตอนสร้างแมตช์">{['ข้อมูลและกติกา', 'ทีมและนักกีฬา', 'ตรวจสอบ'].map((label, i) => <span key={label} aria-current={step === i + 1 ? 'step' : undefined}>{i + 1}. {label}</span>)}</nav>
+        <header><div><h2 id="scm-title">{matchId ? ui('จัดการแมตช์สร้างเอง') : ui('สร้างแมตช์เอง')}</h2><p>{ui("ออนไลน์ · ส่วนตัวเมื่อสร้าง · แยกจากตารางคะแนนทางการ")}</p></div><button type="button" disabled={busy} aria-label={ui("ปิด")} onClick={onClose}><X size={20} /></button></header>
+        <nav aria-label={ui("ขั้นตอนสร้างแมตช์")}>{['ข้อมูลและกติกา', 'ทีมและนักกีฬา', 'ตรวจสอบ'].map((label, i) => <span key={label} aria-current={step === i + 1 ? 'step' : undefined}>{i + 1}. {ui(label)}</span>)}</nav>
         <form onSubmit={event => { event.preventDefault(); if (busy) return; if (step < 3) { setError(''); setStep(step + 1); } else void save(false); }}>
             <div className="scm-content"><fieldset disabled={busy} className="scm-fields">
-                {error && <p role="alert" className="scm-error">{error}</p>}
+                {error && <p role="alert" className="scm-error">{ui(error)}</p>}
                 {step === 1 && <div className="scm-grid">
-                    {[['title','ชื่อรายการ / แมตช์','text',160],['date','วันที่','date'],['time','เวลา','time'],['location','สนาม','text',100],['matchNumber','หมายเลขแมตช์','number']].map(([key,label,type,max]) => <label key={key}>{label}<input type={type} value={form[key]} maxLength={max} min={type === 'number' ? 1 : undefined} max={type === 'number' ? 999999 : undefined} onChange={event => update(key,event.target.value)} /></label>)}
-                    <label>ประเภท<select value={form.gender} onChange={event => update('gender',event.target.value)}><option value="">ไม่ระบุ</option><option value="Male">ชาย</option><option value="Female">หญิง</option><option value="Mixed">ผสม</option></select></label>
-                    <label>จำนวนเซต<select value={form.maxSets} onChange={event => update('maxSets',Number(event.target.value))}><option value={3}>ชนะ 2 ใน 3 เซต</option><option value={5}>ชนะ 3 ใน 5 เซต</option></select></label>
-                    <label>คะแนนต่อเซต<input type="number" min="5" max="99" required value={form.pointsPerSet} onChange={event => update('pointsPerSet',event.target.value)} /></label>
-                    <label>คะแนนเซตตัดสิน<input type="number" min="5" max="99" required value={form.decidingSetPoints} onChange={event => update('decidingSetPoints',event.target.value)} /></label>
-                    <label className="scm-check"><input type="checkbox" checked={form.hasChallenge} onChange={event => update('hasChallenge',event.target.checked)} />เปิดใช้ Challenge</label>
-                    <p>ทุกเซตต้องชนะห่าง 2 คะแนน · กติกาและรายชื่อในหน้านี้แก้ได้ก่อนบันทึกผลโยนเหรียญ</p>
+                    {[['title','ชื่อรายการ / แมตช์','text',160],['date','วันที่','date'],['time','เวลา','time'],['location','สนาม','text',100],['matchNumber','หมายเลขแมตช์','number']].map(([key,label,type,max]) => <label key={key}>{ui(label)}<input type={type} value={form[key]} maxLength={max} min={type === 'number' ? 1 : undefined} max={type === 'number' ? 999999 : undefined} onChange={event => update(key,event.target.value)} /></label>)}
+                    <label>{ui("ประเภท")}<select value={form.gender} onChange={event => update('gender',event.target.value)}><option value="">{ui("ไม่ระบุ")}</option><option value="Male">{ui("ชาย")}</option><option value="Female">{ui("หญิง")}</option><option value="Mixed">{ui("ผสม")}</option></select></label>
+                    <label>{ui("จำนวนเซต")}<select value={form.maxSets} onChange={event => update('maxSets',Number(event.target.value))}><option value={3}>{ui("ชนะ 2 ใน 3 เซต")}</option><option value={5}>{ui("ชนะ 3 ใน 5 เซต")}</option></select></label>
+                    <label>{ui("คะแนนต่อเซต")}<input type="number" min="5" max="99" required value={form.pointsPerSet} onChange={event => update('pointsPerSet',event.target.value)} /></label>
+                    <label>{ui("คะแนนเซตตัดสิน")}<input type="number" min="5" max="99" required value={form.decidingSetPoints} onChange={event => update('decidingSetPoints',event.target.value)} /></label>
+                    <label className="scm-check"><input type="checkbox" checked={form.hasChallenge} onChange={event => update('hasChallenge',event.target.checked)} />{ui("เปิดใช้ Challenge")}</label>
+                    <p>{ui("ทุกเซตต้องชนะห่าง 2 คะแนน · กติกาและรายชื่อในหน้านี้แก้ได้ก่อนบันทึกผลโยนเหรียญ")}</p>
                 </div>}
                 {step === 2 && <div className="scm-roster-teams">{['home','away'].map(side => <section className="scm-team" key={side}>
-                    <h3>{side === 'home' ? 'ทีมเจ้าบ้าน' : 'ทีมเยือน'}</h3>
-                    <label>ชื่อทีม *<input maxLength={100} value={form[side].name} onChange={event => team(side,{name:event.target.value})} /></label>
-                    <label>คัดลอกทีมและรายชื่อ<select value="" onChange={event => copyTeam(side,event.target.value)}><option value="">เลือกจากแมตช์ที่แสดงบนแดชบอร์ด…</option>{sourceTeams.map((t,i) => <option key={`${t.id}-${t.side}`} value={i}>{t.name} · #{t.id}</option>)}</select></label>
-                    <label>สีเสื้อ<input type="color" value={form[side].color} onChange={event => team(side,{color:event.target.value})} /></label>
-                    <p>รายชื่อเป็นสำเนาสำหรับแมตช์นี้ การแก้ไขไม่กระทบทีมต้นฉบับ</p>
-                    <div className="scm-roster-scroll" role="region" aria-label={`ตารางนักกีฬา ${side === 'home' ? 'เจ้าบ้าน' : 'ทีมเยือน'}`} tabIndex={0}>
+                    <h3>{side === 'home' ? ui('ทีมเจ้าบ้าน') : ui('ทีมเยือน')}</h3>
+                    <label>{ui("ชื่อทีม *")}<input maxLength={100} value={form[side].name} onChange={event => team(side,{name:event.target.value})} /></label>
+                    <div className="grid grid-cols-2 gap-2">{[['name_th','Team name (Thai)'],['name_en','Team name (English)']].map(([field,label]) => <label key={field}>{ui(label)}<input maxLength={100} value={form[side][field] || ''} onChange={event => team(side,{[field]:event.target.value})}/></label>)}</div>
+                    <label>{ui("คัดลอกทีมและรายชื่อ")}<select value="" onChange={event => copyTeam(side,event.target.value)}><option value="">{ui("เลือกจากแมตช์ที่แสดงบนแดชบอร์ด…")}</option>{sourceTeams.map((t,i) => <option key={`${t.id}-${t.side}`} value={i}>{displayNames.teamName(t)} · #{t.id}</option>)}</select></label>
+                    <label>{ui("สีเสื้อ")}<input type="color" value={form[side].color} onChange={event => team(side,{color:event.target.value})} /></label>
+                    <p>{ui("รายชื่อเป็นสำเนาสำหรับแมตช์นี้ การแก้ไขไม่กระทบทีมต้นฉบับ")}</p>
+                    <div className="scm-roster-scroll" role="region" aria-label={ui(`ตารางนักกีฬา {0}`, [side === 'home' ? 'เจ้าบ้าน' : 'ทีมเยือน'])} tabIndex={0}>
                         <table className="scm-roster-table">
-                            <caption className="sr-only">รายชื่อนักกีฬา {form[side].name || (side === 'home' ? 'เจ้าบ้าน' : 'ทีมเยือน')}</caption>
-                            <thead><tr><th scope="col">ลำดับ</th><th scope="col">เบอร์ *</th><th scope="col">ตำแหน่ง</th><th scope="col">ชื่อ *</th><th scope="col">นามสกุล</th><th scope="col">กัปตัน</th><th scope="col">จัดการ</th></tr></thead>
-                            <tbody>{form[side].players.length === 0 ? <tr><td colSpan={7} className="scm-roster-empty">ยังไม่มีรายชื่อ กดเพิ่มนักกีฬาหรือคัดลอกทีมด้านบน</td></tr> : form[side].players.map((p,i) => <tr key={i}>
+                            <caption className="sr-only">{ui("รายชื่อนักกีฬา")}{' '}{(form[side].name) || (side === 'home' ? ui('เจ้าบ้าน') : ui('ทีมเยือน'))}</caption>
+                            <thead><tr><th scope="col">{ui("ลำดับ")}</th><th scope="col">{ui("เบอร์ *")}</th><th scope="col">{ui("ตำแหน่ง")}</th><th scope="col">{ui("ชื่อ *")}</th><th scope="col">{ui("นามสกุล")}</th><th scope="col">{ui("กัปตัน")}</th><th scope="col">{ui("จัดการ")}</th></tr></thead>
+                            <tbody>{form[side].players.length === 0 ? <tr><td colSpan={7} className="scm-roster-empty">{ui("ยังไม่มีรายชื่อ กดเพิ่มนักกีฬาหรือคัดลอกทีมด้านบน")}</td></tr> : form[side].players.map((p,i) => <tr key={i}>
                                 <th scope="row">{i+1}</th>
-                                <td><input aria-label={`เบอร์ นักกีฬาคนที่ ${i+1}`} type="number" min="1" max="999" value={p.number} onChange={event => player(side,i,{number:event.target.value})} /></td>
-                                <td><select aria-label={`ตำแหน่ง นักกีฬาคนที่ ${i+1}`} value={p.position} onChange={event => player(side,i,{position:event.target.value})}><option value="">ไม่ระบุ</option>{['S','OH','MB','OPP','L'].map(position => <option key={position}>{position}</option>)}</select></td>
-                                <td><input aria-label={`ชื่อ นักกีฬาคนที่ ${i+1}`} maxLength={50} value={p.first_name} onChange={event => player(side,i,{first_name:event.target.value})} /></td>
-                                <td><input aria-label={`นามสกุล นักกีฬาคนที่ ${i+1}`} maxLength={50} value={p.last_name} onChange={event => player(side,i,{last_name:event.target.value})} /></td>
-                                <td className="scm-captain-cell"><input aria-label={`กัปตัน นักกีฬาคนที่ ${i+1}`} type="checkbox" checked={p.is_captain} onChange={event => team(side,{players:form[side].players.map((item,j) => ({...item,is_captain:j===i ? event.target.checked : false}))})} /></td>
-                                <td><button type="button" className="scm-remove-player" aria-label={`ลบนักกีฬาคนที่ ${i+1}`} onClick={() => team(side,{players:form[side].players.filter((_,j) => j !== i)})}>ลบ</button></td>
+                                <td><input aria-label={ui(`เบอร์ นักกีฬาคนที่ {0}`, [i+1])} type="number" min="1" max="999" value={p.number} onChange={event => player(side,i,{number:event.target.value})} /></td>
+                                <td><select aria-label={ui(`ตำแหน่ง นักกีฬาคนที่ {0}`, [i+1])} value={p.position} onChange={event => player(side,i,{position:event.target.value})}><option value="">{ui("ไม่ระบุ")}</option>{['S','OH','MB','OPP','L'].map(position => <option key={position}>{position}</option>)}</select></td>
+                                <td><input aria-label={ui(`ชื่อ นักกีฬาคนที่ {0}`, [i+1])} maxLength={50} value={p.first_name} onChange={event => player(side,i,{first_name:event.target.value})} /><details><summary>{ui('Bilingual names')}</summary>{[['first_name_th','First name (Thai)'],['last_name_th','Last name (Thai)'],['first_name_en','First name (English)'],['last_name_en','Last name (English)']].map(([field,label]) => <label key={field}>{ui(label)}<input maxLength={50} aria-label={ui('{0} · Player {1}',[ui(label),i+1])} value={p[field] || ''} onChange={event => player(side,i,{[field]:event.target.value})}/></label>)}</details></td>
+                                <td><input aria-label={ui(`นามสกุล นักกีฬาคนที่ {0}`, [i+1])} maxLength={50} value={p.last_name} onChange={event => player(side,i,{last_name:event.target.value})} /></td>
+                                <td className="scm-captain-cell"><input aria-label={ui(`กัปตัน นักกีฬาคนที่ {0}`, [i+1])} type="checkbox" checked={p.is_captain} onChange={event => team(side,{players:form[side].players.map((item,j) => ({...item,is_captain:j===i ? event.target.checked : false}))})} /></td>
+                                <td><button type="button" className="scm-remove-player" aria-label={ui(`ลบนักกีฬาคนที่ {0}`, [i+1])} onClick={() => team(side,{players:form[side].players.filter((_,j) => j !== i)})}>{ui("ลบ")}</button></td>
                             </tr>)}</tbody>
                         </table>
                     </div>
-                    <button type="button" disabled={form[side].players.length>=30} onClick={() => team(side,{players:[...form[side].players,{number:'',first_name:'',last_name:'',position:'',is_captain:false}]})}>+ เพิ่มนักกีฬา ({form[side].players.length}/30)</button>
+                    <button type="button" disabled={form[side].players.length>=30} onClick={() => team(side,{players:[...form[side].players,{number:'',first_name:'',last_name:'',position:'',is_captain:false}]})}>{ui("+ เพิ่มนักกีฬา (")}{form[side].players.length}/30)</button>
                 </section>)}</div>}
-                {step === 3 && <section className="scm-summary"><h3>{form.title || 'แมตช์สร้างเอง'}</h3><p>{form.home.name || 'ยังไม่ระบุทีม'} ({form.home.players.length} คน) — {form.away.name || 'ยังไม่ระบุทีม'} ({form.away.players.length} คน)</p><p>{form.date || 'ยังไม่ระบุวันที่'} {form.time} · {form.location || 'ยังไม่ระบุสนาม'}</p><p>ชนะ {Math.ceil(form.maxSets/2)} ใน {form.maxSets} เซต · เซตละ {form.pointsPerSet} คะแนน · เซตตัดสิน {form.decidingSetPoints} คะแนน</p><p>Challenge: {form.hasChallenge ? 'เปิด' : 'ปิด'}</p><p>บันทึกฉบับร่างได้แม้รายชื่อยังไม่ครบ ก่อนเปิดบันทึกคะแนนต้องมีผู้เล่นทั่วไปอย่างน้อยทีมละ 6 คนและกัปตันทีมละหนึ่งคน</p><p>ผลแมตช์นี้ไม่รวมตารางคะแนนรายการแข่งขันทางการ และยังไม่เผยแพร่ Livescore จนกว่าจะกดเผยแพร่จากแดชบอร์ด</p></section>}
+                {step === 3 && <section className="scm-summary"><h3>{(form.title) || (ui('แมตช์สร้างเอง'))}</h3><p>{(form.home.name) || (ui('ยังไม่ระบุทีม'))} ({form.home.players.length}{' '}{ui("คน) —")}{' '}{(form.away.name) || (ui('ยังไม่ระบุทีม'))} ({form.away.players.length}{' '}{ui("คน)")}</p><p>{(form.date) || (ui('ยังไม่ระบุวันที่'))} {form.time} · {(form.location) || (ui('ยังไม่ระบุสนาม'))}</p><p>{ui("ชนะ")}{' '}{Math.ceil(form.maxSets/2)}{' '}{ui("ใน")}{' '}{form.maxSets}{' '}{ui("เซต · เซตละ")}{' '}{form.pointsPerSet}{' '}{ui("คะแนน · เซตตัดสิน")}{' '}{form.decidingSetPoints}{' '}{ui("คะแนน")}</p><p>{ui("Challenge:")}{' '}{form.hasChallenge ? ui('เปิด') : ui('ปิด')}</p><p>{ui("บันทึกฉบับร่างได้แม้รายชื่อยังไม่ครบ ก่อนเปิดบันทึกคะแนนต้องมีผู้เล่นทั่วไปอย่างน้อยทีมละ 6 คนและกัปตันทีมละหนึ่งคน")}</p><p>{ui("ผลแมตช์นี้ไม่รวมตารางคะแนนรายการแข่งขันทางการ และยังไม่เผยแพร่ Livescore จนกว่าจะกดเผยแพร่จากแดชบอร์ด")}</p></section>}
             </fieldset></div>
-            <footer><button type="button" disabled={busy || step===1} onClick={() => {setError('');setStep(step-1);}}>ย้อนกลับ</button><div>{busy && <span role="status">กำลังบันทึก…</span>}{step < 3 ? <button className="scm-primary" disabled={busy} type="submit">ถัดไป</button> : <><button disabled={busy} type="submit">บันทึกฉบับร่าง</button><button disabled={busy} type="button" className="scm-primary" onClick={() => void save(true)}>บันทึกและเปิด Scorer</button></>}</div></footer>
+            <footer><button type="button" disabled={busy || step===1} onClick={() => {setError('');setStep(step-1);}}>{ui("ย้อนกลับ")}</button><div>{busy && <span role="status">{ui("กำลังบันทึก…")}</span>}{step < 3 ? <button className="scm-primary" disabled={busy} type="submit">{ui("ถัดไป")}</button> : <><button disabled={busy} type="submit">{ui("บันทึกฉบับร่าง")}</button><button disabled={busy} type="button" className="scm-primary" onClick={() => void save(true)}>{ui("บันทึกและเปิด Scorer")}</button></>}</div></footer>
         </form>
     </dialog>;
 }

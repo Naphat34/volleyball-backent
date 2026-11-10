@@ -1,3 +1,6 @@
+import useDisplayNames from '../../../hooks/useDisplayNames';
+import { formatScorerEvent } from '../../../utils/scorer/scorerEventPresentation';
+import useScorerTranslation from '../useScorerTranslation';
 import { historyTeamName, abbreviateHistoryTeams } from '../../../utils/scorer/historyTeamNames';
 import { getContrastClass } from '../../../utils/common/colorUtils';
 import React from 'react';
@@ -38,6 +41,7 @@ const getSanctionLabel = (cardType) => ({
 }[cardType] || 'Sanction');
 
 const SanctionCardMark = ({ cardType }) => {
+    const st = useScorerTranslation();
     if (cardType === 'EXPULSION') {
         return (
             <div className="relative h-7 w-8 shrink-0">
@@ -58,9 +62,7 @@ const SanctionCardMark = ({ cardType }) => {
 
     if (cardType === 'IMPROPER_REQUEST') {
         return (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-[9px] font-black text-sky-700">
-                IR
-            </div>
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-[9px] font-black text-sky-700">{st("IR")}</div>
         );
     }
 
@@ -91,6 +93,8 @@ const MatchHistorySidebar = ({
     isHomeLeft,
     homeLineup,
     awayLineup,
+    homeRoster = [],
+    awayRoster = [],
     matchEvents,
     activeHistoryTab,
     completedSets,
@@ -106,6 +110,8 @@ const MatchHistorySidebar = ({
     setChallengeConfirmMode,
     handleUndo
 }) => {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     const completedSetMap = new Map((completedSets || []).map((s) => [Number(s.set), s]));
     const availableSetNumbers = Array.from(new Set([
         ...matchEvents.map((e) => Number(e.set)),
@@ -127,20 +133,20 @@ const MatchHistorySidebar = ({
     const rightLineupText = formatLineupForCourtSide(isHomeLeft ? selectedAwayLineupText : selectedHomeLineupText, 'right');
 
     return (
-        <aside className="scorer-match-history w-[300px] bg-white text-slate-800 border-l border-slate-200 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden shrink-0">
+        <aside className="scorer-match-history w-[300px] bg-white text-slate-800 border-l border-slate-200 rounded-lg hidden 2xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden shrink-0">
 
             {/* Top Row: Staff connection status */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-white">
                 <button
                     onClick={() => setShowSetup(true)}
-                    aria-label="Match settings"
+                    aria-label={st("Match settings")}
                     className="p-1 border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 transition-colors"
                 >
                     <Settings size={18} />
                 </button>
-                <div className="text-xs font-bold text-slate-700 flex-1 px-3">Staff connections</div>
+                <div className="text-xs font-bold text-slate-700 flex-1 px-3">{st("Staff connections")}</div>
                 <div className="flex gap-3 text-xs font-bold">
-                    <div className="flex items-center gap-1.5" title={`${isHomeLeft ? matchData.teamHome : matchData.teamAway} Staff`}>
+                    <div className="flex items-center gap-1.5" title={st(`{0} Staff`, [isHomeLeft ? displayNames.matchTeamName(matchData, 'home') : displayNames.matchTeamName(matchData, 'away')])}>
                         <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${(isHomeLeft ? staffConnections.home : staffConnections.away)
                             ? 'bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse'
                             : 'bg-slate-300'
@@ -151,7 +157,7 @@ const MatchHistorySidebar = ({
                                 : (matchData.teamAwayCode || '—')}
                         </span>
                     </div>
-                    <div className="flex items-center gap-1.5" title={`${isHomeLeft ? matchData.teamAway : matchData.teamHome} Staff`}>
+                    <div className="flex items-center gap-1.5" title={st(`{0} Staff`, [isHomeLeft ? displayNames.matchTeamName(matchData, 'away') : displayNames.matchTeamName(matchData, 'home')])}>
                         <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${(isHomeLeft ? staffConnections.away : staffConnections.home)
                             ? 'bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse'
                             : 'bg-slate-300'
@@ -168,9 +174,9 @@ const MatchHistorySidebar = ({
             {/* Match History & Set Selector */}
             <div className="p-3 border-b border-slate-100 bg-white">
                 <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[15px] font-bold text-slate-800">Match history</h3>
+                    <h3 className="text-[15px] font-bold text-slate-800">{st("Match history")}</h3>
                     <div className="flex items-center bg-[#f8fafc] border border-slate-200 rounded-md px-2 py-1 gap-1.5">
-                        <span className="text-[11px] font-bold text-slate-600">Current</span>
+                        <span className="text-[11px] font-bold text-slate-600">{st("Current")}</span>
                         <span className="text-[11px] font-bold text-blue-600 bg-white border border-slate-200 rounded px-1.5 py-0.5 min-w-[20px] text-center">{matchData.currentSet}</span>
                     </div>
                 </div>
@@ -187,9 +193,9 @@ const MatchHistorySidebar = ({
                                     ? 'bg-blue-700 text-white border-blue-700 hover:bg-blue-800 hover:border-blue-800'
                                     : 'bg-white text-slate-700 border-slate-300 hover:bg-blue-100 hover:text-blue-900 hover:border-blue-400'
                                     }`}
-                                title={completed ? `Set ${setNum}: ${completed.home}-${completed.away}` : `Set ${setNum}`}
+                                title={completed ? st(`Set {0}: {1}-{2}`, [setNum, completed.home, completed.away]) : st(`Set {0}`, [setNum])}
                             >
-                                <span>Set {setNum}</span>
+                                <span>{st("Set")}{' '}{setNum}</span>
                                 {completed && (
                                     <span className="ml-1">{completed.home}-{completed.away}</span>
                                 )}
@@ -203,23 +209,23 @@ const MatchHistorySidebar = ({
             <div className="flex bg-white shrink-0">
                 <div
                     className="min-w-0 flex-1 overflow-hidden px-1 text-center text-xs font-bold border-b-2"
-                    title={isHomeLeft ? matchData.teamHome : matchData.teamAway}
+                    title={isHomeLeft ? displayNames.matchTeamName(matchData, 'home') : displayNames.matchTeamName(matchData, 'away')}
                     style={{
                     borderColor: isHomeLeft ? teamColors.home : teamColors.away,
                     ...getTeamBadgeStyle(isHomeLeft ? teamColors.home : teamColors.away)
                     }}
                 >
-                    <span className="block truncate">{isHomeLeft ? matchData.teamHome : matchData.teamAway}</span>
+                    <span className="block truncate">{isHomeLeft ? displayNames.matchTeamName(matchData, 'home') : displayNames.matchTeamName(matchData, 'away')}</span>
                 </div>
                 <div
                     className="min-w-0 flex-1 overflow-hidden px-1 text-center text-xs font-bold border-b-2"
-                    title={isHomeLeft ? matchData.teamAway : matchData.teamHome}
+                    title={isHomeLeft ? displayNames.matchTeamName(matchData, 'away') : displayNames.matchTeamName(matchData, 'home')}
                     style={{
                     borderColor: isHomeLeft ? teamColors.away : teamColors.home,
                     ...getTeamBadgeStyle(isHomeLeft ? teamColors.away : teamColors.home)
                     }}
                 >
-                    <span className="block truncate">{isHomeLeft ? matchData.teamAway : matchData.teamHome}</span>
+                    <span className="block truncate">{isHomeLeft ? displayNames.matchTeamName(matchData, 'away') : displayNames.matchTeamName(matchData, 'home')}</span>
                 </div>
             </div>
 
@@ -228,9 +234,7 @@ const MatchHistorySidebar = ({
                 <div className="flex-1 text-center py-2 tracking-wider truncate px-1">
                     {leftLineupText}
                 </div>
-                <div className="px-2.5 py-2 bg-[#f1f5f9] text-slate-500 border-x border-slate-200 uppercase tracking-widest text-[9px]">
-                    Lineup
-                </div>
+                <div className="px-2.5 py-2 bg-[#f1f5f9] text-slate-500 border-x border-slate-200 uppercase tracking-widest text-[9px]">{st("Lineup")}</div>
                 <div className="flex-1 text-center py-2 tracking-wider truncate px-1">
                     {rightLineupText}
                 </div>
@@ -257,7 +261,7 @@ const MatchHistorySidebar = ({
                             return true;
                         });
                     if (setEvents.length === 0) return (
-                        <div className="flex items-center justify-center h-24 text-[11px] text-slate-400">No events yet</div>
+                        <div className="flex items-center justify-center h-24 text-[11px] text-slate-400">{st("No events yet")}</div>
                     );
 
                     return (
@@ -266,6 +270,8 @@ const MatchHistorySidebar = ({
                                 const mt = ev.metadata || {};
                                 const isHome = mt.teamCode === 'home' || mt.team === matchData.teamHome;
                                 const isAway = mt.teamCode === 'away' || mt.team === matchData.teamAway;
+                                const eventRoster = isHome ? homeRoster : isAway ? awayRoster : [...homeRoster, ...awayRoster];
+                                const eventPlayerName = number => displayNames.personName(eventRoster.find(player => String(player.number) === String(number)));
                                 const isLeftEvent = isHomeLeft ? isHome : isAway;
                                 const isRightEvent = isHomeLeft ? isAway : isHome;
                                 const isNeutralEvent = !isLeftEvent && !isRightEvent;
@@ -273,12 +279,12 @@ const MatchHistorySidebar = ({
                                 const eventTeamName = isHome ? historyTeamName(matchData, 'home') : isAway ? historyTeamName(matchData, 'away') : abbreviateHistoryTeams(mt.team, matchData);
                                 const setupEventLabels = { FIRST_SERVE: 'First Serve', COURT_SIDE_LEFT: 'Court Side A (Left)', COIN_TOSS_WINNER: 'Coin Toss Winner' };
                                 const description = setupEventLabels[mt.type] && eventTeamName
-                                    ? `${setupEventLabels[mt.type]}: ${eventTeamName}`
-                                    : abbreviateHistoryTeams(ev.description, matchData);
+                                    ? `${st(setupEventLabels[mt.type])}: ${eventTeamName}`
+                                    : formatScorerEvent(ev, matchData, st);
                                 if (mt.type === 'SUBSTITUTION_BATCH') return (
                                     <details key={ev.id} className="border-l-[3px] px-3 py-2 text-xs text-slate-600" style={{ borderColor: accentColor }}>
-                                        <summary className="cursor-pointer font-bold">{eventTeamName} · Substitutions ({mt.pairs.length})</summary>
-                                        <div className="mt-2 space-y-1">{mt.pairs.map((pair, index) => <div key={index}>OUT #{pair.outNumber} → IN #{pair.inNumber}</div>)}</div>
+                                        <summary className="cursor-pointer font-bold">{eventTeamName}{' '}{st("· Substitutions (")}{mt.pairs.length})</summary>
+                                        <div className="mt-2 space-y-1">{mt.pairs.map((pair, index) => <div key={index}>{st("OUT #")}{pair.outNumber}{' '}{st("→ IN #")}{pair.inNumber}</div>)}</div>
                                     </details>
                                 );
                                 if (setupEventLabels[mt.type]) return (
@@ -300,9 +306,9 @@ const MatchHistorySidebar = ({
                                                 {isLeftEvent && (
                                                     <>
                                                         <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 opacity-80" style={{ backgroundColor: `${accentColor}18` }}>
-                                                           <img src={Logo} alt="Point" className="w-4 h-4" /> 
+                                                           <img src={Logo} alt={st("Point")} className="w-4 h-4" />
                                                         </div>
-                                                        <span className="text-[10px] font-semibold text-slate-500 truncate">Point {eventTeamName}</span>
+                                                        <span className="text-[10px] font-semibold text-slate-500 truncate">{st("Point")}{' '}{eventTeamName}</span>
                                                     </>
                                                 )}
                                             </div>
@@ -316,9 +322,9 @@ const MatchHistorySidebar = ({
                                             <div className="flex-1 flex items-center justify-end gap-2">
                                                 {isRightEvent && (
                                                     <>
-                                                        <span className="text-[10px] font-semibold text-slate-500 truncate">Point {eventTeamName}</span>
+                                                        <span className="text-[10px] font-semibold text-slate-500 truncate">{st("Point")}{' '}{eventTeamName}</span>
                                                         <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 opacity-80" style={{ backgroundColor: `${accentColor}18` }}>
-                                                            <img src={Logo} alt="Point" className="w-4 h-4" />
+                                                            <img src={Logo} alt={st("Point")} className="w-4 h-4" />
                                                         </div>
                                                     </>
                                                 )}
@@ -333,19 +339,17 @@ const MatchHistorySidebar = ({
                                             <div className="flex-1">
                                                 {isLeftEvent && (
                                                     <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full border border-slate-300 shadow-sm" style={getTeamBadgeStyle(accentColor)}>
-                                                        <Timer size={12} />
-                                                        Timeout {eventTeamName}
+                                                        <Timer size={12} />{st("Timeout")}{eventTeamName}
                                                     </span>
                                                 )}
                                             </div>
                                             <div className="flex-1 flex justify-end">
                                                 {isRightEvent && (
-                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full border border-slate-300 shadow-sm" style={getTeamBadgeStyle(accentColor)}>
-                                                        Timeout {eventTeamName}
+                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full border border-slate-300 shadow-sm" style={getTeamBadgeStyle(accentColor)}>{st("Timeout")}{eventTeamName}
                                                         <Timer size={12} />
                                                     </span>
                                                 )}
-                                                {isNeutralEvent && <span className="text-[10px] text-slate-400">Timeout {eventTeamName || ''}</span>}
+                                                {isNeutralEvent && <span className="text-[10px] text-slate-400">{st("Timeout")}{' '}{eventTeamName || ''}</span>}
                                             </div>
                                         </div>
                                     );
@@ -355,14 +359,14 @@ const MatchHistorySidebar = ({
                                     const label = mt.type === 'LIBERO' ? 'Libero' : 'Sub';
                                     const rows = (
                                         <div className={`flex flex-col gap-0.5 text-[11px] ${isRightEvent ? 'items-end text-right' : 'items-start'}`}>
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label} {eventTeamName}</span>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{st(label)} {eventTeamName}</span>
                                             <div className="flex items-center gap-1.5">
                                                 <span className="text-emerald-600 font-bold">↓ {mt.out}</span>
-                                                {mt.outName && <span className="text-slate-600">{mt.outName}</span>}
+                                                {(eventPlayerName(mt.out) || mt.outName) && <span className="text-slate-600">{eventPlayerName(mt.out) || mt.outName}</span>}
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <span className="text-red-600 font-bold">↑ {mt.in}</span>
-                                                {mt.inName && <span className="text-slate-600">{mt.inName}</span>}
+                                                {(eventPlayerName(mt.in) || mt.inName) && <span className="text-slate-600">{eventPlayerName(mt.in) || mt.inName}</span>}
                                             </div>
                                         </div>
                                     );
@@ -378,15 +382,15 @@ const MatchHistorySidebar = ({
                                     const cardType = getSanctionCardType(mt, ev.description);
                                     const label = getSanctionLabel(cardType);
                                     const receiver = mt.receiver === 'PLAYER'
-                                        ? (mt.player ? `#${mt.player}` : 'Player')
+                                        ? (mt.player ? `#${mt.player}` : st('Player'))
                                         : mt.receiver === 'STAFF'
-                                            ? (mt.staff || 'Staff')
-                                            : 'Team';
+                                            ? (mt.staff || st('Staff'))
+                                            : st('Team');
                                     const content = (
                                         <div className={`flex items-center gap-2 ${isRightEvent ? 'flex-row-reverse text-right' : ''}`}>
                                             <SanctionCardMark cardType={cardType} />
                                             <div className="min-w-0">
-                                                <div className="text-[11px] font-black uppercase tracking-wide text-slate-700">{label}</div>
+                                                <div className="text-[11px] font-black uppercase tracking-wide text-slate-700">{st(label)}</div>
                                                 <div className="text-[10px] font-semibold text-slate-500 truncate">
                                                     {receiver} {eventTeamName ? `(${eventTeamName})` : ''}
                                                 </div>
@@ -412,7 +416,7 @@ const MatchHistorySidebar = ({
                                                 {nums.map((n, i) => (
                                                     <span key={i} className="bg-white border border-slate-200 text-slate-600 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">{n}</span>
                                                 ))}
-                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest self-center ml-1">Lineup</span>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest self-center ml-1">{st("Lineup")}</span>
                                             </div>
                                         </div>
                                     );
@@ -435,7 +439,7 @@ const MatchHistorySidebar = ({
             {/* Postponed Challenges Button */}
             {challengeEnabled && pendingRequests.filter(r => r.request_type === 'CHALLENGE' && postponedChallengeIds.includes(r.id)).length > 0 && (
                 <div className="p-3 bg-white border-t border-slate-200 shrink-0">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Postponed Challenges</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">{st("Postponed Challenges")}</p>
                     {pendingRequests.filter(r => r.request_type === 'CHALLENGE' && postponedChallengeIds.includes(r.id)).map(req => {
                         const isHome = String(req.team_id) === String(matchData.teamHomeId);
                         const teamColor = isHome ? teamColors.home : teamColors.away;
@@ -450,8 +454,8 @@ const MatchHistorySidebar = ({
                                 style={getTeamBadgeStyle(teamColor)}
                                 className="w-full mb-1.5 py-1.5 px-2.5 text-[10px] font-black border border-slate-300 rounded hover:underline hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 transition-shadow flex justify-between items-center gap-2"
                             >
-                                <span className="truncate">Challenge: {req.team_name}</span>
-                                <span className="shrink-0 text-[8px] bg-white text-slate-900 border border-slate-300 px-1 py-0.5 rounded font-mono uppercase font-black">Resume</span>
+                                <span className="truncate">{st("Challenge:")}{' '}{displayNames.linkedTeamName(req)}</span>
+                                <span className="shrink-0 text-[8px] bg-white text-slate-900 border border-slate-300 px-1 py-0.5 rounded font-mono uppercase font-black">{st("Resume")}</span>
                             </button>
                         );
                     })}
@@ -464,9 +468,7 @@ const MatchHistorySidebar = ({
                     onClick={handleUndo}
                     disabled={history.length === 0}
                     className="w-full py-2.5 bg-rose-700 text-white text-sm font-semibold border border-rose-700 rounded enabled:hover:bg-rose-50 enabled:hover:text-rose-800 enabled:hover:border-rose-800 disabled:bg-slate-100 disabled:text-slate-600 disabled:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 transition-colors"
-                >
-                    Undo last action
-                </button>
+                >{st("Undo last action")}</button>
             </div>
 
         </aside>

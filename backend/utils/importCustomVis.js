@@ -1,7 +1,7 @@
 const { createPayload, commandPayload, view } = require('./customVis');
 const { fail } = require('./visWorkflow');
 function importCustomVis(backup, id) {
-    if (!backup || typeof backup !== 'object' || !Array.isArray(backup.actions) || backup.actions.length > 10000) fail('ไฟล์สำรอง VIS ไม่ถูกต้อง');
+    if (!backup || typeof backup !== 'object' || !Array.isArray(backup.actions) || backup.actions.length > 10000) fail('ไฟล์สำรอง VIMS ไม่ถูกต้อง');
     if (!backup.config || !Array.isArray(backup.config.home?.players) || !Array.isArray(backup.config.away?.players)
         || !backup.match?.vis_state || backup.match.home_team_id == null || backup.match.away_team_id == null
         || String(backup.match.home_team_id) === String(backup.match.away_team_id)) fail('ข้อมูลทีมในไฟล์สำรองไม่ครบถ้วน');
@@ -46,6 +46,7 @@ function importCustomVis(backup, id) {
         ...controls.map((e, i) => ({ ...e, order: e.afterEventId || 0, tie: i + 1 }))].sort((a, b) => a.order - b.order || a.tie - b.tie);
     const handled = new Set();
     for (const event of timeline) {
+        if (event.details?.batchId && handled.has('batch:' + event.details.batchId)) continue;
         if (event.action_type === 'VIS_STAT' && handled.has(event.details?.rallyId)) continue;
         const setNumber = Number(event.set_number ?? event.set_id);
         const state = view(payload).state;
@@ -64,7 +65,13 @@ function importCustomVis(backup, id) {
                 return { team, player: e.player_id == null ? null : playerId(team, e.player_id), skill: e.skill, grade: e.grade || '' };
             }) });
         } else if (event.skill === 'TIMEOUT') send({ type: 'TIMEOUT', team: event.team });
-        else if (event.skill === 'SUBSTITUTION') send({ type: 'SUBSTITUTION', team: event.team,
+        else if (event.skill === 'SUBSTITUTION' && event.details?.batchId) {
+            const group = controls.filter(item => item.details?.batchId === event.details.batchId);
+            if (group.some(item => item.skill !== 'SUBSTITUTION' || item.team !== event.team || Number(item.set_number ?? item.set_id) !== setNumber)) fail('Invalid substitution batch in backup');
+            send({ type: 'SUBSTITUTIONS', team: event.team, pairs: group.map(item => ({ playerOut: playerId(event.team, item.details.playerOut), playerIn: playerId(event.team, item.details.playerIn) })) });
+            handled.add('batch:' + event.details.batchId);
+        }
+        else if (['SUBSTITUTION', 'LIBERO_REPLACEMENT'].includes(event.skill)) send({ type: event.skill, team: event.team,
             playerOut: playerId(event.team, event.details?.playerOut), playerIn: playerId(event.team, event.details?.playerIn) });
         else fail('ไฟล์มีเหตุการณ์ที่ไม่รองรับ');
     }

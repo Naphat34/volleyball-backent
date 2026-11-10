@@ -4,6 +4,7 @@ const db = require('../config/db');
 const { normalizeManualMatch, assertReady, parseConfig, canManage } = require('../utils/manualScorer');
 const { attachDashboardSummaries } = require('../utils/matchDashboard');
 const { writeAuditLog } = require('../utils/auditLogger');
+const { playerNameFields, teamNameFields } = require('../utils/bilingualNames');
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 const sendError = (res, error) => {
@@ -19,18 +20,22 @@ async function owned(connection, req, lock = false) {
 async function actualConfig(connection, match) {
     const config = { ...parseConfig(match.manual_config) };
     for (const side of ['home', 'away']) {
-        const team = (await connection.query('SELECT name, main_color FROM teams WHERE id = ?', [match[`${side}_team_id`]])).rows[0];
-        const players = (await connection.query('SELECT id, number, first_name, last_name, position, is_captain FROM players WHERE team_id = ? AND is_playing = 1 ORDER BY number', [match[`${side}_team_id`]])).rows;
-        config[side] = { name: applyMatchSetup({ ...match })[`${side}_team_name`] || team.name, color: team.main_color || config[side].color, players: setupPlayers(match, side, players).map(p => ({ ...p, position: p.position || '', is_captain: Boolean(p.is_captain) })) };
+        const team = (await connection.query('SELECT name, name_th, name_en, main_color FROM teams WHERE id = ?', [match[`${side}_team_id`]])).rows[0];
+        const players = (await connection.query('SELECT id, number, first_name, last_name, first_name_th, last_name_th, first_name_en, last_name_en, position, is_captain FROM players WHERE team_id = ? AND is_playing = 1 ORDER BY number', [match[`${side}_team_id`]])).rows;
+        const configured = applyMatchSetup({ ...match });
+        config[side] = { ...team, ...config[side], name: configured[`${side}_team_name`] || team.name,
+            name_th: configured[`${side}_team_name_th`] ?? team.name_th, name_en: configured[`${side}_team_name_en`] ?? team.name_en,
+            color: team.main_color || config[side].color, players: setupPlayers(match, side, players).map(p => ({ ...p, position: p.position || '', is_captain: Boolean(p.is_captain) })) };
     }
     return config;
 }
 async function saveTeam(connection, config, ownerId, id) {
+    const translatedTeamFields = teamNameFields.filter(field => config[field] !== undefined);
     if (!id) {
-        const result = await connection.query("INSERT INTO teams (name, code, status, main_color, manual_owner_id) VALUES (?, ?, 'active', ?, ?)",
-            [config.name, `M${crypto.randomBytes(4).toString('hex')}`, config.color, ownerId]);
+        const result = await connection.query(`INSERT INTO teams (name, code, status, main_color, manual_owner_id${translatedTeamFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, 'active', ?, ?${translatedTeamFields.map(() => ', ?').join('')})`,
+            [config.name, `M${crypto.randomBytes(4).toString('hex')}`, config.color, ownerId, ...translatedTeamFields.map(field => config[field])]);
         id = result.insertId;
-    } else await connection.query('UPDATE teams SET name = ?, main_color = ? WHERE id = ?', [config.name, config.color, id]);
+    } else await connection.query(`UPDATE teams SET name = ?, main_color = ?${translatedTeamFields.map(field => `, ${field}=?`).join('')} WHERE id = ?`, [config.name, config.color, ...translatedTeamFields.map(field => config[field]), id]);
     const existing = (await connection.query('SELECT id, number FROM players WHERE team_id = ?', [id])).rows;
     const keep = [];
     let libero = 0;
@@ -39,11 +44,13 @@ async function saveTeam(connection, config, ownerId, id) {
         const isLibero = p.position === 'L';
         if (isLibero) libero += 1;
         const values = [p.number, p.first_name, p.last_name, p.position || null, p.is_captain ? 1 : 0, isLibero && libero === 1 ? 1 : 0, isLibero && libero === 2 ? 1 : 0];
+        const translatedFields = playerNameFields.filter(field => p[field] !== undefined);
+        const translatedValues = translatedFields.map(field => p[field]);
         if (previous) {
-            await connection.query('UPDATE players SET number=?, first_name=?, last_name=?, position=?, is_captain=?, is_libero1=?, is_libero2=?, is_playing=1 WHERE id=? AND team_id=?', [...values, previous.id, id]);
+            await connection.query(`UPDATE players SET number=?, first_name=?, last_name=?, position=?, is_captain=?, is_libero1=?, is_libero2=?, is_playing=1${translatedFields.map(field => `, ${field}=?`).join('')} WHERE id=? AND team_id=?`, [...values, ...translatedValues, previous.id, id]);
             keep.push(previous.id);
         } else {
-            const inserted = await connection.query('INSERT INTO players (number, first_name, last_name, position, is_captain, is_libero1, is_libero2, team_id, is_active, is_playing) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)', [...values, id]);
+            const inserted = await connection.query(`INSERT INTO players (number, first_name, last_name, position, is_captain, is_libero1, is_libero2, team_id, is_active, is_playing${translatedFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1${translatedFields.map(() => ', ?').join('')})`, [...values, id, ...translatedValues]);
             keep.push(inserted.insertId);
         }
     }
@@ -53,7 +60,7 @@ async function saveTeam(connection, config, ownerId, id) {
 }
 exports.list = async (req, res) => {
     try {
-        const rows = (await db.query(`SELECT m.*, m.manual_title AS competition_name, t1.name AS home_team, t2.name AS away_team
+        const rows = (await db.query(`SELECT m.*, m.manual_title AS competition_name, t1.name AS home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t2.name AS away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en
             FROM matches m JOIN teams t1 ON t1.id=m.home_team_id JOIN teams t2 ON t2.id=m.away_team_id
             WHERE m.manual_owner_id IS NOT NULL AND (? = 'admin' OR m.manual_owner_id=?) ORDER BY m.id DESC`, [req.user.role, req.user.id])).rows;
         const matches = rows.map(m => ({ ...m, is_manual_scorer: true, manual_lifecycle: m.manual_lifecycle === 'confirmed' ? 'confirmed' : m.status === 'completed' ? 'review' : m.status === 'live' ? 'live' : m.manual_lifecycle }));

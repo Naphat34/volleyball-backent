@@ -1,11 +1,14 @@
+import useScorerTranslation from '../useScorerTranslation';
 import React, { useState } from 'react';
 import { X, Check } from 'lucide-react';
-import Swal from 'sweetalert2';
+import Swal from '../../../utils/scorer/scorerAlert';
 
 export default function SubstitutionRequestModal({ request, teamName, onClose, onAccept, onReject, onPostpone }) {
+
+    const st = useScorerTranslation();
     // request.details.pairs should contain { outPlayer, inPlayer }
     const pairs = request?.details?.pairs || [];
-    
+
     // Checkboxes state for partial accept
     const [selectedPairs, setSelectedPairs] = useState(
         pairs.map((_, i) => i) // initially select all indices
@@ -19,7 +22,7 @@ export default function SubstitutionRequestModal({ request, teamName, onClose, o
 
     const handleAccept = () => {
         if (selectedPairs.length === 0) {
-            Swal.fire('Warning', 'No substitutions selected.', 'warning');
+            Swal.fire({uiTextLocalized:true,title:st('Warning'),text:st('No substitutions selected.'),icon:'warning'});
             return;
         }
         const acceptedPairs = pairs.filter((_, i) => selectedPairs.includes(i));
@@ -27,13 +30,13 @@ export default function SubstitutionRequestModal({ request, teamName, onClose, o
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="scorer-dialog fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col transform transition-all">
                 <div className="bg-slate-800 p-6 text-white text-center">
-                    <h2 className="text-2xl font-bold">Substitution Request</h2>
-                    <p className="text-slate-300 mt-2">Team {teamName} requested a substitution</p>
+                    <h2 className="text-2xl font-bold">{st("Substitution Request")}</h2>
+                    <p className="text-slate-300 mt-2">{st("Team")}{' '}{teamName}{' '}{st("requested a substitution")}</p>
                 </div>
-                
+
                 <div className="p-6 flex-1 overflow-y-auto">
                     <div className="space-y-4">
                         {pairs.map((pair, index) => {
@@ -51,15 +54,15 @@ export default function SubstitutionRequestModal({ request, teamName, onClose, o
                                     `}>
                                         {isSelected && <Check size={16} strokeWidth={3} />}
                                     </div>
-                                    
+
                                     <div className="flex-1 flex items-center justify-center gap-6 font-black text-2xl">
                                         <div className="text-rose-500 flex flex-col items-center">
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Out</span>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{st("Out")}</span>
                                             <span>{pair.outPlayer.number}</span>
                                         </div>
                                         <div className="text-slate-300">&gt;&lt;</div>
                                         <div className="text-emerald-600 flex flex-col items-center">
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">In</span>
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{st("In")}</span>
                                             <span>{pair.inPlayer.number}</span>
                                         </div>
                                     </div>
@@ -73,26 +76,20 @@ export default function SubstitutionRequestModal({ request, teamName, onClose, o
                     <button 
                         onClick={() => onPostpone(request)} 
                         className="flex-1 py-3 px-4 bg-white border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-all shadow-sm"
-                    >
-                        Postpone
-                    </button>
+                    >{st("Postpone")}</button>
                     <button 
                         onClick={() => onReject(request)} 
                         className="flex-1 py-3 px-4 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl transition-all shadow-sm shadow-rose-500/20"
-                    >
-                        Reject
-                    </button>
+                    >{st("Reject")}</button>
                     <button 
                         onClick={handleAccept} 
                         className="flex-1 py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-2"
                     >
-                        <Check size={20} strokeWidth={3} />
-                        Accept
-                    </button>
+                        <Check size={20} strokeWidth={3} />{st("Accept")}</button>
                 </div>
-                
+
                 {/* Close button (acts like postpone/cancel) */}
-                <button 
+                <button aria-label={st('Close')}
                     onClick={() => onClose()}
                     className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
                 >

@@ -1,7 +1,7 @@
 {
   "id": "/adminvis",
-  "name": "VOLLEY VIS Offline",
-  "short_name": "VIS",
+  "name": "VOLLEY VIMS Offline",
+  "short_name": "VIMS",
   "start_url": "/adminvis",
   "scope": "/",
   "display": "standalone",

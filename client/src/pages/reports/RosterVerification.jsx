@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { StatusBadge } from '../../components/ui/SystemUI';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -6,6 +8,8 @@ import { cleanCompetitionTitle } from '../../utils/formatters';
 import { getStoredUser } from '../../auth/authStorage';
 
 const RosterVerification = () => {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const { matchId } = useParams();
     const [matchData, setMatchData] = useState(null);
     const [homePlayers, setHomePlayers] = useState([]);
@@ -29,8 +33,8 @@ const RosterVerification = () => {
         fetchData();
     }, [matchId]);
 
-    if (loading) return <div className="p-8 text-center text-gray-600 font-semibold">Loading Roster Verification...</div>;
-    if (!matchData) return <div className="p-8 text-center text-red-500 font-bold">Match Data Not Found</div>;
+    if (loading) return <div className="p-8 text-center text-gray-600 font-semibold">{ui("Loading Roster Verification...")}</div>;
+    if (!matchData) return <div className="p-8 text-center text-red-500 font-bold">{ui("Match Data Not Found")}</div>;
 
     const compName = cleanCompetitionTitle(matchData.competition_name || matchData.competition_title || '');
     const matchNo = matchData.match_number || '';
@@ -39,7 +43,7 @@ const RosterVerification = () => {
     const country = matchData.country || '';
 
     const getPlayerNo = (p) => p ? (p.number || p.shirt_number || p.jersey_number || '') : '';
-    const getPlayerName = (p) => p ? `${p.first_name || ''} ${p.last_name || ''}`.trim().toUpperCase() : '';
+
     const getPlayerNat = (p) => p ? (p.nationality || '') : '';
     const getPlayerBirth = (p) => {
         if (!p || !p.birth_date) return '';
@@ -62,21 +66,17 @@ const RosterVerification = () => {
                 <button 
                     onClick={() => window.history.back()}
                     className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 shadow transition-all font-semibold"
-                >
-                    Back
-                </button>
+                >{ui("Back")}</button>
                 <button 
                     onClick={() => window.print()}
                     className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 shadow transition-all"
-                >
-                    Print Roster Verification
-                </button>
+                >{ui("Print Roster Verification")}</button>
             </div>
 
-            <div className="mx-auto mb-4 flex max-w-[287mm] flex-wrap items-center gap-3 px-4 print:hidden"><StatusBadge tone={homePlayers.length && awayPlayers.length ? 'success' : 'warning'}>{homePlayers.length && awayPlayers.length ? 'มีรายชื่อทั้งสองทีม / Rosters available' : 'ตรวจรายชื่อก่อนพิมพ์ / Review missing rosters'}</StatusBadge><span className="text-sm text-slate-600">Home {homePlayers.length} · Away {awayPlayers.length}</span></div>
+            <div className="mx-auto mb-4 flex max-w-[287mm] flex-wrap items-center gap-3 px-4 print:hidden"><StatusBadge tone={homePlayers.length && awayPlayers.length ? 'success' : 'warning'}>{homePlayers.length && awayPlayers.length ? ui('มีรายชื่อทั้งสองทีม / Rosters available') : ui('ตรวจรายชื่อก่อนพิมพ์ / Review missing rosters')}</StatusBadge><span className="text-sm text-slate-600">{ui("Home")}{' '}{homePlayers.length}{' '}{ui("· Away")}{' '}{awayPlayers.length}</span></div>
             {/* Print Container (A4 Landscape) */}
             <div data-theme-paper id="o2-form" className="w-[287mm] h-[198mm] bg-white mx-auto border border-gray-300 print:border-none shadow-lg print:shadow-none p-[6mm] flex flex-col justify-between box-border relative">
-                
+
                 {/* Top Headers */}
                 <div className="flex justify-between gap-4">
                     {/* Left Box */}
@@ -87,23 +87,23 @@ const RosterVerification = () => {
                     <div className="w-[55%] h-[15mm] border-2 border-black bg-gray-200 flex text-xs">
                         {/* Match No */}
                         <div className="w-[30%] border-r-2 border-black flex flex-col justify-center px-3">
-                            <span className="text-[10px] text-gray-700 uppercase font-semibold">Match no:</span>
+                            <span className="text-[10px] text-gray-700 uppercase font-semibold">{ui("Match no:")}</span>
                             <span className="font-bold text-sm text-center">{matchNo}</span>
                         </div>
                         {/* City / Hall */}
                         <div className="w-[45%] border-r-2 border-black flex flex-col justify-center px-3">
                             <div className="flex gap-1.5">
-                                <span className="text-[10px] text-gray-700 font-semibold">City:</span>
+                                <span className="text-[10px] text-gray-700 font-semibold">{ui("City:")}</span>
                                 <span className="font-bold">{city}</span>
                             </div>
                             <div className="flex gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-gray-700 font-semibold">Hall:</span>
+                                <span className="text-[10px] text-gray-700 font-semibold">{ui("Hall:")}</span>
                                 <span className="font-bold truncate">{hall}</span>
                             </div>
                         </div>
                         {/* Country */}
                         <div className="w-[25%] flex flex-col justify-center px-3">
-                            <span className="text-[10px] text-gray-700 uppercase font-semibold">Country:</span>
+                            <span className="text-[10px] text-gray-700 uppercase font-semibold">{ui("Country:")}</span>
                             <span className="font-bold">{country}</span>
                         </div>
                     </div>
@@ -111,12 +111,12 @@ const RosterVerification = () => {
 
                 {/* Title */}
                 <div className="text-center my-2.5">
-                    <h2 className="text-lg font-bold tracking-widest uppercase">Roster Verification</h2>
+                    <h2 className="text-lg font-bold tracking-widest uppercase">{ui("Roster Verification")}</h2>
                 </div>
 
                 {/* Main Tables (Side-by-Side) */}
                 <div className="flex flex-row justify-between gap-6 flex-grow">
-                    
+
                     {/* Left Table: Team A */}
                     <div className="flex-1 flex flex-col">
                         <table className="w-full border-2 border-black table-fixed border-collapse">
@@ -124,29 +124,29 @@ const RosterVerification = () => {
                                 {/* Team Name Row */}
                                 <tr>
                                     <th colSpan="4" className="bg-gray-200 border-b-2 border-black py-0.5 px-2 text-center font-bold text-lg truncate uppercase">
-                                        {matchData.home_team_name || 'Team A'}
+                                        {(displayNames.matchTeamName(matchData, 'home')) || (ui('Team A'))}
                                     </th>
                                 </tr>
                                 {/* Headers Row */}
                                 <tr className="border-b-2 border-black text-center text-[12px] font-bold">
-                                    <th className="w-[5%] border-r border-black py-0.5">N</th>
-                                    <th className="w-[75%] border-r border-black py-0.5 text-left px-2">Name of the player</th>
-                                    <th className="w-[7%] border-r border-black py-0.5">Nat.</th>
-                                    <th className="w-[13%] py-0.5">Brith Day</th>
+                                    <th className="w-[5%] border-r border-black py-0.5">{ui("N")}</th>
+                                    <th className="w-[75%] border-r border-black py-0.5 text-left px-2">{ui("Name of the player")}</th>
+                                    <th className="w-[7%] border-r border-black py-0.5">{ui("Nat.")}</th>
+                                    <th className="w-[13%] py-0.5">{ui("Brith Day")}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {homePlayers.map((p, idx) => (
                                     <tr key={`home-${idx}`} className="border-b border-black text-[12px] h-[6.2mm]">
                                         <td className="border-r border-black text-center font-bold bg-gray-50/50 print:bg-white">{getPlayerNo(p)}</td>
-                                        <td className="border-r border-black px-2 truncate font-medium">{getPlayerName(p)}</td>
+                                        <td className="border-r border-black px-2 truncate font-medium">{displayNames.personName(p)}</td>
                                         <td className="border-r border-black text-center truncate">{getPlayerNat(p)}</td>
                                         <td className="text-center text-[10px] truncate">{getPlayerBirth(p)}</td>
                                     </tr>
                                 ))}
                                 {/* Officials Row */}
                                 <tr className="bg-gray-200 border-t border-black text-[10px] font-bold text-center h-[6.5mm]">
-                                    <td colSpan="4" className="py-0.5 tracking-wider">OFFICIALS</td>
+                                    <td colSpan="4" className="py-0.5 tracking-wider">{ui("OFFICIALS")}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -159,29 +159,29 @@ const RosterVerification = () => {
                                 {/* Team Name Row */}
                                 <tr>
                                     <th colSpan="4" className="bg-gray-200 border-b-2 border-black py-0.5 px-2 text-center font-bold text-lg truncate uppercase">
-                                        {matchData.away_team_name || 'Team B'}
+                                        {(displayNames.matchTeamName(matchData, 'away')) || (ui('Team B'))}
                                     </th>
                                 </tr>
                                 {/* Headers Row */}
                                 <tr className="border-b-2 border-black text-center text-[12px] font-bold">
-                                    <th className="w-[5%] border-r border-black py-0.5">N</th>
-                                    <th className="w-[75%] border-r border-black py-0.5 text-left px-2">Name of the player</th>
-                                    <th className="w-[7%] border-r border-black py-0.5">Nat.</th>
-                                    <th className="w-[13%] py-0.5">Brith Day</th>
+                                    <th className="w-[5%] border-r border-black py-0.5">{ui("N")}</th>
+                                    <th className="w-[75%] border-r border-black py-0.5 text-left px-2">{ui("Name of the player")}</th>
+                                    <th className="w-[7%] border-r border-black py-0.5">{ui("Nat.")}</th>
+                                    <th className="w-[13%] py-0.5">{ui("Brith Day")}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {awayPlayers.map((p, idx) => (
                                     <tr key={`away-${idx}`} className="border-b border-black text-[12px] h-[6.2mm]">
                                         <td className="border-r border-black text-center font-bold bg-gray-50/50 print:bg-white">{getPlayerNo(p)}</td>
-                                        <td className="border-r border-black px-2 truncate font-medium">{getPlayerName(p)}</td>
+                                        <td className="border-r border-black px-2 truncate font-medium">{displayNames.personName(p)}</td>
                                         <td className="border-r border-black text-center truncate">{getPlayerNat(p)}</td>
                                         <td className="text-center text-[10px] truncate">{getPlayerBirth(p)}</td>
                                     </tr>
                                 ))}
                                 {/* Officials Row */}
                                 <tr className="bg-gray-200 border-t border-black text-[10px] font-bold text-center h-[6.5mm]">
-                                    <td colSpan="4" className="py-0.5 tracking-wider">OFFICIALS</td>
+                                    <td colSpan="4" className="py-0.5 tracking-wider">{ui("OFFICIALS")}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -190,29 +190,27 @@ const RosterVerification = () => {
 
                 {/* Signatures Section */}
                 <div className="mt-3 pt-1 flex flex-col items-center">
-                    <h3 className="text-xs font-bold uppercase tracking-wider mb-2">Signature</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider mb-2">{ui("Signature")}</h3>
                     <div className="w-[95%] flex flex-col gap-2">
                         {/* Coach Row */}
                         <div className="flex justify-between items-center text-xs font-semibold">
                             <div className="w-[42%] border-b border-black border-dashed h-4"></div>
-                            <div className="w-[16%] text-center uppercase tracking-wider text-gray-800">Coach</div>
+                            <div className="w-[16%] text-center uppercase tracking-wider text-gray-800">{ui("Coach")}</div>
                             <div className="w-[42%] border-b border-black border-dashed h-4"></div>
                         </div>
                         {/* Captain Row */}
                         <div className="flex justify-between items-center text-xs font-semibold">
                             <div className="w-[42%] border-b border-black border-dashed h-4"></div>
-                            <div className="w-[16%] text-center uppercase tracking-wider text-gray-800">Captain</div>
+                            <div className="w-[16%] text-center uppercase tracking-wider text-gray-800">{ui("Captain")}</div>
                             <div className="w-[42%] border-b border-black border-dashed h-4"></div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer Section */}
-                <div className="absolute bottom-2 left-[6mm] text-[9px] text-gray-500 font-mono tracking-tight print:text-black">
-                    Printed by ({(() => {
+                <div className="absolute bottom-2 left-[6mm] text-[9px] text-gray-500 font-mono tracking-tight print:text-black">{ui("Printed by (")}{(() => {
                         return getStoredUser()?.username || 'Admin';
-                    })()}) eScorersheet Version DEMO 2026.06.11
-                </div>
+                    })()}{ui(") eScorersheet Version DEMO 2026.06.11")}</div>
 
             </div>
 

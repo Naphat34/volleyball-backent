@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 
 import React from 'react';
 import { ChevronLeft } from 'lucide-react';
@@ -58,6 +60,8 @@ const getCalculatedSetDuration = (r, fallbackStart) => {
 
 // Main FIVB O-4 Match Result Report Component
 export default function MatchResultReportO4({ matchData, scoreData, rosterData }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     if (!matchData) return null;
 
     // --- Parse Live State from Scorer Console ---
@@ -80,22 +84,15 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
     const idB = isHomeOnLeft ? matchData.away_team_id : matchData.home_team_id;
 
     // Team Names
-    const programTeamA = matchData?.home_team_name || matchData?.home_team_code || 'Team A';
-    const programTeamB = matchData?.away_team_name || matchData?.away_team_code || 'Team B';
+    const programTeamA = displayNames.matchTeamName(matchData, 'home') || matchData?.home_team_code || 'Team A';
+    const programTeamB = displayNames.matchTeamName(matchData, 'away') || matchData?.away_team_code || 'Team B';
     const showTossLabels = !!(matchData.left_side_team_id && matchData.first_serve_team_id);
     const resultTeamAName = showTossLabels ? (isHomeOnLeft ? programTeamA : programTeamB) : '';
     const resultTeamBName = showTossLabels ? (isHomeOnLeft ? programTeamB : programTeamA) : '';
 
     const firstFilled = (...values) => values.find(value => value !== undefined && value !== null && String(value).trim() !== '') || '';
 
-    const getPlayerName = (p) => {
-        if (!p) return '';
-        const fullName = firstFilled(p.name, p.full_name, p.player_name, p.display_name);
-        const fName = firstFilled(p.first_name, p.firstname, p.firstName);
-        const lName = firstFilled(p.last_name, p.lastname, p.lastName);
-        if (fName && lName) return `${fName} ${lName}`.trim();
-        return (fullName || lName || fName || '').trim();
-    };
+    const getPlayerName = (p) => displayNames.personName(p);
 
     const getFullPlayerDetails = (teamKey, p) => {
         if (!p) return null;
@@ -468,7 +465,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
     return (
         <div data-theme-paper className="o4-paper w-[820px] min-h-[1000px] mx-auto bg-white border border-gray-300 p-8 shadow-md text-[11px] leading-snug font-sans text-black select-none box-border flex flex-col justify-between">
             {/* Style override for printing O-4 */}
-            <style>{`
+            <style>{ui(`
                 @media print {
                     body {
                         background-color: white !important;
@@ -498,15 +495,15 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                     padding-left: 5px;
                     font-weight: bold;
                 }
-            `}</style>
+            `)}</style>
 
             <div>
                 {/* --- 1. HEADER SECTION --- */}
                 <div className="flex border-2 border-black h-[90px] mb-1.5 shrink-0 bg-white">
                     {/* Left Part: 60% Competition Name */}
                     <div className="w-[60%] border-r-2 border-black p-3 flex flex-col justify-center">
-                        <div className="font-bold text-[9px] text-gray-500 uppercase tracking-tight">COMPETITION NAME (INCLUDING SEX AND CATEGORY) + LOGO</div>
-                        <div className="font-bold text-[8px] text-gray-400 italic mb-1">Nom et emblème de la compétition (incluant sexe et catégorie)</div>
+                        <div className="font-bold text-[9px] text-gray-500 uppercase tracking-tight">{ui("COMPETITION NAME (INCLUDING SEX AND CATEGORY) + LOGO")}</div>
+                        <div className="font-bold text-[8px] text-gray-400 italic mb-1">{ui("Nom et emblème de la compétition (incluant sexe et catégorie)")}</div>
                         <div className="font-black text-[13px] uppercase text-gray-900 leading-snug">
                             {compName}{gender ? ` - ${gender === 'Male' ? 'Men' : gender === 'Female' ? 'Women' : gender}` : ''}{category ? ` (${category})` : ''}
                         </div>
@@ -516,11 +513,9 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                     <div className="w-[40%] flex flex-col">
                         {/* Top half: FEDERATION ... + FIVB Logo */}
                         <div className="h-[55%] border-b-2 border-black flex items-center justify-between px-3 py-1 bg-white">
-                            <div className="font-bold text-[8px] text-gray-750 leading-[1.15] tracking-tight">
-                                FEDERATION<br />INTERNATIONALE<br />DE VOLLEYBALL
-                            </div>
+                            <div className="font-bold text-[8px] text-gray-750 leading-[1.15] tracking-tight">{ui("FEDERATION")}<br />{ui("INTERNATIONALE")}<br />{ui("DE VOLLEYBALL")}</div>
                             <div className="flex flex-col items-center justify-center shrink-0">
-                                <span className="text-[15px] font-black italic tracking-tighter leading-none">FIVB</span>
+                                <span className="text-[15px] font-black italic tracking-tighter leading-none">{ui("FIVB")}</span>
                                 {/* SVG curve line underneath the logo */}
                                 <svg className="w-[70px] h-[5px] mt-0.5 text-black" viewBox="0 0 100 10" preserveAspectRatio="none">
                                     <path d="M 0 8 Q 50 0 100 8" stroke="currentColor" strokeWidth="2.5" fill="none" />
@@ -531,13 +526,11 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                         {/* Bottom half: O-4 + MATCH RESULT REPORT */}
                         <div className="h-[45%] flex items-center px-2 py-1 gap-2 bg-white">
                             {/* O-4 box */}
-                            <div className="w-[22%] h-full border border-black bg-gray-100 flex items-center justify-center font-black text-[13px]">
-                                O-4
-                            </div>
+                            <div className="w-[22%] h-full border border-black bg-gray-100 flex items-center justify-center font-black text-[13px]">{ui("O-4")}</div>
                             {/* MATCH RESULT REPORT box */}
                             <div className="flex-1 h-full border border-black p-1 pl-2 flex flex-col justify-center leading-none bg-white">
-                                <span className="font-black text-[8.5px] text-gray-800">MATCH RESULT REPORT</span>
-                                <span className="text-[7px] font-bold text-gray-400 italic mt-0.5">Rapport de résultat de match</span>
+                                <span className="font-black text-[8.5px] text-gray-800">{ui("MATCH RESULT REPORT")}</span>
+                                <span className="text-[7px] font-bold text-gray-400 italic mt-0.5">{ui("Rapport de résultat de match")}</span>
                             </div>
                         </div>
                     </div>
@@ -546,17 +539,17 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                 {/* --- 2. METADATA ROW 1 --- */}
                 <div className="flex gap-2 mb-1">
                     <div className="flex-1 flex items-center gap-1.5 border border-black p-1 bg-white h-7">
-                        <span className="font-bold text-[10px] whitespace-nowrap">CITY :</span>
+                        <span className="font-bold text-[10px] whitespace-nowrap">{ui("CITY :")}</span>
                         <span className="font-bold text-[11px] truncate flex-1 uppercase">{city}</span>
                     </div>
                     <div className="w-[180px] flex items-center justify-center border border-black p-1 bg-white h-7 gap-1">
-                        <span className="font-bold text-[10px]">DATE :</span>
+                        <span className="font-bold text-[10px]">{ui("DATE :")}</span>
                         <span className="font-bold text-[11px]">
                             {matchData.match_date ? formatThaiDate(matchData.match_date) : '__/__/____'}
                         </span>
                     </div>
                     <div className="w-[130px] flex items-center justify-center border border-black p-1 bg-white h-7 gap-1">
-                        <span className="font-bold text-[10px]">TIME :</span>
+                        <span className="font-bold text-[10px]">{ui("TIME :")}</span>
                         <span className="font-bold text-[11px] tracking-widest">{time || '__:__'}</span>
                     </div>
                 </div>
@@ -564,19 +557,19 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                 {/* --- 3. METADATA ROW 2 --- */}
                 <div className="flex gap-2 mb-1.5">
                     <div className="w-[120px] flex items-center border border-black p-1 h-7">
-                        <span className="font-bold text-[10px] mr-1">MATCH N° :</span>
+                        <span className="font-bold text-[10px] mr-1">{ui("MATCH N° :")}</span>
                         <span className="font-bold text-[11px]">{matchNumber}</span>
                     </div>
                     <div className="flex-1 flex items-center border border-black p-1 h-7">
-                        <span className="font-bold text-[10px] mr-1">HALL :</span>
+                        <span className="font-bold text-[10px] mr-1">{ui("HALL :")}</span>
                         <span className="font-bold text-[11px] uppercase truncate">{matchData.stadium_name || matchData.location || ''}</span>
                     </div>
                     <div className="w-[160px] flex items-center border border-black p-1 h-7">
-                        <span className="font-bold text-[10px] mr-1">POOL/PHASE :</span>
+                        <span className="font-bold text-[10px] mr-1">{ui("POOL/PHASE :")}</span>
                         <span className="font-bold text-[11px] truncate uppercase">{[matchData.pool_name, matchData.round_name].filter(Boolean).join(' / ')}</span>
                     </div>
                     <div className="w-[130px] flex items-center border border-black p-1 h-7">
-                        <span className="font-bold text-[10px] mr-1">SPECTATORS :</span>
+                        <span className="font-bold text-[10px] mr-1">{ui("SPECTATORS :")}</span>
                         <span className="font-bold text-[11px]">{matchData.spectators || '0'}</span>
                     </div>
                 </div>
@@ -585,15 +578,14 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                 <div className="flex gap-2 border-2 border-black p-2 mb-2 bg-white">
                     {/* Left Column: Team A */}
                     <div className="w-[33%] flex flex-col">
-                        <div className="border-b border-black pb-1 mb-1 font-bold">
-                            TEAM A: <span className="font-black ml-1 uppercase">{resultTeamAName}</span>
+                        <div className="border-b border-black pb-1 mb-1 font-bold">{ui("TEAM A:")}<span className="font-black ml-1 uppercase">{resultTeamAName}</span>
                         </div>
                         <table className="w-full text-[10.5px]">
                             <thead>
                                 <tr className="border-b border-black text-left font-bold text-[9px] text-gray-500">
-                                    <th className="w-8">N°</th>
-                                    <th className="w-8">C/L</th>
-                                    <th>Name of Players</th>
+                                    <th className="w-8">{ui("N°")}</th>
+                                    <th className="w-8">{ui("C/L")}</th>
+                                    <th>{ui("Name of Players")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -601,7 +593,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                     <tr key={idx} className="h-[21px] border-b border-gray-100">
                                         <td className="font-bold text-center border-r border-gray-100">{p.number}</td>
                                         <td className="text-center font-bold border-r border-gray-100">{p.tag}</td>
-                                        <td className="pl-1 truncate font-medium max-w-[150px]">{p.name}</td>
+                                        <td className="pl-1 truncate font-medium max-w-[150px]">{displayNames.personName(p)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -610,15 +602,13 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
                     {/* Middle Column: Match Result & Table */}
                     <div className="w-[34%] px-1.5 flex flex-col border-x border-black">
-                        <div className="border-b border-black pb-1 mb-1 font-bold text-center uppercase tracking-wide text-[12px]">
-                            MATCH RESULT
-                        </div>
+                        <div className="border-b border-black pb-1 mb-1 font-bold text-center uppercase tracking-wide text-[12px]">{ui("MATCH RESULT")}</div>
                         <div className="w-full border-2 border-black flex flex-col justify-between h-full bg-white">
                             <div>
                                 {/* Sets Won Header with Dots */}
                                 <div className="text-center font-bold text-[11px] py-1 border-b border-black flex items-center justify-between px-3">
                                     <span className="flex-1 mx-2 border-b border-dotted border-black mb-1">{totalWonA}</span>
-                                    <span className="uppercase tracking-wider font-black text-[10.5px]">Sets Won</span>
+                                    <span className="uppercase tracking-wider font-black text-[10.5px]">{ui("Sets Won")}</span>
                                     <span className="flex-1 mx-2 border-b border-dotted border-black mb-1">{totalWonB}</span>
                                 </div>
 
@@ -629,35 +619,35 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                             {/* Left Column Header */}
                                             <th className="w-[40%] border-r border-black py-1.5 align-top">
                                                 <div className="flex flex-col items-center">
-                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">TEAM</span>
+                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">{ui("TEAM")}</span>
                                                     <div className="flex gap-2 mt-1">
                                                         <div className={isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'A' : ''}</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? ui('A') : ''}</div>
                                                         <div className={!isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'B' : ''}</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? ui('B') : ''}</div>
                                                     </div>
                                                 </div>
                                             </th>
                                             {/* Middle Column Header */}
                                             <th className="w-[20%] border-r border-black py-1.5 align-top">
                                                 <div className="flex flex-col items-center leading-none justify-center h-full">
-                                                    <span className="text-[7.5px] font-bold text-gray-500 uppercase tracking-tighter">Points Won</span>
-                                                    <span className="text-[10px] font-black uppercase mt-1">Sets</span>
+                                                    <span className="text-[7.5px] font-bold text-gray-500 uppercase tracking-tighter">{ui("Points Won")}</span>
+                                                    <span className="text-[10px] font-black uppercase mt-1">{ui("Sets")}</span>
                                                 </div>
                                             </th>
                                             {/* Right Column Header */}
                                             <th className="w-[40%] py-1.5 align-top">
                                                 <div className="flex flex-col items-center">
-                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">TEAM</span>
+                                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">{ui("TEAM")}</span>
                                                     <div className="flex gap-2 mt-1">
                                                         <div className={!isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'A' : ''}</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? ui('A') : ''}</div>
                                                         <div className={isHomeOnLeft 
                                                             ? "w-[18px] h-[18px] rounded-full border border-black bg-black text-white flex items-center justify-center font-bold text-[10px]" 
-                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? 'B' : ''}</div>
+                                                            : "w-[18px] h-[18px] rounded-full border border-black text-black flex items-center justify-center font-medium text-[10px]"}>{showTossLabels ? ui('B') : ''}</div>
                                                     </div>
                                                 </div>
                                             </th>
@@ -693,9 +683,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                                 {totalPointsA}
                                             </td>
                                             {/* TOTAL label */}
-                                            <td className="border-r border-black text-center font-black text-[8.5px] bg-gray-150 uppercase tracking-wider">
-                                                TOTAL
-                                            </td>
+                                            <td className="border-r border-black text-center font-black text-[8.5px] bg-gray-150 uppercase tracking-wider">{ui("TOTAL")}</td>
                                             {/* Right Total */}
                                             <td className="text-center font-black text-[11px] bg-gray-50">
                                                 {totalPointsB}
@@ -712,7 +700,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                     <span className="flex-1 border-b border-black text-center font-bold truncate h-3.5 leading-none">
                                         {coachB || ''}
                                     </span>
-                                    <span className="font-bold whitespace-nowrap px-0.5 text-gray-700">1st Coach</span>
+                                    <span className="font-bold whitespace-nowrap px-0.5 text-gray-700">{ui("1st Coach")}</span>
                                     <span className="flex-1 border-b border-black text-center font-bold truncate h-3.5 leading-none">
                                         {coachA || ''}
                                     </span>
@@ -723,7 +711,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                     <span className="flex-1 border-b border-black text-center font-bold truncate h-3.5 leading-none">
                                         {assistantCoachB || ''}
                                     </span>
-                                    <span className="font-bold whitespace-nowrap px-0.5 text-gray-700">2nd Coach</span>
+                                    <span className="font-bold whitespace-nowrap px-0.5 text-gray-700">{ui("2nd Coach")}</span>
                                     <span className="flex-1 border-b border-black text-center font-bold truncate h-3.5">
                                         {assistantCoachA || ''}
                                     </span>
@@ -731,7 +719,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
                                 {/* 1st Referee */}
                                 <div className="flex items-center text-[10px] w-full gap-1 pt-0.5">
-                                    <span className="font-bold whitespace-nowrap pr-1.5 text-gray-700">1st Referee</span>
+                                    <span className="font-bold whitespace-nowrap pr-1.5 text-gray-700">{ui("1st Referee")}</span>
                                     <span className="flex-1 border-b border-black text-left pl-1.5 font-bold truncate h-3.5 leading-none">
                                         {firstReferee || ''}
                                     </span>
@@ -739,7 +727,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
                                 {/* 2nd Referee */}
                                 <div className="flex items-center text-[9.5px] w-full gap-1">
-                                    <span className="font-bold whitespace-nowrap pr-1.5 text-gray-700">2nd Referee</span>
+                                    <span className="font-bold whitespace-nowrap pr-1.5 text-gray-700">{ui("2nd Referee")}</span>
                                     <span className="flex-1 border-b border-black text-left pl-1.5 font-bold truncate h-3.5 leading-none">
                                         {secondReferee || ''}
                                     </span>
@@ -750,15 +738,14 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
                     {/* Right Column: Team B */}
                     <div className="w-[33%] flex flex-col">
-                        <div className="border-b border-black pb-1 mb-1 font-bold">
-                            TEAM B: <span className="font-black ml-1 uppercase">{resultTeamBName}</span>
+                        <div className="border-b border-black pb-1 mb-1 font-bold">{ui("TEAM B:")}<span className="font-black ml-1 uppercase">{resultTeamBName}</span>
                         </div>
                         <table className="w-full text-[10.5px]">
                             <thead>
                                 <tr className="border-b border-black text-left font-bold text-[9px] text-gray-500">
-                                    <th className="w-8">N°</th>
-                                    <th className="w-8">C/L</th>
-                                    <th>Name of Players</th>
+                                    <th className="w-8">{ui("N°")}</th>
+                                    <th className="w-8">{ui("C/L")}</th>
+                                    <th>{ui("Name of Players")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -766,7 +753,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                                     <tr key={idx} className="h-[21px] border-b border-gray-100">
                                         <td className="font-bold text-center border-r border-gray-100">{p.number}</td>
                                         <td className="text-center font-bold border-r border-gray-100">{p.tag}</td>
-                                        <td className="pl-1 truncate font-medium max-w-[150px]">{p.name}</td>
+                                        <td className="pl-1 truncate font-medium max-w-[150px]">{displayNames.personName(p)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -776,23 +763,23 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
                 {/* --- 5. STARTING PLAYERS & SUBSTITUTIES GRID --- */}
                 <div className="border-2 border-black p-2 bg-white">
-                    <div className="text-center font-black text-[11px] uppercase tracking-wide border-b border-black pb-1 mb-2">STARTING PLAYERS</div>
+                    <div className="text-center font-black text-[11px] uppercase tracking-wide border-b border-black pb-1 mb-2">{ui("STARTING PLAYERS")}</div>
                     <div className="flex justify-between items-stretch">
                         {/* Team A Grid */}
                         <div className="w-[47%] flex flex-col justify-between">
                             <div className="flex items-center justify-between border-b border-black font-bold text-[9.5px] pb-1 mb-1 bg-gray-50 px-1">
-                                <span>TEAM A Substitutes</span>
-                                <span>TEAM A Starting Players</span>
+                                <span>{ui("TEAM A Substitutes")}</span>
+                                <span>{ui("TEAM A Starting Players")}</span>
                             </div>
                             <table className="w-full text-[10px] border-collapse bordered-table">
                                 <thead>
                                     <tr className="bg-gray-100 font-bold text-[8.5px]">
-                                        <th colSpan="6">Substituties</th>
-                                        <th colSpan="6" className="bg-gray-150">Starting Players</th>
+                                        <th colSpan="6">{ui("Substituties")}</th>
+                                        <th colSpan="6" className="bg-gray-150">{ui("Starting Players")}</th>
                                     </tr>
                                     <tr className="bg-gray-50 text-[8px] font-bold">
-                                        <th>I</th><th>II</th><th>III</th><th>IV</th><th>V</th><th>VI</th>
-                                        <th className="bg-gray-100">I</th><th className="bg-gray-100">II</th><th className="bg-gray-100">III</th><th className="bg-gray-100">IV</th><th className="bg-gray-100">V</th><th className="bg-gray-100">VI</th>
+                                        <th>{ui("I")}</th><th>{ui("II")}</th><th>{ui("III")}</th><th>{ui("IV")}</th><th>{ui("V")}</th><th>{ui("VI")}</th>
+                                        <th className="bg-gray-100">{ui("I")}</th><th className="bg-gray-100">{ui("II")}</th><th className="bg-gray-100">{ui("III")}</th><th className="bg-gray-100">{ui("IV")}</th><th className="bg-gray-100">{ui("V")}</th><th className="bg-gray-100">{ui("VI")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -817,7 +804,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                             <table className="w-full text-[10px] border-collapse bordered-table h-[133.5px]">
                                 <thead>
                                     <tr className="bg-gray-100 font-bold text-[8.5px] h-[28.5px]">
-                                        <th>Sets</th>
+                                        <th>{ui("Sets")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -833,18 +820,18 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                         {/* Team B Grid */}
                         <div className="w-[47%] flex flex-col justify-between">
                             <div className="flex items-center justify-between border-b border-black font-bold text-[9.5px] pb-1 mb-1 bg-gray-50 px-1">
-                                <span>TEAM B Starting Players</span>
-                                <span>TEAM B Substitutes</span>
+                                <span>{ui("TEAM B Starting Players")}</span>
+                                <span>{ui("TEAM B Substitutes")}</span>
                             </div>
                             <table className="w-full text-[10px] border-collapse bordered-table">
                                 <thead>
                                     <tr className="bg-gray-100 font-bold text-[8.5px]">
-                                        <th colSpan="6" className="bg-gray-150">Starting Players</th>
-                                        <th colSpan="6">Substitutes</th>
+                                        <th colSpan="6" className="bg-gray-150">{ui("Starting Players")}</th>
+                                        <th colSpan="6">{ui("Substitutes")}</th>
                                     </tr>
                                     <tr className="bg-gray-50 text-[8px] font-bold">
-                                        <th className="bg-gray-100">I</th><th className="bg-gray-100">II</th><th className="bg-gray-100">III</th><th className="bg-gray-100">IV</th><th className="bg-gray-100">V</th><th className="bg-gray-100">VI</th>
-                                        <th>I</th><th>II</th><th>III</th><th>IV</th><th>V</th><th>VI</th>
+                                        <th className="bg-gray-100">{ui("I")}</th><th className="bg-gray-100">{ui("II")}</th><th className="bg-gray-100">{ui("III")}</th><th className="bg-gray-100">{ui("IV")}</th><th className="bg-gray-100">{ui("V")}</th><th className="bg-gray-100">{ui("VI")}</th>
+                                        <th>{ui("I")}</th><th>{ui("II")}</th><th>{ui("III")}</th><th>{ui("IV")}</th><th>{ui("V")}</th><th>{ui("VI")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -870,37 +857,37 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
                 <div className="flex gap-2 mt-1.5">
                     {/* Left: Game Jury Match Report */}
                     <div className="flex-1 border-2 border-black p-2.5 bg-white flex flex-col justify-between">
-                        <div className="font-black text-[10px] border-b border-black pb-1 mb-1.5">GAME JURY MATCH REPORT</div>
+                        <div className="font-black text-[10px] border-b border-black pb-1 mb-1.5">{ui("GAME JURY MATCH REPORT")}</div>
                         <div className="space-y-1.5 text-[9.5px]">
                             <div>
-                                <span className="font-bold">HEADLINE :</span>
+                                <span className="font-bold">{ui("HEADLINE :")}</span>
                                 <span className="input-line w-[80%]"></span>
                             </div>
                             <div className="flex gap-4">
                                 <div>
-                                    <span className="font-bold">MAX. TEMPERATURE :</span>
+                                    <span className="font-bold">{ui("MAX. TEMPERATURE :")}</span>
                                     <span className="input-line w-[80px]"></span>
                                 </div>
                                 <div>
-                                    <span className="font-bold">MAX. HUMIDITY :</span>
+                                    <span className="font-bold">{ui("MAX. HUMIDITY :")}</span>
                                     <span className="input-line w-[80px]"></span>
                                 </div>
                             </div>
                             <div>
-                                <span className="font-bold">REMARKS :</span>
+                                <span className="font-bold">{ui("REMARKS :")}</span>
                                 <span className="input-line w-[85%]"></span>
                             </div>
                             <div className="flex gap-4 items-center">
-                                <span className="font-bold">DOPING CONTROL :</span>
-                                <span className="text-[8.5px] text-gray-500">N° of players drawn :</span>
+                                <span className="font-bold">{ui("DOPING CONTROL :")}</span>
+                                <span className="text-[8.5px] text-gray-500">{ui("N° of players drawn :")}</span>
                                 <div className="flex gap-3">
                                     <div className="flex items-center gap-1">
-                                        <span>Team A:</span>
+                                        <span>{ui("Team A:")}</span>
                                         <div className="w-5 h-5 border border-black text-center bg-gray-50 font-bold flex items-center justify-center"></div>
                                         <div className="w-5 h-5 border border-black text-center bg-gray-50 font-bold flex items-center justify-center"></div>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <span>Team B:</span>
+                                        <span>{ui("Team B:")}</span>
                                         <div className="w-5 h-5 border border-black text-center bg-gray-50 font-bold flex items-center justify-center"></div>
                                         <div className="w-5 h-5 border border-black text-center bg-gray-50 font-bold flex items-center justify-center"></div>
                                     </div>
@@ -910,29 +897,29 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
                         <div className="flex justify-between items-end mt-2 pt-1.5 border-t border-gray-200">
                             <div>
-                                <div className="font-bold text-[9px] text-gray-600">Game Jury President</div>
+                                <div className="font-bold text-[9px] text-gray-600">{ui("Game Jury President")}</div>
                                 <div className="input-line w-[200px] mt-1"></div>
-                                <div className="text-[8px] text-gray-400 text-center font-bold">Name & Signature</div>
+                                <div className="text-[8px] text-gray-400 text-center font-bold">{ui("Name & Signature")}</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Right: Sets Duration */}
                     <div className="w-[220px] border-2 border-black p-2.5 bg-white flex flex-col">
-                        <div className="font-black text-[10px] border-b border-black pb-1 mb-1.5">SETS DURATION:</div>
+                        <div className="font-black text-[10px] border-b border-black pb-1 mb-1.5">{ui("SETS DURATION:")}</div>
                         <div className="flex-1 flex flex-col justify-between text-[10px] font-bold space-y-1">
                             {[0, 1, 2, 3, 4].map(idx => {
                                 const dur = setDurations[idx];
                                 return (
                                     <div key={idx} className="flex justify-between border-b border-gray-100 pb-0.5">
-                                        <span>Set {idx + 1}</span>
-                                        <span className="font-black text-gray-800">{dur > 0 ? `${dur} min.` : '...... min.'}</span>
+                                        <span>{ui("Set")}{' '}{idx + 1}</span>
+                                        <span className="font-black text-gray-800">{dur > 0 ? ui(`{0} min.`, [dur]) : ui('...... min.')}</span>
                                     </div>
                                 );
                             })}
                             <div className="flex justify-between pt-1 border-t border-black text-red-650 text-[11px] font-black">
-                                <span>Total</span>
-                                <span>{totalDuration > 0 ? `${totalDuration} min.` : '...... min.'}</span>
+                                <span>{ui("Total")}</span>
+                                <span>{totalDuration > 0 ? ui(`{0} min.`, [totalDuration]) : ui('...... min.')}</span>
                             </div>
                         </div>
                     </div>
@@ -941,8 +928,8 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData }
 
             {/* --- 7. FOOTER --- */}
             <div className="flex justify-between items-center text-[7.5px] font-bold text-gray-400 border-t border-gray-200 pt-1 mt-2 shrink-0">
-                <span>Print: {new Date().toLocaleString()} eScorersheet Version DEMO 2026.06.11</span>
-                <span>Phatthalung Provincial Volleyball Association</span>
+                <span>{ui("Print:")}{' '}{new Date().toLocaleString()}{' '}{ui("eScorersheet Version DEMO 2026.06.11")}</span>
+                <span>{ui("Phatthalung Provincial Volleyball Association")}</span>
             </div>
         </div>
     );

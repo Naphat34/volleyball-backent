@@ -80,3 +80,14 @@ test('old VIS scores and later statistical event scores cannot override official
     assert.deepEqual(report.sets.map(set => [set.number, set.home, set.away]), [[1, 25, 19]]);
     assert.equal(report.completed, false);
 });
+
+test('report names follow Thai/English selection and fall back to existing names', () => {
+    const input=data();input.match.home_team_name_th='ทีมไทย';input.match.home_team_name_en='Thai Team';
+    input.homePlayers=[{id:7,number:7,first_name:'สมชาย',last_name:'ใจดี',first_name_th:'สมชาย',last_name_th:'ใจดี',first_name_en:'Somchai',last_name_en:'Jaidee'}];
+    const th=buildVisReport(input,{language:'THA'}), en=buildVisReport(input,{language:'ENG'});
+    const home=report=>report.teams.find(team=>team.key==='home');
+    assert.equal(home(th).name,'ทีมไทย');assert.equal(home(en).name,'Thai Team');
+    assert.equal(home(th).players[0].display_name,'สมชาย ใจดี');assert.equal(home(en).players[0].display_name,'Somchai Jaidee');
+    delete input.homePlayers[0].first_name_en;delete input.homePlayers[0].last_name_en;
+    assert.equal(home(buildVisReport(input,{language:'ENG'})).players[0].display_name,'สมชาย ใจดี');
+});

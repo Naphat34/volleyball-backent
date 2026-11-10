@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback } from '../../components/ui/SystemUI';
 import PublicHeader from '../../components/layout/PublicHeader';
 import React, { useEffect, useState } from 'react';
@@ -10,25 +12,27 @@ import {
 } from '../../utils/scorer/publicCompetitionGrouping';
 
 export default function PublicTeams() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
 
     const { language, t } = useLanguage();
     // --- State ---
     const [groupedComps, setGroupedComps] = useState({}); // เก็บข้อมูลที่จัดกลุ่มแล้ว { "ชื่อรายการ": { Men: id, Women: id } }
-    
+
     const [selectedTitle, setSelectedTitle] = useState('__open__');
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [teamSearch, setTeamSearch] = useState('');
     const [selectedVariantKey, setSelectedVariantKey] = useState(''); // ชื่อรายการที่เลือก
     const [selectedGender, setSelectedGender] = useState('All');
-    
+
     const [teams, setTeams] = useState([]);
     const [selectedTeam, setSelectedTeam] = useState(null);
     const [players, setPlayers] = useState([]);
-    
+
     const [viewingPlayer, setViewingPlayer] = useState(null);
     const [playerStats, setPlayerStats] = useState(null);
-    
+
     const [loading, setLoading] = useState(false);
     const [loadingPlayers, setLoadingPlayers] = useState(false);
 
@@ -41,14 +45,14 @@ export default function PublicTeams() {
 
                 // Logic การจัดกลุ่มตามชื่อ
                 const groups = {};
-                
+
                 rawData.forEach(comp => {
                     // ตัดคำต่อท้ายเช่น (Men), (Women), (Male), (Female) ออกเพื่อให้เหลือแค่ชื่อรายการ
                     // Regex นี้จะลบวงเล็บและคำระบุเพศข้างใน
                     const baseTitle = '__open__';
                     const ageGroup = getPublicAgeGroupLabel(comp);
                     const variantKey = ageGroup || '__all__';
-                    
+
                     if (!groups[baseTitle]) {
                         groups[baseTitle] = { variants: {} };
                     }
@@ -57,13 +61,13 @@ export default function PublicTeams() {
                             label: ageGroup || (language === 'THA' ? 'ทุกรุ่น' : 'All age groups')
                         };
                     }
-                    
+
                     // map gender ของ API ให้เป็น Key มาตรฐาน
                     const genderText = String(comp.gender || '').toLowerCase();
                     let genderKey = 'Men';
                     if (['women', 'woman', 'female', 'f', 'หญิง'].includes(genderText)) genderKey = 'Women';
                     if (['mixed', 'mix', 'ผสม'].includes(genderText)) genderKey = 'Mixed';
-                    
+
                     groups[baseTitle].variants[variantKey][genderKey] = [...(groups[baseTitle].variants[variantKey][genderKey] || []), comp.id];
                     groups[baseTitle].variants[variantKey][`${genderKey}Label`] = getPublicCompetitionVariantLabel(comp, language);
                 });
@@ -108,7 +112,7 @@ export default function PublicTeams() {
             // ถ้าเลือกเพศนี้แล้วไม่มีรายการ (เช่น รายการนี้มีแค่ทีมหญิง)
             setTeams([]); 
         }
-        
+
         // รีเซ็ตทีมที่เลือกค้างไว้
         setSelectedTeam(null); 
 
@@ -188,7 +192,7 @@ export default function PublicTeams() {
         const text = String(value).trim();
         return text === '0' ? '' : text;
     };
-    const getPlayerName = (player) => [normalizeText(player.first_name), normalizeText(player.last_name)].filter(Boolean).join(' ') || '-';
+
     const getLiberoBadge = (player) => {
         const role = String(player.role || player.position || '').trim().toUpperCase();
         if (Number(player.is_libero1) === 1 || player.is_libero1 === true || role === 'L1') return 'L1';
@@ -201,7 +205,7 @@ export default function PublicTeams() {
         <div className="app-page min-h-screen text-gray-800 pb-20 font-sans">
             {/* Navbar (คงเดิมไว้) */}
             <PublicHeader />
-            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load data'} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} /></div>}
+            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? ui('โหลดข้อมูลไม่สำเร็จ') : ui('Unable to load data')} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} /></div>}
             <div id="main-content" tabIndex={-1} />
 
             {/* ✅ LOGIC: ถ้ายังไม่เลือกทีม ให้แสดง Header + Grid */}
@@ -213,11 +217,11 @@ export default function PublicTeams() {
                             <h1 className="text-3xl font-extrabold flex items-center gap-3 mb-6">
                                 <Users className="text-yellow-400" size={32} /> {t('guestTeams.title')}
                             </h1>
-                            
+
                             <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm border border-white/10 shadow-inner">
                                 <div className="flex flex-col md:flex-row gap-6 items-end">
                                     <div className="flex-1 w-full">
-                                        <label className="text-sm font-bold text-indigo-200 mb-2 flex items-center gap-2"><Filter size={16}/> {language === 'THA' ? '\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17/\u0e23\u0e38\u0e48\u0e19:' : 'Category / age group:'}</label>
+                                        <label className="text-sm font-bold text-indigo-200 mb-2 flex items-center gap-2"><Filter size={16}/> {language === 'THA' ? ui('\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17/\u0e23\u0e38\u0e48\u0e19:') : ui('Category / age group:')}</label>
                                         {selectedVariantKeys.length > 1 && (
                                             <div className="mt-3 flex flex-wrap gap-2">
                                                 {selectedVariantKeys.map((variantKey) => (
@@ -250,7 +254,7 @@ export default function PublicTeams() {
                                             {['All', 'Men', 'Women', 'Mixed'].map((gender) => {
                                                 const isActive = selectedGender === gender;
                                                 const isDisabled = gender !== 'All' && !availableGenders.includes(gender);
-                                                
+
                                                 let label = gender;
                                                 if (gender === 'All') label = t('guestTeams.allCategory');
                                                 else if (gender === 'Men') label = t('guestTeams.menCategory');
@@ -271,7 +275,7 @@ export default function PublicTeams() {
                                                             ${isDisabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
                                                         `}
                                                     >
-                                                        {label}
+                                                        {ui(label)}
                                                     </button>
                                                 );
                                             })}
@@ -284,22 +288,22 @@ export default function PublicTeams() {
 
                     <div className="w-full max-w-[1400px] mx-auto px-4">
                         {/* --- ส่วนแสดงรายชื่อทีม (Grid) --- */}
-                        <label className="mb-5 block max-w-md text-sm font-semibold text-slate-600">{language === 'THA' ? 'ค้นหาทีม' : 'Search teams'}<input type="search" value={teamSearch} onChange={event => setTeamSearch(event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal" placeholder={language === 'THA' ? 'ชื่อทีม…' : 'Team name…'} /></label>
+                        <label className="mb-5 block max-w-md text-sm font-semibold text-slate-600">{language === 'THA' ? ui('ค้นหาทีม') : ui('Search teams')}<input type="search" value={teamSearch} onChange={event => setTeamSearch(event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal" placeholder={language === 'THA' ? ui('ชื่อทีม…') : ui('Team name…')} /></label>
                         {loading ? (
                             <div className="text-center py-20 flex flex-col items-center">
                                 <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-900 mb-4"></div>
                                 <p className="text-gray-500 font-medium">{t('guestTeams.loading')}</p>
                             </div>
-                        ) : teams.filter(team => String(team.name || '').toLocaleLowerCase().includes(teamSearch.toLocaleLowerCase())).length === 0 ? (
+                        ) : teams.filter(team => String(team?.name || '').toLocaleLowerCase().includes(teamSearch.toLocaleLowerCase())).length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-xl border border-gray-200 shadow-sm">
                                 <Users size={48} className="mx-auto text-gray-300 mb-3" />
                                 <p className="text-gray-500 text-lg">
-                                    {teamSearch ? (language === 'THA' ? 'ไม่พบทีมตามคำค้นหา' : 'No teams match your search.') : t('guestTeams.noTeams')}
+                                    {teamSearch ? language === 'THA' ? ui('ไม่พบทีมตามคำค้นหา') : ui('No teams match your search.') : t('guestTeams.noTeams')}
                                 </p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in-up">
-                                {teams.filter(team => String(team.name || '').toLocaleLowerCase().includes(teamSearch.toLocaleLowerCase())).map((team) => (
+                                {teams.filter(team => String(displayNames.teamName(team) || '').toLocaleLowerCase().includes(teamSearch.toLocaleLowerCase())).map((team) => (
                                     <button 
                                         key={team.team_entry_id || `${team.id}-${team.competition_id}`} 
                                         onClick={() => setSelectedTeam(team)}
@@ -309,13 +313,13 @@ export default function PublicTeams() {
                                         <div className="p-6 flex flex-col items-center text-center flex-1">
                                             <div className="w-24 h-24 mb-4 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-md group-hover:scale-110 transition-transform">
                                                 {team.logo_url ? (
-                                                    <img src={team.logo_url} alt={team.name} className="w-full h-full object-cover" />
+                                                    <img src={team.logo_url} alt={displayNames.teamName(team)} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <Users size={40} className="text-gray-300" />
                                                 )}
                                             </div>
                                             <h3 className="text-lg font-bold text-gray-800 group-hover:text-indigo-700 mb-1 leading-tight">
-                                                {team.name}
+                                                {displayNames.teamName(team)}
                                             </h3>
                                             <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-xl font-mono mb-2">
                                                 {team.code || '-'}
@@ -344,20 +348,19 @@ export default function PublicTeams() {
                     {/* Team Header */}
                     <div className="bg-white/95 rounded-3xl shadow-xl border border-white p-8 mb-8 relative overflow-hidden">
                         <div className={`absolute top-0 right-0 w-64 h-64 rounded-full -mr-16 -mt-16 blur-3xl opacity-20 ${selectedGender === 'Men' ? 'bg-blue-500' : selectedGender === 'Women' ? 'bg-pink-500' : 'bg-indigo-500'}`}></div>
-                        
+
                         <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                             <div className="w-32 h-32 md:w-48 md:h-48 bg-white rounded-full border-4 border-indigo-50 shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
                                 {selectedTeam.logo_url ? (
-                                    <img src={selectedTeam.logo_url} alt={selectedTeam.name} className="w-full h-full object-cover" />
+                                    <img src={selectedTeam.logo_url} alt={displayNames.teamName(selectedTeam)} className="w-full h-full object-cover" />
                                 ) : (
                                     <Users size={64} className="text-gray-300" />
                                 )}
                             </div>
                             <div className="text-center md:text-left flex-1">
-                                <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-3 tracking-tight">{selectedTeam.name}</h2>
+                                <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-3 tracking-tight">{displayNames.teamName(selectedTeam)}</h2>
                                 <div className="flex flex-wrap gap-3 justify-center md:justify-start items-center text-gray-600">
-                                    <span className="bg-blue-50 text-indigo-800 px-3 py-1 rounded-lg text-sm font-bold border border-blue-200">
-                                        CODE: {selectedTeam.code}
+                                    <span className="bg-blue-50 text-indigo-800 px-3 py-1 rounded-lg text-sm font-bold border border-blue-200">{ui("CODE:")}{selectedTeam.code}
                                     </span>
                                     {/* ส่วนชื่อโค้ชที่เราเพิ่มไป */}
                                     <span className="flex items-center gap-2 text-lg ml-4">
@@ -413,7 +416,7 @@ export default function PublicTeams() {
                                                 <td className="px-6 py-3 text-center">
                                                     <div className="w-12 h-12 mx-auto bg-gray-200 rounded-full overflow-hidden border-2 border-white shadow-sm group-hover:border-blue-200 transition">
                                                         {p.photo ? (
-                                                            <img src={p.photo} alt={getPlayerName(p)} className="w-full h-full object-cover" />
+                                                            <img src={p.photo} alt={displayNames.personName(p)} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <Users size={20} className="w-full h-full p-2.5 text-gray-400" />
                                                         )}
@@ -426,8 +429,8 @@ export default function PublicTeams() {
                                                 </td>
                                                 <td className="px-6 py-3">
                                                     <div className="font-bold text-gray-800 flex flex-wrap items-center gap-2">
-                                                        {getPlayerName(p)}
-                                                        {Number(p.is_captain) === 1 || p.is_captain === true ? <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">C</span> : null}
+                                                        {displayNames.personName(p)}
+                                                        {Number(p.is_captain) === 1 || p.is_captain === true ? <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">{ui("C")}</span> : null}
                                                         {getLiberoBadge(p) ? <span className="text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">{getLiberoBadge(p)}</span> : null}
                                                     </div>
                                                 </td>
@@ -470,7 +473,7 @@ export default function PublicTeams() {
                                     <BarChart2 size={24} className="text-white"/>
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-lg">{viewingPlayer.first_name} {viewingPlayer.last_name}</h3>
+                                    <h3 className="font-bold text-lg">{displayNames.personFirstName(viewingPlayer)} {displayNames.personLastName(viewingPlayer)}</h3>
                                     <p className="text-xs text-indigo-100 opacity-90">#{viewingPlayer.number} • {viewingPlayer.position}</p>
                                 </div>
                             </div>
@@ -478,7 +481,7 @@ export default function PublicTeams() {
                                 <X size={20}/>
                             </button>
                         </div>
-                        
+
                         <div className="p-6 overflow-y-auto">
                             {!playerStats ? (
                                 <div className="flex justify-center py-10">
@@ -513,8 +516,8 @@ export default function PublicTeams() {
                                             <Activity size={16}/> {t('guestTeams.serve')}
                                         </h4>
                                         <div className="flex justify-around text-center">
-                                            <div><div className="text-xl font-semibold text-gray-800">{playerStats.serve_aces ?? 0}</div><div className="text-[10px] text-gray-500">{language === 'THA' ? 'เอซ' : 'Aces'}</div></div>
-                                            <div><div className="text-xl font-semibold text-gray-800">{playerStats.serve_errors ?? 0}</div><div className="text-[10px] text-gray-500">{language === 'THA' ? 'เสีย' : 'Err'}</div></div>
+                                            <div><div className="text-xl font-semibold text-gray-800">{playerStats.serve_aces ?? 0}</div><div className="text-[10px] text-gray-500">{language === 'THA' ? ui('เอซ') : ui('Aces')}</div></div>
+                                            <div><div className="text-xl font-semibold text-gray-800">{playerStats.serve_errors ?? 0}</div><div className="text-[10px] text-gray-500">{language === 'THA' ? ui('เสีย') : ui('Err')}</div></div>
                                         </div>
                                     </div>
                                     {/* Defense */}

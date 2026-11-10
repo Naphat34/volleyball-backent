@@ -1,3 +1,10 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
+import useScorerTranslation from '../../components/scorer/useScorerTranslation';
+import { useLanguage } from '../../context/LanguageContext';
+import { getContrastColorHex } from '../../utils/common/colorUtils';
+import { formatScorerDateTime } from '../../utils/scorer/scorerUiTranslations';
+import { getScorerTeamName, getScorerTeamNameFields } from '../../utils/scorer/scorerTeamNames';
 import { useVisTheme } from '../../components/vis/visThemeContext';
 import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import BatchSubstitutionModal from '../../components/scorer/modals/BatchSubstitutionModal';
@@ -11,19 +18,20 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import {
     ListChecks, CheckCircle, X,  Loader, Wifi, WifiOff, CloudOff, CloudCheck, CloudUpload, CloudAlert,
-    Trophy, RotateCcw, Flag, Clock, RefreshCcw, History, FileText, AlertTriangle, Repeat,
+    Trophy, RotateCcw, Flag, Clock, RefreshCcw, History, FileText, AlertTriangle, Repeat, Maximize, Minimize,
     Moon, Sun, Timer, ArrowUpDown, ArrowDown, ArrowUp, ArrowLeftRight, Pause, Megaphone as Whistle, PenTool, Settings
 } from 'lucide-react';
-import Swal from 'sweetalert2';
+import Swal from '../../utils/scorer/scorerAlert';
+import { formatThaiFullDateTime } from '../../utils/formatters';
 
 import CourtView from '../../components/scorer/CourtView';
 import client, { api, getSocketServerUrl } from '../../api';
-import { formatThaiFullDateTime } from '../../utils/formatters';
 import EventQueue from '../../utils/scorer/eventQueue';
 import { isPlayerLibero, isPlayingPlayer } from '../../utils/scorer/playerFilters';
 import { getAuthToken, getStoredUser } from '../../auth/authStorage';
 import { scorerOfflineActive } from '../../offline/scorerOffline';
 import '../../components/scorer/ScorerTheme.css';
+import '../../components/scorer/ScorerResponsive.css';
 
 // --- Imported Modals ---
 import ChallengeModal from '../../components/scorer/modals/ChallengeModal';
@@ -103,7 +111,35 @@ const mergeTeamColorsWithUniformDefaults = (uniformColors, currentColors = {}, m
 // MAIN COMPONENT (ScorerConsole)
 // -----------------------------------------------------------------------------
 export default function ScorerConsole() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
+    const st = useScorerTranslation();
+    const { language, setLanguage } = useLanguage();
     const { theme } = useVisTheme();
+    const [isFullscreen, setIsFullscreen] = useState(() => Boolean(document.fullscreenElement));
+
+    useEffect(() => {
+        const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
+        document.addEventListener('fullscreenchange', syncFullscreen);
+        return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+    }, []);
+
+    const toggleFullscreen = async () => {
+        try {
+            if (document.fullscreenElement) {
+                await document.exitFullscreen();
+            } else {
+                await document.documentElement.requestFullscreen();
+            }
+        } catch {
+            void Swal.fire({
+                icon: 'error',
+                title: st('ไม่สามารถเปลี่ยนโหมดเต็มหน้าจอได้'),
+                text: st('กรุณาลองอีกครั้ง หรือตรวจสอบว่าเบราว์เซอร์รองรับโหมดเต็มหน้าจอ'),
+            });
+        }
+    };
+
     useEffect(() => {
         document.body.classList.toggle('scorer-dark-theme', theme === 'dark');
         return () => document.body.classList.remove('scorer-dark-theme');
@@ -128,6 +164,7 @@ export default function ScorerConsole() {
         const stateData = location.state?.matchData || {};
 
         return {
+            ...getScorerTeamNameFields(stateData, saved),
             teamHome: stateData.teamHome || saved.teamHome || "HOME",
             teamAway: stateData.teamAway || saved.teamAway || "AWAY",
             homeLogoUrl: stateData.homeLogoUrl || saved.homeLogoUrl || null,
@@ -1105,6 +1142,7 @@ export default function ScorerConsole() {
 
                 currentMatch = {
                     ...matchDataRef.current,
+                    ...getScorerTeamNameFields(m, matchDataRef.current || {}),
                     teamHome: m.home_team_name || m.home_team || matchDataRef.current?.teamHome,
                     teamAway: m.away_team_name || m.away_team || matchDataRef.current?.teamAway,
                     homeLogoUrl: m.home_logo_url || matchDataRef.current?.homeLogoUrl || null,
@@ -1682,15 +1720,15 @@ export default function ScorerConsole() {
 
             if (isLibero) {
                 originalPlayer = currentSwaps[4];
-                const teamName = teamCode === 'home' ? matchData.teamHome : matchData.teamAway;
+                const teamName = getScorerTeamName(matchData, teamCode, language);
 
                 if (originalPlayer) {
                     isLiberoExit = true;
                     // แสดงหน้าต่างกราฟิก Data Volley Style: "Libero exit the court"
                     Swal.fire({
-                        html: `
+                        html: st(`
                             <div style="text-align: left; font-size: 13px; color: #000; margin-top: -20px; margin-bottom: 15px;"></div>
-                            <h2 class="libero-alert-label" style="color: #000080; font-size: 26px; font-weight: 900; margin: 0 0 30px 0;">${teamName}</h2>
+                            <h2 class="libero-alert-label" style="color: #000080; font-size: 26px; font-weight: 900; margin: 0 0 30px 0;">{0}</h2>
 
                             <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
                                 
@@ -1707,7 +1745,7 @@ export default function ScorerConsole() {
                                             <span style="color: #fff; font-size: 13px;">Player in Zone 4</span>
                                         </div>
                                         <div style="background-color: #f58231; width: 120px; height: 85px; display: flex; align-items: center; justify-content: center;">
-                                            <span style="color: #fff; font-size: 60px; font-weight: 900; line-height: 1;">${originalPlayer.number}</span>
+                                            <span style="color: #fff; font-size: 60px; font-weight: 900; line-height: 1;">{1}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1724,7 +1762,7 @@ export default function ScorerConsole() {
                                             <span style="color: #000080; font-size: 13px;">Libero</span>
                                         </div>
                                         <div style="background-color: #ffff99; width: 120px; height: 85px; display: flex; align-items: center; justify-content: center;">
-                                            <span style="color: #000; font-size: 60px; font-weight: 900; line-height: 1;">${p5.number}</span>
+                                            <span style="color: #000; font-size: 60px; font-weight: 900; line-height: 1;">{2}</span>
                                         </div>
                                     </div>
 
@@ -1739,13 +1777,13 @@ export default function ScorerConsole() {
                             </div>
 
                             <div class="libero-alert-label" style="margin-top: 40px; font-size: 16px; color: #000;">
-                                Player n. ${originalPlayer.number} must replace the libero on the court
+                                Player n. {3} must replace the libero on the court
                             </div>
-                        `,
+                        `, [teamName, originalPlayer.number, p5.number, originalPlayer.number]),
                         width: 700,
                         showCloseButton: false,
                         showConfirmButton: true,
-                        confirmButtonText: 'Ok',
+                        confirmButtonText: st('Ok'),
                         confirmButtonColor: '#1d4ed8',
                         customClass: {
                             popup: 'scorer-libero-alert rounded-sm border border-slate-300 shadow-xl',
@@ -1767,8 +1805,8 @@ export default function ScorerConsole() {
                 } else {
                     // (กรณีฉุกเฉิน) หาตัวผู้เล่นเดิมไม่เจอ จะโชว์แจ้งเตือนสั้นๆ แทน
                     Swal.fire({
-                        title: 'Libero Rotation Warning',
-                        text: `Libero #${p5.number} is rotating to the front row (P4). They must be replaced!`,
+                        title: st('Libero Rotation Warning'),
+                        text: st(`Libero #{0} is rotating to the front row (P4). They must be replaced!`, [p5.number]),
                         icon: 'warning',
                         timer: 5000,
                         toast: true,
@@ -1836,24 +1874,24 @@ export default function ScorerConsole() {
         // Check for court side switch in deciding set (when either team reaches 8 points first)
         const switchPoints = Math.ceil((matchData.decidingSetPoints || 15) / 2);
         if (isTieBreak && winnerScore === switchPoints && loserScore < switchPoints) {
-            const teamName = winnerTeamCode === 'home' ? matchData.teamHome : matchData.teamAway;
+            const teamName = getScorerTeamName(matchData, winnerTeamCode, language);
             Swal.fire({
-                title: 'เปลี่ยนแดน (Switch Sides)',
-                html: `
+                title: st('เปลี่ยนแดน (Switch Sides)'),
+                html: st(`
                     <div style="font-size: 16px; margin-bottom: 10px;">
-                        ทีม <strong>${teamName}</strong> ทำคะแนนถึง 8 แต้มก่อนในเซตตัดสิน
+                        ทีม <strong>{0}</strong> ทำคะแนนถึง 8 แต้มก่อนในเซตตัดสิน
                     </div>
                     <div style="font-size: 20px; font-weight: bold; color: #0d54c7ff;">
                         เปลี่ยนฝั่งแดนการเล่น!
                     </div>
                     <div style="font-size: 14px; color: #64748b; margin-top: 10px;">
-                        คะแนนปัจจุบัน: ${newScore.home} - ${newScore.away}
+                        คะแนนปัจจุบัน: {1} - {2}
                     </div>
-                `,
+                `, [teamName, newScore.home, newScore.away]),
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'ตกลง',
-                cancelButtonText: 'ยกเลิก',
+                confirmButtonText: st('ตกลง'),
+                cancelButtonText: st('ยกเลิก'),
                 confirmButtonColor: '#0d54c7ff',
                 cancelButtonColor: '#64748b',
                 allowOutsideClick: false
@@ -1884,8 +1922,8 @@ export default function ScorerConsole() {
         saveEventToBackend('REPLAY_RALLY', servingTeam);
         setWorkflowStep('SERVING');
         Swal.fire({
-            title: 'REPLAY RALLY',
-            text: 'ผู้ตัดสินให้เล่นคะแนนใหม่ (Replay)',
+            title: st('REPLAY RALLY'),
+            text: st('ผู้ตัดสินให้เล่นคะแนนใหม่ (Replay)'),
             icon: 'info',
             timer: 2000,
             toast: true,
@@ -1929,12 +1967,12 @@ export default function ScorerConsole() {
                 }]);
 
                 // Notify the winner
-                const winnerName = winnerCode === 'home' ? matchData.teamHome : matchData.teamAway;
+                const winnerName = getScorerTeamName(matchData, winnerCode, language);
                 Swal.fire({
-                    title: `SET ${matchData.currentSet} FINISHED`,
-                    html: `<div class="py-4"><span class="text-3xl font-black text-indigo-600 block mb-2">${winnerName}</span> <span class="text-slate-400 font-bold uppercase tracking-widest text-sm">WINS THE SET</span></div>`,
+                    title: st(`SET {0} FINISHED`, [matchData.currentSet]),
+                    html: st(`<div class="py-4"><span class="text-3xl font-black text-indigo-600 block mb-2">{0}</span> <span class="text-slate-400 font-bold uppercase tracking-widest text-sm">WINS THE SET</span></div>`, [winnerName]),
                     icon: 'success',
-                    confirmButtonText: 'OK',
+                    confirmButtonText: st('OK'),
                     confirmButtonColor: '#0d54c7ff',
                     customClass: {
                         popup: 'rounded-3xl border-none shadow-2xl',
@@ -1966,11 +2004,11 @@ export default function ScorerConsole() {
         } catch (error) {
             console.error("Error ending set:", error);
             const errorMsg = error.response?.data?.error || 'ไม่สามารถบันทึกผลเซตลงฐานข้อมูลได้ กรุณาลองใหม่อีกครั้ง';
-            Swal.fire('Error', errorMsg, 'error');
+            Swal.fire({uiTextLocalized:true,title:st('Error'),text:st(errorMsg),icon:'error'});
         } finally {
             isFinishingSetRef.current = false;
         }
-    }, [matchData.currentSet, matchData.teamHome, matchData.teamAway, matchDuration, isTimerRunning, setTimerStartedAt, matchId, setsWon.home, setsWon.away, setsToWin, saveStateToHistory]);
+    }, [matchData, language, matchDuration, isTimerRunning, setTimerStartedAt, matchId, setsWon.home, setsWon.away, setsToWin, saveStateToHistory, st]);
 
     const resolvePendingSetWinner = useCallback(() => {
         if (pendingSetWinner?.winnerCode && pendingSetWinner?.finalScore) {
@@ -2004,8 +2042,8 @@ export default function ScorerConsole() {
         if (!setWinner) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Missing set winner data',
-                text: 'The set score is not ready yet. Please check the scoreboard and try again.',
+                title: st('Missing set winner data'),
+                text: st('The set score is not ready yet. Please check the scoreboard and try again.'),
             });
             return;
         }
@@ -2019,7 +2057,7 @@ export default function ScorerConsole() {
         } finally {
             setIsEndingSet(false);
         }
-    }, [finishSet, isEndingSet, pendingSetWinner, resolvePendingSetWinner]);
+    }, [finishSet, isEndingSet, pendingSetWinner, resolvePendingSetWinner, st]);
 
     const startNextSet = () => {
         if (isStartingNextSetRef.current || isStartingNextSet) return;
@@ -2030,8 +2068,8 @@ export default function ScorerConsole() {
         if (!currentCompletedSet) {
             Swal.fire({
                 icon: 'warning',
-                title: 'ยังไม่พบผลการแข่งขันของเซตนี้',
-                text: `ต้องบันทึกผล Set ${currentSetNumber} ให้เรียบร้อยก่อน จึงจะเริ่มเซตถัดไปได้`,
+                title: st('ยังไม่พบผลการแข่งขันของเซตนี้'),
+                text: st(`ต้องบันทึกผล Set {0} ให้เรียบร้อยก่อน จึงจะเริ่มเซตถัดไปได้`, [currentSetNumber]),
                 confirmButtonColor: '#0d54c7ff'
             });
             return;
@@ -2110,20 +2148,20 @@ export default function ScorerConsole() {
         if (history.length === 0) return;
 
         Swal.fire({
-            title: 'Confirm Undo?',
-            text: "You want to undo the last action?",
+            title: st('Confirm Undo?'),
+            text: st("You want to undo the last action?"),
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#0d54c7ff',
             cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, Undo',
-            cancelButtonText: 'Cancel'
+            confirmButtonText: st('Yes, Undo'),
+            cancelButtonText: st('Cancel')
         }).then(async (result) => {
             if (result.isConfirmed) {
                 const lastState = history[history.length - 1];
                 if (scorerOfflineActive(matchId)) {
                     try { await client.post(`/scorer/match/${matchId}/undo`, { state: createLiveState(lastState), keepLocalIds: (lastState.matchEvents || []).map(event => event.local_event_id || event.id) }); }
-                    catch (error) { await Swal.fire('ย้อนรายการไม่สำเร็จ', error.message, 'error'); return; }
+                    catch (error) { await Swal.fire({uiTextLocalized:true,title:st('ย้อนรายการไม่สำเร็จ'),text:st(error.message),icon:'error'}); return; }
                 }
 
                 if (!scorerOfflineActive(matchId)) {
@@ -2135,7 +2173,7 @@ export default function ScorerConsole() {
                             for (const queued of EventQueue.getQueue()) if (String(queued.matchId) === String(matchId) && queued.local_event_id === (batch.local_event_id || batch.id)) EventQueue.remove(queued.localId);
                             setQueueCount(EventQueue.getQueue().length);
                             markLocalStateUpdate();
-                        } catch (error) { await Swal.fire('Undo failed', error.response?.data?.error || error.message, 'error'); return; }
+                        } catch (error) { await Swal.fire({uiTextLocalized:true,title:st('Undo failed'),text:error.response?.data?.error || st(error.message),icon:'error'}); return; }
                     }
                 }
 
@@ -2166,7 +2204,7 @@ export default function ScorerConsole() {
 
                 Swal.fire({
                     icon: 'success',
-                    title: 'Undone',
+                    title: st('Undone'),
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,
@@ -2371,7 +2409,7 @@ export default function ScorerConsole() {
 
                 console.log("Coin toss saved to database.");
             } catch (error) {
-                await Swal.fire('Save failed', error.response?.data?.error || 'Check your connection and try again.', 'error');
+                await Swal.fire({uiTextLocalized:true,title:st('Save failed'),text:error.response?.data?.error || st('Check your connection and try again.'),icon:'error'});
                 return;
             }
         }
@@ -2403,10 +2441,10 @@ export default function ScorerConsole() {
 
         // 3. ไปยังขั้นตอนถัดไป
         Swal.fire({
-            title: 'Coin Toss',
-            text: Number(matchData.currentSet) === 1 ? 'Next: Starting Lineup' : 'Coin toss completed',
+            title: st('Coin Toss'),
+            text: Number(matchData.currentSet) === 1 ? st('Next: Starting Lineup') : st('Coin toss completed'),
             icon: 'success',
-            confirmButtonText: 'OK',
+            confirmButtonText: st('OK'),
             confirmButtonColor: '#10b981',
             allowOutsideClick: false
         }).then(() => {
@@ -2445,10 +2483,10 @@ export default function ScorerConsole() {
         }
 
         Swal.fire({
-            title: 'Starting Lineup',
-            text: 'Select Players and Substitutions',
+            title: st('Starting Lineup'),
+            text: st('Select Players and Substitutions'),
             icon: 'success',
-            confirmButtonText: 'OK',
+            confirmButtonText: st('OK'),
             confirmButtonColor: '#0d54c7ff',
             allowOutsideClick: false
         }).then(() => {
@@ -2524,10 +2562,10 @@ export default function ScorerConsole() {
         } catch (error) {
             console.error("Failed to update match roster during setup:", error);
             await Swal.fire({
-                title: 'ไม่สามารถบันทึกรายชื่อนักกีฬาได้',
-                text: error.response?.data?.error || 'ระบบไม่สามารถอัปเดตรายชื่อได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่อีกครั้ง',
+                title: st('ไม่สามารถบันทึกรายชื่อนักกีฬาได้'),
+                text: error.response?.data?.error || st('ระบบไม่สามารถอัปเดตรายชื่อได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่อีกครั้ง'),
                 icon: 'error',
-                confirmButtonText: 'OK',
+                confirmButtonText: st('OK'),
                 confirmButtonColor: '#0d54c7ff'
             });
             return;
@@ -2606,10 +2644,10 @@ export default function ScorerConsole() {
             }
 
             await Swal.fire({
-                title: 'บันทึกข้อมูลนักกีฬาเรียบร้อย',
-                text: Number(matchData.currentSet) === 1 && !firstServeSet1 ? 'Next: Coin Toss' : 'Starting Lineup',
+                title: st('บันทึกข้อมูลนักกีฬาเรียบร้อย'),
+                text: Number(matchData.currentSet) === 1 && !firstServeSet1 ? st('Next: Coin Toss') : st('Starting Lineup'),
                 icon: 'success',
-                confirmButtonText: 'OK',
+                confirmButtonText: st('OK'),
                 confirmButtonColor: '#0d54c7ff',
                 allowOutsideClick: false
             });
@@ -2625,10 +2663,10 @@ export default function ScorerConsole() {
                 setWorkflowStep('COIN_TOSS');
             }
             Swal.fire({
-                title: 'OK',
-                text: 'บันทึกข้อมูลการตั้งค่าทีมและผู้ตัดสินเรียบร้อยแล้ว',
+                title: st('OK'),
+                text: st('บันทึกข้อมูลการตั้งค่าทีมและผู้ตัดสินเรียบร้อยแล้ว'),
                 icon: 'success',
-                confirmButtonText: 'OK',
+                confirmButtonText: st('OK'),
                 confirmButtonColor: '#0d54c7ff'
             });
             return;
@@ -2636,10 +2674,10 @@ export default function ScorerConsole() {
 
         if (matchData.currentSet === 1) {
             Swal.fire({
-                title: 'บันทึกการลงทะเบียนนักกีฬาสำเร็จ',
-                text: 'Next: Coin Toss, then Starting Lineup',
+                title: st('บันทึกการลงทะเบียนนักกีฬาสำเร็จ'),
+                text: st('Next: Coin Toss, then Starting Lineup'),
                 icon: 'success',
-                confirmButtonText: 'ดำเนินการต่อ',
+                confirmButtonText: st('ดำเนินการต่อ'),
                 confirmButtonColor: '#0d54c7ff',
                 allowOutsideClick: false
             }).then(() => {
@@ -2647,10 +2685,10 @@ export default function ScorerConsole() {
             });
         } else {
             Swal.fire({
-                title: 'บันทึกการลงทะเบียนนักกีฬาสำเร็จ',
-                text: 'ขั้นตอนต่อไป: ส่งรายชื่อผู้เล่นตัวจริงในสนาม (Starting Lineup)',
+                title: st('บันทึกการลงทะเบียนนักกีฬาสำเร็จ'),
+                text: st('ขั้นตอนต่อไป: ส่งรายชื่อผู้เล่นตัวจริงในสนาม (Starting Lineup)'),
                 icon: 'success',
-                confirmButtonText: 'ดำเนินการต่อ',
+                confirmButtonText: st('ดำเนินการต่อ'),
                 confirmButtonColor: '#0d54c7ff',
                 allowOutsideClick: false
             }).then(() => {
@@ -2662,7 +2700,7 @@ export default function ScorerConsole() {
 
     const handleLineupConfirm = async () => {
         if (homeLineup.some(p => !p) || awayLineup.some(p => !p)) {
-            alert("กรุณาเลือกผู้เล่นตัวจริงให้ครบทั้ง 6 ตำแหน่ง");
+            alert(st("กรุณาเลือกผู้เล่นตัวจริงให้ครบทั้ง 6 ตำแหน่ง"));
             return;
         }
 
@@ -2690,7 +2728,7 @@ export default function ScorerConsole() {
             ]);
         } catch (error) {
             console.error("Failed to save lineups to DB:", error);
-            Swal.fire('Warning', 'บันทึก Lineup ลงฐานข้อมูลไม่สำเร็จ (แต่ยังเล่นต่อได้)', 'warning');
+            Swal.fire({uiTextLocalized:true,title:st('Warning'),text:st('บันทึก Lineup ลงฐานข้อมูลไม่สำเร็จ (แต่ยังเล่นต่อได้)'),icon:'warning'});
         }
 
         // Save Lineups for next set reuse
@@ -2723,10 +2761,10 @@ export default function ScorerConsole() {
             setWorkflowStep('READY');
         } else {
             Swal.fire({
-                title: '✅ บันทึกไลน์อัปตัวจริงสำเร็จ',
-                text: 'การตั้งค่าในเซตนี้เรียบร้อยแล้ว แมตช์พร้อมสำหรับการเริ่มแข่งขัน',
+                title: st('✅ บันทึกไลน์อัปตัวจริงสำเร็จ'),
+                text: st('การตั้งค่าในเซตนี้เรียบร้อยแล้ว แมตช์พร้อมสำหรับการเริ่มแข่งขัน'),
                 icon: 'success',
-                confirmButtonText: 'ดำเนินการต่อ',
+                confirmButtonText: st('ดำเนินการต่อ'),
                 confirmButtonColor: '#0d54c7ff',
                 allowOutsideClick: false
             }).then(() => {
@@ -2747,8 +2785,8 @@ export default function ScorerConsole() {
         if (currentTimeoutCount >= 2) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Timeout limit reached',
-                text: 'Each team can request only 2 timeouts per set.',
+                title: st('Timeout limit reached'),
+                text: st('Each team can request only 2 timeouts per set.'),
                 confirmButtonColor: '#f59e0b'
             });
             return;
@@ -2764,21 +2802,21 @@ export default function ScorerConsole() {
         setTimeoutStartTime(Date.now());
         setShowTimeoutTimer(true);
 
-        const teamName = teamCode === 'home' ? matchData.teamHome : matchData.teamAway;
+        const teamName = getScorerTeamName(matchData, teamCode, language);
         let timerInterval;
         Swal.fire({
-            title: `เวลานอก (TIMEOUT) - ${teamName}`,
-            html: `
+            title: st(`เวลานอก (TIMEOUT) - {0}`, [teamName]),
+            html: st(`
                 <div style="font-size: 16px; color: #64748b; margin-bottom: 10px;">กำลังนับถอยหลังการขอเวลานอก</div>
                 <div style="font-size: 64px; font-weight: 900; color: #f59e0b; font-family: var(--font-sans);" id="timeout-countdown">30</div>
                 <div style="font-size: 14px; color: #94a3b8; margin-top: 10px;">วินาที</div>
-            `,
+            `),
             timer: 30000,
             timerProgressBar: true,
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: true,
-            confirmButtonText: 'ยกเลิกเวลานอกก่อนเวลา (Stop)',
+            confirmButtonText: st('ยกเลิกเวลานอกก่อนเวลา (Stop)'),
             confirmButtonColor: '#ef4444',
             didOpen: () => {
                 const content = Swal.getHtmlContainer().querySelector('#timeout-countdown');
@@ -2801,7 +2839,7 @@ export default function ScorerConsole() {
     const handleActionSelect = (teamCode, actionType) => {
         if (actionType === 'TIMEOUT') {
             if (timeouts[teamCode] >= 2) {
-                alert("Timeout limit reached.");
+                alert(st("Timeout limit reached."));
                 return;
             }
             startTimeoutTimer(teamCode);
@@ -2817,7 +2855,7 @@ export default function ScorerConsole() {
         const isCourtPos = typeof posIndex === 'number';
 
         if (isCourtPos && isPlayerLibero(player)) {
-            alert("ไม่สามารถเลือก Libero ลงเป็นผู้เล่น 6 คนแรกได้");
+            alert(st("ไม่สามารถเลือก Libero ลงเป็นผู้เล่น 6 คนแรกได้"));
             return;
         }
 
@@ -2882,27 +2920,27 @@ export default function ScorerConsole() {
 
     const handleProtest = () => {
         Swal.fire({
-            title: 'Special Procedures',
-            text: 'เลือกการกระทำที่ผู้ตัดสินสั่ง',
+            title: st('Special Procedures'),
+            text: st('เลือกการกระทำที่ผู้ตัดสินสั่ง'),
             icon: 'warning',
             showCancelButton: true,
             showDenyButton: true,
-            confirmButtonText: 'ประท้วง (Protest)',
-            denyButtonText: 'ริบสิทธิ์ (Forfeit)',
-            cancelButtonText: 'ยกเลิก',
+            confirmButtonText: st('ประท้วง (Protest)'),
+            denyButtonText: st('ริบสิทธิ์ (Forfeit)'),
+            cancelButtonText: st('ยกเลิก'),
             confirmButtonColor: '#3b82f6',
             denyButtonColor: '#ef4444',
         }).then((result) => {
             if (result.isConfirmed) {
                 saveEventToBackend('PROTEST', servingTeam || 'home', { description: 'Match Protested' });
-                Swal.fire('Protest Logged', 'เหตุการณ์ประท้วงถูกบันทึกแล้ว', 'info');
+                Swal.fire({uiTextLocalized:true,title:st('Protest Logged'),text:st('เหตุการณ์ประท้วงถูกบันทึกแล้ว'),icon:'info'});
             } else if (result.isDenied) {
                 Swal.fire({
-                    title: 'ยืนยันการริบสิทธิ์ (Forfeit)?',
-                    text: "การริบสิทธิ์จะทำให้แมตช์สิ้นสุดลงทันที",
+                    title: st('ยืนยันการริบสิทธิ์ (Forfeit)?'),
+                    text: st("การริบสิทธิ์จะทำให้แมตช์สิ้นสุดลงทันที"),
                     icon: 'error',
                     showCancelButton: true,
-                    confirmButtonText: 'ยืนยัน',
+                    confirmButtonText: st('ยืนยัน'),
                     confirmButtonColor: '#ef4444'
                 }).then((res) => {
                     if (res.isConfirmed) {
@@ -2929,8 +2967,8 @@ export default function ScorerConsole() {
         if (!isChallengeEnabledForMatch()) {
             Swal.fire({
                 icon: 'info',
-                title: 'Challenge disabled',
-                text: 'This match was not configured to use the challenge system.',
+                title: st('Challenge disabled'),
+                text: st('This match was not configured to use the challenge system.'),
                 confirmButtonColor: '#3b82f6',
                 timer: 2500
             });
@@ -2938,7 +2976,7 @@ export default function ScorerConsole() {
         }
         setChallengeData({ team });
         setShowChallengeModal(true);
-    }, [isChallengeEnabledForMatch]);
+    }, [isChallengeEnabledForMatch, st]);
 
     const handleChallengeSelect = (result) => {
         if (!isChallengeEnabledForMatch()) {
@@ -2963,7 +3001,7 @@ export default function ScorerConsole() {
 
             if (request.request_type === 'TIMEOUT') {
                 if (timeouts[teamCode] >= 2) {
-                    Swal.fire('Error', 'ทีมนี้ใช้เวลานอกครบตามกำหนดแล้ว (Limit reached)', 'error');
+                    Swal.fire({uiTextLocalized:true,title:st('Error'),text:st('ทีมนี้ใช้เวลานอกครบตามกำหนดแล้ว (Limit reached)'),icon:'error'});
                     return;
                 }
             }
@@ -2973,8 +3011,8 @@ export default function ScorerConsole() {
                 setPendingRequests(prev => prev.filter(r => r.id !== request.id));
                 Swal.fire({
                     icon: 'info',
-                    title: 'Challenge disabled',
-                    text: 'This match was not configured to use the challenge system.',
+                    title: st('Challenge disabled'),
+                    text: st('This match was not configured to use the challenge system.'),
                     confirmButtonColor: '#3b82f6',
                     timer: 2500
                 });
@@ -3012,8 +3050,8 @@ export default function ScorerConsole() {
                 setPostponedRequestIds(prev => prev.filter(id => id !== request.id));
                 Swal.fire({
                     icon: 'info',
-                    title: 'Start next set first',
-                    text: `This lineup was submitted for Set ${lineupRequestSetNumber}, but the scorer console is still on Set ${activeSetNumber}. Please start the next set workflow and ask the team to submit again.`,
+                    title: st('Start next set first'),
+                    text: st(`This lineup was submitted for Set {0}, but the scorer console is still on Set {1}. Please start the next set workflow and ask the team to submit again.`, [lineupRequestSetNumber, activeSetNumber]),
                     confirmButtonColor: '#3b82f6'
                 });
                 return;
@@ -3143,7 +3181,7 @@ export default function ScorerConsole() {
             if (request.request_type !== 'TIMEOUT') {
                 Swal.fire({
                     icon: 'success',
-                    title: 'ดำเนินการตามคำขอแล้ว',
+                    title: st('ดำเนินการตามคำขอแล้ว'),
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,
@@ -3152,7 +3190,7 @@ export default function ScorerConsole() {
             }
         } catch (error) {
             console.error("Failed to approve request:", error);
-            Swal.fire('Error', 'ไม่สามารถอนุมัติคำขอได้', 'error');
+            Swal.fire({uiTextLocalized:true,title:st('Error'),text:st('ไม่สามารถอนุมัติคำขอได้'),icon:'error'});
         }
     };
 
@@ -3424,8 +3462,8 @@ export default function ScorerConsole() {
         if (availableIn.length === 0) {
             Swal.fire({
                 icon: 'warning',
-                title: 'ไม่มี Libero ลงทะเบียน',
-                text: 'กรุณาตั้งค่า Libero ในขั้นตอนการตั้งค่าทีมก่อน',
+                title: st('ไม่มี Libero ลงทะเบียน'),
+                text: st('กรุณาตั้งค่า Libero ในขั้นตอนการตั้งค่าทีมก่อน'),
                 confirmButtonColor: '#f59e0b'
             });
             return;
@@ -3441,7 +3479,7 @@ export default function ScorerConsole() {
             .sort((a, b) => posOrder[a.posIndex] - posOrder[b.posIndex]);
 
         if (availableOut.length === 0) {
-            Swal.fire({ icon: 'info', title: 'ไม่มีผู้เล่นในสนาม', confirmButtonColor: '#3b82f6' });
+            Swal.fire({ icon: 'info', title: st('ไม่มีผู้เล่นในสนาม'), confirmButtonColor: '#3b82f6' });
             return;
         }
 
@@ -3466,16 +3504,16 @@ export default function ScorerConsole() {
         if (actionType === 'IN') {
             Swal.fire({
                 icon: 'success',
-                title: `Libero in court`,
+                title: st(`Libero in court`),
                 customClass: { popup: 'scorer-libero-alert' },
-                html: `
+                html: st(`
                     <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;margin-top:10px;">
                         <span class="libero-alert-label" style="font-weight:bold;">Number In</span>
-                        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;background-color:#d1fae5;color:#10b981;border:1.5px solid #6ee7b7;font-size:13px;font-weight:900;">#${playerIn.number}</span>
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;background-color:#d1fae5;color:#10b981;border:1.5px solid #6ee7b7;font-size:13px;font-weight:900;">#{0}</span>
                         <span class="libero-alert-label" style="font-weight:bold;">Number Out</span>
-                        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;background-color:#fee2e2;color:#ef4444;border:1.5px solid #fca5a5;font-size:13px;font-weight:900;">#${playerOut.number}</span>
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;background-color:#fee2e2;color:#ef4444;border:1.5px solid #fca5a5;font-size:13px;font-weight:900;">#{1}</span>
                     </div>
-                `,
+                `, [playerIn.number, playerOut.number]),
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
@@ -3583,13 +3621,15 @@ export default function ScorerConsole() {
     };
 
     // Helper for UI
+    const homeTeamDisplayName = getScorerTeamName(matchData, 'home', language);
+    const awayTeamDisplayName = getScorerTeamName(matchData, 'away', language);
     const getLeftTeam = () => isHomeLeft
-        ? { name: matchData.teamHome, shortName: matchData.teamHomeCode, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home }
-        : { name: matchData.teamAway, shortName: matchData.teamAwayCode, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away };
+        ? { name: homeTeamDisplayName, shortName: matchData.teamHomeCode, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home }
+        : { name: awayTeamDisplayName, shortName: matchData.teamAwayCode, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away };
 
     const getRightTeam = () => isHomeLeft
-        ? { name: matchData.teamAway, shortName: matchData.teamAwayCode, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away }
-        : { name: matchData.teamHome, shortName: matchData.teamHomeCode, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home };
+        ? { name: awayTeamDisplayName, shortName: matchData.teamAwayCode, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.away, isStaffConnected: staffConnections.away }
+        : { name: homeTeamDisplayName, shortName: matchData.teamHomeCode, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps, lastLiberoSwap: lastLiberoSwap, subTracker: subTracker.home, isStaffConnected: staffConnections.home };
 
     // Opens picker for LineupModal
     const openPickerForLineup = (team, index) => {
@@ -3634,7 +3674,7 @@ export default function ScorerConsole() {
             const originalPlayer = currentSwaps[posIndex];
 
             if (!originalPlayer) {
-                Swal.fire('Action Not Allowed', 'This Libero cannot be swapped out from here. This might be a formal replacement.', 'info');
+                Swal.fire({uiTextLocalized:true,title:st('Action Not Allowed'),text:st('This Libero cannot be swapped out from here. This might be a formal replacement.'),icon:'info'});
                 return;
             }
 
@@ -3752,11 +3792,11 @@ export default function ScorerConsole() {
                 if (newCount === 7) {
                     setTimeout(() => {
                         Swal.fire({
-                            title: '⚠️ แจ้งเตือนโควต้า',
-                            text: `ทีม ${team === 'home' ? matchData.teamHome : matchData.teamAway} เปลี่ยนตัวไปแล้ว 7 ครั้ง (เหลือโควต้าอีก 1 ครั้ง)`,
+                            title: st('⚠️ แจ้งเตือนโควต้า'),
+                            text: st(`ทีม {0} เปลี่ยนตัวไปแล้ว 7 ครั้ง (เหลือโควต้าอีก 1 ครั้ง)`, [getScorerTeamName(matchData, team, language)]),
                             icon: 'warning',
                             confirmButtonColor: '#f59e0b',
-                            confirmButtonText: 'รับทราบ'
+                            confirmButtonText: st('รับทราบ')
                         });
                     }, 500);
                 }
@@ -3860,7 +3900,7 @@ export default function ScorerConsole() {
     if (isLoading) return (
         <div className="h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
-            <p className="text-slate-400 font-bold animate-pulse uppercase tracking-widest text-sm">Loading Console...</p>
+            <p className="text-slate-400 font-bold animate-pulse uppercase tracking-widest text-sm">{st("Loading Console...")}</p>
         </div>
     );
 
@@ -3881,53 +3921,76 @@ export default function ScorerConsole() {
     const activeStaffRequest = pendingRequests.find(r => r.request_type !== 'CHALLENGE' && !postponedRequestIds.includes(r.id));
 
     return (
-        <div className="scorer-shell flex flex-col bg-app-background text-slate-900 font-sans overflow-hidden">
+        <div lang={language === 'ENG' ? 'en' : 'th'} className="scorer-shell flex flex-col bg-app-background text-slate-900 font-sans overflow-hidden">
             {/* --- HEADER --- */}
-            <header className="scorer-header h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+            <header className="scorer-header h-14 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between px-6 shrink-0 z-20 shadow-sm">
                 <div className="flex min-w-0 items-center gap-2">
                     <div className="flex h-8 w-8 items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-blue-700">
                         <Trophy size={17} strokeWidth={2.25} />
                     </div>
                     <div className="flex min-w-0 flex-col">
-                        <h1 className="truncate text-sm font-bold leading-tight tracking-normal text-slate-950">
-                            Scorer Console
-                        </h1>
+                        <h1 className="truncate text-sm font-bold leading-tight tracking-normal text-slate-950">{st("Scorer Console")}</h1>
                         <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
                             <span className="inline-flex items-center gap-1.5 text-rose-600">
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-                                LIVE
-                            </span>
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>{st("LIVE")}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-300"></span>
-                            <span className="truncate">{formatThaiFullDateTime(navbarTime)}</span>
+                            <span className="truncate">{formatScorerDateTime(navbarTime, language)}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                    <div role="group" aria-label={st('Interface language')} className="flex shrink-0 items-center rounded-md border border-slate-200 bg-white p-0.5">
+                        {[['THA', 'THAI'], ['ENG', 'EN']].map(([code, label]) => (
+                            <button
+                                key={code}
+                                type="button"
+                                lang={code === 'THA' ? 'th' : 'en'}
+                                aria-label={code === 'THA' ? ui('ภาษาไทย') : ui('English')}
+                                aria-pressed={language === code}
+                                onClick={() => setLanguage(code)}
+                                className={`h-7 rounded px-2 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${language === code ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                            >
+                                {ui(label)}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={toggleFullscreen}
+                        disabled={!document.fullscreenEnabled && !isFullscreen}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                        title={isFullscreen ? st('ออกจากเต็มหน้าจอ') : st('เต็มหน้าจอ')}
+                        aria-label={isFullscreen ? st('ออกจากเต็มหน้าจอ') : st('เต็มหน้าจอ')}
+                        aria-pressed={isFullscreen}
+                    >
+                        {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
+                    </button>
                     <VisThemeToggle iconOnly />
                     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
                         <span tabIndex={0} className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${scorerOfflineActive(matchId) ? 'bg-slate-100 text-slate-600' : realtimeConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}
-                            title={scorerOfflineActive(matchId) ? 'Offline · เครื่องหลัก' : realtimeConnected ? 'เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live' : 'ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting'}>
+                            title={scorerOfflineActive(matchId) ? st('Offline · เครื่องหลัก') : realtimeConnected ? st('เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live') : st('ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting')}>
                             {scorerOfflineActive(matchId) ? <CloudOff size={16} aria-hidden="true" /> : realtimeConnected ? <Wifi size={16} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
-                            <span className="sr-only">{scorerOfflineActive(matchId) ? 'Offline · เครื่องหลัก' : realtimeConnected ? 'เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live' : 'ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting'}</span>
+                            <span className="sr-only">{scorerOfflineActive(matchId) ? st('Offline · เครื่องหลัก') : realtimeConnected ? st('เชื่อมต่อเซิร์ฟเวอร์แล้ว / Live') : st('ยังไม่เชื่อมต่อเซิร์ฟเวอร์ · กำลังเชื่อมต่อใหม่ / Reconnecting')}</span>
                         </span>
                         <span tabIndex={0} className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${liveSyncStatus === 'error' ? 'bg-rose-50 text-rose-600' : liveSyncStatus === 'saved' && queueCount === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}
-                            title={liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}>
+                            title={liveSyncStatus === 'error' ? st('บันทึกไม่สำเร็จ / Save failed') : scorerOfflineActive(matchId) ? st('บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer') : liveSyncStatus === 'saved' && queueCount === 0 ? st('บันทึกแล้ว / Saved') : st(`รอบันทึก / Pending ({0})`, [queueCount])}>
                             {liveSyncStatus === 'error' ? <CloudAlert size={16} aria-hidden="true" /> : scorerOfflineActive(matchId) ? <CloudOff size={16} aria-hidden="true" /> : liveSyncStatus === 'saved' && queueCount === 0 ? <CloudCheck size={16} aria-hidden="true" /> : <CloudUpload size={16} aria-hidden="true" />}
-                            <span className="sr-only">{liveSyncStatus === 'error' ? 'บันทึกไม่สำเร็จ / Save failed' : scorerOfflineActive(matchId) ? 'บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer' : liveSyncStatus === 'saved' && queueCount === 0 ? 'บันทึกแล้ว / Saved' : `รอบันทึก / Pending (${queueCount})`}</span>
+                            <span className="sr-only">{liveSyncStatus === 'error' ? st('บันทึกไม่สำเร็จ / Save failed') : scorerOfflineActive(matchId) ? st('บันทึกในเครื่อง · ซิงค์ที่แดชบอร์ด Scorer') : liveSyncStatus === 'saved' && queueCount === 0 ? st('บันทึกแล้ว / Saved') : st(`รอบันทึก / Pending ({0})`, [queueCount])}</span>
                         </span>
                         <span className="whitespace-nowrap px-1 text-xs font-semibold text-slate-600"
-                            title={lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('th-TH') : 'No successful server sync in this session'}>
-                            Sync Last {lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('en-GB', { hour12: false }) : '--'}
+                            title={lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('th-TH') : st('No successful server sync in this session')}>{st("Sync Last")}{lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('en-GB', { hour12: false }) : '--'}
                         </span>
-                        {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary" title="ลองบันทึกอีกครั้ง / Retry" aria-label="ลองบันทึกอีกครั้ง / Retry"><RefreshCcw size={16} aria-hidden="true" /></button>}
+                        {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary" title={st("ลองบันทึกอีกครั้ง / Retry")} aria-label={st("ลองบันทึกอีกครั้ง / Retry")}><RefreshCcw size={16} aria-hidden="true" /></button>}
                     </div>
 
                     <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-sm">
-                        <button onClick={handleProtest} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title="Protest / Forfeit">
+                        <button type="button" onClick={() => setShowSetup(true)} className="2xl:hidden inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 hover:bg-slate-100" title={st('Match settings')} aria-label={st('Match settings')}><Settings size={18} /></button>
+                        <button type="button" onClick={handleUndo} disabled={history.length === 0} className="2xl:hidden inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 hover:bg-slate-100 disabled:opacity-40" title={st('Undo last action')} aria-label={st('Undo last action')}><RotateCcw size={18} /></button>
+                        <button onClick={handleProtest} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title={st("Protest / Forfeit")}>
                             <Whistle size={16} />
                         </button>
-                        <button onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title="Match Log"><ListChecks size={16} /></button>
+                        <button onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title={st("Match Log")}><ListChecks size={16} /></button>
                         <button
                             onClick={() => {
                                 const role = getStoredUser()?.role || 'admin';
@@ -3938,7 +4001,7 @@ export default function ScorerConsole() {
                                 }
                             }}
                             className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                            title="Exit"
+                            title={st("Exit")}
                         >
                             <X size={16} />
                         </button>
@@ -3946,9 +4009,9 @@ export default function ScorerConsole() {
                 </div>
             </header>
 
-            <main className="flex-1 flex overflow-hidden p-3 gap-3">
+            <main className="scorer-main flex-1 flex overflow-hidden p-3 gap-3">
                 {/* Left Sidebar */}
-                <aside className="w-[300px] bg-white border border-slate-200/60 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
+                <aside className="w-[300px] bg-white border border-slate-200/60 rounded-lg hidden 2xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
                     <div className="flex-1 overflow-hidden pb-48">
                         <TeamInfoPanel team={leftTeam} align="left" onPlayerClick={handleCourtPlayerClick} />
                     </div>
@@ -3971,13 +4034,13 @@ export default function ScorerConsole() {
                 </aside>
 
                 {/* CENTER: COURT & SCORE */}
-                <section className="flex-1 flex flex-col gap-3 overflow-hidden min-w-0 xl:min-w-[520px] w-full">
+                <section className="scorer-center flex-1 flex flex-col gap-3 overflow-hidden min-w-0 2xl:min-w-[520px] w-full">
                     {/* SCOREBOARD */}
-                    <div className="bg-white border border-slate-200/60 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] shrink-0 overflow-hidden">
+                    <div className="scorer-scoreboard bg-white border border-slate-200/60 rounded-sm shadow-[0_8px_30px_rgb(0,0,0,0.04)] shrink-0 overflow-hidden">
 
                         {/* Header: Set + Timer */}
                         <div className="flex items-center justify-center gap-3 py-2 border-b border-slate-100 bg-slate-50/70">
-                            <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">SET</span>
+                            <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest">{st("SET")}</span>
                             <span className="text-[13px] font-bold text-blue-600">{matchData.currentSet}</span>
                             <span className="w-px h-3.5 bg-slate-300"></span>
                             <div className="flex items-center gap-1 text-[13px] font-semibold text-slate-500">
@@ -3992,22 +4055,22 @@ export default function ScorerConsole() {
                             {/* Left: Sets Won */}
                             <div className="flex flex-col items-center justify-center px-5 py-3 border-r border-slate-100 min-w-[64px]">
                                 <span className="text-4xl font-black tabular-nums select-none">{leftTeam.sets}</span>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Sets</span>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{st("Sets")}</span>
                             </div>
 
                             {/* Left: Current Score */}
                             <div
-                                className="flex flex-col items-center justify-center flex-1 py-3 cursor-pointer hover:bg-slate-50 transition-colors border-r border-slate-100 relative group"
-                                title="Click to manually edit score"
+                                className="scorer-score-cell min-w-0 flex flex-col items-center justify-center flex-1 py-3 cursor-pointer hover:bg-slate-50 transition-colors border-r border-slate-100 relative group"
+                                title={st("Click to manually edit score")}
                             >
                                 <span className="text-6xl font-black tabular-nums tracking-tighter select-none transition-all duration-300">
                                     {leftTeam.score}
                                 </span>
                                 <div
-                                    className="mt-2 w-full max-w-[400px] truncate px-4 text-center text-[16px] font-bold uppercase tracking-wider"
-                                    title={leftTeam.name}
+                                    className="scorer-team-name mt-2 w-full max-w-[400px] truncate px-4 text-center text-[16px] font-bold uppercase tracking-wider"
+                                    title={displayNames.teamName(leftTeam)}
                                 >
-                                    {leftTeam.name}
+                                    {displayNames.teamName(leftTeam)}
                                 </div>
                                 {/* Team color accent bar */}
                                 <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ backgroundColor: getLeftTeam().color }}></div>
@@ -4035,17 +4098,17 @@ export default function ScorerConsole() {
                             */}
                             {/* Right: Current Score */}
                             <div
-                                className="flex flex-col items-center justify-center flex-1 py-3 cursor-pointer hover:bg-slate-50 transition-colors border-r border-slate-100 relative group"
-                                title="Click to manually edit score"
+                                className="scorer-score-cell min-w-0 flex flex-col items-center justify-center flex-1 py-3 cursor-pointer hover:bg-slate-50 transition-colors border-r border-slate-100 relative group"
+                                title={st("Click to manually edit score")}
                             >
                                 <span className="text-6xl font-black tabular-nums tracking-tighter select-none transition-all duration-300">
                                     {rightTeam.score}
                                 </span>
                                 <div
-                                    className="mt-2 w-full max-w-[400px] truncate px-4 text-center text-[16px] font-bold uppercase tracking-wider"
-                                    title={rightTeam.name}
+                                    className="scorer-team-name mt-2 w-full max-w-[400px] truncate px-4 text-center text-[16px] font-bold uppercase tracking-wider"
+                                    title={displayNames.teamName(rightTeam)}
                                 >
-                                    {rightTeam.name}
+                                    {displayNames.teamName(rightTeam)}
                                 </div>
                                 {/* Team color accent bar */}
                                 <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ backgroundColor: getRightTeam().color }}></div>
@@ -4054,34 +4117,44 @@ export default function ScorerConsole() {
                             {/* Right: Sets Won */}
                             <div className="flex flex-col items-center justify-center px-5 py-3 min-w-[64px]">
                                 <span className="text-4xl font-black tabular-nums select-none">{rightTeam.sets}</span>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Sets</span>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{st("Sets")}</span>
                             </div>
 
                         </div>
 
                         {/* Mobile Roster buttons */}
-                        <div className="flex xl:hidden border-t border-slate-100">
+                        <div className="scorer-roster-shortcuts flex 2xl:hidden border-t border-slate-100">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setMobilePanelTeam(leftTeam.code); }}
                                 className="flex-1 py-2 text-[10px] font-bold text-center border-r border-slate-100 hover:bg-slate-50 transition-colors"
                                 style={{ color: getLeftTeam().color }}
                             >
-                                {leftTeam.name} — Roster &amp; Actions
-                            </button>
+                                {displayNames.teamName(leftTeam)}{st("— Roster & Actions")}</button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); setMobilePanelTeam(rightTeam.code); }}
                                 className="flex-1 py-2 text-[10px] font-bold text-center hover:bg-slate-50 transition-colors"
                                 style={{ color: getRightTeam().color }}
                             >
-                                {rightTeam.name} — Roster &amp; Actions
-                            </button>
+                                {displayNames.teamName(rightTeam)}{st("— Roster & Actions")}</button>
                         </div>
+                    </div>
+
+                    <div className="scorer-touch-scoring grid grid-cols-2 gap-3 2xl:hidden">
+                        {[leftTeam, rightTeam].map(team => (
+                            <button key={team.code} type="button" onClick={() => handlePoint(team.code)}
+                                disabled={workflowStep !== 'RALLY'}
+                                className="flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40"
+                                style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}>
+                                <span aria-hidden="true" className="text-xl">+</span>
+                                <span className="truncate">{st('Point scored')} · {displayNames.teamName(team)}</span>
+                            </button>
+                        ))}
                     </div>
 
                     {/* COURT VIEW CONTAINER */}
                     <div className="scorer-court flex-1 relative overflow-hidden flex flex-col items-center justify-center gap-2 p-2">
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-50 to-white pointer-events-none"></div>
-                        <div className="w-full flex-1 min-h-0 max-w-4xl max-h-[420px] relative z-10">
+                        <div className="scorer-court-stage w-full flex-1 min-h-0 max-w-4xl max-h-[420px] relative z-10">
                             <CourtView
                                 homePositions={!isSetupPhase ? (isHomeLeft ? homeLineup : awayLineup) : Array(6).fill(null)}
                                 awayPositions={!isSetupPhase ? (isHomeLeft ? awayLineup : homeLineup) : Array(6).fill(null)}
@@ -4100,12 +4173,10 @@ export default function ScorerConsole() {
                             type="button"
                             onClick={handleSwapCourtSide}
                             disabled={workflowStep === 'RALLY'}
-                            title={workflowStep === 'RALLY' ? 'Cannot swap court side during rally' : 'Swap court side'}
+                            title={workflowStep === 'RALLY' ? st('Cannot swap court side during rally') : st('Swap court side')}
                             className="relative z-10 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-700"
                         >
-                            <ArrowLeftRight size={16} strokeWidth={2.5} />
-                            Swap court side
-                        </button>
+                            <ArrowLeftRight size={16} strokeWidth={2.5} />{st("Swap court side")}</button>
                     </div>
 
                     {/* OVERLAYS */}
@@ -4117,7 +4188,7 @@ export default function ScorerConsole() {
                                     isOpen={true}
                                     match={matchData}
                                     matchNo={matchData.matchNo}
-                                    teamHome={matchData.teamHome} teamAway={matchData.teamAway}
+                                    teamHome={homeTeamDisplayName} teamAway={awayTeamDisplayName}
                                     homeRoster={masterHomeRoster} awayRoster={masterAwayRoster}
                                     activeHome={homeRoster} activeAway={awayRoster}
                                     referees={referees}
@@ -4133,7 +4204,7 @@ export default function ScorerConsole() {
                         {workflowStep === 'ROSTER_CHECK' && !isRosterReady && (
                             <div className="pointer-events-auto flex flex-col items-center justify-center gap-4 bg-white/90 backdrop-blur-sm rounded-2xl px-16 py-10 shadow-2xl border border-slate-100">
                                 <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                                <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">กำลังโหลดข้อมูลผู้เล่น...</p>
+                                <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">{st("กำลังโหลดข้อมูลผู้เล่น...")}</p>
                             </div>
                         )}
 
@@ -4142,8 +4213,8 @@ export default function ScorerConsole() {
 
                         <SignatureModal
                             isOpen={showPostMatchSignatures}
-                            teamHome={matchData.teamHome}
-                            teamAway={matchData.teamAway}
+                            teamHome={homeTeamDisplayName}
+                            teamAway={awayTeamDisplayName}
                             onConfirm={handlePostMatchSignaturesConfirm}
                             isPostMatch={showPostMatchSignatures}
                             matchSignatures={matchSignatures}
@@ -4199,7 +4270,7 @@ export default function ScorerConsole() {
                 </section>
 
                 {/* Right Sidebar (Team Info) */}
-                <aside className="w-[300px]  bg-white border border-slate-200/60 rounded-lg hidden xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
+                <aside className="w-[300px]  bg-white border border-slate-200/60 rounded-lg hidden 2xl:flex flex-col z-10 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300 relative">
                     <div className="flex-1 overflow-hidden pb-48">
                         <TeamInfoPanel team={rightTeam} align="right" onPlayerClick={handleCourtPlayerClick} />
                     </div>
@@ -4222,6 +4293,8 @@ export default function ScorerConsole() {
                 </aside>
 
                 <MatchHistorySidebar
+                    homeRoster={homeRoster}
+                    awayRoster={awayRoster}
                     matchData={matchData}
                     staffConnections={staffConnections}
                     isHomeLeft={isHomeLeft}
@@ -4248,7 +4321,7 @@ export default function ScorerConsole() {
             <PlayerPicker
                 isOpen={showPlayerPicker}
                 onClose={() => setShowPlayerPicker(false)}
-                teamName={pickerContext.team === 'home' ? matchData.teamHome : matchData.teamAway}
+                teamName={pickerContext.team === 'home' ? homeTeamDisplayName : awayTeamDisplayName}
                 roster={pickerContext.team === 'home' ? homeRoster : awayRoster}
                 lineup={pickerContext.team === 'home' ? homeLineup : awayLineup}
                 liberos={pickerContext.team === 'home' ? homeLiberos : awayLiberos}
@@ -4257,10 +4330,12 @@ export default function ScorerConsole() {
             />
 
             <LineupModal
+                homeTeamCode={matchData.teamHomeCode}
+                awayTeamCode={matchData.teamAwayCode}
                 isOpen={showLineupModal}
                 onClose={() => setShowLineupModal(false)}
-                teamHome={matchData.teamHome}
-                teamAway={matchData.teamAway}
+                teamHome={homeTeamDisplayName}
+                teamAway={awayTeamDisplayName}
                 homeLogoUrl={matchData.homeLogoUrl}
                 awayLogoUrl={matchData.awayLogoUrl}
                 homeLineup={homeLineup}
@@ -4311,7 +4386,7 @@ export default function ScorerConsole() {
             {subData.isExceptional ? <SubstitutionModal
                 isOpen={subData.isOpen}
                 onClose={() => setSubData({ isOpen: false, team: null, posIndex: null, playerOut: null })}
-                teamName={subData.team === 'home' ? matchData.teamHome : matchData.teamAway}
+                teamName={subData.team === 'home' ? homeTeamDisplayName : awayTeamDisplayName}
                 roster={subData.team === 'home' ? homeRoster : awayRoster}
                 currentLineup={subData.team === 'home' ? homeLineup : awayLineup}
                 playerOut={subData.playerOut}
@@ -4324,7 +4399,7 @@ export default function ScorerConsole() {
             /> : <BatchSubstitutionModal
                 isOpen={subData.isOpen}
                 onClose={() => setSubData({ isOpen: false, team: null, posIndex: null, playerOut: null })}
-                teamName={subData.team === 'home' ? matchData.teamHome : matchData.teamAway}
+                teamName={subData.team === 'home' ? homeTeamDisplayName : awayTeamDisplayName}
                 roster={subData.team === 'home' ? homeRoster : awayRoster}
                 currentLineup={subData.team === 'home' ? homeLineup : awayLineup}
                 playerOut={subData.playerOut} posIndex={subData.posIndex}
@@ -4338,8 +4413,8 @@ export default function ScorerConsole() {
                 onClose={() => setShowSanctionModal(false)}
                 initialTeam={sanctionTeam || 'home'}
                 teams={{
-                    home: { name: matchData.teamHome, roster: homeRoster, staff: homeStaff },
-                    away: { name: matchData.teamAway, roster: awayRoster, staff: awayStaff }
+                    home: { name: homeTeamDisplayName, roster: homeRoster, staff: homeStaff },
+                    away: { name: awayTeamDisplayName, roster: awayRoster, staff: awayStaff }
                 }}
                 onConfirm={handleSanction}
             />
@@ -4347,7 +4422,7 @@ export default function ScorerConsole() {
             <ChallengeModal
                 isOpen={challengeEnabled && showChallengeModal}
                 onClose={() => setShowChallengeModal(false)}
-                teamName={challengeData.team === 'home' ? matchData.teamHome : matchData.teamAway}
+                teamName={challengeData.team === 'home' ? homeTeamDisplayName : awayTeamDisplayName}
                 remaining={challengeData.team ? challenges[challengeData.team] : 0}
                 onConfirm={handleChallengeSelect}
             />
@@ -4369,8 +4444,8 @@ export default function ScorerConsole() {
             <CoinTossModal
                 key={showCoinTossModal}
                 isOpen={showCoinTossModal}
-                teamHome={matchData.teamHome}
-                teamAway={matchData.teamAway}
+                teamHome={homeTeamDisplayName}
+                teamAway={awayTeamDisplayName}
                 teamColors={teamColors}
                 setNumber={matchData.currentSet}
                 onConfirm={handleCoinTossConfirm}
@@ -4383,7 +4458,7 @@ export default function ScorerConsole() {
                     setLiberoSwapTeam(null);
                 }}
                 teamCode={liberoSwapTeam}
-                teamName={liberoSwapTeam === 'home' ? matchData.teamHome : matchData.teamAway}
+                teamName={liberoSwapTeam === 'home' ? homeTeamDisplayName : awayTeamDisplayName}
                 lineup={liberoSwapTeam === 'home' ? homeLineup : awayLineup}
                 roster={liberoSwapTeam === 'home' ? homeRoster : awayRoster}
                 liberos={liberoSwapTeam === 'home' ? homeLiberos : awayLiberos}

@@ -15,10 +15,10 @@ async function roster(connection, req) {
 function teamDraft(data, side) {
     const match = data.match;
     const flag = value => value === true || value === 1 || value === '1';
-    return { name: match[`${side}_team_name`] || '', code: match[`${side}_team_code`] || '',
+    return { name: match[`${side}_team_name`] || '', name_th: match[`${side}_team_name_th`] || '', name_en: match[`${side}_team_name_en`] || '', code: match[`${side}_team_code`] || '',
         color: parseSetup(match.match_setup)?.[side]?.color || (side === 'home' ? '#6366f1' : '#f43f5e'),
         liberoColor: parseSetup(match.match_setup)?.[side]?.liberoColor || (side === 'home' ? '#facc15' : '#3b82f6'),
-        players: data[side].players.map(p => ({ id: p.id, number: p.number, first_name: p.first_name || '', last_name: p.last_name || '', position: p.position || '',
+        players: data[side].players.map(p => ({ id: p.id, number: p.number, first_name: p.first_name || '', last_name: p.last_name || '', ...Object.fromEntries(['first_name_th','last_name_th','first_name_en','last_name_en'].map(field=>[field,p[field] || null])), position: p.playing_position || p.position || '',
             role: flag(p.is_libero2) || String(p.role).startsWith('L2') ? (flag(p.is_captain) ? 'L2+C' : 'L2') : flag(p.is_libero1) || flag(p.is_libero) || ['L', 'L1', 'L1+C'].includes(p.role) ? (flag(p.is_captain) ? 'L1+C' : 'L1') : flag(p.is_captain) || p.role === 'C' ? 'C' : '' })),
         staff: data[side].staff.map(p => ({ first_name: p.first_name || '', last_name: p.last_name || '', role: p.role || '' })) };
 }

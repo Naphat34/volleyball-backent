@@ -25,10 +25,12 @@ export function buildVisReport(data, options = {}) {
     const homeIsA = typeof firstHomeLeft === 'boolean' ? firstHomeLeft
         : match.left_side_team_id ? String(match.left_side_team_id) === String(match.home_team_id) : true;
     const teams = [
-        { key: 'home', id: match.home_team_id, name: match.home_team_name || match.home_team || 'ทีมเหย้า', roster: homePlayers },
-        { key: 'away', id: match.away_team_id, name: match.away_team_name || match.away_team || 'ทีมเยือน', roster: awayPlayers },
+        { key: 'home', id: match.home_team_id, name: match[options.language === 'ENG' ? 'home_team_name_en' : 'home_team_name_th'] || match.home_team_name || match.home_team || 'ทีมเหย้า', roster: homePlayers },
+        { key: 'away', id: match.away_team_id, name: match[options.language === 'ENG' ? 'away_team_name_en' : 'away_team_name_th'] || match.away_team_name || match.away_team || 'ทีมเยือน', roster: awayPlayers },
     ].map(team => ({ ...team, label: (team.key === 'home') === homeIsA ? 'A' : 'B', stats: blank(), count: 0,
-        players: team.roster.map(player => ({ ...player, stats: blank(), count: 0 })), opponentErrors: 0 }));
+        players: team.roster.map(player => ({ ...player,
+            display_name: (options.language === 'ENG' ? [player.first_name_en,player.last_name_en] : [player.first_name_th,player.last_name_th]).filter(Boolean).join(' ') || player.name || [player.first_name,player.last_name].filter(Boolean).join(' '),
+            stats: blank(), count: 0 })), opponentErrors: 0 }));
     let excluded = 0;
     const statEvents = [];
     for (const event of reportEvents) {

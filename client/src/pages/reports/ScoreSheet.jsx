@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api';
@@ -106,6 +108,8 @@ const getTeamFontSize = (name, baseSize = 12) => {
 const joinName = (...parts) => parts.filter(Boolean).join(' ').trim();
 
 export default function ScoreSheet({ matchId }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const params = useParams();
     const effectiveMatchId = matchId || params.matchId;
     const navigate = useNavigate();
@@ -196,8 +200,8 @@ export default function ScoreSheet({ matchId }) {
     }, [effectiveMatchId]);
 
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-xl">Loading FIVB Score Sheet...</div>;
-    if (!matchData) return <div className="min-h-screen flex items-center justify-center font-bold text-xl text-red-500">Match data not found.</div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-xl">{ui("Loading FIVB Score Sheet...")}</div>;
+    if (!matchData) return <div className="min-h-screen flex items-center justify-center font-bold text-xl text-red-500">{ui("Match data not found.")}</div>;
 
     const compName = cleanCompetitionTitle(matchData.title || matchData.competition_title || matchData.competition_name || '');
     const city = matchData.city || matchData.stadium_city || '';
@@ -239,12 +243,12 @@ export default function ScoreSheet({ matchId }) {
 
     // Team Names
     const teamA = isHomeOnLeft
-        ? (matchData?.home_team_name || matchData?.home_team_code || 'Team A')
-        : (matchData?.away_team_name || matchData?.away_team_code || 'Team A');
+        ? (displayNames.matchTeamName(matchData, 'home') || matchData?.home_team_code || 'Team A')
+        : (displayNames.matchTeamName(matchData, 'away') || matchData?.away_team_code || 'Team A');
 
     const teamB = !isHomeOnLeft
-        ? (matchData?.home_team_name || matchData?.home_team_code || 'Team B')
-        : (matchData?.away_team_name || matchData?.away_team_code || 'Team B');
+        ? (displayNames.matchTeamName(matchData, 'home') || matchData?.home_team_code || 'Team B')
+        : (displayNames.matchTeamName(matchData, 'away') || matchData?.away_team_code || 'Team B');
 
     const programTeamA = teamA;
     const programTeamB = teamB;
@@ -483,15 +487,7 @@ export default function ScoreSheet({ matchId }) {
         return player.number || player.shirt_number || player.jersey_number || '';
     };
 
-    const getPlayerName = (player) => {
-        if (!player) return '';
-        const fullName = firstFilled(player.name, player.full_name, player.player_name, player.display_name);
-        const fName = firstFilled(player.first_name, player.firstname, player.firstName);
-        const lName = firstFilled(player.last_name, player.lastname, player.lastName);
-        // แก้ไขให้แสดงชื่อ-นามสกุลเต็ม
-        if (fName && lName) return `${fName} ${lName}`;
-        return fullName || lName || fName || '';
-    };
+    const getPlayerName = (player) => displayNames.personName(player);
 
     // Keep the competition limits applied above, but do not draw cells for
     // roster entries that have no usable name.
@@ -791,12 +787,12 @@ export default function ScoreSheet({ matchId }) {
     const idSet5R = isSet5HomeOnLeft ? matchData.away_team_id : matchData.home_team_id;
 
     const teamSet5L = isSet5HomeOnLeft
-        ? (matchData?.home_team_name || matchData?.home_team_code || 'Team A')
-        : (matchData?.away_team_name || matchData?.away_team_code || 'Team B');
+        ? (displayNames.matchTeamName(matchData, 'home') || matchData?.home_team_code || 'Team A')
+        : (displayNames.matchTeamName(matchData, 'away') || matchData?.away_team_code || 'Team B');
 
     const teamSet5R = !isSet5HomeOnLeft
-        ? (matchData?.home_team_name || matchData?.home_team_code || 'Team A')
-        : (matchData?.away_team_name || matchData?.away_team_code || 'Team B');
+        ? (displayNames.matchTeamName(matchData, 'home') || matchData?.home_team_code || 'Team A')
+        : (displayNames.matchTeamName(matchData, 'away') || matchData?.away_team_code || 'Team B');
 
     const labelSet5L = idSet5L === idA ? 'A' : 'B';
     const labelSet5R = idSet5R === idA ? 'B' : 'A';
@@ -831,21 +827,18 @@ export default function ScoreSheet({ matchId }) {
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-white text-gray-800 rounded-xl shadow-xl font-bold hover:bg-gray-100 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                 >
-                    <ArrowLeft size={20} />
-                    Back / Close
-                </button>
+                    <ArrowLeft size={20} />{ui("Back / Close")}</button>
                 <button
                     onClick={() => setShowO4(!showO4)}
                     className="flex items-center gap-2 px-4 py-2 bg-white text-gray-800 rounded-xl shadow-xl font-bold hover:bg-gray-100 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                 >
-                    {showO4 ? "Show Score Sheet" : "Show O-4 Report"}
+                    {showO4 ? ui("Show Score Sheet") : ui("Show O-4 Report")}
                 </button>
                 <button
                     onClick={() => window.print()}
                     className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl shadow-xl font-bold hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                 >
-                    <Printer size={20} />
-                    Print {showO4 ? "O-4 Report" : "Score Sheet"}
+                    <Printer size={20} />{ui("Print")}{showO4 ? ui("O-4 Report") : ui("Score Sheet")}
                 </button>
             </div>
 
@@ -863,7 +856,7 @@ export default function ScoreSheet({ matchId }) {
 
                         {/* 1. Name of Competition */}
                         <div className="flex items-center border-b border-black h-[40px] px-2">
-                            <span className="font-bold whitespace-nowrap mr-3 text-[15px]">Name of the Competition :</span>
+                            <span className="font-bold whitespace-nowrap mr-3 text-[15px]">{ui("Name of the Competition :")}</span>
                             <span className="flex-1 font-bold text-lg truncate uppercase">{compName}</span>
                         </div>
 
@@ -874,11 +867,11 @@ export default function ScoreSheet({ matchId }) {
                             <div className="flex h-[42px] border-b border-black">
                                 {/* ซ้าย: City */}
                                 <div className="w-[60%] border-r border-black flex items-end px-2 pb-[14px] ">
-                                    <span className="w-10 leading-none pb-[2px] text-[14px]">City</span>
+                                    <span className="w-10 leading-none pb-[2px] text-[14px]">{ui("City")}</span>
                                     <div className="flex-1 border border-black border-b0 h-[24px] relative flex items-end px-1 font-bold text-[14px]">
                                         <span className="mb-[2px]">{city}</span>
                                     </div>
-                                    <span className="ml-3 mr-2 whitespace-nowrap leading-none pb-[2px] text-[14px]">Country Code :</span>
+                                    <span className="ml-3 mr-2 whitespace-nowrap leading-none pb-[2px] text-[14px]">{ui("Country Code :")}</span>
                                     <div className="w-14 border border-black h-[24px] flex items-center justify-center font-bold text-[14px] uppercase">
                                         {matchData.country || ''}
                                     </div>
@@ -887,7 +880,7 @@ export default function ScoreSheet({ matchId }) {
                                 {/* ขวา: Date/Time */}
                                 <div className="flex-1 flex items-center justify-between px-6">
                                     <div className="flex items-center gap-3">
-                                        <span className="leading-none pb-[2px] text-[14px]">Date</span>
+                                        <span className="leading-none pb-[2px] text-[14px]">{ui("Date")}</span>
                                         <div className="flex flex-col items-center mt-1">
                                             <div className="flex border border-black h-[24px]">
                                                 <div className="w-12 border-r border-black flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? new Date(matchData.match_date).getDate().toString().padStart(2, '0') : ''}</div>
@@ -895,16 +888,16 @@ export default function ScoreSheet({ matchId }) {
                                                 <div className="w-12 flex items-center justify-center font-bold text-[14px]">{matchData.match_date ? (new Date(matchData.match_date).getFullYear() + 543).toString().slice(-2) : ''}</div>
                                             </div>
                                             <div className="flex w-full text-[9px] text-center mt-[2px] font-bold">
-                                                <span className="flex-1">D</span><span className="flex-1">M</span><span className="flex-1">Y</span>
+                                                <span className="flex-1">{ui("D")}</span><span className="flex-1">{ui("M")}</span><span className="flex-1">{ui("Y")}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="leading-none pb-[2px] text-[14px]">Time</span>
+                                        <span className="leading-none pb-[2px] text-[14px]">{ui("Time")}</span>
                                         <div className="flex flex-col items-center mt-1">
                                             <div className="border border-black w-20 h-[24px] flex items-center justify-center font-bold text-[14px] tracking-widest">{time}</div>
                                             <div className="flex w-full text-[9px] justify-between px-3 mt-[2px] font-bold">
-                                                <span>H</span><span>mn</span>
+                                                <span>{ui("H")}</span><span>{ui("mn")}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -918,18 +911,18 @@ export default function ScoreSheet({ matchId }) {
                                 <div className="w-[60%] border-r border-black flex flex-col">
                                     {/* Hall */}
                                     <div className="flex-1 flex items-end px-2 pb-[3px]">
-                                        <span className="w-10 leading-none pb-[2px] text-[14px]">Hall</span>
+                                        <span className="w-10 leading-none pb-[2px] text-[14px]">{ui("Hall")}</span>
                                         <div className="flex-1 border border-black border h-[24px] relative flex items-end px-1 font-bold text-[14px] truncate">
                                             <span className="mb-[2px]">{matchData.stadium_name || matchData.location || ''}</span>
                                         </div>
-                                        <span className="ml-2 mr-2 leading-none pb-[2px] text-[14px]">Pool/Phase</span>
+                                        <span className="ml-2 mr-2 leading-none pb-[2px] text-[14px]">{ui("Pool/Phase")}</span>
                                         <div className="min-w-[56px] px-2 border border-black h-[24px] flex items-end justify-center font-bold text-[12px]">
                                             {/* นำ Pool และ Round มาต่อกัน เช่น "A / Round 1" */}
                                             <span className="mb-[2px] truncate">
                                                 {[matchData.pool_name, matchData.round_name].filter(Boolean).join(' / ')}
                                             </span>
                                         </div>
-                                        <span className="ml-2 mr-2 leading-none pb-[2px] text-[14px]">Match No.</span>
+                                        <span className="ml-2 mr-2 leading-none pb-[2px] text-[14px]">{ui("Match No.")}</span>
                                         <div className="w-12 border border-black border h-[24px] flex items-center justify-center font-bold text-[14px]">
                                             <span className="mb-[2px]">{matchNumber}</span>
                                         </div>
@@ -938,34 +931,29 @@ export default function ScoreSheet({ matchId }) {
                                     {/* Division & Category */}
                                     <div className="h-[34px] w-full border-t border-black flex items-center px-2 font-bold gap-2 text-[14px]">
                                         <div className="flex items-center gap-2 w-full">
-                                            <span>Division :</span>
-                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">Men
-                                                <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {gender === 'Men' ? 'X' : ''}
+                                            <span>{ui("Division :")}</span>
+                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">{ui("Men")}<div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
+                                                    {gender === 'Men' ? ui('X') : ''}
                                                 </div>
                                             </label>
-                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">Women
-                                                <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {gender === 'Women' ? 'X' : ''}
+                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">{ui("Women")}<div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
+                                                    {gender === 'Women' ? ui('X') : ''}
                                                 </div>
                                             </label>
                                         </div>
                                         <div className="w-[2px] h-[20px] bg-black mx-2"></div>
                                         <div className="flex justify-between w-full gap-1">
-                                            <span>Category :</span>
-                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">Junior
-                                                <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {isJuniorCategory ? 'X' : ''}
+                                            <span>{ui("Category :")}</span>
+                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">{ui("Junior")}<div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
+                                                    {isJuniorCategory ? ui('X') : ''}
                                                 </div>
                                             </label>
-                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">Youth
-                                                <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {isYouthCategory ? 'X' : ''}
+                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">{ui("Youth")}<div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
+                                                    {isYouthCategory ? ui('X') : ''}
                                                 </div>
                                             </label>
-                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">Senior
-                                                <div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
-                                                    {isSeniorCategory ? 'X' : ''}
+                                            <label className="flex items-center gap-1.5 font-normal cursor-pointer">{ui("Senior")}<div className="w-[18px] h-[18px] border border-black flex items-center justify-center text-[14px] font-bold leading-none pb-[2px]">
+                                                    {isSeniorCategory ? ui('X') : ''}
                                                 </div>
                                             </label>
                                         </div>
@@ -977,16 +965,16 @@ export default function ScoreSheet({ matchId }) {
                                     <div className="flex items-center gap-2">
                                         <div className="flex flex-col text-[8px] leading-[8px] text-center font-bold text-black mt-1">
                                             <span className="relative">
-                                                {showTossLabels ? 'A' : ''}
+                                                {showTossLabels ? ui('A') : ''}
                                                 {showTossLabels && (
                                                     <div className="absolute inset-0 flex items-center justify-center text-[16px] font-normal leading-none -translate-y-[1.5px]">&times;</div>
                                                 )}
                                             </span>
-                                            <span>{showTossLabels ? 'or' : ''}</span>
-                                            <span>{showTossLabels ? 'B' : ''}</span>
+                                            <span>{showTossLabels ? ui('or') : ''}</span>
+                                            <span>{showTossLabels ? ui('B') : ''}</span>
                                         </div>
                                         <div className="w-8 h-8 rounded-full border-[1.5px] border-black flex items-center justify-center font-bold text-[16px] bg-white shrink-0">
-                                            {showTossLabels ? 'A' : ''}
+                                            {showTossLabels ? ui('A') : ''}
                                         </div>
                                         {/* กล่องทีม A */}
                                         <div className={`border border-black w-auto min-w-[80px] max-w-[120px] px-2 h-8 flex items-center justify-center font-bold bg-gray-100 print:bg-white truncate ${getTeamFontSize(programTeamA, 14)}`}>
@@ -995,7 +983,7 @@ export default function ScoreSheet({ matchId }) {
                                     </div>
 
                                     <div className="flex flex-col items-center leading-[0.8] font-bold text-[16px] mx-2 shrink-0">
-                                        <span>TEAMS</span><span className="text-[10px]">vs</span>
+                                        <span>{ui("TEAMS")}</span><span className="text-[10px]">{ui("vs")}</span>
                                     </div>
 
                                     <div className="flex items-center gap-2">
@@ -1004,13 +992,13 @@ export default function ScoreSheet({ matchId }) {
                                             {programTeamB}
                                         </div>
                                         <div className="w-8 h-8 rounded-full border-[1.5px] border-black flex items-center justify-center font-bold text-[16px] bg-white shrink-0">
-                                            {showTossLabels ? 'B' : ''}
+                                            {showTossLabels ? ui('B') : ''}
                                         </div>
                                         <div className="flex flex-col items-center leading-[10px] text-[10px] font-bold">
-                                            <span>{showTossLabels ? 'A' : ''}</span>
-                                            <span>{showTossLabels ? 'or' : ''}</span>
+                                            <span>{showTossLabels ? ui('A') : ''}</span>
+                                            <span>{showTossLabels ? ui('or') : ''}</span>
                                             <span className="relative">
-                                                {showTossLabels ? 'B' : ''}
+                                                {showTossLabels ? ui('B') : ''}
                                                 {showTossLabels && (
                                                     <div className="absolute inset-0 flex items-center justify-center text-[20px] font-normal leading-none -translate-y-[1px]">&times;</div>
                                                 )}
@@ -1027,16 +1015,16 @@ export default function ScoreSheet({ matchId }) {
                         <div className="flex-1 flex items-center justify-center p-3 gap-4">
                             {/* โลโก้ FIVB (CSS) */}
                             <div className="flex flex-col items-center justify-center w-[120px]">
-                                <span className="font-semibold text-[46px] tracking-tighter leading-[0.8]">FIVB</span>
+                                <span className="font-semibold text-[46px] tracking-tighter leading-[0.8]">{ui("FIVB")}</span>
                                 <div className="w-full h-3 border-t-[4px] border-black rounded-t-[50%] mt-1"></div>
                             </div>
                             <div className="flex-1 flex flex-col font-normal text-[22px] leading-[1.1] uppercase font-sans tracking-wide">
-                                <span>Federation Internationale</span>
-                                <span>De Volleyball</span>
+                                <span>{ui("Federation Internationale")}</span>
+                                <span>{ui("De Volleyball")}</span>
                             </div>
                         </div>
                         <div className="border-t-[3px] border-black h-[45px] flex items-center justify-center bg-gray-100 print:bg-white">
-                            <span className="font-semibold text-[24px] tracking-[0.1em] scale-y-110 transform">INTERNATIONAL SCORESHEET</span>
+                            <span className="font-semibold text-[24px] tracking-[0.1em] scale-y-110 transform">{ui("INTERNATIONAL SCORESHEET")}</span>
                         </div>
                     </div>
                 </div>
@@ -1111,23 +1099,23 @@ export default function ScoreSheet({ matchId }) {
                             {/* 1. SANCTIONS */}
                             <div className="w-[28%] border-2 border-black flex flex-col bg-white">
                                 <div className="flex border-b-2 border-black">
-                                    <div className="w-[60%] flex items-center justify-center font-bold text-[16px] tracking-wide">SANCTIONS</div>
+                                    <div className="w-[60%] flex items-center justify-center font-bold text-[16px] tracking-wide">{ui("SANCTIONS")}</div>
                                     <div className="w-[40%] border-l-2 border-black flex flex-col text-[8px] font-bold">
-                                        <div className="border-b border-black text-center py-[2px]">IMPROPER REQUEST</div>
+                                        <div className="border-b border-black text-center py-[2px]">{ui("IMPROPER REQUEST")}</div>
                                         {(() => {
                                             const irMarks = getImproperRequestMarks();
                                             const TeamMark = ({ label, marked }) => (
                                                 <div className="relative w-[12px] h-[12px] rounded-full border border-black flex items-center justify-center pb-[1px]">
-                                                    <span>{label}</span>
-                                                    {marked && <span className="absolute inset-0 flex items-center justify-center text-[15px] leading-none font-black">ร—</span>}
+                                                    <span>{ui(label)}</span>
+                                                    {marked && <span className="absolute inset-0 flex items-center justify-center text-[15px] leading-none font-black">{ui("ร—")}</span>}
                                                 </div>
                                             );
                                             return (
                                                 <div className="flex items-center justify-center gap-1.5 py-[2px] bg-gray-50 print:bg-white">
-                                                    <span>TEAM</span>
-                                                    <TeamMark label="A" marked={irMarks.A} />
-                                                    <span>: TEAM</span>
-                                                    <TeamMark label="B" marked={irMarks.B} />
+                                                    <span>{ui("TEAM")}</span>
+                                                    <TeamMark label={ui("A")} marked={irMarks.A} />
+                                                    <span>{ui(": TEAM")}</span>
+                                                    <TeamMark label={ui("B")} marked={irMarks.B} />
                                                 </div>
                                             );
                                         })()}
@@ -1136,13 +1124,13 @@ export default function ScoreSheet({ matchId }) {
                                 <table className="w-full text-center divide-y border-black table-fixed flex-1">
                                     <thead>
                                         <tr className="divide-x border-black bg-gray-50 print:bg-white text-[10px] font-bold">
-                                            <th className="w-[12%] leading-tight">W<br /><span className="text-[6px] font-normal">(Warning)</span></th>
-                                            <th className="w-[12%] leading-tight">P<br /><span className="text-[6px] font-normal">(Penalty)</span></th>
-                                            <th className="w-[12%] leading-tight">E<br /><span className="text-[6px] font-normal">(Expulsion)</span></th>
-                                            <th className="w-[12%] leading-tight">D<br /><span className="text-[6px] font-normal">(Disqual.)</span></th>
-                                            <th className="w-[12%] leading-tight">A<br /><span className="text-[6px] font-normal">or</span><br />B</th>
-                                            <th className="w-[15%]">SET</th>
-                                            <th>SCORE</th>
+                                            <th className="w-[12%] leading-tight">{ui("W")}<br /><span className="text-[6px] font-normal">{ui("(Warning)")}</span></th>
+                                            <th className="w-[12%] leading-tight">{ui("P")}<br /><span className="text-[6px] font-normal">{ui("(Penalty)")}</span></th>
+                                            <th className="w-[12%] leading-tight">{ui("E")}<br /><span className="text-[6px] font-normal">{ui("(Expulsion)")}</span></th>
+                                            <th className="w-[12%] leading-tight">{ui("D")}<br /><span className="text-[6px] font-normal">{ui("(Disqual.)")}</span></th>
+                                            <th className="w-[12%] leading-tight">{ui("A")}<br /><span className="text-[6px] font-normal">{ui("or")}</span><br />{ui("B")}</th>
+                                            <th className="w-[15%]">{ui("SET")}</th>
+                                            <th>{ui("SCORE")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y border-black font-bold text-[12px]">
@@ -1174,8 +1162,7 @@ export default function ScoreSheet({ matchId }) {
                                     </tbody>
                                 </table>
                                 <div className="border-t-2 border-black p-1 text-[8px] leading-[1.1] text-justify bg-gray-50 print:bg-white">
-                                    <span className="font-bold underline">To record sanctions:</span> Put the corresponding abbreviation (No. for player, <span className="font-bold">C</span>= Coach, <span className="font-bold">AC<sup>1</sup>/AC<sup>2</sup></span>= Assistant Coaches, <span className="font-bold">T</span>= Team Manager, <span className="font-bold">M</span>= Medical Doctor) or <span className="font-bold">D</span> for Delay sanctions, in the appropriate column and indicate the team, the set and the score at the moment of the sanction.
-                                </div>
+                                    <span className="font-bold underline">{ui("To record sanctions:")}</span>{' '}{ui("Put the corresponding abbreviation (No. for player,")}{' '}<span className="font-bold">{ui("C")}</span>{ui("= Coach,")}{' '}<span className="font-bold">{ui("AC")}<sup>1</sup>{ui("/AC")}<sup>2</sup></span>{ui("= Assistant Coaches,")}{' '}<span className="font-bold">{ui("T")}</span>{ui("= Team Manager,")}{' '}<span className="font-bold">{ui("M")}</span>{ui("= Medical Doctor) or")}{' '}<span className="font-bold">{ui("D")}</span>{ui("for Delay sanctions, in the appropriate column and indicate the team, the set and the score at the moment of the sanction.")}</div>
                             </div>
 
                             {/* 2. REMARKS & APPROVAL */}
@@ -1184,7 +1171,7 @@ export default function ScoreSheet({ matchId }) {
                                 {/* REMARKS */}
                                 <div className="h-[25%] border-2 border-black bg-white flex flex-col overflow-hidden">
                                     <div className="flex border-b border-black bg-gray-50 print:bg-white">
-                                        <div className="border-r border-black px-3 py-0.5 flex items-center justify-center font-bold text-[10px] tracking-wide shrink-0">REMARKS</div>
+                                        <div className="border-r border-black px-3 py-0.5 flex items-center justify-center font-bold text-[10px] tracking-wide shrink-0">{ui("REMARKS")}</div>
                                         <div className="flex-1 px-2 py-0.5 text-[10px] truncate">
                                             {getRemarks().map((r, idx) => {
                                                 let d = {};
@@ -1200,41 +1187,41 @@ export default function ScoreSheet({ matchId }) {
 
                                 {/* APPROVAL */}
                                 <div className="flex-1 border-2 border-black bg-white flex flex-col">
-                                    <div className="border-b-2 border-black font-bold text-center py-1 text-[16px] tracking-wide">APPROVAL</div>
+                                    <div className="border-b-2 border-black font-bold text-center py-1 text-[16px] tracking-wide">{ui("APPROVAL")}</div>
                                     <table className="w-full text-left table-fixed">
                                         <thead className="border-b border-black text-[11px] font-bold bg-gray-100 print:bg-white text-center">
                                             <tr className="divide-x border-black">
-                                                <th className="w-[15%] font-normal py-0.5">Referees</th>
-                                                <th className="w-[50%] font-normal">Name</th>
-                                                <th className="w-[15%] font-normal">Country</th>
-                                                <th className="w-[20%] font-normal">Signature</th>
+                                                <th className="w-[15%] font-normal py-0.5">{ui("Referees")}</th>
+                                                <th className="w-[50%] font-normal">{ui("Name")}</th>
+                                                <th className="w-[15%] font-normal">{ui("Country")}</th>
+                                                <th className="w-[20%] font-normal">{ui("Signature")}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y border-black text-[12px] font-bold">
                                             {/* กรรมการที่ 1 */}
                                             <tr className="divide-x border-black">
-                                                <td className="p-1 text-center">1<sup className="text-[8px]">st</sup></td>
+                                                <td className="p-1 text-center">1<sup className="text-[8px]">{ui("st")}</sup></td>
                                                 <td className="px-2 truncate uppercase">{`${matchData?.r1_firstname || ''} ${matchData?.r1_lastname || ''}`.trim()}</td>
                                                 <td className="px-2 text-center uppercase">{matchData?.r1_country || ''}</td>
-                                                <td className="p-0.5 relative h-[20px]">{matchSignatures.referee1 && <img src={matchSignatures.referee1} alt="Ref 1" className="absolute inset-0 w-full h-full object-contain" />}</td>
+                                                <td className="p-0.5 relative h-[20px]">{matchSignatures.referee1 && <img src={matchSignatures.referee1} alt={ui("Ref 1")} className="absolute inset-0 w-full h-full object-contain" />}</td>
                                             </tr>
                                             {/* กรรมการที่ 2 */}
                                             <tr className="divide-x border-black">
-                                                <td className="p-1 text-center">2<sup className="text-[8px]">nd</sup></td>
+                                                <td className="p-1 text-center">2<sup className="text-[8px]">{ui("nd")}</sup></td>
                                                 <td className="px-2 truncate uppercase">{`${matchData?.r2_firstname || ''} ${matchData?.r2_lastname || ''}`.trim()}</td>
                                                 <td className="px-2 text-center uppercase">{matchData?.r2_country || ''}</td>
-                                                <td className="p-0.5 relative h-[20px]">{matchSignatures.referee2 && <img src={matchSignatures.referee2} alt="Ref 2" className="absolute inset-0 w-full h-full object-contain" />}</td>
+                                                <td className="p-0.5 relative h-[20px]">{matchSignatures.referee2 && <img src={matchSignatures.referee2} alt={ui("Ref 2")} className="absolute inset-0 w-full h-full object-contain" />}</td>
                                             </tr>
                                             {/* ผู้บันทึกคะแนน */}
                                             <tr className="divide-x border-black">
-                                                <td className="p-1 text-center font-normal text-[11px]">Scorer</td>
+                                                <td className="p-1 text-center font-normal text-[11px]">{ui("Scorer")}</td>
                                                 <td className="px-2 truncate uppercase">{scorerName}</td>
                                                 <td className="px-2 text-center uppercase">{matchData?.scorer_country || ''}</td>
                                                 <td></td>
                                             </tr>
                                             {/* ผู้ช่วยผู้บันทึกคะแนน */}
                                             <tr className="divide-x border-black border-b border-black">
-                                                <td className="p-1 text-center leading-tight font-normal text-[10px]">Assistant<br />Scorer</td>
+                                                <td className="p-1 text-center leading-tight font-normal text-[10px]">{ui("Assistant")}<br />{ui("Scorer")}</td>
                                                 <td className="px-2 truncate uppercase">{assistantScorerName}</td>
                                                 <td className="px-2 text-center uppercase">{matchData?.assistant_scorer_country || ''}</td>
                                                 <td></td>
@@ -1254,7 +1241,7 @@ export default function ScoreSheet({ matchId }) {
                                                 {`${matchData?.lj3_firstname || ''} ${matchData?.lj3_lastname || ''}`.trim()}
                                             </div>
                                             <div className="flex-1 relative h-full flex items-center justify-end px-2">
-                                                {sigCapA && <img src={sigCapA} alt="Cap A" className="max-h-[20px] max-w-[80%] object-contain" />}
+                                                {sigCapA && <img src={sigCapA} alt={ui("Cap A")} className="max-h-[20px] max-w-[80%] object-contain" />}
                                             </div>
                                         </div>
 
@@ -1265,20 +1252,20 @@ export default function ScoreSheet({ matchId }) {
                                                 <div className="flex-1 border-b border-black flex items-center justify-center text-[11px] font-bold">1)</div>
                                                 <div className="flex-1 border-b border-black flex items-center justify-center text-[11px] font-bold">3)</div>
                                                 <div className="flex-1 flex items-center justify-center text-[12px] font-bold">
-                                                    <div className="w-[16px] h-[16px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">A</div>
+                                                    <div className="w-[16px] h-[16px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{ui("A")}</div>
                                                 </div>
                                             </div>
                                             {/* ข้อความ Line Judges & Team Captains */}
                                             <div className="w-[30%] flex flex-col">
-                                                <div className="flex-[2] border-b border-black flex items-center justify-center text-[10px] text-center leading-tight font-bold">Line<br />Judges</div>
-                                                <div className="flex-[1] flex items-center justify-center text-[9px] text-center leading-tight font-bold pt-1">Team<br />Captains</div>
+                                                <div className="flex-[2] border-b border-black flex items-center justify-center text-[10px] text-center leading-tight font-bold">{ui("Line")}<br />{ui("Judges")}</div>
+                                                <div className="flex-[1] flex items-center justify-center text-[9px] text-center leading-tight font-bold pt-1">{ui("Team")}<br />{ui("Captains")}</div>
                                             </div>
                                             {/* หมายเลข 2, 4, (B) */}
                                             <div className="w-[35%] flex flex-col border-l border-black">
                                                 <div className="flex-1 border-b border-black flex items-center justify-center text-[11px] font-bold">2)</div>
                                                 <div className="flex-1 border-b border-black flex items-center justify-center text-[11px] font-bold">4)</div>
                                                 <div className="flex-1 flex items-center justify-center text-[12px] font-bold">
-                                                    <div className="w-[16px] h-[16px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">B</div>
+                                                    <div className="w-[16px] h-[16px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{ui("B")}</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1292,7 +1279,7 @@ export default function ScoreSheet({ matchId }) {
                                                 {`${matchData?.lj4_firstname || ''} ${matchData?.lj4_lastname || ''}`.trim()}
                                             </div>
                                             <div className="flex-1 relative h-full flex items-center justify-start px-2">
-                                                {sigCapB && <img src={sigCapB} alt="Cap B" className="max-h-[20px] max-w-[80%] object-contain" />}
+                                                {sigCapB && <img src={sigCapB} alt={ui("Cap B")} className="max-h-[20px] max-w-[80%] object-contain" />}
                                             </div>
                                         </div>
                                     </div>
@@ -1301,25 +1288,25 @@ export default function ScoreSheet({ matchId }) {
 
                             {/* 3. RESULTS */}
                             <div className="w-[30%] border-2 border-black bg-white flex flex-col">
-                                <div className="border-b-2 border-black font-bold text-center py-1 text-[16px] tracking-wide">RESULTS</div>
+                                <div className="border-b-2 border-black font-bold text-center py-1 text-[16px] tracking-wide">{ui("RESULTS")}</div>
                                 <div className="flex border-b-2 border-black font-bold text-[12px] h-[30px] bg-gray-50 print:bg-white">
                                     <div className="w-[50%] flex justify-between px-2 items-center border-r-[1px] border-black">
-                                        <span className="text-[10px]">TEAM</span>
+                                        <span className="text-[10px]">{ui("TEAM")}</span>
                                         <div className={`flex-1 mx-2 border border-black h-[18px] bg-white flex items-center justify-center px-1 truncate ${getTeamFontSize(displayTeamA, 10)}`}>{displayTeamA}</div>
-                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">{showTossLabels ? 'A' : ''}</div>
+                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">{showTossLabels ? ui('A') : ''}</div>
                                     </div>
                                     <div className="w-[50%] flex justify-between px-2 items-center border-l-[1px] border-black">
-                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">{showTossLabels ? 'B' : ''}</div>
+                                        <div className="w-[20px] h-[20px] rounded-full border-2 border-black flex items-center justify-center text-[12px] pb-[1px] bg-white">{showTossLabels ? ui('B') : ''}</div>
                                         <div className={`flex-1 mx-2 border border-black h-[18px] bg-white flex items-center justify-center px-1 truncate ${getTeamFontSize(displayTeamB, 10)}`}>{displayTeamB}</div>
-                                        <span className="text-[10px]">TEAM</span>
+                                        <span className="text-[10px]">{ui("TEAM")}</span>
                                     </div>
                                 </div>
                                 <table className="w-full text-center divide-y border-black table-fixed flex-1 text-[14px]">
                                     <thead className="divide-x border-black bg-gray-50 print:bg-white">
                                         <tr className="divide-x border-black font-bold">
-                                            <th>"T"</th><th>S</th><th>W</th><th className="text-[12px] leading-tight">P</th>
-                                            <th className="w-[20%] text-[12px] leading-tight">SET <span className="text-[6px] ml-3">Duration</span></th>
-                                            <th className="text-[12px] leading-tight">P</th><th>W</th><th>S</th><th>"T"</th>
+                                            <th>{ui("\"T\"")}</th><th>{ui("S")}</th><th>{ui("W")}</th><th className="text-[12px] leading-tight">{ui("P")}</th>
+                                            <th className="w-[20%] text-[12px] leading-tight">{ui("SET")}{' '}<span className="text-[6px] ml-3">{ui("Duration")}</span></th>
+                                            <th className="text-[12px] leading-tight">{ui("P")}</th><th>{ui("W")}</th><th>{ui("S")}</th><th>{ui("\"T\"")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y border-black font-bold">
@@ -1382,18 +1369,18 @@ export default function ScoreSheet({ matchId }) {
                                         })}
                                         <tr className="divide-x border-black border-t-2 border-black bg-gray-100 print:bg-white">
                                             <td>{totalToA || ''}</td><td>{totalSubsA || ''}</td><td>{totalWonA || ''}</td><td className="text-[14px]">{totalPointsA || ''}</td>
-                                            <td className="leading-tight text-[8px] py-1 flex flex-col justify-center items-center h-full">Total Set Duration<br /><span className="font-normal text-[10px]">({totalDuration ? `${totalDuration}'` : '        '} mn)</span></td>
+                                            <td className="leading-tight text-[8px] py-1 flex flex-col justify-center items-center h-full">{ui("Total Set Duration")}<br /><span className="font-normal text-[10px]">({totalDuration ? `${totalDuration}'` : '        '}{' '}{ui("mn)")}</span></td>
                                             <td className="text-[14px]">{totalPointsB || ''}</td><td>{totalWonB || ''}</td><td>{totalSubsB || ''}</td><td>{totalToB || ''}</td>
                                         </tr>
                                     </tbody>
                                 </table>
                                 <div className="flex border-t-2 border-b-2 border-black text-[9px] font-bold text-center h-[35px] divide-x border-black bg-gray-50 print:bg-white">
-                                    <div className="flex-1 flex flex-col justify-center leading-tight">Match Starting Time<br /><span className="font-normal text-[12px]">{formatMatchTime(matchData.start_time)}</span></div>
-                                    <div className="flex-1 flex flex-col justify-center leading-tight">Match Ending Time<br /><span className="font-normal text-[12px]">{formatMatchTime(matchEndTime)}</span></div>
-                                    <div className="flex-1 flex flex-col justify-center leading-tight">Total Match Duration<br /><span className="font-normal text-[12px]">{totalMatchDuration > 0 ? `${Math.floor(totalMatchDuration / 60)} h ${totalMatchDuration % 60} mn` : '___ h ___ mn'}</span></div>
+                                    <div className="flex-1 flex flex-col justify-center leading-tight">{ui("Match Starting Time")}<br /><span className="font-normal text-[12px]">{formatMatchTime(matchData.start_time)}</span></div>
+                                    <div className="flex-1 flex flex-col justify-center leading-tight">{ui("Match Ending Time")}<br /><span className="font-normal text-[12px]">{formatMatchTime(matchEndTime)}</span></div>
+                                    <div className="flex-1 flex flex-col justify-center leading-tight">{ui("Total Match Duration")}<br /><span className="font-normal text-[12px]">{totalMatchDuration > 0 ? ui(`{0} h {1} mn`, [Math.floor(totalMatchDuration / 60), totalMatchDuration % 60]) : ui('___ h ___ mn')}</span></div>
                                 </div>
                                 <div className="flex items-center px-4  gap-3 font-semibold text-[18px]">
-                                    <span>WINNER</span>
+                                    <span>{ui("WINNER")}</span>
                                     <div className={`flex-1 border-b-2 border-black text-center truncate px-2 ${matchWinner && matchWinner.length > 25 ? 'text-[11px]' :
                                         matchWinner && matchWinner.length > 20 ? 'text-[13px]' :
                                             matchWinner && matchWinner.length > 15 ? 'text-[15px]' : 'text-[18px]'
@@ -1410,34 +1397,26 @@ export default function ScoreSheet({ matchId }) {
                         <div className="flex items-center justify-between px-2 py-1.5 border-b-2 border-black bg-gray-100 print:bg-white">
                             <div className="flex-1 flex justify-between items-center gap-1">
                                 <div className="flex flex-col text-[7px] leading-[7px] text-center font-bold">
-                                    <span className="relative">
-                                        A
-                                        <div className="absolute inset-0 flex items-center justify-center text-[14px] font-normal leading-none -translate-y-[1px]">&times;</div>
+                                    <span className="relative">{ui("A")}<div className="absolute inset-0 flex items-center justify-center text-[14px] font-normal leading-none -translate-y-[1px]">&times;</div>
                                     </span>
-                                    <span>or</span>
-                                    <span>B</span>
+                                    <span>{ui("or")}</span>
+                                    <span>{ui("B")}</span>
                                 </div>
-                                <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 ml-0.5">
-                                    A
-                                </div>
+                                <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 ml-0.5">{ui("A")}</div>
                                 <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 ml-0.5 ${getTeamFontSize(programTeamA, 10)}`}>
                                     {programTeamA}
                                 </div>
                             </div>
-                            <div className="text-[11px] font-bold text-center leading-[0.8] mx-1 shrink-0">TEAMS<br /><span className="text-[8px]">vs</span></div>
+                            <div className="text-[11px] font-bold text-center leading-[0.8] mx-1 shrink-0">{ui("TEAMS")}<br /><span className="text-[8px]">{ui("vs")}</span></div>
                             <div className="flex-1 flex justify-between items-center gap-1">
                                 <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 mr-0.5 ${getTeamFontSize(programTeamB, 10)}`}>
                                     {programTeamB}
                                 </div>
-                                <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 mr-0.5">
-                                    B
-                                </div>
+                                <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 mr-0.5">{ui("B")}</div>
                                 <div className="flex flex-col text-[7px] leading-[7px] text-center font-bold">
-                                    <span>A</span>
-                                    <span>or</span>
-                                    <span className="relative">
-                                        B
-                                        <div className="absolute inset-0 flex items-center justify-center text-[14px] font-normal leading-none -translate-y-[1px]">&times;</div>
+                                    <span>{ui("A")}</span>
+                                    <span>{ui("or")}</span>
+                                    <span className="relative">{ui("B")}<div className="absolute inset-0 flex items-center justify-center text-[14px] font-normal leading-none -translate-y-[1px]">&times;</div>
                                     </span>
                                 </div>
                             </div>
@@ -1447,7 +1426,7 @@ export default function ScoreSheet({ matchId }) {
                         <div className="grid grid-cols-2 divide-x-2 border-black border-b-2 flex-1 min-h-0">
                             {[visiblePlayersA, visiblePlayersB].map((visiblePlayers, teamIndex) => (
                                 <div key={`roster-team-${teamIndex}`} className="min-w-0 flex flex-col">
-                                    <div className="flex text-[10px] font-bold text-center bg-gray-50 print:bg-white border-b border-black"><div className="w-8 border-r border-black py-0.5">No.</div><div className="flex-1 py-0.5">Name of the player</div></div>
+                                    <div className="flex text-[10px] font-bold text-center bg-gray-50 print:bg-white border-b border-black"><div className="w-8 border-r border-black py-0.5">{ui("No.")}</div><div className="flex-1 py-0.5">{ui("Name of the player")}</div></div>
                                     <div className="flex-1 min-h-0 flex flex-col">
                                         {Array.from({ length: regularDisplayRowCount }, (_, i) => {
                                             const player = visiblePlayers[i];
@@ -1456,7 +1435,7 @@ export default function ScoreSheet({ matchId }) {
                                                     <div className="w-8 shrink-0 text-center font-bold text-[12px] flex items-center justify-center bg-gray-50 print:bg-white">
                                                         {player.isCaptain || player.is_captain ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}
                                                     </div>
-                                                    <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{getPlayerName(player)}</div>
+                                                    <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{displayNames.personName(player)}</div>
                                                 </div>
                                             ) : <div key={`empty-${i}`} className="flex-1 min-h-0" aria-hidden="true" />;
                                         })}
@@ -1466,7 +1445,7 @@ export default function ScoreSheet({ matchId }) {
                         </div>
 
                         {/* LIBERO */}
-                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">LIBERO PLAYERS ("L")</div>
+                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">{ui("LIBERO PLAYERS (\"L\")")}</div>
                         <div className="grid grid-cols-2 divide-x-2 border-black border-b-2" style={{ height: `${liberoDisplayRowCount * 20}px` }}>
                             {[visibleLiberoPlayersA, visibleLiberoPlayersB].map((visiblePlayers, teamIndex) => (
                                 <div key={`libero-team-${teamIndex}`} className="flex-1 flex flex-col min-h-0">
@@ -1475,7 +1454,7 @@ export default function ScoreSheet({ matchId }) {
                                         return player ? (
                                             <div key={`libero-${i}`} className="min-w-0 flex-1 flex divide-x border-b border-black min-h-0">
                                                 <div className="w-8 shrink-0 bg-gray-50 print:bg-white flex items-center justify-center font-bold text-[12px]">{player.isCaptain || player.is_captain ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}</div>
-                                                <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{getPlayerName(player)}</div>
+                                                <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{displayNames.personName(player)}</div>
                                             </div>
                                         ) : <div key={`libero-empty-${i}`} className="flex-1 min-h-0" aria-hidden="true" />;
                                     })}
@@ -1483,7 +1462,7 @@ export default function ScoreSheet({ matchId }) {
                             ))}
                         </div>
                         {/* OFFICIALS */}
-                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">OFFICIALS</div>
+                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">{ui("OFFICIALS")}</div>
                         <div className="flex flex-col border-b-2 border-black h-[90px] divide-y border-black">
                             {[{ r: 'C', nameA: coachA, nameB: coachB }, { r: 'AC1', nameA: ac1A, nameB: ac1B }, { r: 'AC2', nameA: ac2A, nameB: ac2B }, { r: 'T', nameA: tmA, nameB: tmB }, { r: 'M', nameA: mdA, nameB: mdB }].map(item => (
                                 <div key={`off-${item.r}`} className="flex-1 flex divide-x border-black">
@@ -1495,26 +1474,26 @@ export default function ScoreSheet({ matchId }) {
                         </div>
 
                         {/* SIGNATURES */}
-                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">SIGNATURES</div>
+                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">{ui("SIGNATURES")}</div>
                         <div className="flex divide-x-2 border-black h-[50px]">
                             <div className="flex-1 flex flex-col divide-y border-black">
                                 <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCapA && <img src={sigCapA} alt="Cap A" className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>Team Captain: </span>
+                                    {sigCapA && <img src={sigCapA} alt={ui("Cap A")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
+                                    <span>{ui("Team Captain:")}{' '}</span>
                                 </div>
                                 <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCoachA && <img src={sigCoachA} alt="Coach A" className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>Coach: </span>
+                                    {sigCoachA && <img src={sigCoachA} alt={ui("Coach A")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
+                                    <span>{ui("Coach:")}{' '}</span>
                                 </div>
                             </div>
                             <div className="flex-1 flex flex-col divide-y border-black">
                                 <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCapB && <img src={sigCapB} alt="Cap B" className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>Team Captain: </span>
+                                    {sigCapB && <img src={sigCapB} alt={ui("Cap B")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
+                                    <span>{ui("Team Captain:")}{' '}</span>
                                 </div>
                                 <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCoachB && <img src={sigCoachB} alt="Coach B" className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>Coach: </span>
+                                    {sigCoachB && <img src={sigCoachB} alt={ui("Coach B")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
+                                    <span>{ui("Coach:")}{' '}</span>
                                 </div>
                             </div>
                         </div>
@@ -1613,25 +1592,26 @@ export default function ScoreSheet({ matchId }) {
 // ---------------------------------------------------------
 
 // 1. หัวข้อแถวด้านซ้ายสุด (Row Header)
-const RowHeader = () => (
-    <div className="w-[8%] flex flex-col border-r-2 border-black text-[10px] font-bold bg-white">
+const RowHeader = () => {
+    const ui = useUiTranslation();
+    return (<div className="w-[8%] flex flex-col border-r-2 border-black text-[10px] font-bold bg-white">
         <div className="flex-[1.5] border-b-2 border-black"></div>
 
         <div className="flex-[5] flex border-b border-black">
             <div className="w-6 border-r border-black flex items-center justify-center">
-                <span className="transform -rotate-90 whitespace-nowrap">Team line-up</span>
+                <span className="transform -rotate-90 whitespace-nowrap">{ui("Team line-up")}</span>
             </div>
             <div className="flex-1 flex flex-col divide-y border-black bg-gray-50 print:bg-white">
-                <div className="flex-1 flex items-center justify-end pr-1">Service order</div>
-                <div className="flex-1 flex items-center justify-end pr-1">No. of Starting players</div>
+                <div className="flex-1 flex items-center justify-end pr-1">{ui("Service order")}</div>
+                <div className="flex-1 flex items-center justify-end pr-1">{ui("No. of Starting players")}</div>
                 <div className="flex-[3] flex">
                     <div className="w-5 border-r border-black flex items-center justify-center">
-                        <span className="transform -rotate-90">Substitutes</span>
+                        <span className="transform -rotate-90">{ui("Substitutes")}</span>
                     </div>
                     <div className="flex-1 flex flex-col divide-y border-black">
-                        <div className="flex-1 flex items-center justify-end pr-1">No. of Player</div>
+                        <div className="flex-1 flex items-center justify-end pr-1">{ui("No. of Player")}</div>
                         <div className="flex-[2] flex flex-col justify-center items-end pr-1 text-right leading-[1.1]">
-                            <span>Score</span><span>at change</span>
+                            <span>{ui("Score")}</span><span>{ui("at change")}</span>
                         </div>
                     </div>
                 </div>
@@ -1640,17 +1620,18 @@ const RowHeader = () => (
 
         <div className="flex-[4] flex">
             <div className="w-6 border-r border-black flex items-center justify-center">
-                <span className="transform -rotate-90 whitespace-nowrap">Service rounds</span>
+                <span className="transform -rotate-90 whitespace-nowrap">{ui("Service rounds")}</span>
             </div>
             <div className="flex-1 flex flex-col divide-y border-black bg-gray-50 ">
-                <div className="flex-1 flex justify-between items-center px-2"><span>1st</span><span>5th</span></div>
-                <div className="flex-1 flex justify-between items-center px-2"><span>2nd</span><span>6th</span></div>
-                <div className="flex-1 flex justify-between items-center px-2"><span>3rd</span><span>7th</span></div>
-                <div className="flex-1 flex justify-between items-center px-2"><span>4th</span><span>8th</span></div>
+                <div className="flex-1 flex justify-between items-center px-2"><span>{ui("1st")}</span><span>{ui("5th")}</span></div>
+                <div className="flex-1 flex justify-between items-center px-2"><span>{ui("2nd")}</span><span>{ui("6th")}</span></div>
+                <div className="flex-1 flex justify-between items-center px-2"><span>{ui("3rd")}</span><span>{ui("7th")}</span></div>
+                <div className="flex-1 flex justify-between items-center px-2"><span>{ui("4th")}</span><span>{ui("8th")}</span></div>
             </div>
         </div>
     </div>
 );
+};
 
 const CircleSR = ({ type, isCrossed }) => (
     <div className="relative w-[12px] h-[12px] rounded-full border border-black flex items-center justify-center text-[9px] text-black font-bold bg-white">
@@ -1666,6 +1647,7 @@ const CircleSR = ({ type, isCrossed }) => (
 
 // 2. กล่องหลักสำหรับแต่ละ Set
 const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, endTime, lineupL, lineupR, subsL, subsR, toL, toR, scoreL = 0, scoreR = 0, isTeamAServesFirst, serviceScoresL = [], serviceScoresR = [], isGreyedOut }) => {
+    const ui = useUiTranslation();
     const isSetStarted = (lineupL && lineupL.some(p => p !== '')) || (lineupR && lineupR.some(p => p !== '')) || !!startTime || !!endTime;
 
     // Clear everything if greyed out to prevent duplicate displays in Set 3 / Set 5
@@ -1690,7 +1672,7 @@ const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, e
 
 
             <div className="w-[5%] flex flex-col items-center justify-center border-r-2 border-black font-semibold text-lg bg-gray-100">
-                <span>S</span><span>E</span><span>T</span>
+                <span>{ui("S")}</span><span>{ui("E")}</span><span>{ui("T")}</span>
                 <span className="text-2xl mt-1">{setNum}</span>
             </div>
 
@@ -1702,7 +1684,7 @@ const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, e
                     <div className="w-[42%] flex items-center justify-between px-1 min-w-0">
                         <div className="flex items-center gap-1 shrink-0">
                             <div className="flex flex-col items-start leading-[0.9] text-[9px] font-bold">
-                                <span>START</span><span>time</span>
+                                <span>{ui("START")}</span><span>{ui("time")}</span>
                             </div>
                             <div className="flex flex-col items-center">
                                 <div className="border border-black w-12 h-[20px] flex items-center justify-center text-[11px] whitespace-nowrap overflow-hidden bg-white tracking-wide">
@@ -1712,7 +1694,7 @@ const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, e
                             </div>
                         </div>
                         <div className="flex items-center gap-[2px] flex-1 justify-start min-w-0">
-                            <span className="text-[10px] shrink-0 ml-2">TEAM</span>
+                            <span className="text-[10px] shrink-0 ml-2">{ui("TEAM")}</span>
                             <div className={`relative border border-black  flex-1 max-w-[120px] mx-1 h-[20px] flex items-center justify-center bg-white truncate px-1 ${getTeamFontSize(displayTeamL, 12)}`}>
                                 {displayTeamL}
                             </div>
@@ -1725,9 +1707,7 @@ const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, e
                     </div>
 
                     {/* 2. POINTS L (8%) */}
-                    <div className="w-[8%] flex items-center justify-center text-black font-bold text-[12px] bg-white shrink-0">
-                        POINTS
-                    </div>
+                    <div className="w-[8%] flex items-center justify-center text-black font-bold text-[12px] bg-white shrink-0">{ui("POINTS")}</div>
 
                     {/* 3. TEAM R Header (42%) */}
                     <div className="w-[42%] flex items-center justify-between px-1 min-w-0">
@@ -1740,7 +1720,7 @@ const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, e
                             <div className={`relative border border-black flex-1 max-w-[125px] mx-1 h-[20px] flex items-center justify-center bg-white truncate px-1 ${getTeamFontSize(displayTeamR, 12)}`}>
                                 {displayTeamR}
                             </div>
-                            <span className="text-[10px] shrink-0">TEAM</span>
+                            <span className="text-[10px] shrink-0">{ui("TEAM")}</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                             <div className="flex flex-col items-center ">
@@ -1749,15 +1729,13 @@ const FivbSetBox = ({ setNum, teamL, teamR, labelL, labelR, isLast, startTime, e
                                 </div>
                             </div>
                             <div className="flex flex-col items-start leading-[0.9] text-[9px] font-bold">
-                                <span>END</span><span>time</span>
+                                <span>{ui("END")}</span><span>{ui("time")}</span>
                             </div>
                         </div>
                     </div>
 
                     {/* 4. POINTS R (8%) */}
-                    <div className="w-[8%] flex items-center justify-center text-black font-bold text-[12px] bg-white shrink-0">
-                        POINTS
-                    </div>
+                    <div className="w-[8%] flex items-center justify-center text-black font-bold text-[12px] bg-white shrink-0">{ui("POINTS")}</div>
                 </div>
 
                 <div className="flex-[10] flex divide-x-2 divide-black">
@@ -1852,8 +1830,9 @@ const TeamGrid = ({ startingPlayers = Array(6).fill(''), subs = Array(6).fill(nu
 );
 
 // 4. คอลัมน์คะแนน 1-48
-const PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => (
-    <div className="flex flex-col w-full h-full bg-white">
+const PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => {
+    const ui = useUiTranslation();
+    return (<div className="flex flex-col w-full h-full bg-white">
         <div className="flex-[7] flex divide-x border-black overflow-hidden">
             {[0, 12, 24, 36].map((offset) => (
                 <div key={offset} className="flex-1 flex flex-col justify-between py-[2px]">
@@ -1873,50 +1852,54 @@ const PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => (
         </div>
 
         <div className="flex-[2] flex flex-col divide-y border-t border-black bg-white">
-            <div className="flex-1 flex items-center justify-center font-bold text-[14px]">"T"</div>
+            <div className="flex-1 flex items-center justify-center font-bold text-[14px]">{ui("\"T\"")}</div>
             <div className="flex-1 flex items-center justify-center font-bold text-[12px] leading-none pb-[2px]">{timeouts[0] || ''}</div>
             <div className="flex-1 flex items-center justify-center font-bold text-[12px] leading-none pb-[2px]">{timeouts[1] || ''}</div>
         </div>
     </div>
 );
+};
 
 // ---------------------------------------------------------
 // คอมโพเนนต์ย่อยเฉพาะสำหรับ Set 5
 // ---------------------------------------------------------
 
-const Set5RowHeader = () => (
-    <div className="w-[12%] flex flex-col border-r-2 border-black text-[10px] font-bold bg-white">
+const Set5RowHeader = () => {
+    const ui = useUiTranslation();
+    return (<div className="w-[12%] flex flex-col border-r-2 border-black text-[10px] font-bold bg-white">
         <div className="flex-[1.5] border-b-2 border-black"></div>
         <div className="flex-[5] flex border-b border-black">
             <div className="w-6 border-r border-black flex items-center justify-center">
-                <span className="transform -rotate-90 whitespace-nowrap">Team line-up</span>
+                <span className="transform -rotate-90 whitespace-nowrap">{ui("Team line-up")}</span>
             </div>
             <div className="flex-1 flex flex-col divide-y border-black bg-gray-50 print:bg-white">
-                <div className="flex-1 flex items-center justify-end pr-1">Service order</div>
-                <div className="flex-1 flex items-center justify-end pr-1">No. of Starting players</div>
+                <div className="flex-1 flex items-center justify-end pr-1">{ui("Service order")}</div>
+                <div className="flex-1 flex items-center justify-end pr-1">{ui("No. of Starting players")}</div>
                 <div className="flex-[3] flex">
-                    <div className="w-5 border-r border-black flex items-center justify-center"><span className="transform -rotate-90">Substitutes</span></div>
+                    <div className="w-5 border-r border-black flex items-center justify-center"><span className="transform -rotate-90">{ui("Substitutes")}</span></div>
                     <div className="flex-1 flex flex-col divide-y border-black">
-                        <div className="flex-1 flex items-center justify-end pr-1">No. of Player</div>
-                        <div className="flex-[2] flex flex-col justify-center items-end pr-1 text-right leading-[1.1]"><span>Score</span><span>at change</span></div>
+                        <div className="flex-1 flex items-center justify-end pr-1">{ui("No. of Player")}</div>
+                        <div className="flex-[2] flex flex-col justify-center items-end pr-1 text-right leading-[1.1]"><span>{ui("Score")}</span><span>{ui("at change")}</span></div>
                     </div>
                 </div>
             </div>
         </div>
         <div className="flex-[3] flex">
             <div className="w-6 border-r border-black flex items-center justify-center">
-                <span className="transform -rotate-90 whitespace-nowrap">Service rounds</span>
+                <span className="transform -rotate-90 whitespace-nowrap">{ui("Service rounds")}</span>
             </div>
             <div className="flex-1 flex flex-col divide-y border-black bg-gray-50 print:bg-white">
-                <div className="flex-1 flex justify-between items-center px-2"><span>1st</span><span>4th</span></div>
-                <div className="flex-1 flex justify-between items-center px-2"><span>2nd</span><span>5th</span></div>
-                <div className="flex-1 flex justify-between items-center px-2"><span>3rd</span><span>6th</span></div>
+                <div className="flex-1 flex justify-between items-center px-2"><span>{ui("1st")}</span><span>{ui("4th")}</span></div>
+                <div className="flex-1 flex justify-between items-center px-2"><span>{ui("2nd")}</span><span>{ui("5th")}</span></div>
+                <div className="flex-1 flex justify-between items-center px-2"><span>{ui("3rd")}</span><span>{ui("6th")}</span></div>
             </div>
         </div>
     </div>
 );
+};
 
 const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lineupL, lineupR, subsL, subsR, toL, toR, scoreL = 0, scoreR = 0, serviceScoresL = [], serviceScoresR = [], isTeamLServesFirst }) => {
+    const ui = useUiTranslation();
     const isSetStarted = (lineupL && lineupL.some(p => p !== '')) || (lineupR && lineupR.some(p => p !== '')) || !!startTime || !!endTime;
 
     // Clear everything if the set has not started yet
@@ -1978,7 +1961,7 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
     return (
         <div className="w-[88%] flex relative">
             <div className="w-[4%] flex flex-col items-center justify-center border-r-2 border-black font-semibold text-lg bg-gray-100 shrink-0">
-                <span>S</span><span>E</span><span>T</span>
+                <span>{ui("S")}</span><span>{ui("E")}</span><span>{ui("T")}</span>
                 <span className="text-2xl mt-1">{setNum || 5}</span> {/* แสดงหมายเลขเซต 3 หรือ 5 ได้ */}
             </div>
 
@@ -1990,7 +1973,7 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
                     <div className="w-[26%] border-r-2 border-black flex items-center justify-between px-1 min-w-0">
                         <div className="flex items-center gap-[2px] shrink-0">
                             <div className="flex flex-col items-end leading-[0.9] text-[9px] font-bold">
-                                <span>START</span><span>time</span>
+                                <span>{ui("START")}</span><span>{ui("time")}</span>
                             </div>
                             <div className="flex flex-col items-center">
                                 <div className="border border-black w-12 h-[20px] flex items-center justify-center text-[11px] whitespace-nowrap overflow-hidden bg-white tracking-wide">
@@ -1999,7 +1982,7 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
                             </div>
                         </div>
                         <div className="flex items-center gap-[1px] flex-1 justify-start ml-2 min-w-0">
-                            <span className="text-[9px] shrink-0">TEAM</span>
+                            <span className="text-[9px] shrink-0">{ui("TEAM")}</span>
                             <div className={`relative border border-black flex-1 max-w-[120px] mx-[2px] h-[20px] flex items-center justify-center truncate px-1 bg-white ${getTeamFontSize(displayTeamL, 12)}`}>
                                 {displayTeamL}
                             </div>
@@ -2012,7 +1995,7 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
                     </div>
 
                     {/* P1: 6% */}
-                    <div className="w-[6%] border-r-2 border-black flex items-center justify-center bg-white text-[12px] font-bold text-black shrink-0">POINTS</div>
+                    <div className="w-[6%] border-r-2 border-black flex items-center justify-center bg-white text-[12px] font-bold text-black shrink-0">{ui("POINTS")}</div>
 
                     {/* R1: 26% */}
                     <div className="w-[26%] border-r-2 border-black flex items-center justify-between px-1 min-w-0">
@@ -2025,7 +2008,7 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
                             <div className={`relative border border-black flex-1 ml-2 max-w-[125px] mx-[2px] h-[20px] flex items-center justify-center truncate px-1 bg-white ${getTeamFontSize(displayTeamR, 12)}`}>
                                 {displayTeamR}
                             </div>
-                            <span className="text-[9px] shrink-0">TEAM</span>
+                            <span className="text-[9px] shrink-0">{ui("TEAM")}</span>
                         </div>
                         <div className="flex items-center gap-[2px] shrink-0">
                             <div className="flex flex-col items-center">
@@ -2034,13 +2017,13 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
                                 </div>
                             </div>
                             <div className="flex flex-col items-start leading-[0.9] text-[9px] font-bold">
-                                <span>END</span><span>time</span>
+                                <span>{ui("END")}</span><span>{ui("time")}</span>
                             </div>
                         </div>
                     </div>
 
                     {/* P2: 6% */}
-                    <div className="w-[6%] border-r-2 border-black flex items-center justify-center bg-white text-[12px] font-bold text-black shrink-0">POINTS</div>
+                    <div className="w-[6%] border-r-2 border-black flex items-center justify-center bg-white text-[12px] font-bold text-black shrink-0">{ui("POINTS")}</div>
 
                     {/* C: 4% */}
                     <div className="w-[4%] border-r-2 border-black flex flex-col items-center justify-center text-[10px] font-bold bg-white shrink-0">
@@ -2050,11 +2033,11 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
                     {/* L2 (Change): 26% */}
                     <div className="w-[26%] border-r-2 border-black flex items-center justify-between px-1 min-w-0">
                         <div className="flex items-center gap-[2px] shrink-0">
-                            <span className="text-[9px]">TEAM</span>
+                            <span className="text-[9px]">{ui("TEAM")}</span>
                             <div className="w-[20px] h-[20px] rounded-full border-[1.5px] border-black flex items-center justify-center text-[12px] pb-[1px] ml-1">{labelL}</div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[12px] font-bold tracking-tighter">POINTS AT CHANGE</span>
+                            <span className="text-[12px] font-bold tracking-tighter">{ui("POINTS AT CHANGE")}</span>
                             <div className="border border-black w-12 h-[20px] bg-white flex items-center justify-center font-bold text-[12px]">
                                 {actualScoreL >= 8 || actualScoreR >= 8 ? '8' : ''}
                             </div>
@@ -2062,7 +2045,7 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
                     </div>
 
                     {/* P3: 6% */}
-                    <div className="w-[6%] flex items-center justify-center bg-white text-[12px] font-bold text-black shrink-0">POINTS</div>
+                    <div className="w-[6%] flex items-center justify-center bg-white text-[12px] font-bold text-black shrink-0">{ui("POINTS")}</div>
                 </div>
 
                 {/* พื้นที่ Grid ของ Set 5 ด้านล่าง */}
@@ -2083,9 +2066,9 @@ const Set5Box = ({ setNum, teamL, teamR, labelL, labelR, startTime, endTime, lin
 
                     {/* แถบ Change Side */}
                     <div className="w-[4%] border-r-2 border-black flex flex-col items-center justify-center text-[11px] font-bold leading-[1.2] bg-white text-gray-800 shrink-0">
-                        <span>c</span><span>h</span><span>a</span><span>n</span><span>g</span><span>e</span>
+                        <span>{ui("c")}</span><span>{ui("h")}</span><span>{ui("a")}</span><span>{ui("n")}</span><span>{ui("g")}</span><span>{ui("e")}</span>
                         <div className="h-1"></div>
-                        <span>s</span><span>i</span><span>d</span><span>e</span>
+                        <span>{ui("s")}</span><span>{ui("i")}</span><span>{ui("d")}</span><span>{ui("e")}</span>
                     </div>
 
                     {/* ฝั่งขวาสุด (ทีม L หลังเปลี่ยนแดนที่แต้ม 8) */}
@@ -2179,8 +2162,9 @@ const Set5TeamGrid = ({ startingPlayers = Array(6).fill(''), subs = Array(6).fil
     </div>
 );
 
-const Set5PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => (
-    <div className="flex flex-col w-full h-full bg-white">
+const Set5PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => {
+    const ui = useUiTranslation();
+    return (<div className="flex flex-col w-full h-full bg-white">
         <div className="flex-[6] flex divide-x border-black overflow-hidden">
             {[0, 10, 20].map((offset) => (
                 <div key={offset} className="flex-1 flex flex-col justify-between py-[1px]">
@@ -2200,9 +2184,10 @@ const Set5PointsColumn = ({ minScore = 1, maxScore = 0, timeouts = [] }) => (
         </div>
 
         <div className="flex-[2] flex flex-col divide-y border-t border-black bg-white">
-            <div className="flex-1 flex items-center justify-center font-bold text-[14px]">"T"</div>
+            <div className="flex-1 flex items-center justify-center font-bold text-[14px]">{ui("\"T\"")}</div>
             <div className="flex-1 flex items-center justify-center font-bold text-[12px] leading-none pb-[2px]">{timeouts[0] || ''}</div>
             <div className="flex-1 flex items-center justify-center font-bold text-[12px] leading-none pb-[2px]">{timeouts[1] || ''}</div>
         </div>
     </div>
 );
+};

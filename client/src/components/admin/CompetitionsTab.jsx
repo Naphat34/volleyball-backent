@@ -1,4 +1,6 @@
-﻿import React, { useEffect, useState } from 'react';
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
+import React, { useEffect, useState } from 'react';
 import client, { api } from '../../api';
 import { Trophy, Calendar, MapPin, Edit2, Trash2, PlusCircle, X,  Users, Shield, Download, Upload, Image as ImageIcon, Layers } from 'lucide-react';
 import { Toast, Input, Button, EmptyState } from './AdminShared';
@@ -54,6 +56,8 @@ const getGenderLabel = (gender) => {
 };
 
 export default function CompetitionsTab() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const [competitions, setCompetitions] = useState([]);
     const [compForm, setCompForm] = useState(DEFAULT_COMP_FORM);
     const [editingCompId, setEditingCompId] = useState(null);
@@ -210,13 +214,13 @@ export default function CompetitionsTab() {
     };
 
     const handleDeleteComp = async (id) => {
-        const result = await Swal.fire({
-            title: 'Are you sure?',
-            text: "You won't be able to revert this!",
+        const result = await Swal.fire({ uiTextLocalized: true,
+            title: ui('Are you sure?'),
+            text: ui("You won't be able to revert this!"),
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
+            confirmButtonText: ui('Yes, delete it!')
         });
 
         if (result.isConfirmed) {
@@ -284,10 +288,9 @@ export default function CompetitionsTab() {
             <div className="official-header rounded-md px-6 py-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Competition Control</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">{ui("Competition Control")}</p>
                         <h2 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight">
-                            <Trophy size={24} /> Competitions Management
-                        </h2>
+                            <Trophy size={24} />{ui("Competitions Management")}</h2>
                     </div>
                     <button
                         onClick={() => {
@@ -297,8 +300,7 @@ export default function CompetitionsTab() {
                         }}
                         className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-white px-5 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition-colors hover:bg-blue-50"
                     >
-                        <PlusCircle size={18} /> New Competition
-                    </button>
+                        <PlusCircle size={18} />{ui("New Competition")}</button>
                 </div>
             </div>
 
@@ -306,11 +308,9 @@ export default function CompetitionsTab() {
             <div className="official-panel rounded-md overflow-hidden">
                 <div className="official-panel-header flex items-center justify-between px-6 py-4">
                     <h3 className="flex items-center gap-2 font-semibold tracking-tight text-gray-900">
-                        <Layers size={18} className="text-blue-600" /> Competition List
-                    </h3>
+                        <Layers size={18} className="text-blue-600" />{ui("Competition List")}</h3>
                     <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                        {competitions.length} Categories
-                    </span>
+                        {competitions.length}{ui("Categories")}</span>
                 </div>
 
                 <div className="p-6">
@@ -322,14 +322,14 @@ export default function CompetitionsTab() {
                                 <table className="min-w-[1120px] w-full text-left text-sm">
                                     <thead className="official-table-head border-b border-gray-200 text-xs font-bold uppercase tracking-wide">
                                         <tr>
-                                            <th className="px-4 py-3">Competition</th>
-                                            <th className="px-4 py-3">Age Group</th>
-                                            <th className="px-4 py-3">Gender</th>
-                                            <th className="px-4 py-3">Status</th>
-                                            <th className="px-4 py-3">Teams</th>
-                                            <th className="px-4 py-3">Start Date</th>
-                                            <th className="px-4 py-3">Stadium</th>
-                                            <th className="px-4 py-3 text-right">Actions</th>
+                                            <th className="px-4 py-3">{ui("Competition")}</th>
+                                            <th className="px-4 py-3">{ui("Age Group")}</th>
+                                            <th className="px-4 py-3">{ui("Gender")}</th>
+                                            <th className="px-4 py-3">{ui("Status")}</th>
+                                            <th className="px-4 py-3">{ui("Teams")}</th>
+                                            <th className="px-4 py-3">{ui("Start Date")}</th>
+                                            <th className="px-4 py-3">{ui("Stadium")}</th>
+                                            <th className="px-4 py-3 text-right">{ui("Actions")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -350,7 +350,7 @@ export default function CompetitionsTab() {
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <p className="truncate font-semibold text-gray-900">{sectionTitle}</p>
-                                                                <p className="text-xs text-gray-500">Category ID: {c.id}</p>
+                                                                <p className="text-xs text-gray-500">{ui("Category ID:")}{' '}{c.id}</p>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -372,7 +372,7 @@ export default function CompetitionsTab() {
                                                             className="disabled:cursor-not-allowed disabled:opacity-60"
                                                         >
                                                             <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${c.status === 'open' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
-                                                                {isUpdatingStatus ? 'Saving...' : c.status === 'open' ? 'Open' : 'Closed'}
+                                                                {isUpdatingStatus ? ui('Saving...') : c.status === 'open' ? ui('Open') : ui('Closed')}
                                                             </span>
                                                         </button>
                                                     </td>
@@ -380,8 +380,7 @@ export default function CompetitionsTab() {
                                                     <td className="px-4 py-3 text-gray-600">
                                                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                                                             <Users size={14} className="text-gray-400" />
-                                                            {c.team_count || 0} Teams
-                                                        </span>
+                                                            {c.team_count || 0}{ui("Teams")}</span>
                                                     </td>
                                                     <td className="px-4 py-3 text-gray-600">
                                                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
@@ -397,10 +396,10 @@ export default function CompetitionsTab() {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center justify-end gap-2">
-                                                            <button onClick={() => setManagingMatchesComp(c)} className="whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Matches</button>
-                                                            <button onClick={() => handleViewTeams(competitionWithLogoFallback)} className="whitespace-nowrap rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">Teams</button>
-                                                            <button onClick={() => handleEditComp(competitionWithLogoFallback)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600" aria-label="Edit competition"><Edit2 size={16} /></button>
-                                                            <button onClick={() => handleDeleteComp(c.id)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600" aria-label="Delete competition"><Trash2 size={16} /></button>
+                                                            <button onClick={() => setManagingMatchesComp(c)} className="whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">{ui("Matches")}</button>
+                                                            <button onClick={() => handleViewTeams(competitionWithLogoFallback)} className="whitespace-nowrap rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">{ui("Teams")}</button>
+                                                            <button onClick={() => handleEditComp(competitionWithLogoFallback)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600" aria-label={ui("Edit competition")}><Edit2 size={16} /></button>
+                                                            <button onClick={() => handleDeleteComp(c.id)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600" aria-label={ui("Delete competition")}><Trash2 size={16} /></button>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -421,7 +420,7 @@ export default function CompetitionsTab() {
                         <div className="official-panel-header px-6 py-4 flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                                 <Trophy size={20} className="text-blue-600" />
-                                {editingCompId ? 'Edit Competition' : 'New Competition'}
+                                {editingCompId ? ui('Edit Competition') : ui('New Competition')}
                             </h2>
                             <button onClick={() => {
                                 setShowModal(false);
@@ -432,13 +431,13 @@ export default function CompetitionsTab() {
                             </button>
                         </div>
                         <form onSubmit={handleCompSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[80vh]">
-                            <Input label="Name" value={compForm.name} onChange={e => setCompForm({ ...compForm, name: e.target.value })} required />
+                            <Input label={ui("Name")} value={compForm.name} onChange={e => setCompForm({ ...compForm, name: e.target.value })} required />
                             <div className="space-y-1.5">
-                                <label className="block text-sm font-medium text-gray-700">Competition Logo / Symbol</label>
+                                <label className="block text-sm font-medium text-gray-700">{ui("Competition Logo / Symbol")}</label>
                                 <div className="flex items-center gap-4 rounded-md border border-gray-200 bg-gray-50 p-3">
                                     <div className="h-20 w-20 shrink-0 rounded-md border border-gray-200 bg-white flex items-center justify-center overflow-hidden">
                                         {compForm.logo_url ? (
-                                            <img src={compForm.logo_url} alt={compForm.name || 'Competition logo'} className="h-full w-full object-contain p-1.5" />
+                                            <img src={compForm.logo_url} alt={(compForm.name) || (ui('Competition logo'))} className="h-full w-full object-contain p-1.5" />
                                         ) : (
                                             <ImageIcon size={24} className="text-gray-300" />
                                         )}
@@ -446,32 +445,30 @@ export default function CompetitionsTab() {
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <label className="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 cursor-pointer transition">
-                                                <Upload size={16} />
-                                                Browse
-                                                <input type="file" accept="image/*" className="hidden" onChange={handleCompetitionLogoFileChange} />
+                                                <Upload size={16} />{ui("Browse")}<input type="file" accept="image/*" className="hidden" onChange={handleCompetitionLogoFileChange} />
                                             </label>
                                             {compForm.logo_url && (
                                                 <button
                                                     type="button"
                                                     onClick={() => setCompForm(prev => ({ ...prev, logo_url: '' }))}
                                                     className="inline-flex items-center justify-center h-10 w-10 rounded-md border border-gray-300 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600 transition"
-                                                    aria-label="Remove competition logo"
+                                                    aria-label={ui("Remove competition logo")}
                                                 >
                                                     <X size={16} />
                                                 </button>
                                             )}
                                         </div>
-                                        <p className="mt-2 text-xs text-gray-500">JPG, PNG, WebP or GIF up to 2MB</p>
+                                        <p className="mt-2 text-xs text-gray-500">{ui("JPG, PNG, WebP or GIF up to 2MB")}</p>
                                     </div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <Input label="Start Date" type="date" value={compForm.start_date} onChange={e => setCompForm({ ...compForm, start_date: e.target.value })} required />
-                                <Input label="End Date" type="date" value={compForm.end_date} onChange={e => setCompForm({ ...compForm, end_date: e.target.value })} required />
+                                <Input label={ui("Start Date")} type="date" value={compForm.start_date} onChange={e => setCompForm({ ...compForm, start_date: e.target.value })} required />
+                                <Input label={ui("End Date")} type="date" value={compForm.end_date} onChange={e => setCompForm({ ...compForm, end_date: e.target.value })} required />
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="block text-sm font-medium text-gray-700">Stadium</label>
+                                <label className="block text-sm font-medium text-gray-700">{ui("Stadium")}</label>
                                 <select
                                     value={compForm.stadium_id || ''}
                                     onChange={(e) => {
@@ -481,17 +478,17 @@ export default function CompetitionsTab() {
                                     className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                     required
                                 >
-                                    <option value="">-- Select Stadium --</option>
+                                    <option value="">{ui("-- Select Stadium --")}</option>
                                     {stadiums.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="block text-sm font-medium text-gray-700">Age Groups</label>
+                                    <label className="block text-sm font-medium text-gray-700">{ui("Age Groups")}</label>
                                     {editingCompId ? (
                                         <select required value={compForm.age_group} onChange={e => setCompForm({ ...compForm, age_group: e.target.value })} className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
-                                            <option value="">-- Age Group --</option>
+                                            <option value="">{ui("-- Age Group --")}</option>
                                             {ageGroups.map(ag => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
                                         </select>
                                     ) : (
@@ -525,7 +522,7 @@ export default function CompetitionsTab() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="block text-sm font-medium text-gray-700">Gender Categories</label>
+                                <label className="block text-sm font-medium text-gray-700">{ui("Gender Categories")}</label>
                                 <div className="flex gap-2">
                                     {['Male', 'Female', 'Mixed'].map((g) => {
                                         const currentGenders = compForm.gender ? compForm.gender.split(',').filter(x => x) : [];
@@ -560,27 +557,25 @@ export default function CompetitionsTab() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Match Rule</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">{ui("Match Rule")}</label>
                                 <select
                                     value={compForm.max_sets || 3}
                                     onChange={e => setCompForm({ ...compForm, max_sets: Number(e.target.value) })}
                                     className="w-full p-2.5 rounded-md border text-sm outline-none bg-white border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all mb-4"
                                     required
                                 >
-                                    <option value={3}>Best of 3 - เธเธเธฐ 2 เนเธ 3 เน€เธเธ•</option>
-                                    <option value={5}>Best of 5 - เธเธเธฐ 3 เนเธ 5 เน€เธเธ•</option>
+                                    <option value={3}>{ui("2 Sets (Best of 3)")}</option>
+                                    <option value={5}>{ui("3 Sets (Best of 5)")}</option>
                                 </select>
-                                <Input label="Max Players" type="number" value={compForm.max_players} onChange={e => setCompForm({ ...compForm, max_players: parseInt(e.target.value, 10) || '' })} />
+                                <Input label={ui("Max Players")} type="number" value={compForm.max_players} onChange={e => setCompForm({ ...compForm, max_players: parseInt(e.target.value, 10) || '' })} />
                             </div>
                             <div className="pt-2 flex justify-end gap-3">
                                 <button type="button" onClick={() => {
                                     setShowModal(false);
                                     setEditingCompId(null);
                                     setCompForm(DEFAULT_COMP_FORM);
-                                }} className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white border-gray-300 hover:bg-gray-50 font-semibold shadow-sm transition">
-                                    Cancel
-                                </button>
-                                <Button type="submit" label={editingCompId ? "Update" : "Create"} icon={editingCompId ? <Edit2 size={18} /> : <PlusCircle size={18} />} />
+                                }} className="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white border-gray-300 hover:bg-gray-50 font-semibold shadow-sm transition">{ui("Cancel")}</button>
+                                <Button type="submit" label={editingCompId ? ui("Update") : ui("Create")} icon={editingCompId ? <Edit2 size={18} /> : <PlusCircle size={18} />} />
                             </div>
                         </form>
                     </div>
@@ -597,14 +592,13 @@ export default function CompetitionsTab() {
                                     <Users size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-800">{cleanCompetitionTitle(viewingTeamsComp.title || viewingTeamsComp.name)}</h3>
-                                    <p className="text-sm text-gray-500">{teamsInComp.length} Teams Registered</p>
+                                    <h3 className="text-lg font-semibold text-gray-800">{cleanCompetitionTitle(viewingTeamsComp.title || displayNames.teamName(viewingTeamsComp))}</h3>
+                                    <p className="text-sm text-gray-500">{teamsInComp.length}{' '}{ui("Teams Registered")}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button onClick={handleExportTeamsCSV} className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 shadow-sm">
-                                    <Download size={16} /> Export
-                                </button>
+                                    <Download size={16} />{ui("Export")}</button>
                                 <button onClick={() => setViewingTeamsComp(null)} className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 rounded-md transition-colors">
                                     <X size={20} />
                                 </button>
@@ -623,20 +617,20 @@ export default function CompetitionsTab() {
                                                     {team.logo_url ? <img src={team.logo_url} className="w-full h-full object-contain p-1" alt="" /> : <Shield size={20} className="text-gray-400" />}
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-800">{team.name}</p>
-                                                    <p className="text-sm text-gray-500">Code: {team.code}</p>
+                                                    <p className="font-medium text-gray-800">{displayNames.teamName(team)}</p>
+                                                    <p className="text-sm text-gray-500">{ui("Code:")}{' '}{team.code}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={async () => {
-                                                        const result = await Swal.fire({
-                                                            title: 'Remove from Competition?',
-                                                            text: "This will only remove the team from this competition category.",
+                                                        const result = await Swal.fire({ uiTextLocalized: true,
+                                                            title: ui('Remove from Competition?'),
+                                                            text: ui("This will only remove the team from this competition category."),
                                                             icon: 'warning',
                                                             showCancelButton: true,
                                                             confirmButtonColor: '#f97316',
-                                                            confirmButtonText: 'Yes, remove them'
+                                                            confirmButtonText: ui('Yes, remove them')
                                                         });
                                                         if (result.isConfirmed) {
                                                             try {
@@ -650,19 +644,19 @@ export default function CompetitionsTab() {
                                                         }
                                                     }}
                                                     className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-md transition-colors"
-                                                    title="Remove from Competition"
+                                                    title={ui("Remove from Competition")}
                                                 >
                                                     <X size={16} />
                                                 </button>
                                                 <button
                                                     onClick={async () => {
-                                                        const result = await Swal.fire({
-                                                            title: 'เธฅเธเธ—เธตเธกเธชเนเธกเธชเธฃ?',
-                                                            text: 'เธเธฒเธฃเธฅเธเธ—เธตเธกเธเธฐเธฅเธเธเนเธญเธกเธนเธฅเธเธฑเธเธเธตเธฌเธฒเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธ—เธฑเนเธเธซเธกเธ”เธเธญเธเธ—เธตเธกเธเธตเนเธ”เนเธงเธขเธ–เธฒเธงเธฃ',
+                                                        const result = await Swal.fire({ uiTextLocalized: true,
+                                                            title: ui('ลบทีมสโมสร?'),
+                                                            text: ui('การลบทีมจะลบข้อมูลนักกีฬาและเจ้าหน้าที่ทั้งหมดของทีมนี้อย่างถาวร'),
                                                             icon: 'warning',
                                                             showCancelButton: true,
                                                             confirmButtonColor: '#ef4444',
-                                                            confirmButtonText: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธ'
+                                                            confirmButtonText: ui('ยืนยันการลบ')
                                                         });
                                                         if (result.isConfirmed) {
                                                             try {
@@ -676,7 +670,7 @@ export default function CompetitionsTab() {
                                                         }
                                                     }}
                                                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                                    title="Delete Team Globally"
+                                                    title={ui("Delete Team Globally")}
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>

@@ -1,3 +1,5 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
+import useDisplayNames from '../../hooks/useDisplayNames';
 import { useEffect, useRef, useState } from 'react';
 import { Search, X, ArrowRight } from 'lucide-react';
 import { api } from '../../api';
@@ -5,6 +7,8 @@ import { Button, Feedback, StatusBadge } from '../ui/SystemUI';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function GlobalSearch({ onSelect }) {
+    const ui = useUiTranslation();
+    const displayNames = useDisplayNames();
     const { language } = useLanguage();
     const isThai = language === 'THA';
     const dialogRef = useRef(null);
@@ -45,22 +49,24 @@ export default function GlobalSearch({ onSelect }) {
             setRecords(results.flatMap((result, index) => result.status === 'fulfilled' && Array.isArray(result.value.data) ? result.value.data.map(row => ({
                 key: `${sources[index].section}-${row.id}`,
                 section: sources[index].section, category: sources[index].label,
-                label: row.title || row.name || row.player_name || [row.first_name, row.last_name].filter(Boolean).join(' ') || `${row.team_a_name || row.home_team_name || '?'} · ${row.team_b_name || row.away_team_name || '?'}`,
+                label: sources[index].section === 'players' ? displayNames.personName(row) || row.player_name || ''
+                    : sources[index].section === 'clubs' ? displayNames.teamName(row)
+                        : sources[index].section === 'matches' ? `${displayNames.matchTeamName(row, 'home')} · ${displayNames.matchTeamName(row, 'away')}` : row.title || row.name || '',
                 detail: [row.code, row.age_group_name, row.gender, row.competition_name, row.match_number ? `#${row.match_number}` : ''].filter(Boolean).join(' · ')
             })) : []));
             setLoading(false);
         });
         return () => { cancelled = true; };
-    }, [open, reloadKey, isThai]);
+    }, [open, reloadKey, isThai, displayNames]);
     const results = query.trim() ? records.filter(record => `${record.label} ${record.detail} ${record.category}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).slice(0, 30) : [];
     return <>
-        <Button variant="secondary" className="px-3" onClick={() => setOpen(true)} aria-label={isThai ? 'ค้นหาทั้งระบบ' : 'Search all records'}><Search size={18} /><span className="hidden xl:inline">{isThai ? 'ค้นหา' : 'Search'}</span><kbd className="hidden text-xs text-slate-400 xl:inline">Ctrl K</kbd></Button>
+        <Button variant="secondary" className="px-3" onClick={() => setOpen(true)} aria-label={isThai ? ui('ค้นหาทั้งระบบ') : ui('Search all records')}><Search size={18} /><span className="hidden xl:inline">{isThai ? ui('ค้นหา') : ui('Search')}</span><kbd className="hidden text-xs text-slate-400 xl:inline">{ui("Ctrl K")}</kbd></Button>
         <dialog ref={dialogRef} onClose={() => setOpen(false)} aria-labelledby="global-search-title" className="ui-search-dialog">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5"><h2 id="global-search-title" className="font-bold">{isThai ? 'ค้นหาทั้งระบบ' : 'Search all records'}</h2><Button variant="secondary" onClick={() => setOpen(false)} aria-label={isThai ? 'ปิด' : 'Close'}><X size={18} /></Button></div>
-            <div className="p-5"><label className="text-sm font-semibold text-slate-600">{isThai ? 'รายการ ทีม นักกีฬา หรือคู่แข่งขัน' : 'Competitions, teams, players or matches'}<input ref={searchInputRef} type="search" value={query} onChange={event => setQuery(event.target.value)} className="mt-2 block min-h-12 w-full rounded-xl border border-slate-200 px-4 font-normal" placeholder={isThai ? 'พิมพ์ชื่อหรือหมายเลขคู่แข่งขัน…' : 'Search by name or match number…'} /></label></div>
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5"><h2 id="global-search-title" className="font-bold">{isThai ? ui('ค้นหาทั้งระบบ') : ui('Search all records')}</h2><Button variant="secondary" onClick={() => setOpen(false)} aria-label={isThai ? ui('ปิด') : ui('Close')}><X size={18} /></Button></div>
+            <div className="p-5"><label className="text-sm font-semibold text-slate-600">{isThai ? ui('รายการ ทีม นักกีฬา หรือคู่แข่งขัน') : ui('Competitions, teams, players or matches')}<input ref={searchInputRef} type="search" value={query} onChange={event => setQuery(event.target.value)} className="mt-2 block min-h-12 w-full rounded-xl border border-slate-200 px-4 font-normal" placeholder={isThai ? ui('พิมพ์ชื่อหรือหมายเลขคู่แข่งขัน…') : ui('Search by name or match number…')} /></label></div>
             <div className="max-h-[55vh] overflow-y-auto px-5 pb-5">
-                {error && <Feedback error title={isThai ? 'ข้อมูลบางส่วนโหลดไม่สำเร็จ' : 'Some search sources are unavailable'} onRetry={() => setReloadKey(value => value + 1)} />}
-                {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">{isThai ? 'กำลังค้นหาข้อมูล…' : 'Loading search data…'}</p> : !query.trim() ? <p className="py-8 text-center text-sm text-slate-500">{isThai ? 'พิมพ์คำค้นหาเพื่อเริ่มต้น' : 'Type to start searching'}</p> : results.length ? <ul className="divide-y divide-slate-100">{results.map(record => <li key={record.key}><button className="flex w-full items-center justify-between gap-3 rounded-xl p-3 text-left hover:bg-blue-50" onClick={() => { onSelect(record.section, record.label); setOpen(false); }}><div><StatusBadge tone="info">{record.category}</StatusBadge><p className="mt-1 font-semibold text-slate-900">{record.label}</p><p className="text-xs text-slate-500">{record.detail}</p></div><ArrowRight size={16} className="shrink-0 text-slate-400" /></button></li>)}</ul> : <Feedback title={isThai ? 'ไม่พบข้อมูลตามคำค้นหา' : 'No matching records'} />}
+                {error && <Feedback error title={isThai ? ui('ข้อมูลบางส่วนโหลดไม่สำเร็จ') : ui('Some search sources are unavailable')} onRetry={() => setReloadKey(value => value + 1)} />}
+                {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">{isThai ? ui('กำลังค้นหาข้อมูล…') : ui('Loading search data…')}</p> : !query.trim() ? <p className="py-8 text-center text-sm text-slate-500">{isThai ? ui('พิมพ์คำค้นหาเพื่อเริ่มต้น') : ui('Type to start searching')}</p> : results.length ? <ul className="divide-y divide-slate-100">{results.map(record => <li key={record.key}><button className="flex w-full items-center justify-between gap-3 rounded-xl p-3 text-left hover:bg-blue-50" onClick={() => { onSelect(record.section, record.label); setOpen(false); }}><div><StatusBadge tone="info">{record.category}</StatusBadge><p className="mt-1 font-semibold text-slate-900">{record.label}</p><p className="text-xs text-slate-500">{record.detail}</p></div><ArrowRight size={16} className="shrink-0 text-slate-400" /></button></li>)}</ul> : <Feedback title={isThai ? ui('ไม่พบข้อมูลตามคำค้นหา') : ui('No matching records')} />}
             </div>
         </dialog>
     </>;

@@ -1,3 +1,6 @@
+import useDisplayNames from '../../../hooks/useDisplayNames';
+import { editablePersonNames } from '../../../utils/i18n/names';
+import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useEffect } from 'react';
 import {
     X,
@@ -21,16 +24,17 @@ import {
 import { api } from '../../../api';
 
 // Helper Component for Inputs
-const InputField = ({ label, value, onChange, placeholder, readOnly = false, icon }) => (
-    <div className="flex flex-col gap-1.5">
-        <label className={`text-xs font-bold uppercase tracking-wider ${readOnly ? 'text-slate-400' : 'text-slate-600'}`}>{label}</label>
+const InputField = ({ label, value, onChange, placeholder, readOnly = false, icon }) => {
+    const st = useScorerTranslation();
+    return (<div className="flex flex-col gap-1.5">
+        <label className={`text-xs font-bold uppercase tracking-wider ${readOnly ? 'text-slate-400' : 'text-slate-600'}`}>{st(label)}</label>
         <div className="relative">
             {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{icon}</div>}
             <input
                 type="text"
                 value={value || ''}
                 onChange={onChange}
-                placeholder={placeholder}
+                placeholder={st(placeholder)}
                 readOnly={readOnly}
                 className={`w-full rounded-md border px-4 py-3 text-base font-medium outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${icon ? 'pl-10' : ''} ${readOnly
                     ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed'
@@ -40,21 +44,24 @@ const InputField = ({ label, value, onChange, placeholder, readOnly = false, ico
         </div>
     </div>
 );
+};
 
 // Helper Component for Selects
-const SelectField = ({ label, value, onChange, options }) => (
-    <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{label}</label>
+const SelectField = ({ label, value, onChange, options }) => {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
+    return (<div className="flex flex-col gap-1.5">
+        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{st(label)}</label>
         <div className="relative">
             <select
                 value={value || ''}
                 onChange={onChange}
                 className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-medium text-slate-900 outline-none transition-all appearance-none cursor-pointer hover:border-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
-                <option value="" className="text-slate-500">-- เลือกเจ้าหน้าที่ / Select --</option>
+                <option value="" className="text-slate-500">{st("-- เลือกเจ้าหน้าที่ / Select --")}</option>
                 {options.map(opt => (
                     <option key={opt.id} value={opt.id}>
-                        {opt.firstname} {opt.lastname} ({opt.country || '-'})
+                        {displayNames.personFirstName(opt)} {displayNames.personLastName(opt)} ({opt.country || '-'})
                     </option>
                 ))}
             </select>
@@ -64,8 +71,11 @@ const SelectField = ({ label, value, onChange, options }) => (
         </div>
     </div>
 );
+};
 
 const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awayRoster, activeHome = [], activeAway = [], onConfirm, onClose, matchNo, referees, isSettingsOnly = false, targetTeam = null }) => {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     const singleTeamMode = !!targetTeam;
     const [step, setStep] = useState(isSettingsOnly ? 3 : 1); // 1 = Home Roster, 2 = Away Roster, 3 = Match Details & Officials
 
@@ -378,12 +388,14 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
     const openPlayerEditor = (player = null) => {
         setPlayerEditorError('');
         setPlayerEditor(player ? {
+            ...editablePersonNames(player),
             id: player.id,
             first_name: player.first_name || player.firstname || '',
             last_name: player.last_name || player.lastname || '',
             number: player.number || '',
             team_id: player.team_id || player.teamId || '',
         } : {
+            ...editablePersonNames(),
             first_name: '',
             last_name: '',
             number: '',
@@ -401,6 +413,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
         }
 
         const payload = {
+            ...editablePersonNames(playerEditor),
             first_name: playerEditor.first_name,
             last_name: playerEditor.last_name,
             number: playerEditor.number,
@@ -484,7 +497,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
             const targetPlayers = targetTeam === 'home' ? finalHome : finalAway;
 
             if (targetPlayers.length < 6) {
-                alert("กรุณาเพิ่มนักกีฬาอย่างน้อย 6 คนใน Roster ของทีมนี้");
+                alert(st("กรุณาเพิ่มนักกีฬาอย่างน้อย 6 คนใน Roster ของทีมนี้"));
                 return;
             }
             onConfirm({
@@ -508,7 +521,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
             const finalAway = selAway.filter(p => p.selected);
 
             if (finalHome.length < 6 || finalAway.length < 6) {
-                alert("กรุณาเพิ่มนักกีฬาอย่างน้อยทีมละ 6 คนใน Roster");
+                alert(st("กรุณาเพิ่มนักกีฬาอย่างน้อยทีมละ 6 คนใน Roster"));
                 return;
             }
             setStep(3);
@@ -542,17 +555,17 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
         match?.competition_title ||
         match?.competition_name ||
         match?.title ||
-        'Volleyball Competition';
+        st('Volleyball Competition');
     const categoryValue = String(matchDetails.ageGroupId ?? '');
     const selectedAgeGroup = ageGroups.find((group) => String(group.id) === categoryValue);
     const categoryLabel = selectedAgeGroup?.name || match?.age_group_name || match?.category_name || match?.age_group ||
-        (match?.category && Number.isNaN(Number(match.category)) ? match.category : '') || match?.division_name || 'Unspecified';
+        (match?.category && Number.isNaN(Number(match.category)) ? match.category : '') || match?.division_name || st('Unspecified');
     const genderLabel = match?.gender || match?.division || '';
     const dateLabel = matchDetails.matchDate ? String(matchDetails.matchDate).split('T')[0] : '';
     const timeLabel = matchDetails.startTime ? String(matchDetails.startTime).slice(0, 5) : '';
 
     return (
-        <div className="scorer-setup-modal fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[200] select-none font-sans p-4">
+        <div className="scorer-dialog scorer-setup-modal fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[200] select-none font-sans p-4">
             <div className="bg-white rounded-xl w-full max-w-5xl h-[850px] max-h-[calc(100vh-32px)] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
 
                 <div className="scorer-setup-heading px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-gray-50/80 shrink-0">
@@ -562,23 +575,20 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 <Swords size={20} />
                             </div>
                             <div className="flex flex-col">
-                                <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-none">
-                                    Match Officials & Setup
-                                </h2>
+                                <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-none">{st("Match Officials & Setup")}</h2>
                                 <p className="text-sm text-slate-500 mt-1">
-                                    {competitionTitle}{genderLabel ? ` (${genderLabel})` : ''}
+                                    {competitionTitle}{genderLabel ? ` (${st(genderLabel)})` : ''}
                                 </p>
                             </div>
                         </div>
                         <div className={`${isSettingsOnly || step === 3 ? 'hidden' : 'flex'} items-center gap-2 mt-2 ml-12`}>
                             {match?.gender && (
                                 <span className={`text-xs font-black px-1.5 py-0.5 rounded uppercase ${match.gender === 'Female' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                    {match.gender === 'Female' ? 'หญิง / Female' : 'ชาย / Male'}
+                                    {match.gender === 'Female' ? st('หญิง / Female') : st('ชาย / Male')}
                                 </span>
                             )}
                             {(matchDetails.matchNo || matchNo || match?.match_number || match?.matchNo) && (
-                                <span className="text-xs font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 uppercase">
-                                    Match No. {matchDetails.matchNo || matchNo || match?.match_number || match?.matchNo}
+                                <span className="text-xs font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 uppercase">{st("Match No.")}{matchDetails.matchNo || matchNo || match?.match_number || match?.matchNo}
                                 </span>
                             )}
 
@@ -597,10 +607,10 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 <span className={`w-2.5 h-2.5 rounded-full ${step === 1 ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.5)]' : 'bg-slate-300'}`}></span>
                                 <span className={`w-2.5 h-2.5 rounded-full ${step === 2 ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.5)]' : 'bg-slate-300'}`}></span>
                                 <span className={`w-2.5 h-2.5 rounded-full ${step === 3 ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.5)]' : 'bg-slate-300'}`}></span>
-                                <span className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">Step {step} of 3</span>
+                                <span className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">{st("Step")}{' '}{step}{' '}{st("of 3")}</span>
                             </div>
                         )}
-                        <button
+                        <button aria-label={st('Close')}
                             onClick={onClose}
                             className="text-slate-400 hover:text-rose-500 transition-colors bg-slate-50 p-2 rounded-lg hover:bg-rose-50"
                         >
@@ -614,18 +624,17 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                         <form onSubmit={handleSavePlayer} className="grid grid-cols-1 items-end gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 md:grid-cols-[1fr_1fr_120px_auto]">
                             <div className="md:col-span-4 flex items-center justify-between gap-3">
                                 <p className="text-sm font-bold text-indigo-900">
-                                    {playerEditor.id ? 'Edit player details' : `Add player to ${currentTeamName}`}
+                                    {playerEditor.id ? st('Edit player details') : st(`Add player to {0}`, [currentTeamName])}
                                 </p>
-                                <button type="button" onClick={() => setPlayerEditor(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Cancel</button>
+                                <button type="button" onClick={() => setPlayerEditor(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-800">{st("Cancel")}</button>
                             </div>
-                            <InputField label="First name" value={playerEditor.first_name} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, first_name: event.target.value }))} />
-                            <InputField label="Last name" value={playerEditor.last_name} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, last_name: event.target.value }))} />
-                            <InputField label="Number" value={playerEditor.number} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, number: event.target.value.replace(/\D/g, '') }))} />
+                            {[['first_name_th', 'First name (Thai)'], ['last_name_th', 'Last name (Thai)'], ['first_name_en', 'First name (English)'], ['last_name_en', 'Last name (English)']].map(([field, label]) => (
+                                <InputField key={field} label={st(label)} value={playerEditor[field]} onChange={event => setPlayerEditor(previous => ({ ...previous, [field]: event.target.value }))} />
+                            ))}
+                            <InputField label={st("Number")} value={playerEditor.number} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, number: event.target.value.replace(/\D/g, '') }))} />
                             <button type="submit" disabled={isSavingPlayer} className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
-                                {isSavingPlayer ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
-                                Save
-                            </button>
-                            {playerEditorError && <p className="text-xs font-medium text-rose-600 md:col-span-4">{playerEditorError}</p>}
+                                {isSavingPlayer ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}{st("Save")}</button>
+                            {playerEditorError && <p className="text-xs font-medium text-rose-600 md:col-span-4">{st(playerEditorError)}</p>}
                         </form>
                     )}
 
@@ -633,16 +642,14 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                         <div className="flex-1 flex flex-col min-h-0 gap-5">
                             <div className="flex items-end justify-between gap-4">
                                 <div className="min-w-0">
-                                    <span className="text-xs font-bold text-blue-600 uppercase">Set roster</span>
+                                    <span className="text-xs font-bold text-blue-600 uppercase">{st("Set roster")}</span>
                                     <h1 className="mt-1 text-2xl font-bold text-slate-900 truncate">{currentTeamName}</h1>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="shrink-0 rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
-                                        Selected {rosterPlayers.length}
+                                    <div className="shrink-0 rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">{st("Selected")}{rosterPlayers.length}
                                     </div>
                                     <button type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
-                                        <Plus size={16} /> Add player
-                                    </button>
+                                        <Plus size={16} />{st("Add player")}</button>
                                 </div>
                             </div>
 
@@ -650,12 +657,12 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 <table className="w-full min-w-[720px] table-fixed text-left border-collapse">
                                     <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-semibold text-slate-600">
                                         <tr>
-                                            <th className="w-24 px-4 py-3 text-center border-b border-slate-200">Select</th>
-                                            <th className="w-24 px-4 py-3 text-center border-b border-slate-200">Number</th>
-                                            <th className="px-4 py-3 border-b border-slate-200">Name</th>
-                                            <th className="px-4 py-3 border-b border-slate-200">Lastname</th>
-                                            <th className="w-56 px-4 py-3 border-b border-slate-200">Role</th>
-                                            <th className="w-20 px-4 py-3 text-center border-b border-slate-200">Edit</th>
+                                            <th className="w-24 px-4 py-3 text-center border-b border-slate-200">{st("Select")}</th>
+                                            <th className="w-24 px-4 py-3 text-center border-b border-slate-200">{st("Number")}</th>
+                                            <th className="px-4 py-3 border-b border-slate-200">{st("Name")}</th>
+                                            <th className="px-4 py-3 border-b border-slate-200">{st("Lastname")}</th>
+                                            <th className="w-56 px-4 py-3 border-b border-slate-200">{st("Role")}</th>
+                                            <th className="w-20 px-4 py-3 text-center border-b border-slate-200">{st("Edit")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -666,7 +673,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                         type="checkbox"
                                                         checked={Boolean(player.selected)}
                                                         onChange={(event) => handleSelectionChange(player.id, event.target.checked)}
-                                                        aria-label={`Select ${player.first_name || player.firstname || ''} ${player.last_name || player.lastname || ''}`.trim()}
+                                                        aria-label={`Select ${displayNames.personFirstName(player) || displayNames.personFirstName(player) || ''} ${displayNames.personLastName(player) || displayNames.personLastName(player) || ''}`.trim()}
                                                         className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                                     />
                                                 </td>
@@ -674,10 +681,10 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                     {player.number || '-'}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-slate-700">
-                                                    {player.first_name || player.firstname || '-'}
+                                                    {displayNames.personFirstName(player) || displayNames.personFirstName(player) || '-'}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-slate-700">
-                                                    {player.last_name || player.lastname || '-'}
+                                                    {displayNames.personLastName(player) || displayNames.personLastName(player) || '-'}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <select
@@ -686,15 +693,15 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                         className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                                     >
                                                         <option value=""></option>
-                                                        <option value="C">Captain (C)</option>
-                                                        <option value="L1">Libero (L1)</option>
-                                                        <option value="L2">Libero (L2)</option>
-                                                        <option value="L1+C">Libero (L1) & Captain (C)</option>
-                                                        <option value="L2+C">Libero (L2) & Captain (C)</option>
+                                                        <option value="C">{st("Captain (C)")}</option>
+                                                        <option value="L1">{st("Libero (L1)")}</option>
+                                                        <option value="L2">{st("Libero (L2)")}</option>
+                                                        <option value="L1+C">{st("Libero (L1) & Captain (C)")}</option>
+                                                        <option value="L2+C">{st("Libero (L2) & Captain (C)")}</option>
                                                     </select>
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
-                                                    <button type="button" onClick={() => openPlayerEditor(player)} className="rounded-md p-2 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700" aria-label={`Edit ${player.first_name || player.firstname || ''} ${player.last_name || player.lastname || ''}`.trim()}>
+                                                    <button type="button" onClick={() => openPlayerEditor(player)} className="rounded-md p-2 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700" aria-label={`Edit ${displayNames.personFirstName(player) || displayNames.personFirstName(player) || ''} ${displayNames.personLastName(player) || displayNames.personLastName(player) || ''}`.trim()}>
                                                         <Pencil size={16} />
                                                     </button>
                                                 </td>
@@ -710,30 +717,29 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                         <>
                             <div className="flex items-end justify-between px-2">
                                 <div className="flex flex-col gap-1">
-                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] ml-1">Currently Managing</span>
+                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] ml-1">{st("Currently Managing")}</span>
                                     <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tight leading-none">{currentTeamName}</h1>
                                 </div>
 
                                 {/* Summary Stats */}
                                 <div className="flex items-center gap-4">
                                     <button type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700">
-                                        <Plus size={16} /> Add player
-                                    </button>
+                                        <Plus size={16} />{st("Add player")}</button>
                                     <div className="flex items-center gap-4 bg-indigo-50/50 px-5 py-3 rounded-2xl border border-indigo-100">
                                     <div className="flex flex-col items-center px-1">
-                                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Total</span>
+                                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">{st("Total")}</span>
                                         <span className="text-xl font-black text-indigo-600 leading-none">{rosterPlayers.length}</span>
                                     </div>
                                     <div className="w-px h-8 bg-indigo-100"></div>
                                     <div className="flex items-center gap-2">
                                         <div className="flex flex-col items-center">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Cap</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">{st("Cap")}</span>
                                             <span className="text-sm font-black text-indigo-600">
                                                 {rosterPlayers.find(p => p.isCaptain)?.number || '-'}
                                             </span>
                                         </div>
                                         <div className="flex flex-col items-center min-w-[32px]">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Lib</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">{st("Lib")}</span>
                                             <span className="text-sm font-black text-indigo-600">
                                                 {rosterPlayers.filter(p => p.isLibero).map(p => p.number).join(', ') || '-'}
                                             </span>
@@ -747,15 +753,13 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 <div className="bg-rose-500 text-white p-1.5 rounded-lg">
                                     <AlertCircle size={18} />
                                 </div>
-                                <p className="text-sm font-bold text-rose-700">
-                                    Roster Management: เช็กชื่อผู้เล่นที่มาแข่งจริง (ใครไม่มาให้ติ๊กออก)
-                                </p>
+                                <p className="text-sm font-bold text-rose-700">{st("Roster Management: เช็กชื่อผู้เล่นที่มาแข่งจริง (ใครไม่มาให้ติ๊กออก)")}</p>
                             </div>
 
                             <div className="flex gap-6 mt-2 h-full overflow-hidden">
                                 <div className="w-[320px] flex flex-col gap-3">
                                     <div className="flex items-center justify-between px-1">
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Available Players</span>
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{st("Available Players")}</span>
                                         <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">{availablePlayers.length}</span>
                                     </div>
 
@@ -764,9 +768,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                             <table className="w-full text-left border-collapse">
                                                 <thead className="sticky top-0 bg-slate-50 text-[10px] text-slate-400 font-bold uppercase tracking-wider z-10">
                                                     <tr>
-                                                        <th className="p-3 border-b border-slate-100">Family Name</th>
-                                                        <th className="p-3 border-b border-slate-100">Name</th>
-                                                        <th className="p-3 border-b border-slate-100 text-center">Nat</th>
+                                                        <th className="p-3 border-b border-slate-100">{st("Family Name")}</th>
+                                                        <th className="p-3 border-b border-slate-100">{st("Name")}</th>
+                                                        <th className="p-3 border-b border-slate-100 text-center">{st("Nat")}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -777,8 +781,8 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                             onDoubleClick={handleAdd}
                                                             className={`group cursor-pointer transition-all duration-200 ${leftActiveId === p.id ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-white text-slate-700 border-b border-slate-50/30'}`}
                                                         >
-                                                            <td className="p-3 font-bold uppercase text-[11px] leading-tight">{p.last_name || p.lastname}</td>
-                                                            <td className="p-3 text-[11px] leading-tight">{p.first_name || p.firstname}</td>
+                                                            <td className="p-3 font-bold uppercase text-[11px] leading-tight">{displayNames.personLastName(p) || displayNames.personLastName(p)}</td>
+                                                            <td className="p-3 text-[11px] leading-tight">{displayNames.personFirstName(p) || displayNames.personFirstName(p)}</td>
                                                             <td className="p-3 text-[10px] text-center font-mono font-medium opacity-60">{p.nationality}</td>
                                                         </tr>
                                                     ))}
@@ -818,9 +822,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
                                 <div className="flex-1 flex flex-col gap-3">
                                     <div className="flex items-center justify-between px-1">
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Selected Match Roster</span>
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{st("Selected Match Roster")}</span>
                                         <div className="flex gap-2">
-                                            <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full font-bold">Roster: {rosterPlayers.length}</span>
+                                            <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full font-bold">{st("Roster:")}{' '}{rosterPlayers.length}</span>
                                         </div>
                                     </div>
 
@@ -830,11 +834,11 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                 <thead className="sticky top-0 bg-slate-50/80 backdrop-blur-md text-[10px] text-slate-400 font-bold uppercase tracking-wider z-10">
                                                     <tr>
                                                         <th className="p-3 w-12 text-center border-b border-slate-100">#</th>
-                                                        <th className="p-3 w-20 border-b border-slate-100">ID</th>
-                                                        <th className="p-3 border-b border-slate-100">Family Name</th>
-                                                        <th className="p-3 border-b border-slate-100">Name</th>
-                                                        <th className="p-3 w-24 text-center border-b border-slate-100">Role</th>
-                                                        <th className="p-3 w-14 text-center border-b border-slate-100">Edit</th>
+                                                        <th className="p-3 w-20 border-b border-slate-100">{st("ID")}</th>
+                                                        <th className="p-3 border-b border-slate-100">{st("Family Name")}</th>
+                                                        <th className="p-3 border-b border-slate-100">{st("Name")}</th>
+                                                        <th className="p-3 w-24 text-center border-b border-slate-100">{st("Role")}</th>
+                                                        <th className="p-3 w-14 text-center border-b border-slate-100">{st("Edit")}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -850,8 +854,8 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                                 </span>
                                                             </td>
                                                             <td className="p-3 text-[10px] font-mono text-slate-400">{p.id || p.player_id}</td>
-                                                            <td className="p-3 font-bold uppercase text-[11px] text-slate-900">{p.last_name || p.lastname}</td>
-                                                            <td className="p-3 text-[11px] text-slate-700">{p.first_name || p.firstname}</td>
+                                                            <td className="p-3 font-bold uppercase text-[11px] text-slate-900">{displayNames.personLastName(p) || displayNames.personLastName(p)}</td>
+                                                            <td className="p-3 text-[11px] text-slate-700">{displayNames.personFirstName(p) || displayNames.personFirstName(p)}</td>
                                                             <td className="p-3" onClick={e => e.stopPropagation()}>
                                                                 <select
                                                                     value={p.role || ''}
@@ -859,15 +863,15 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                                     className="w-full bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-lg px-2 py-1 outline-none text-[11px] font-bold appearance-none cursor-pointer hover:bg-indigo-100 transition-colors"
                                                                 >
                                                                     <option value="" className="text-slate-400"></option>
-                                                                    <option value="C">Captain (C)</option>
-                                                                    <option value="L1">Libero (L1)</option>
-                                                                    <option value="L2">Libero (L2)</option>
-                                                                    <option value="L1+C">Libero (L1) & Captain (C)</option>
-                                                                    <option value="L2+C">Libero (L2) & Captain (C)</option>
+                                                                    <option value="C">{st("Captain (C)")}</option>
+                                                                    <option value="L1">{st("Libero (L1)")}</option>
+                                                                    <option value="L2">{st("Libero (L2)")}</option>
+                                                                    <option value="L1+C">{st("Libero (L1) & Captain (C)")}</option>
+                                                                    <option value="L2+C">{st("Libero (L2) & Captain (C)")}</option>
                                                                 </select>
                                                             </td>
                                                             <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
-                                                                <button type="button" onClick={() => openPlayerEditor(p)} className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700" aria-label={`Edit ${p.first_name || p.firstname || ''} ${p.last_name || p.lastname || ''}`.trim()}>
+                                                                <button type="button" onClick={() => openPlayerEditor(p)} className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700" aria-label={`Edit ${displayNames.personFirstName(p) || displayNames.personFirstName(p) || ''} ${displayNames.personLastName(p) || displayNames.personLastName(p) || ''}`.trim()}>
                                                                     <Pencil size={15} />
                                                                 </button>
                                                             </td>
@@ -887,14 +891,12 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                             {/* Section 1: General Match Info & Location */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 border-b border-gray-100 pb-2">
-                                    <FileText size={16} /> General Match Info
-                                </h4>
+                                    <FileText size={16} />{st("General Match Info")}</h4>
                                 <h4 className="hidden">
-                                    <MapPin size={16} /> ข้อมูลการแข่งขันและสถานที่ / Match Info & Location
-                                </h4>
+                                    <MapPin size={16} />{st("ข้อมูลการแข่งขันและสถานที่ / Match Info & Location")}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <div className="flex flex-col gap-1.5">
-                                        <label htmlFor="match-age-group" className="text-xs font-bold text-slate-600 uppercase tracking-wider">Category</label>
+                                        <label htmlFor="match-age-group" className="text-xs font-bold text-slate-600 uppercase tracking-wider">{st("Category")}</label>
                                         <div className="relative">
                                             <select
                                                 id="match-age-group"
@@ -905,7 +907,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                 }}
                                                 className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-medium text-slate-900 outline-none transition-all appearance-none cursor-pointer hover:border-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                             >
-                                                {!categoryValue && <option value="">Select category</option>}
+                                                {!categoryValue && <option value="">{st("Select category")}</option>}
                                                 {categoryValue && !selectedAgeGroup && <option value={categoryValue}>{categoryLabel}</option>}
                                                 {ageGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
                                             </select>
@@ -915,17 +917,17 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                         </div>
                                     </div>
                                     <InputField
-                                        label="Gender"
-                                        value={genderLabel}
+                                        label={st("Gender")}
+                                        value={st(genderLabel)}
                                         readOnly
                                     />
                                     <InputField
-                                        label="Match No."
+                                        label={st("Match No.")}
                                         value={matchDetails.matchNo}
                                         onChange={e => setMatchDetails(prev => ({ ...prev, matchNo: e.target.value }))}
                                     />
                                     <InputField
-                                        label="Phase / Round"
+                                        label={st("Phase / Round")}
                                         value={matchDetails.round}
                                         onChange={e => setMatchDetails(prev => ({ ...prev, round: e.target.value }))}
                                     />
@@ -933,23 +935,23 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                                     <InputField
-                                        label="Date"
+                                        label={st("Date")}
                                         value={dateLabel}
                                         readOnly
                                         icon={<Calendar size={16} />}
                                     />
                                     <InputField
-                                        label="Time"
+                                        label={st("Time")}
                                         value={timeLabel}
                                         readOnly
                                     />
                                     <InputField
-                                        label="Home Team"
+                                        label={st("Home Team")}
                                         value={teamHome}
                                         readOnly
                                     />
                                     <InputField
-                                        label="Away Team"
+                                        label={st("Away Team")}
                                         value={teamAway}
                                         readOnly
                                     />
@@ -957,34 +959,33 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
                                 <div className="hidden">
                                     <InputField
-                                        label="Pool"
+                                        label={st("Pool")}
                                         value={matchDetails.pool}
                                         onChange={e => setMatchDetails(prev => ({ ...prev, pool: e.target.value }))}
                                     />
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sets to Win</label>
+                                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{st("Sets to Win")}</label>
                                         <div className="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold">
-                                            {rules.setsToWin === 2 ? '2 Sets (Best of 3)' : '3 Sets (Best of 5)'}
+                                            {rules.setsToWin === 2 ? st('2 Sets (Best of 3)') : st('3 Sets (Best of 5)')}
                                         </div>
                                     </div>
                                 </div>
 
                                 <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-rose-600 mt-8 mb-4 border-b border-gray-100 pb-2">
-                                    <MapPin size={16} /> Location
-                                </h4>
+                                    <MapPin size={16} />{st("Location")}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                                     <InputField
-                                        label="Country"
+                                        label={st("Country")}
                                         value={matchDetails.countryCode}
                                         onChange={e => setMatchDetails(prev => ({ ...prev, countryCode: e.target.value }))}
                                     />
                                     <InputField
-                                        label="City"
+                                        label={st("City")}
                                         value={matchDetails.city}
                                         onChange={e => setMatchDetails(prev => ({ ...prev, city: e.target.value }))}
                                     />
                                     <InputField
-                                        label="Stadium / Hall"
+                                        label={st("Stadium / Hall")}
                                         value={matchDetails.hall}
                                         onChange={e => setMatchDetails(prev => ({ ...prev, hall: e.target.value }))}
                                     />
@@ -997,7 +998,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                 onChange={e => setMatchDetails(prev => ({ ...prev, hasChallenge: e.target.checked }))}
                                                 className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                             />
-                                            <span className="text-xs font-bold text-slate-700">Video Challenge</span>
+                                            <span className="text-xs font-bold text-slate-700">{st("Video Challenge")}</span>
                                         </label>
                                     </div>
                                 </div>
@@ -1006,59 +1007,57 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                             {/* Section 2: Match Officials */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600 mb-4 border-b border-gray-100 pb-2">
-                                    <User size={16} /> Match Officials
-                                </h4>
+                                    <User size={16} />{st("Match Officials")}</h4>
                                 <h4 className="hidden">
-                                    <User size={16} /> ผู้ตัดสินและเจ้าหน้าที่ประจำแมตช์ / Match Officials
-                                </h4>
+                                    <User size={16} />{st("ผู้ตัดสินและเจ้าหน้าที่ประจำแมตช์ / Match Officials")}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                                    <SelectField label="1st Referee" value={rules.referee_1_id} onChange={e => handleReferee1Change(e.target.value)} options={refereesList} />
-                                    <InputField label="Scorer Name" value={rules.scorer} onChange={e => handleRulesChange('scorer', e.target.value)} />
-                                    <SelectField label="2nd Referee" value={rules.referee_2_id} onChange={e => handleReferee2Change(e.target.value)} options={refereesList} />
-                                    <InputField label="Scorer Country Code" value={rules.scorerCountry} onChange={e => handleRulesChange('scorerCountry', e.target.value)} />
+                                    <SelectField label={st("1st Referee")} value={rules.referee_1_id} onChange={e => handleReferee1Change(e.target.value)} options={refereesList} />
+                                    <InputField label={st("Scorer Name")} value={rules.scorer} onChange={e => handleRulesChange('scorer', e.target.value)} />
+                                    <SelectField label={st("2nd Referee")} value={rules.referee_2_id} onChange={e => handleReferee2Change(e.target.value)} options={refereesList} />
+                                    <InputField label={st("Scorer Country Code")} value={rules.scorerCountry} onChange={e => handleRulesChange('scorerCountry', e.target.value)} />
                                 </div>
 
                                 <div className="hidden">
-                                    <InputField label="Scorer Name" value={rules.scorer} onChange={e => handleRulesChange('scorer', e.target.value)} />
-                                    <InputField label="Scorer Country Code" value={rules.scorerCountry} onChange={e => handleRulesChange('scorerCountry', e.target.value)} />
+                                    <InputField label={st("Scorer Name")} value={rules.scorer} onChange={e => handleRulesChange('scorer', e.target.value)} />
+                                    <InputField label={st("Scorer Country Code")} value={rules.scorerCountry} onChange={e => handleRulesChange('scorerCountry', e.target.value)} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                                    <InputField label="Assistant Scorer Name" value={rules.assistant_scorer_name} onChange={e => handleRulesChange('assistant_scorer_name', e.target.value)} />
-                                    <InputField label="Assistant Scorer Country Code" value={rules.assistant_scorer_country} onChange={e => handleRulesChange('assistant_scorer_country', e.target.value)} />
+                                    <InputField label={st("Assistant Scorer Name")} value={rules.assistant_scorer_name} onChange={e => handleRulesChange('assistant_scorer_name', e.target.value)} />
+                                    <InputField label={st("Assistant Scorer Country Code")} value={rules.assistant_scorer_country} onChange={e => handleRulesChange('assistant_scorer_country', e.target.value)} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                                    <SelectField label="Line Judge 1" value={rules.line_judge_1_id} onChange={e => handleLineJudgeChange(0, e.target.value)} options={lineJudgesList} />
-                                    <SelectField label="Line Judge 2" value={rules.line_judge_2_id} onChange={e => handleLineJudgeChange(1, e.target.value)} options={lineJudgesList} />
+                                    <SelectField label={st("Line Judge 1")} value={rules.line_judge_1_id} onChange={e => handleLineJudgeChange(0, e.target.value)} options={lineJudgesList} />
+                                    <SelectField label={st("Line Judge 2")} value={rules.line_judge_2_id} onChange={e => handleLineJudgeChange(1, e.target.value)} options={lineJudgesList} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                                    <SelectField label="Line Judge 3" value={rules.line_judge_3_id} onChange={e => handleLineJudgeChange(2, e.target.value)} options={lineJudgesList} />
-                                    <SelectField label="Line Judge 4" value={rules.line_judge_4_id} onChange={e => handleLineJudgeChange(3, e.target.value)} options={lineJudgesList} />
+                                    <SelectField label={st("Line Judge 3")} value={rules.line_judge_3_id} onChange={e => handleLineJudgeChange(2, e.target.value)} options={lineJudgesList} />
+                                    <SelectField label={st("Line Judge 4")} value={rules.line_judge_4_id} onChange={e => handleLineJudgeChange(3, e.target.value)} options={lineJudgesList} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-4 border-t border-slate-200/60">
-                                    <InputField label="Referee Delegate Name" value={rules.rd_name} onChange={e => handleRulesChange('rd_name', e.target.value)} />
-                                    <InputField label="Referee Delegate Country" value={rules.rd_country} onChange={e => handleRulesChange('rd_country', e.target.value)} />
-                                    <InputField label="Referee Delegate Code" value={rules.rd_code} onChange={e => handleRulesChange('rd_code', e.target.value)} />
+                                    <InputField label={st("Referee Delegate Name")} value={rules.rd_name} onChange={e => handleRulesChange('rd_name', e.target.value)} />
+                                    <InputField label={st("Referee Delegate Country")} value={rules.rd_country} onChange={e => handleRulesChange('rd_country', e.target.value)} />
+                                    <InputField label={st("Referee Delegate Code")} value={rules.rd_code} onChange={e => handleRulesChange('rd_code', e.target.value)} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                                    <InputField label="Technical Director Name" value={rules.td_name} onChange={e => handleRulesChange('td_name', e.target.value)} />
-                                    <InputField label="Technical Director Country" value={rules.td_country} onChange={e => handleRulesChange('td_country', e.target.value)} />
-                                    <InputField label="Technical Director Code" value={rules.td_code} onChange={e => handleRulesChange('td_code', e.target.value)} />
+                                    <InputField label={st("Technical Director Name")} value={rules.td_name} onChange={e => handleRulesChange('td_name', e.target.value)} />
+                                    <InputField label={st("Technical Director Country")} value={rules.td_country} onChange={e => handleRulesChange('td_country', e.target.value)} />
+                                    <InputField label={st("Technical Director Code")} value={rules.td_code} onChange={e => handleRulesChange('td_code', e.target.value)} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                                    <InputField label="Referee Coach Name" value={rules.rc_name} onChange={e => handleRulesChange('rc_name', e.target.value)} />
-                                    <InputField label="Referee Coach Country" value={rules.rc_country} onChange={e => handleRulesChange('rc_country', e.target.value)} />
-                                    <InputField label="Referee Coach Code" value={rules.rc_code} onChange={e => handleRulesChange('rc_code', e.target.value)} />
+                                    <InputField label={st("Referee Coach Name")} value={rules.rc_name} onChange={e => handleRulesChange('rc_name', e.target.value)} />
+                                    <InputField label={st("Referee Coach Country")} value={rules.rc_country} onChange={e => handleRulesChange('rc_country', e.target.value)} />
+                                    <InputField label={st("Referee Coach Code")} value={rules.rc_code} onChange={e => handleRulesChange('rc_code', e.target.value)} />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                                    <InputField label="Referee Representative Name" value={rules.rr_name} onChange={e => handleRulesChange('rr_name', e.target.value)} />
-                                    <InputField label="Referee Representative Country" value={rules.rr_country} onChange={e => handleRulesChange('rr_country', e.target.value)} />
-                                    <InputField label="Referee Representative Code" value={rules.rr_code} onChange={e => handleRulesChange('rr_code', e.target.value)} />
+                                    <InputField label={st("Referee Representative Name")} value={rules.rr_name} onChange={e => handleRulesChange('rr_name', e.target.value)} />
+                                    <InputField label={st("Referee Representative Country")} value={rules.rr_country} onChange={e => handleRulesChange('rr_country', e.target.value)} />
+                                    <InputField label={st("Referee Representative Code")} value={rules.rr_code} onChange={e => handleRulesChange('rr_code', e.target.value)} />
                                 </div>
                             </div>
                         </div>
@@ -1071,27 +1070,21 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                         <button
                             onClick={onClose}
                             className="px-6 py-2.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors font-semibold text-sm"
-                        >
-                            Cancel
-                        </button>
+                        >{st("Cancel")}</button>
                         <button
                             onClick={handleNext}
                             className="px-6 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors font-semibold text-sm"
-                        >
-                            Confirm
-                        </button>
+                        >{st("Confirm")}</button>
                     </div>
                 ) : (
                 <div className="px-6 py-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center shrink-0">
                     <div className={`${step === 3 ? 'invisible' : 'flex'} flex-col`}>
                         <div className="flex items-center gap-1.5 text-slate-400">
                             <Info size={14} className="text-indigo-400" />
-                            <span className="text-[11px] font-bold uppercase tracking-wider">Quick Instructions</span>
+                            <span className="text-[11px] font-bold uppercase tracking-wider">{st("Quick Instructions")}</span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-1 leading-tight max-w-[400px]">
-                            {step <= 2 
-                                ? "Double-click a name to add quickly. Libero roles are limited to 2 players per team."
-                                : "ตรวจสอบและแก้ไขข้อมูลรายการแข่งขันรวมถึงรายชื่อผู้ตัดสินประจำแมตช์การแข่งขันให้เรียบร้อยก่อนกดยืนยัน"
+                            {step <= 2 ? st("Double-click a name to add quickly. Libero roles are limited to 2 players per team.") : st("ตรวจสอบและแก้ไขข้อมูลรายการแข่งขันรวมถึงรายชื่อผู้ตัดสินประจำแมตช์การแข่งขันให้เรียบร้อยก่อนกดยืนยัน")
                             }
                         </p>
                     </div>
@@ -1100,9 +1093,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                         <button
                             onClick={onClose}
                             className="px-5 py-2.5 rounded-lg text-slate-500 hover:text-slate-900 border border-transparent hover:bg-white hover:border-slate-200 transition-all duration-200 font-semibold text-sm"
-                        >
-                            Cancel
-                        </button>
+                        >{st("Cancel")}</button>
 
                         <div className={`${step === 3 ? 'bg-transparent border-transparent shadow-none p-0' : 'bg-white p-1 rounded-2xl border border-slate-200 shadow-sm'} flex gap-2`}>
                             {!isSettingsOnly && !singleTeamMode && (
@@ -1112,7 +1103,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${step === 1 ? 'text-slate-200 pointer-events-none' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                                 >
                                     <ChevronLeft size={18} />
-                                    <span>Back</span>
+                                    <span>{st("Back")}</span>
                                 </button>
                             )}
 
@@ -1121,7 +1112,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all duration-200 active:scale-95"
                             >
                                 {step === 3 && <CheckCircle size={18} />}
-                                <span>{isSettingsOnly ? 'Confirm Setup' : singleTeamMode ? 'Confirm Roster' : (step === 1 ? 'Go to Away Roster' : step === 2 ? 'Go to Officials' : 'Confirm Setup')}</span>
+                                <span>{isSettingsOnly ? st('Confirm Setup') : singleTeamMode ? st('Confirm Roster') : step === 1 ? st('Go to Away Roster') : step === 2 ? st('Go to Officials') : st('Confirm Setup')}</span>
                                 {!isSettingsOnly && !singleTeamMode && <ChevronRight size={18} />}
                             </button>
                         </div>

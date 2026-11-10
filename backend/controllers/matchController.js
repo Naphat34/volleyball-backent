@@ -217,14 +217,14 @@ module.exports = {
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
                     COALESCE(ms.away_set_score, m.away_set_score) AS away_set_score,
                     COALESCE(ms.set_scores, m.set_scores) AS set_scores,
-                    m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, 5) as max_sets,
+                    m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
 
                     m.home_team_id,
-                    t1.name as home_team, t1.code as home_team_code,
+                    t1.name as home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t1.code as home_team_code,
                     t1.logo_url as home_team_logo_url,
 
                     m.away_team_id,
-                    t2.name as away_team, t2.code as away_team_code,
+                    t2.name as away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en, t2.code as away_team_code,
                     t2.logo_url as away_team_logo_url
                 FROM matches m
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
@@ -310,15 +310,15 @@ module.exports = {
                     m.start_time as raw_start_time, m.location, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
-                    m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, 5) as max_sets,
+                    m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
 
                     m.home_team_id,
-                    t1.name as home_team, t1.code as home_team_code,
+                    t1.name as home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t1.code as home_team_code,
                     t1.name as team_a_name, t1.code as team_a_code,
                     t1.logo_url as home_team_logo_url,
 
                     m.away_team_id,
-                    t2.name as away_team, t2.code as away_team_code,
+                    t2.name as away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en, t2.code as away_team_code,
                     t2.name as team_b_name, t2.code as team_b_code,
                     t2.logo_url as away_team_logo_url
                 FROM matches m
@@ -652,7 +652,7 @@ module.exports = {
             } = req.body;
 
             const beforeResult = await client.query(`
-                SELECT m.*, COALESCE(c.max_sets, 5) AS max_sets
+                SELECT m.*, COALESCE(c.max_sets, m.max_sets, 5) AS max_sets
                 FROM matches m
                 LEFT JOIN competitions c ON m.competition_id = c.id
                 WHERE m.id = ?
@@ -813,7 +813,7 @@ module.exports = {
             const teamScope = isScorer ? '' : ' AND mr.team_id = ?';
             if (!isScorer) params.push(userTeamId);
             const result = await db.query(
-                `SELECT mr.*, t.name AS team_name
+                `SELECT mr.*, t.name AS team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
                  FROM match_requests mr
                  LEFT JOIN teams t ON mr.team_id = t.id
                  WHERE mr.match_id = ? AND mr.status = 'PENDING'${teamScope}
@@ -865,7 +865,7 @@ module.exports = {
 
             // ดึงข้อมูลคำขอตัวเต็มที่รวมชื่อทีม (team_name) ด้วย
             const newRequestRes = await db.query(
-                `SELECT mr.*, t.name AS team_name
+                `SELECT mr.*, t.name AS team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
                  FROM match_requests mr
                  LEFT JOIN teams t ON mr.team_id = t.id
                  WHERE mr.id = ?`,
@@ -943,7 +943,7 @@ module.exports = {
 
             // ดึงข้อมูลคำขอตัวเต็มพร้อมชื่อทีม
             const updatedRequestRes = await db.query(
-                `SELECT mr.*, t.name AS team_name
+                `SELECT mr.*, t.name AS team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
                  FROM match_requests mr
                  LEFT JOIN teams t ON mr.team_id = t.id
                  WHERE mr.id = ?`,

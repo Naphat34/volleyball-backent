@@ -1,7 +1,9 @@
+import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useRef, useEffect } from 'react';
 import { RotateCcw } from 'lucide-react';
 
 const SignaturePad = ({ width = 500, height = 220, onSave, defaultValue }) => {
+    const st = useScorerTranslation();
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [hasDrawn, setHasDrawn] = useState(!!defaultValue);
@@ -96,16 +98,14 @@ const SignaturePad = ({ width = 500, height = 220, onSave, defaultValue }) => {
                     className="cursor-crosshair w-full h-full bg-slate-50/50 relative z-10 touch-none"
                 />
                 {!hasDrawn && (
-                    <div className="absolute inset-0 z-0 flex items-center justify-center font-bold text-slate-350 pointer-events-none select-none uppercase tracking-widest text-sm text-slate-300">
-                        ลงลายมือชื่อที่นี่ (Sign Here)
-                    </div>
+                    <div className="absolute inset-0 z-0 flex items-center justify-center font-bold text-slate-350 pointer-events-none select-none uppercase tracking-widest text-sm text-slate-300">{st("ลงลายมือชื่อที่นี่ (Sign Here)")}</div>
                 )}
                 {hasDrawn && (
                     <button
                         type="button"
                         onClick={clearCanvas}
                         className="absolute top-3 right-3 z-20 bg-white/90 p-2 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-md active:scale-95"
-                        title="Clear Signature"
+                        title={st("Clear Signature")}
                     >
                         <RotateCcw size={18} />
                     </button>

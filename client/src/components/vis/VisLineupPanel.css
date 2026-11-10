@@ -17,7 +17,7 @@ html[data-vis-theme="dark"] .vis-lineup-overlay {--lu-surface:#172231;--lu-headi
 .vis-lineup-header-actions>button {display:grid;place-items:center;width:30px;height:28px;}
 .vis-lineup-body {min-height:0;overflow:auto;padding:12px;overscroll-behavior:contain;scrollbar-color:var(--lu-muted) var(--lu-fill);}
 .vis-lineup-teams {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
-.vis-lineup-team {min-width:0;border:1px solid var(--lu-border);border-top:3px solid var(--lu-accent);border-radius:8px;background:var(--lu-surface);overflow:hidden;}
+.vis-lineup-team {min-width:0;border:1px solid var(--lu-border);border-top:3px solid var(--lu-team-color, var(--lu-accent));border-radius:8px;background:var(--lu-surface);overflow:hidden;}
 .vis-lineup-team.is-paused {border-top-color:var(--lu-muted);}
 .vis-lineup-team-header {display:flex;align-items:center;gap:8px;padding:8px 10px;}
 .vis-lineup-team-header label {display:flex;align-items:center;gap:8px;min-width:0;flex:1;color:var(--lu-accent);}
@@ -42,7 +42,7 @@ html[data-vis-theme="dark"] .vis-lineup-overlay {--lu-surface:#172231;--lu-headi
 .vis-lineup-modal .vis-lineup-slot.is-filled {background:var(--lu-highlight);color:var(--lu-accent);}
 .vis-lineup-roster {display:flex;flex-direction:column;gap:5px;height:450px;overflow-y:auto;overscroll-behavior:contain;padding:0 4px 2px 0;scrollbar-gutter:stable;scrollbar-color:var(--lu-muted) var(--lu-surface);}
 .vis-lineup-player {display:flex;align-items:center;gap:8px;flex-shrink:0;min-width:0;min-height:44px;width:100%;padding:5px 7px;border:1px solid var(--lu-border);border-radius:8px;background:var(--lu-fill);color:var(--lu-text);text-align:left;}
-.vis-lineup-player>b {display:grid;place-items:center;flex-shrink:0;min-width:29px;height:25px;padding:0 3px;border-radius:6px;background:#2563eb;color:#fff;font-weight:700;font-size:16px;}
+.vis-lineup-player>b {display:grid;place-items:center;flex-shrink:0;min-width:29px;height:25px;padding:0 3px;border-radius:6px;background:var(--lu-team-color, var(--lu-accent));color:var(--lu-number-ink, #fff);font-weight:700;font-size:16px;}
 .vis-lineup-player-name {flex:1;min-width:0;}
 .vis-lineup-player-name>span,.vis-lineup-player-name>small {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .vis-lineup-player-name>span {font-size:12px;}

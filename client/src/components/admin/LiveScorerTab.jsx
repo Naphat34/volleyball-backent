@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { useNavigate, Link } from 'react-router-dom';
@@ -6,6 +8,8 @@ import { EmptyState } from './AdminShared';
 import { formatThaiDate, formatThaiTime, formatThaiDateTime } from '../../utils/formatters';
 
 export default function LiveScorerTab({ darkMode }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const [competitions, setCompetitions] = useState([]);
     const [matches, setMatches] = useState([]);
 
@@ -270,7 +274,7 @@ export default function LiveScorerTab({ darkMode }) {
             setShowModal(false);
         } catch (error) {
             console.error("Failed to save match officials:", error);
-            alert("Failed to save officials data. Please try again.");
+            alert(ui("Failed to save officials data. Please try again."));
         }
     };
 
@@ -283,21 +287,19 @@ export default function LiveScorerTab({ darkMode }) {
                         <Swords className="text-blue-600" size={24} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                            Live Scorer Console
-                        </h1>
+                        <h1 className="text-2xl font-bold tracking-tight text-gray-900">{ui("Live Scorer Console")}</h1>
                     </div>
                 </div>
                 
                 <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-end">
                     <div className="w-full md:w-72">
-                        <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Competition</label>
+                        <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{ui("Competition")}</label>
                         <select 
                             className={`w-full h-12 px-4 rounded-md border shadow-sm focus:ring-2 focus:ring-blue-500 font-medium transition-all ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}
                             value={selectedBaseName}
                             onChange={(e) => setSelectedBaseName(e.target.value)}
                         >
-                            {uniqueBaseNames.length === 0 && <option value="">Loading...</option>}
+                            {uniqueBaseNames.length === 0 && <option value="">{ui("Loading...")}</option>}
                             {uniqueBaseNames.map(name => (
                                 <option key={name} value={name}>{name}</option>
                             ))}
@@ -305,7 +307,7 @@ export default function LiveScorerTab({ darkMode }) {
                     </div>
 
                     <div className="w-full md:w-auto">
-                        <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gender</label>
+                        <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{ui("Gender")}</label>
                         <div className="flex bg-gray-50 border border-gray-200 dark:bg-gray-700 rounded-lg p-1 h-12 shadow-sm items-center">
                             {availableGenders.map(g => (
                                 <button 
@@ -324,8 +326,7 @@ export default function LiveScorerTab({ darkMode }) {
             {/* Match List */}
             <div className={`p-8 rounded-[0.5rem] shadow-sm border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <Trophy size={24} className="text-yellow-500" /> Select Match to Score
-                </h3>
+                    <Trophy size={24} className="text-yellow-500" />{ui("Select Match to Score")}</h3>
 
                 <div className="grid grid-cols-1 gap-4">
                     {matches.length === 0 ? (
@@ -343,19 +344,19 @@ export default function LiveScorerTab({ darkMode }) {
                                                 ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300' 
                                                 : m.gender === 'Male' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' 
                                                 : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                                            }`}>{m.gender}</span>
+                                            }`}>{ui(m.gender)}</span>
                                             <span className={`text-sm font-semibold px-3 py-1 rounded-lg ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                {isCompleted ? 'Finished' : 'Scheduled'}
+                                                {isCompleted ? ui('Finished') : ui('Scheduled')}
                                             </span>
                                         </div>
                                         <div className="text-xl font-bold flex items-center gap-4 mb-2">
-                                            <span className={m.home_set_score > m.away_set_score ? 'text-green-600' : ''}>{m.home_team}</span>
-                                            <span className="text-gray-400 text-base font-medium italic">VS</span>
-                                            <span className={m.away_set_score > m.home_set_score ? 'text-green-600' : ''}>{m.away_team}</span>
+                                            <span className={m.home_set_score > m.away_set_score ? 'text-green-600' : ''}>{displayNames.matchTeamName(m, 'home')}</span>
+                                            <span className="text-gray-400 text-base font-medium italic">{ui("VS")}</span>
+                                            <span className={m.away_set_score > m.home_set_score ? 'text-green-600' : ''}>{displayNames.matchTeamName(m, 'away')}</span>
                                         </div>
                                         <div className="text-base text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-6">
                                             <span className="flex items-center gap-2"><Calendar size={18} className="text-blue-600" /> 
-                                                {m.match_date ? formatThaiDate(m.match_date) : (m.start_time && m.start_time.includes('T') ? formatThaiDate(m.start_time) : 'TBD')}
+                                                {m.match_date ? formatThaiDate(m.match_date) : m.start_time && m.start_time.includes('T') ? formatThaiDate(m.start_time) : ui('TBD')}
                                                 {' '}
                                                 {m.start_time ? (m.start_time.includes('T') ? formatThaiTime(m.start_time) : m.start_time.substring(0, 5)) : ''}
                                             </span>
@@ -367,7 +368,7 @@ export default function LiveScorerTab({ darkMode }) {
                                             to={`/match/${m.id}/referee`}
                                             target="_blank"
                                             className="flex-1 md:flex-none h-10 w-10 rounded-lg font-medium flex items-center justify-center transition-all bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                                            title="Open Referee View"
+                                            title={ui("Open Referee View")}
                                         >
                                             <Monitor size={20} />
                                         </Link>
@@ -375,17 +376,16 @@ export default function LiveScorerTab({ darkMode }) {
                                             onClick={() => handleOpenConsoleClick(m)}
                                             className={`flex-1 md:flex-none px-6 h-10 rounded-lg font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all ${isCompleted ? 'bg-gray-100 text-gray-500 border border-gray-200' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                                         >
-                                            <PlayCircle size={18} /> {isCompleted ? 'View Data' : 'Open Console'}
+                                            <PlayCircle size={18} /> {isCompleted ? ui('View Data') : ui('Open Console')}
                                         </button>
                                         {isCompleted && (
                                             <Link
                                                 to={`/scoresheet/${m.id}`}
                                                 target="_blank"
                                                 className="flex-1 md:flex-none px-5 h-10 rounded-lg font-medium text-sm flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-400 transition-all border border-emerald-100 dark:border-emerald-800"
-                                                title="Print Official Score Sheet"
+                                                title={ui("Print Official Score Sheet")}
                                             >
-                                                <FileText size={16} /> Official Score Sheet
-                                            </Link>
+                                                <FileText size={16} />{ui("Official Score Sheet")}</Link>
                                         )}
                                     </div>
                                 </div>
@@ -407,7 +407,7 @@ export default function LiveScorerTab({ darkMode }) {
                                     <Swords className="text-blue-600" size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">Match Officials & Setup</h3>
+                                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">{ui("Match Officials & Setup")}</h3>
                                     <p className="text-sm text-gray-500">{formData.title}</p>
                                 </div>
                             </div>
@@ -422,31 +422,29 @@ export default function LiveScorerTab({ darkMode }) {
                             {/* General Match Info */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-blue-600 mb-4 border-b border-gray-100 pb-2">
-                                    <FileText size={16} /> General Match Info
-                                </h4>
+                                    <FileText size={16} />{ui("General Match Info")}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <InputGroup label="Category" val={formData.category} readOnly />
-                                    <InputGroup label="Gender" val={formData.division} readOnly />
-                                    <InputGroup label="Match No" name="matchNumber" val={formData.matchNumber} onChange={handleFormChange} />
-                                    <InputGroup label="Phase" name="phase" val={formData.phase} onChange={handleFormChange} />
+                                    <InputGroup label={ui("Category")} val={formData.category} readOnly />
+                                    <InputGroup label={ui("Gender")} val={formData.division} readOnly />
+                                    <InputGroup label={ui("Match No")} name="matchNumber" val={formData.matchNumber} onChange={handleFormChange} />
+                                    <InputGroup label={ui("Phase")} name="phase" val={formData.phase} onChange={handleFormChange} />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-                                    <InputGroup label="Date" val={formData.dateTime?.split(' ')[0]} readOnly icon={<Calendar size={16} />} />
-                                    <InputGroup label="Time" val={formData.dateTime?.split(' ')[1]} readOnly />
-                                    <InputGroup label="Home Team" val={formData.teamHome} readOnly />
-                                    <InputGroup label="Away Team" val={formData.teamAway} readOnly />
+                                    <InputGroup label={ui("Date")} val={formData.dateTime?.split(' ')[0]} readOnly icon={<Calendar size={16} />} />
+                                    <InputGroup label={ui("Time")} val={formData.dateTime?.split(' ')[1]} readOnly />
+                                    <InputGroup label={ui("Home Team")} val={formData.teamHome} readOnly />
+                                    <InputGroup label={ui("Away Team")} val={formData.teamAway} readOnly />
                                 </div>
                             </div>
 
                             {/* Location */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-rose-600 mb-4 border-b border-gray-100 pb-2">
-                                    <MapPin size={16} /> Location
-                                </h4>
+                                    <MapPin size={16} />{ui("Location")}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <InputGroup label="Country" name="countryCode" val={formData.countryCode} onChange={handleFormChange} />
-                                    <InputGroup label="City" name="city" val={formData.city} onChange={handleFormChange} />
-                                    <InputGroup label="Stadium / Hall" name="stadium" val={formData.stadium} onChange={handleFormChange} />
+                                    <InputGroup label={ui("Country")} name="countryCode" val={formData.countryCode} onChange={handleFormChange} />
+                                    <InputGroup label={ui("City")} name="city" val={formData.city} onChange={handleFormChange} />
+                                    <InputGroup label={ui("Stadium / Hall")} name="stadium" val={formData.stadium} onChange={handleFormChange} />
                                     <div className="flex flex-col gap-2 justify-end pb-3">
                                         <label className="flex items-center gap-3 cursor-pointer select-none">
                                             <input
@@ -456,7 +454,7 @@ export default function LiveScorerTab({ darkMode }) {
                                                 onChange={e => setFormData(prev => ({ ...prev, hasChallenge: e.target.checked }))}
                                                 className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                             />
-                                            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wide">Video Challenge</span>
+                                            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wide">{ui("Video Challenge")}</span>
                                         </label>
                                     </div>
                                 </div>
@@ -465,30 +463,29 @@ export default function LiveScorerTab({ darkMode }) {
                             {/* Officials */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600 mb-4 border-b border-gray-100 pb-2">
-                                    <User size={16} /> Match Officials
-                                </h4>
+                                    <User size={16} />{ui("Match Officials")}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="flex flex-col gap-4">
-                                        <SelectGroup label="1st Referee" name="referee1" val={formData.referee1} onChange={handleFormChange} options={referees} />
-                                        <SelectGroup label="2nd Referee" name="referee2" val={formData.referee2} onChange={handleFormChange} options={referees} />
-                                        <InputGroup label="Challenge Operator" name="tdName" val={formData.tdName} onChange={handleFormChange} />
+                                        <SelectGroup label={ui("1st Referee")} name="referee1" val={formData.referee1} onChange={handleFormChange} options={referees} />
+                                        <SelectGroup label={ui("2nd Referee")} name="referee2" val={formData.referee2} onChange={handleFormChange} options={referees} />
+                                        <InputGroup label={ui("Challenge Operator")} name="tdName" val={formData.tdName} onChange={handleFormChange} />
                                     </div>
                                     <div className="flex flex-col gap-4">
-                                        <InputGroup label="Scorer Name" name="scorerName" val={formData.scorerName} onChange={handleFormChange} />
-                                        <InputGroup label="Scorer Country Code" name="scorerCountry" val={formData.scorerCountry} onChange={handleFormChange} />
-                                        <InputGroup label="Assistant Scorer Name" name="assistantScorerName" val={formData.assistantScorerName} onChange={handleFormChange} />
-                                        <InputGroup label="Assistant Scorer Country Code" name="assistantScorerCountry" val={formData.assistantScorerCountry} onChange={handleFormChange} />
+                                        <InputGroup label={ui("Scorer Name")} name="scorerName" val={formData.scorerName} onChange={handleFormChange} />
+                                        <InputGroup label={ui("Scorer Country Code")} name="scorerCountry" val={formData.scorerCountry} onChange={handleFormChange} />
+                                        <InputGroup label={ui("Assistant Scorer Name")} name="assistantScorerName" val={formData.assistantScorerName} onChange={handleFormChange} />
+                                        <InputGroup label={ui("Assistant Scorer Country Code")} name="assistantScorerCountry" val={formData.assistantScorerCountry} onChange={handleFormChange} />
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                                     <div className="flex flex-col gap-4">
-                                        <SelectGroup label="Line Judge 1" name="lineJudge1" val={formData.lineJudge1} onChange={handleFormChange} options={lineJudges} />
-                                        <SelectGroup label="Line Judge 2" name="lineJudge2" val={formData.lineJudge2} onChange={handleFormChange} options={lineJudges} />
+                                        <SelectGroup label={ui("Line Judge 1")} name="lineJudge1" val={formData.lineJudge1} onChange={handleFormChange} options={lineJudges} />
+                                        <SelectGroup label={ui("Line Judge 2")} name="lineJudge2" val={formData.lineJudge2} onChange={handleFormChange} options={lineJudges} />
                                     </div>
                                     <div className="flex flex-col gap-4">
-                                        <SelectGroup label="Line Judge 3" name="lineJudge3" val={formData.lineJudge3} onChange={handleFormChange} options={lineJudges} />
-                                        <SelectGroup label="Line Judge 4" name="lineJudge4" val={formData.lineJudge4} onChange={handleFormChange} options={lineJudges} />
+                                        <SelectGroup label={ui("Line Judge 3")} name="lineJudge3" val={formData.lineJudge3} onChange={handleFormChange} options={lineJudges} />
+                                        <SelectGroup label={ui("Line Judge 4")} name="lineJudge4" val={formData.lineJudge4} onChange={handleFormChange} options={lineJudges} />
                                     </div>
                                 </div>
                             </div>
@@ -497,13 +494,9 @@ export default function LiveScorerTab({ darkMode }) {
 
                         {/* Footer Controls */}
                         <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 rounded-b-xl">
-                            <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all font-medium text-sm">
-                                Cancel
-                            </button>
+                            <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all font-medium text-sm">{ui("Cancel")}</button>
                             <button onClick={handleEnterScorer} className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all flex items-center gap-2">
-                                <CheckCircle size={18} />
-                                Launch Console
-                            </button>
+                                <CheckCircle size={18} />{ui("Launch Console")}</button>
                         </div>
                     </div>
                 </div>
@@ -513,9 +506,10 @@ export default function LiveScorerTab({ darkMode }) {
 }
 
 // Helper Component for Inputs
-const InputGroup = ({ label, name, val, onChange, readOnly = false, icon }) => (
-    <div className="flex flex-col gap-2">
-        <label className={`text-sm font-semibold uppercase tracking-wide ${readOnly ? 'text-slate-400' : 'text-slate-600'}`}>{label}</label>
+const InputGroup = ({ label, name, val, onChange, readOnly = false, icon }) => {
+    const ui = useUiTranslation();
+    return (<div className="flex flex-col gap-2">
+        <label className={`text-sm font-semibold uppercase tracking-wide ${readOnly ? 'text-slate-400' : 'text-slate-600'}`}>{ui(label)}</label>
         <div className="relative">
             {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{icon}</div>}
             <input
@@ -535,10 +529,13 @@ const InputGroup = ({ label, name, val, onChange, readOnly = false, icon }) => (
         </div>
     </div>
 );
+};
 
-const SelectGroup = ({ label, name, val, onChange, options = [], icon }) => (
-    <div className="flex flex-col gap-2">
-        <label className="text-sm font-semibold uppercase tracking-wide text-slate-600">{label}</label>
+const SelectGroup = ({ label, name, val, onChange, options = [], icon }) => {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
+    return (<div className="flex flex-col gap-2">
+        <label className="text-sm font-semibold uppercase tracking-wide text-slate-600">{ui(label)}</label>
         <div className="relative">
             {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10">{icon}</div>}
             <select
@@ -550,10 +547,10 @@ const SelectGroup = ({ label, name, val, onChange, options = [], icon }) => (
                     ${icon ? 'pl-10' : ''}
                 `}
             >
-                <option value="" className="text-slate-400">-- Select --</option>
+                <option value="" className="text-slate-400">{ui("-- Select --")}</option>
                 {options.map(opt => (
                     <option key={opt.id} value={opt.id} className="text-slate-900">
-                        {opt.firstname} {opt.lastname} ({opt.country || '-'})
+                        {displayNames.personFirstName(opt)} {displayNames.personLastName(opt)} ({opt.country || '-'})
                     </option>
                 ))}
             </select>
@@ -563,3 +560,4 @@ const SelectGroup = ({ label, name, val, onChange, options = [], icon }) => (
         </div>
     </div>
 );
+};

@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Clock, RefreshCw, ArrowRightLeft, Wifi, WifiOff, MonitorPlay, PauseCircle, Smartphone, Monitor } from 'lucide-react';
@@ -24,15 +26,15 @@ const getRequestDetails = (request) => {
     }
 };
 
-const buildRequestAlert = (request) => {
+const buildRequestAlert = (request, t, names) => {
     const requestType = String(request?.request_type || '').toUpperCase();
-    const teamName = request?.team_name || 'N/A';
+    const teamName = names.linkedTeamName(request) || t('N/A');
     const details = getRequestDetails(request);
 
     if (requestType === 'TIMEOUT') {
         return {
-            title: 'Timeout Request',
-            text: `Team ${teamName} requested a time out.`,
+            title: t('Timeout Request'),
+            text: t('Team {0} requested a time out.', [teamName]),
             icon: 'warning'
         };
     }
@@ -43,13 +45,13 @@ const buildRequestAlert = (request) => {
             ? pairs.map((pair) => {
                 const outNum = pair.outPlayer?.number || '?';
                 const inNum = pair.inPlayer?.number || '?';
-                return `OUT #${outNum} -> IN #${inNum}`;
+                return t('OUT #{0} -> IN #{1}', [outNum, inNum]);
             }).join('\n')
-            : 'Substitution details are pending.';
+            : t('Substitution details are pending.');
 
         return {
-            title: 'Substitution Request',
-            text: `Team ${teamName} requested a substitution.\n${pairsText}`,
+            title: t('Substitution Request'),
+            text: t('Team {0} requested a substitution.\n{1}', [teamName, pairsText]),
             icon: 'info'
         };
     }
@@ -63,8 +65,8 @@ const buildRequestAlert = (request) => {
                 : 'Previous action';
 
         return {
-            title: 'Video Challenge Request',
-            text: `Team ${teamName} requested a video challenge.\nReason: ${reason}\nAction: ${lastActionText}`,
+            title: t('Video Challenge Request'),
+            text: t('Team {0} requested a video challenge.\nReason: {1}\nAction: {2}', [teamName, t(reason), t(lastActionText)]),
             icon: 'question'
         };
     }
@@ -72,14 +74,15 @@ const buildRequestAlert = (request) => {
     return null;
 };
 
-const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, isLandscape = false }) => (
-    <div className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-full ${isLandscape ? 'w-full' : 'w-full'}`}>
+const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, isLandscape = false }) => {
+    const ui = useUiTranslation();
+    return (<div className={`bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-full ${isLandscape ? 'w-full' : 'w-full'}`}>
         {/* VC (Challenges) */}
         <div className="grid grid-cols-3 border-b border-slate-100 flex-1 py-2 sm:py-3.5">
             <div className="flex items-center justify-center font-black text-blue-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{challenges[leftTeam.code]}</div>
             <div className="flex flex-col items-center justify-center gap-1 bg-slate-50/50 text-slate-400 font-black text-[10px] sm:text-xs md:text-sm uppercase tracking-wider border-x border-slate-100">
                 <MonitorPlay size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" /> 
-                <span className="hidden sm:inline text-center leading-none">Challenges</span>
+                <span className="hidden sm:inline text-center leading-none">{ui("Challenges")}</span>
             </div>
             <div className="flex items-center justify-center font-black text-blue-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{challenges[rightTeam.code]}</div>
         </div>
@@ -89,7 +92,7 @@ const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, 
             <div className="flex items-center justify-center font-black text-amber-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{timeouts[leftTeam.code]}</div>
             <div className="flex flex-col items-center justify-center gap-1 bg-slate-50/50 text-slate-400 font-black text-[10px] sm:text-xs md:text-sm uppercase tracking-wider border-x border-slate-100">
                 <PauseCircle size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" /> 
-                <span className="hidden sm:inline text-center leading-none">Timeouts</span>
+                <span className="hidden sm:inline text-center leading-none">{ui("Timeouts")}</span>
             </div>
             <div className="flex items-center justify-center font-black text-amber-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{timeouts[rightTeam.code]}</div>
         </div>
@@ -99,14 +102,17 @@ const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, 
             <div className="flex items-center justify-center font-black text-emerald-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{substitutions[leftTeam.code]}</div>
             <div className="flex flex-col items-center justify-center gap-1 bg-slate-50/50 text-slate-400 font-black text-[10px] sm:text-xs md:text-sm uppercase tracking-wider border-x border-slate-100">
                 <ArrowRightLeft size={20} className="sm:w-6 sm:h-6 md:w-7 md:h-7" /> 
-                <span className="hidden sm:inline text-center leading-none">Subs</span>
+                <span className="hidden sm:inline text-center leading-none">{ui("Subs")}</span>
             </div>
             <div className="flex items-center justify-center font-black text-emerald-600 text-2xl sm:text-3xl md:text-4xl xl:text-5xl">{substitutions[rightTeam.code]}</div>
         </div>
     </div>
 );
+};
 
 export default function ScoreViewReferee() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const { matchId } = useParams();
     const [localFlip, setLocalFlip] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(() => Date.now());
@@ -228,7 +234,7 @@ export default function ScoreViewReferee() {
             const requestType = String(request?.request_type || '').toUpperCase();
             if (!visibleRequestTypes.has(requestType)) return;
 
-            const alert = buildRequestAlert(request);
+            const alert = buildRequestAlert(request, ui, displayNames);
             if (!alert) return;
 
             activeAlertId = request.id;
@@ -242,12 +248,12 @@ export default function ScoreViewReferee() {
                 }
             }
 
-            Swal.fire({
+            Swal.fire({ uiTextLocalized: true,
                 title: alert.title,
                 text: alert.text,
                 icon: alert.icon,
                 showConfirmButton: true,
-                confirmButtonText: 'OK',
+                confirmButtonText: ui('OK'),
                 confirmButtonColor: '#3085d6',
                 allowOutsideClick: false,
                 timer: requestType === 'CHALLENGE' ? undefined : 15000,
@@ -270,11 +276,11 @@ export default function ScoreViewReferee() {
                 Swal.close();
                 activeAlertId = null;
                 
-                Swal.fire({
+                Swal.fire({ uiTextLocalized: true,
                     toast: true,
                     position: 'top-end',
                     icon: data.status === 'APPROVED' ? 'success' : 'error',
-                    title: data.status === 'APPROVED' ? 'คำขอได้รับการอนุมัติ (Approved)' : 'คำขอถูกปฏิเสธ (Rejected)',
+                    title: data.status === 'APPROVED' ? ui('คำขอได้รับการอนุมัติ (Approved)') : ui('คำขอถูกปฏิเสธ (Rejected)'),
                     showConfirmButton: false,
                     timer: 3000
                 });
@@ -292,7 +298,7 @@ export default function ScoreViewReferee() {
             socket.off('match_updated');
             socket.disconnect();
         };
-    }, [matchId, refreshData]);
+    }, [matchId, refreshData, ui, displayNames]);
 
     // --- EFFECT: CONNECTION CHECK ---
     useEffect(() => {
@@ -308,12 +314,12 @@ export default function ScoreViewReferee() {
     const isSetupPhase = ['COIN_TOSS', 'SIGNATURES', 'ROSTER_CHECK', 'SERVER_SELECT', 'LINEUP_SELECT', 'LINEUP'].includes(workflowStep) || !workflowStep;
 
     const getLeftTeam = () => effectiveIsHomeLeft
-        ? { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps }
-        : { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps };
+        ? { name: displayNames.matchTeamName(matchData, 'home'), score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps }
+        : { name: displayNames.matchTeamName(matchData, 'away'), score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps };
 
     const getRightTeam = () => effectiveIsHomeLeft
-        ? { name: matchData.teamAway, score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps }
-        : { name: matchData.teamHome, score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps };
+        ? { name: displayNames.matchTeamName(matchData, 'away'), score: score.away, sets: setsWon.away, code: 'away', color: teamColors.away, bg: teamColors.away, roster: awayRoster, lineup: awayLineup, liberos: awayLiberos, liberoSwaps: awayLiberoSwaps }
+        : { name: displayNames.matchTeamName(matchData, 'home'), score: score.home, sets: setsWon.home, code: 'home', color: teamColors.home, bg: teamColors.home, roster: homeRoster, lineup: homeLineup, liberos: homeLiberos, liberoSwaps: homeLiberoSwaps };
 
     const leftTeam = getLeftTeam();
     const rightTeam = getRightTeam();
@@ -341,13 +347,13 @@ export default function ScoreViewReferee() {
                                     {leftTeam.sets}
                                 </div>
                                 <h1 className="text-lg md:text-3xl font-black truncate text-slate-800 uppercase tracking-tight">
-                                    {leftTeam.name}
+                                    {displayNames.teamName(leftTeam)}
                                 </h1>
                             </div>
 
                             {/* Center Info */}
                             <div className="flex flex-col items-center px-4 md:px-10 border-x border-slate-100">
-                                <div className="text-[9px] md:text-[11px] text-slate-400 uppercase font-black tracking-[0.2em] mb-0.5 md:mb-1">Duration</div>
+                                <div className="text-[9px] md:text-[11px] text-slate-400 uppercase font-black tracking-[0.2em] mb-0.5 md:mb-1">{ui("Duration")}</div>
                                 <div className="text-lg md:text-3xl font-mono font-black text-blue-600 flex items-center gap-1.5 md:gap-3">
                                     <Clock size={20} className="text-blue-400" />
                                     {formatTime(matchDuration)}
@@ -357,7 +363,7 @@ export default function ScoreViewReferee() {
                             {/* Right Team */}
                             <div className="flex items-center gap-2 md:gap-4 flex-1 justify-start overflow-hidden">
                                 <h1 className="text-lg md:text-3xl font-black truncate text-slate-800 uppercase tracking-tight text-right">
-                                    {rightTeam.name}
+                                    {displayNames.teamName(rightTeam)}
                                 </h1>
                                 <div className="bg-slate-100 px-3 py-1.5 md:px-5 md:py-2.5 rounded-xl text-xl md:text-4xl font-black border border-slate-200 min-w-[50px] md:min-w-[80px] text-center text-slate-700 shadow-inner">
                                     {rightTeam.sets}
@@ -398,7 +404,7 @@ export default function ScoreViewReferee() {
                     
                     {/* Set Indicator */}
                     <div className="bg-slate-900 py-2 md:py-3 text-center shrink-0">
-                        <span className="text-lg md:text-7xl font-black text-white uppercase tracking-[0.3em]">SET-{matchData.currentSet}</span>
+                        <span className="text-lg md:text-7xl font-black text-white uppercase tracking-[0.3em]">{ui("SET-")}{matchData.currentSet}</span>
                     </div>
 
                     {/* Stats & Scores Area */}
@@ -445,14 +451,14 @@ export default function ScoreViewReferee() {
                 <div className="flex items-center gap-2">
                     {isConnected ? (
                         <div className="flex items-center gap-2 text-green-600">
-                            <Wifi size={16} /> <span className="font-bold">Connected</span>
+                            <Wifi size={16} /> <span className="font-bold">{ui("Connected")}</span>
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 text-red-500">
-                            <WifiOff size={16} /> <span className="font-bold">Disconnected</span>
+                            <WifiOff size={16} /> <span className="font-bold">{ui("Disconnected")}</span>
                         </div>
                     )}
-                    <span className="text-slate-500 ml-2 hidden sm:inline">Last update: {new Date(lastUpdated).toLocaleTimeString()}</span>
+                    <span className="text-slate-500 ml-2 hidden sm:inline">{ui("Last update:")}{' '}{new Date(lastUpdated).toLocaleTimeString()}</span>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -469,20 +475,18 @@ export default function ScoreViewReferee() {
                         className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
                     >
                         {isVertical ? <Smartphone size={16} /> : <Monitor size={16} />}
-                        {isVertical ? "Vertical Layout" : "Landscape Layout"}
+                        {isVertical ? ui("Vertical Layout") : ui("Landscape Layout")}
                     </button>
                     <button 
                         onClick={() => setLocalFlip(!localFlip)}
                         className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
                     >
-                        <ArrowRightLeft size={16} /> Swap Sides
-                    </button>
+                        <ArrowRightLeft size={16} />{ui("Swap Sides")}</button>
                     <button 
                         onClick={refreshData}
                         className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
                     >
-                        <RefreshCw size={16} /> Refresh
-                    </button>
+                        <RefreshCw size={16} />{ui("Refresh")}</button>
                 </div>
             </div>
         </div>

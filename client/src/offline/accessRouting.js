@@ -10,7 +10,7 @@ export function accessDecision(session, { section = null, search = '' } = {}) {
     const intent = loginIntent(search);
     const selected = section || intent.section;
     const offline = session.kind === 'offline', user = session.user;
-    if (selected && !canEnterSection(user, selected, offline)) return { kind: 'denied', message: `บัญชี ${user.username || ''} ไม่มีสิทธิ์เข้า ${selected === 'vis' ? 'VIS' : 'ScorerControl'} กรุณาเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์` };
+    if (selected && !canEnterSection(user, selected, offline)) return { kind: 'denied', message: `บัญชี ${user.username || ''} ไม่มีสิทธิ์เข้า ${selected === 'vis' ? 'VIMS' : 'ScorerControl'} กรุณาเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์` };
     if (selected) return { kind: 'ready', path: sectionHome(selected, offline), section: selected, matchPath: intent.section === selected ? intent.destination : null, offline };
     return { kind: 'ready', path: roleHome(user, offline), offline };
 }

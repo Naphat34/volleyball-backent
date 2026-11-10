@@ -1,3 +1,4 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
 import MatchSettingsFields from './MatchSettingsFields';
 import { validateMatchSettings } from '../../utils/scorer/matchSettings';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ const checkLabels = {
 };
 
 export default function ScorerMatchModal({ source, canConfirm = false, onClose, onConfirmed }) {
+    const ui = useUiTranslation();
     const { language } = useLanguage(), th = language === 'THA';
     const t = (thai, english) => th ? thai : english;
     const dialog = useRef(null), sequence = useRef(0), actionLock = useRef(false), mounted = useRef(false);
@@ -119,11 +121,11 @@ export default function ScorerMatchModal({ source, canConfirm = false, onClose, 
 
     return <dialog ref={dialog} className="smm-dialog" aria-labelledby={`${id}-title`} onCancel={event => { event.preventDefault(); close(); }}>
         <header className="smm-header"><h2 id={`${id}-title`}>{t('ตั้งค่าแมตช์', 'Match settings')}</h2><div className="smm-actions"><button type="button" disabled={saving} onClick={close}>{t('ปิด', 'Close')}</button>{snapshot?.settings?.canEdit && <button type="button" className="smm-primary" disabled={saving || loading || !online() || Boolean(snapshot?.errors.length)} onClick={() => dirty ? save(true) : close()}>{saving ? t('กำลังบันทึก…', 'Saving…') : t('บันทึกและปิด', 'Save and close')}</button>}</div></header>
-        <div className="smm-tabs" role="tablist" aria-label={t('ข้อมูลแมตช์', 'Match information')}>{tabs.map(([key, label]) => <button type="button" key={key} role="tab" id={`${id}-tab-${key}`} aria-selected={tab === key} aria-controls={`${id}-panel`} tabIndex={tab === key ? 0 : -1} onKeyDown={keyTabs} onClick={() => setTab(key)}>{label}{changedTab(key) ? ' ?' : ''}</button>)}</div>
+        <div className="smm-tabs" role="tablist" aria-label={t('ข้อมูลแมตช์', 'Match information')}>{tabs.map(([key, label]) => <button type="button" key={key} role="tab" id={`${id}-tab-${key}`} aria-selected={tab === key} aria-controls={`${id}-panel`} tabIndex={tab === key ? 0 : -1} onKeyDown={keyTabs} onClick={() => setTab(key)}>{ui(label)}{changedTab(key) ? ' ?' : ''}</button>)}</div>
         <div className="smm-body" id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${tab}`} tabIndex={0} aria-busy={loading}>
             {validation.length > 0 && <ul className="smm-error" role="alert">{validation.map((failure, index) => <li key={index}><button type="button" onClick={() => setTab(failure.tab)}>{failure.message}</button></li>)}</ul>}
-            {notice && <p className="smm-notice" role="status">{notice}</p>}
-            {error && <div className="smm-error" role="alert"><p>{error === 'OFFLINE' ? t('ออฟไลน์หรือไม่ได้อยู่ในโหมดออนไลน์ ข้อมูลด้านล่างมาจากรายการเดิม ยังไม่ได้ตรวจจากเซิร์ฟเวอร์', 'Offline or not in online mode. Only existing list data is shown; server data is not verified.') : error}</p><button disabled={loading || saving} onClick={() => { if (!dirty || window.confirm(t('โหลดข้อมูลใหม่และทิ้งการแก้ไข?', 'Reload and discard changes?'))) void load(); }}>{t('ลองใหม่', 'Retry')}</button></div>}
+            {notice && <p className="smm-notice" role="status">{ui(notice)}</p>}
+            {error && <div className="smm-error" role="alert"><p>{error === 'OFFLINE' ? t('ออฟไลน์หรือไม่ได้อยู่ในโหมดออนไลน์ ข้อมูลด้านล่างมาจากรายการเดิม ยังไม่ได้ตรวจจากเซิร์ฟเวอร์', 'Offline or not in online mode. Only existing list data is shown; server data is not verified.') : ui(error)}</p><button disabled={loading || saving} onClick={() => { if (!dirty || window.confirm(t('โหลดข้อมูลใหม่และทิ้งการแก้ไข?', 'Reload and discard changes?'))) void load(); }}>{t('ลองใหม่', 'Retry')}</button></div>}
             {snapshot?.errors.map(failure => <p className="smm-error" role="alert" key={failure.section}>{failure.section}: {failure.message} <button disabled={loading || saving} onClick={() => void load()}>{t('ลองใหม่', 'Retry')}</button></p>)}
             {loading ? <p role="status">{t('กำลังอ่านข้อมูลล่าสุด…', 'Loading latest data…')}</p> : <>
                 {draft && ['overview', 'roster', 'staff', 'officials'].includes(tab) && <>
@@ -138,6 +140,6 @@ export default function ScorerMatchModal({ source, canConfirm = false, onClose, 
                 </>}
             </>}
         </div>
-        <footer className="smm-footer"><div>{dirty && <strong className="smm-unsaved">{t('มีข้อมูลที่ยังไม่บันทึก', 'Unsaved changes')}</strong>}<small>{snapshot ? `${t('อ่านข้อมูลเมื่อ', 'Loaded at')} ${format(snapshot.loadedAt)}` : t('ยังไม่มีข้อมูลล่าสุด', 'No fresh data loaded')}</small><a href={`/match/${encodeURIComponent(matchId)}`} target="_blank" rel="noreferrer">{t('เปิดหน้าเต็ม', 'Open full page')} ↗</a></div><div className="smm-actions"><button disabled={saving} onClick={close}>{t('ยกเลิก / ปิด', 'Cancel / Close')}</button>{snapshot?.settings?.canEdit && <button className="smm-primary" disabled={!dirty || saving || loading || !online() || Boolean(snapshot?.errors.length)} onClick={() => save()}>{saving ? t('กำลังบันทึก…', 'Saving…') : t('บันทึกการเปลี่ยนแปลง', 'Save changes')}</button>}<a href={`/scoresheet/${encodeURIComponent(matchId)}`} target="_blank" rel="noreferrer">Preview Scorer Sheet</a>{tab === 'review' && canConfirm && isManual && !review.confirmed && <button className="smm-primary" disabled={dirty || loading || saving || !acknowledged || !review.canConfirm || Boolean(snapshot?.errors.length) || !online()} onClick={confirm}>{saving ? t('กำลังดำเนินการ…', 'Working…') : t('ตรวจสอบแล้ว · ยืนยันผล', 'Reviewed · Confirm result')}</button>}</div></footer>
+        <footer className="smm-footer"><div>{dirty && <strong className="smm-unsaved">{t('มีข้อมูลที่ยังไม่บันทึก', 'Unsaved changes')}</strong>}<small>{snapshot ? `${t('อ่านข้อมูลเมื่อ', 'Loaded at')} ${format(snapshot.loadedAt)}` : t('ยังไม่มีข้อมูลล่าสุด', 'No fresh data loaded')}</small><a href={`/match/${encodeURIComponent(matchId)}`} target="_blank" rel="noreferrer">{t('เปิดหน้าเต็ม', 'Open full page')} ↗</a></div><div className="smm-actions"><button disabled={saving} onClick={close}>{t('ยกเลิก / ปิด', 'Cancel / Close')}</button>{snapshot?.settings?.canEdit && <button className="smm-primary" disabled={!dirty || saving || loading || !online() || Boolean(snapshot?.errors.length)} onClick={() => save()}>{saving ? t('กำลังบันทึก…', 'Saving…') : t('บันทึกการเปลี่ยนแปลง', 'Save changes')}</button>}<a href={`/scoresheet/${encodeURIComponent(matchId)}`} target="_blank" rel="noreferrer">{ui("Preview Scorer Sheet")}</a>{tab === 'review' && canConfirm && isManual && !review.confirmed && <button className="smm-primary" disabled={dirty || loading || saving || !acknowledged || !review.canConfirm || Boolean(snapshot?.errors.length) || !online()} onClick={confirm}>{saving ? t('กำลังดำเนินการ…', 'Working…') : t('ตรวจสอบแล้ว · ยืนยันผล', 'Reviewed · Confirm result')}</button>}</div></footer>
     </dialog>;
 }

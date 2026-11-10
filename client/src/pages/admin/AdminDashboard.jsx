@@ -1,3 +1,4 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { useVisTheme } from '../../components/vis/visThemeContext';
 import GlobalSearch from '../../components/layout/GlobalSearch';
 import Logo from '../../assets/img/Logo_Phatthalung.png';
@@ -31,6 +32,7 @@ import OfficialsTab from '../../components/admin/OfficialsTab';
 
 
 export default function AdminDashboard() {
+    const ui = useUiTranslation();
     const navigate = useNavigate();
     const { language, setLanguage, t } = useLanguage();
     const [activeTab, setActiveTab] = useState(() => {
@@ -195,20 +197,20 @@ export default function AdminDashboard() {
                     {!isCollapsed ? (
                         <div className="flex min-w-0 items-center gap-3">
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center">
-                                <img src={Logo} alt="Phatthalung Volleyball Club" className="h-10 w-10 object-contain" />
+                                <img src={Logo} alt={ui("Phatthalung Volleyball Club")} className="h-10 w-10 object-contain" />
                             </div>
                             <div className="min-w-0">
                             <h1 className="truncate text-base font-semibold tracking-tight text-slate-950">
                                 {t('admin.title')}
                             </h1>
                             <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
-                                {language === 'THA' ? 'ระบบจัดการการแข่งขัน' : 'Competition control panel'}
+                                {language === 'THA' ? ui('ระบบจัดการการแข่งขัน') : ui('Competition control panel')}
                             </p>
                             </div>
                         </div>
                     ) : (
                         <div className="hidden h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white shadow-[0_10px_22px_rgba(15,23,42,0.18)] lg:flex">
-                            <img src={Logo} alt="Phatthalung Volleyball Club" className="h-10 w-10 object-contain" />
+                            <img src={Logo} alt={ui("Phatthalung Volleyball Club")} className="h-10 w-10 object-contain" />
                         </div>
                     )}
                     {isCollapsed && (
@@ -219,7 +221,7 @@ export default function AdminDashboard() {
                     <button
                         onClick={() => setIsSidebarOpen(false)}
                         className="lg:hidden p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
-                        aria-label="Close sidebar"
+                        aria-label={ui("Close sidebar")}
                     >
                         <X size={20} />
                     </button>
@@ -229,14 +231,14 @@ export default function AdminDashboard() {
                     <div className="space-y-6">
                         {sidebarSections.map((section) => (
                             <div key={section.label} className="space-y-1">
-                                <SectionHeader label={section.label} isCollapsed={isCollapsed} />
+                                <SectionHeader label={ui(section.label)} isCollapsed={isCollapsed} />
                                 {section.items.map((item) => (
                                     <MenuButton
                                         key={item.key}
                                         active={activeTab === item.key}
                                         onClick={() => item.href ? navigate(item.href) : changeTab(item.key)}
                                         icon={item.icon}
-                                        label={item.label}
+                                        label={ui(item.label)}
                                         badge={item.badge}
                                         isCollapsed={isCollapsed}
                                     />
@@ -266,7 +268,7 @@ export default function AdminDashboard() {
                         <button
                             onClick={toggleSidebar}
                             className="rounded-xl border border-blue-100 bg-white p-2 text-slate-500 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
-                            aria-label="Toggle sidebar"
+                            aria-label={ui("Toggle sidebar")}
                         >
                             <span className="lg:hidden"><Menu size={22} /></span>
                             <span className="hidden lg:block">
@@ -287,9 +289,7 @@ export default function AdminDashboard() {
                         <button className="admin-theme-switch" onClick={() => setAdminTheme(value => value === 'dark' ? 'light' : 'dark')} aria-label={tr('สลับโหมดสว่างและมืด', 'Toggle light and dark mode')}>{adminTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
                         <GlobalSearch onSelect={(tab, label) => changeTab(tab, label)} />
                         <div className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm md:flex">
-                            <Shield size={15} className="text-blue-500" />
-                            Admin Panel
-                        </div>
+                            <Shield size={15} className="text-blue-500" />{ui("Admin Panel")}</div>
 
                         <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-inner">
                             <button
@@ -299,9 +299,7 @@ export default function AdminDashboard() {
                                         ? 'bg-white text-slate-950 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-900'
                                 }`}
-                            >
-                                TH
-                            </button>
+                            >{ui("TH")}</button>
                             <button
                                 onClick={() => setLanguage('ENG')}
                                 className={`rounded px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
@@ -309,12 +307,10 @@ export default function AdminDashboard() {
                                         ? 'bg-white text-slate-950 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-900'
                                 }`}
-                            >
-                                EN
-                            </button>
+                            >{ui("EN")}</button>
                         </div>
 
-                        <button onClick={() => changeTab('pending_users')} className="relative rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-blue-100 hover:bg-blue-50 hover:text-blue-700" aria-label={language === 'THA' ? 'ดูรายการรออนุมัติ' : 'View pending approvals'}>
+                        <button onClick={() => changeTab('pending_users')} className="relative rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-blue-100 hover:bg-blue-50 hover:text-blue-700" aria-label={language === 'THA' ? ui('ดูรายการรออนุมัติ') : ui('View pending approvals')}>
                             <Bell size={20} />
                             {pendingUsersCount > 0 && (
                                 <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-rose-500"></span>
@@ -326,10 +322,10 @@ export default function AdminDashboard() {
                         <div className="flex items-center gap-3 pl-1">
                             <div className="text-right hidden sm:block">
                                 <p className="text-sm font-semibold text-slate-900 leading-none">
-                                    {user?.username || 'Admin User'}
+                                    {(user?.username) || (ui('Admin User'))}
                                 </p>
                                 <p className="text-xs font-medium text-slate-500 mt-1">
-                                    {language === 'THA' ? 'ผู้ดูแลระบบ' : 'Administrator'}
+                                    {language === 'THA' ? ui('ผู้ดูแลระบบ') : ui('Administrator')}
                                 </p>
                             </div>
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm ring-4 ring-slate-100">
@@ -341,7 +337,7 @@ export default function AdminDashboard() {
 
                 <main id="main-content" className="dashboard-content flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-transparent">
                     <div className="mx-auto w-full max-w-[1600px]">
-                        <div className="admin-breadcrumb"><button onClick={() => changeTab('home')}>{tr('ศูนย์บริหารการแข่งขัน', 'Control center')}</button><span>/</span><span>{currentSection?.label}</span><span>/</span><strong>{currentPage?.label}</strong></div>
+                        <div className="admin-breadcrumb"><button onClick={() => changeTab('home')}>{tr('ศูนย์บริหารการแข่งขัน', 'Control center')}</button><span>/</span><span>{ui(currentSection?.label)}</span><span>/</span><strong>{ui(currentPage?.label)}</strong></div>
                         {activeTab === 'home' && <AdminControlCenter key="home" theme={adminTheme} onNavigate={changeTab} />}
                         {activeTab === 'action_center' && <AdminControlCenter key="actions" theme={adminTheme} onNavigate={changeTab} actionsOnly />}
                         {activeTab === 'competition_overview' && <HomeTab />}
@@ -367,24 +363,26 @@ export default function AdminDashboard() {
 }
 
 function SectionHeader({ label, isCollapsed }) {
+    const ui = useUiTranslation();
     if (isCollapsed) {
         return (
             <>
                 <div className="my-4 hidden border-b border-slate-200/80 lg:block" />
-                <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 lg:hidden">{label}</p>
+                <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 lg:hidden">{ui(label)}</p>
             </>
         );
     }
 
-    return <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{label}</p>;
+    return <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{ui(label)}</p>;
 }
 
 function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
+    const ui = useUiTranslation();
     return (
         <button
             onClick={onClick}
-            title={isCollapsed ? label : undefined}
-            aria-label={label}
+            title={isCollapsed ? ui(label) : undefined}
+            aria-label={ui(label)}
             aria-current={active ? 'page' : undefined}
             className={`
                 group min-h-11 w-full flex items-center justify-between px-3 py-2.5 my-0.5 rounded-xl text-sm font-semibold transition-all duration-200 relative cursor-pointer
@@ -403,7 +401,7 @@ function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
                         : 'bg-white text-slate-400 ring-1 ring-blue-100 group-hover:text-blue-600 group-hover:ring-blue-200'
                 }`}>{icon}</span>
                 <span className={`transition-all duration-200 truncate ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
-                    {label}
+                    {ui(label)}
                 </span>
             </div>
             {!isCollapsed && badge > 0 && (

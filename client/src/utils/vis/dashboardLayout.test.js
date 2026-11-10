@@ -1,3 +1,4 @@
+import { visCompetitionName, visCompetitionKey } from './dashboardLayout.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { groupVisMatches, visMatchSortValue } from './dashboardLayout.js';
@@ -16,7 +17,7 @@ test('grouped page preserves row order and reports counts across all filtered pa
 test('custom and official competitions remain separate and untitled matches have a fallback', () => {
     const groups = groupVisMatches([{ id: 'a', competition_name: 'Cup' }, { id: 'b', competition_name: 'Cup', is_custom_vis: true }, { id: 'c' }]);
     assert.equal(groups.length, 3);
-    assert.equal(groups[2].title, 'VIS');
+    assert.equal(groups[2].title, 'VIMS');
     assert.deepEqual(groupVisMatches([]), []);
 });
 
@@ -26,4 +27,12 @@ test('number sorting is numeric and match dates include scheduled time', () => {
     assert.equal(rows[0].match_number, 2);
     assert.equal(visMatchSortValue({ match_date: '2026-10-25', start_time: '09:00:00' }, 'date'), '2026-10-25 09:00:00');
     assert.equal(visMatchSortValue({}, 'time'), '');
+});
+
+test('competition selector combines gender divisions while retaining the competition title', () => {
+    assert.equal(visCompetitionName('Youth Cup (Male)'), 'Youth Cup');
+    assert.equal(visCompetitionName('Youth Cup (Female)'), 'Youth Cup');
+    assert.equal(visCompetitionKey('Youth Cup (Male)'), visCompetitionKey('Youth Cup (Female)'));
+    assert.equal(visCompetitionName('Youth Cup (U15)'), 'Youth Cup (U15)');
+    assert.notEqual(visCompetitionKey('Youth Cup'), visCompetitionKey('Senior Cup'));
 });

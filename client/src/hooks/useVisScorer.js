@@ -1,3 +1,4 @@
+import { useLanguage } from '../context/LanguageContext';
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { api, getSocketServerUrl } from '../api';
@@ -6,6 +7,7 @@ import { getAuthToken, getStoredUser } from '../auth/authStorage';
 import { isLocalVis } from '../offline/offlineStore';
 
 export default function useVisScorer(match, requestedReadOnly) {
+    const { language } = useLanguage();
     const [snapshot, setSnapshot] = useState(null);
     const [roster, setRoster] = useState(null);
     const [events, setEvents] = useState([]);
@@ -129,7 +131,7 @@ export default function useVisScorer(match, requestedReadOnly) {
                 }
                 if (error.response?.status >= 400 && error.response?.status < 500) clearPending();
             } catch { /* Ambiguous results retain their original operation ID. */ }
-            await Swal.fire('บันทึกสถิติไม่สำเร็จ', error.response?.data?.error || 'ตรวจสอบการเชื่อมต่อ แล้วลองบันทึกเดิมอีกครั้ง', 'error');
+            await Swal.fire(language === 'ENG' ? 'Could not save statistics' : 'บันทึกสถิติไม่สำเร็จ', error.response?.data?.error || (language === 'ENG' ? 'Check your connection and retry the same save.' : 'ตรวจสอบการเชื่อมต่อ แล้วลองบันทึกเดิมอีกครั้ง'), 'error');
             return false;
         } finally {
             busy.current = false; setIsSaving(false);
@@ -137,11 +139,12 @@ export default function useVisScorer(match, requestedReadOnly) {
         }
     };
     const matchData = { ...match, ...roster?.match,
+        max_sets: snapshot?.maxSets ?? roster?.match?.max_sets ?? match.max_sets,
         home_team: roster?.match?.home_team_name || match.home_team,
         away_team: roster?.match?.away_team_name || match.away_team };
-    const formatPlayers = players => (players || []).map(player => ({ ...player, id: Number(player.id), name: player.name || `${player.first_name || ''} ${player.last_name || ''}`.trim() }));
+    const formatPlayers = players => (players || []).map(player => ({ ...player, name_th: [player.first_name_th,player.last_name_th].filter(Boolean).join(' '), name_en: [player.first_name_en,player.last_name_en].filter(Boolean).join(' '), id: Number(player.id), name: [player[language === 'ENG' ? 'first_name_en' : 'first_name_th'], player[language === 'ENG' ? 'last_name_en' : 'last_name_th']].filter(Boolean).join(' ') || player.name || `${player.first_name || ''} ${player.last_name || ''}`.trim() }));
     const homePlayers = formatPlayers(roster?.home?.players), awayPlayers = formatPlayers(roster?.away?.players);
-    const findPlayer = (team, id) => (team === 'home' ? homePlayers : awayPlayers).find(player => player.id === Number(id)) || (id ? { id: Number(id), number: '?', name: 'ไม่พบชื่อ' } : null);
+    const findPlayer = (team, id) => (team === 'home' ? homePlayers : awayPlayers).find(player => player.id === Number(id)) || (id ? { id: Number(id), number: '?', name: language === 'ENG' ? 'Unknown player' : 'ไม่พบชื่อ' } : null);
     const lineups = activeContext?.lineups || snapshot?.lineups || { home: [], away: [] };
     const homeRotation = lineups.home.map(id => findPlayer('home', id)), awayRotation = lineups.away.map(id => findPlayer('away', id));
     const phase = snapshot?.phase;
@@ -149,9 +152,10 @@ export default function useVisScorer(match, requestedReadOnly) {
         || isSaving || Boolean(pending) || syncError;
     const serverId = historical?.serverPlayerId || (snapshot?.servingTeam ? snapshot.lineups[snapshot.servingTeam]?.[0] : null);
     const serverTeam = historical ? (homePlayers.some(player => player.id === Number(serverId)) ? 'home' : 'away') : snapshot?.servingTeam;
-    return { timing: snapshot?.timing, draftClock, startSetClock, setLineups: snapshot?.setLineups || {},
-        matchData, homePlayers, awayPlayers, homeRotation, awayRotation,
-        homeLibero: findPlayer('home', snapshot?.liberos.home), awayLibero: findPlayer('away', snapshot?.liberos.away),
+    return { liberoReplacements: snapshot?.liberoReplacements || {}, timing: snapshot?.timing, draftClock, startSetClock, setLineups: snapshot?.setLineups || {},
+        matchData, homeStaff: roster?.home?.staff || [], awayStaff: roster?.away?.staff || [], homePlayers, awayPlayers, homeRotation, awayRotation,
+        homeLibero: findPlayer('home', snapshot?.liberoReplacements?.home?.libero || homePlayers.find(player => ['L', 'L1', 'L2', 'LIBERO'].includes(String(player.position || player.role).toUpperCase()) || Number(player.is_libero1) === 1 || Number(player.is_libero2) === 1)?.id),
+        awayLibero: findPlayer('away', snapshot?.liberoReplacements?.away?.libero || awayPlayers.find(player => ['L', 'L1', 'L2', 'LIBERO'].includes(String(player.position || player.role).toUpperCase()) || Number(player.is_libero1) === 1 || Number(player.is_libero2) === 1)?.id),
         homeSubs: homePlayers.filter(player => !homeRotation.some(item => item.id === player.id)),
         awaySubs: awayPlayers.filter(player => !awayRotation.some(item => item.id === player.id)),
         timeouts: snapshot?.timeouts || { home: 0, away: 0 }, substitutions: snapshot?.substitutions || { home: 0, away: 0 },

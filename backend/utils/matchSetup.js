@@ -1,3 +1,4 @@
+const { normalizeNames, playerNameFields } = require('./bilingualNames');
 const parseSetup = value => typeof value === 'string' ? JSON.parse(value) : value;
 function applyMatchSetup(match) {
     const setup = parseSetup(match.match_setup);
@@ -11,6 +12,11 @@ function applyMatchSetup(match) {
     match.deciding_set_points = setup.decidingSetPoints;
     for (const side of ['home', 'away']) {
         match[`${side}_team_name`] = setup[side].name;
+        // Older match snapshots contain no translated names; retain the teams JOIN values.
+        for (const language of ['th','en']) {
+            const value = setup[side]['name_' + language]?.trim();
+            if (value) match[`${side}_team_name_${language}`] = value;
+        }
         match[`${side}_team`] = setup[side].name;
         match[`${side}_team_code`] = setup[side].code;
         if (setup[side].color) match[`${side}_team_color`] = setup[side].color;
@@ -42,7 +48,8 @@ function normalizeTeam(team, allowedIds) {
         const role = text(p.role ?? '', 10);
         if (!['', 'C', 'L1', 'L2', 'L1+C', 'L2+C'].includes(role)) fail('ตำแหน่งนักกีฬาไม่ถูกต้อง');
         const position = ['S', 'OH', 'MB', 'OPP'].includes(p.position) ? p.position : '';
-        return { id, number, first_name, last_name, role, position: role.startsWith('L') ? 'L' : position, is_captain: role.includes('C') ? 1 : 0, is_libero1: role.startsWith('L1') ? 1 : 0, is_libero2: role.startsWith('L2') ? 1 : 0, is_libero: role.startsWith('L') ? 1 : 0, is_playing: 1 };
+        const names = normalizeNames(p);
+        return { ...Object.fromEntries(playerNameFields.map(field => [field,names[field] || null])), id, number, first_name, last_name, role, position: role.startsWith('L') ? 'L' : position, is_captain: role.includes('C') ? 1 : 0, is_libero1: role.startsWith('L1') ? 1 : 0, is_libero2: role.startsWith('L2') ? 1 : 0, is_libero: role.startsWith('L') ? 1 : 0, is_playing: 1 };
     });
     if (new Set(players.map(p => p.id)).size !== players.length || new Set(players.map(p => p.number)).size !== players.length) fail('นักกีฬาหรือหมายเลขเสื้อซ้ำ');
     if (players.filter(p => p.is_captain).length > 1 || players.filter(p => p.is_libero).length > 2
@@ -52,7 +59,8 @@ function normalizeTeam(team, allowedIds) {
         if (!first_name || !role) fail('กรุณาระบุชื่อและตำแหน่งเจ้าหน้าที่ทีม');
         return { first_name, last_name, role };
     });
-    const result = { name, code, players, staff };
+    const names = normalizeNames(team, {}, true);
+    const result = { name, name_th:names.name_th || null, name_en:names.name_en || null, code, players, staff };
     for (const key of ['color', 'liberoColor']) {
         if (team[key] === undefined) continue;
         if (typeof team[key] !== 'string' || !/^#[0-9a-f]{6}$/i.test(team[key])) fail('สีเสื้อไม่ถูกต้อง');

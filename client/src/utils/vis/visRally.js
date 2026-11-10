@@ -5,7 +5,7 @@ export function rallyCode(event) {
     return `${event.team === 'home' ? '*' : 'a'}${event.number == null ? '' : String(event.number).padStart(2, '0')}${event.skill}${event.grade || ''}`;
 }
 
-export function parseVisRally(text, teams, servingTeam) {
+export function parseVisRally(text, teams, servingTeam, translate = value => value) {
     const roster = Object.fromEntries(Object.values(teams).map(team => [team.key, team]));
     const tokens = String(text || '').trim().split(/\s+/).filter(Boolean);
     const events = [], errors = [];
@@ -20,17 +20,17 @@ export function parseVisRally(text, teams, servingTeam) {
         const teamEvent = /^(OP#|T=)$/.exec(raw);
         if (teamEvent) {
             const team = explicit || (events.length ? other(events.at(-1).team) : servingTeam);
-            if (!roster[team]) { errors.push(`${token}: กรุณาระบุทีม`); continue; }
+            if (!roster[team]) { errors.push(`${token}: ${translate('กรุณาระบุทีม')}`); continue; }
             events.push({ team, player: null, number: null, skill: raw === 'OP#' ? 'OP' : 'T', grade: raw.at(-1) });
             continue;
         }
         // Accept both combined codes (*03S) and existing VIS codes (A:S3#).
         const match = /^(?:(\d{1,3})([SRABDE])?|([SRABDE])(\d{1,3}))([#+!\-=/])?$/.exec(raw);
-        if (!match) { errors.push(`${token}: รหัสไม่ถูกต้อง`); continue; }
+        if (!match) { errors.push(`${token}: ${translate('รหัสไม่ถูกต้อง')}`); continue; }
         const number = Number(match[1] || match[4]);
         const grade = match[5] || '';
         const skill = match[2] || match[3] || (!events.length && grade !== '/' && (!explicit || explicit === servingTeam) ? 'S' : 'A');
-        if (grade === '/' && skill !== 'A') { errors.push(`${token}: / ใช้กับการตบเท่านั้น`); continue; }
+        if (grade === '/' && skill !== 'A') { errors.push(`${token}: ${translate('/ ใช้กับการตบเท่านั้น')}`); continue; }
         let team = explicit;
         if (!team) {
             if (!events.length && skill === 'S') team = servingTeam;
@@ -43,11 +43,11 @@ export function parseVisRally(text, teams, servingTeam) {
         const candidates = roster[team]?.players.filter(p => Number(p.number) === number) || [];
         const player = candidates[0];
         if (candidates.length !== 1 || !roster[team]?.lineup.some(p => Number(p.id) === Number(player?.id))) {
-            errors.push(`${token}: ไม่พบผู้เล่นเบอร์ ${number} ในสนาม หรือเบอร์ซ้ำ`); continue;
+            errors.push(`${token}: ${translate('ไม่พบผู้เล่นเบอร์')} ${number} ${translate('ในสนาม หรือเบอร์ซ้ำ')}`); continue;
         }
         events.push({ team, player: Number(player.id), number, skill, grade });
     }
-    if (forced) errors.push('ระบุทีมแล้ว กรุณาใส่รหัสผู้เล่น');
+    if (forced) errors.push(translate('ระบุทีมแล้ว กรุณาใส่รหัสผู้เล่น'));
     // Complete the attacker outcome when a recorded block closes the rally.
     const last = events.at(-1);
     if (last?.skill === 'B' && ['#', '='].includes(last.grade)) {
@@ -55,7 +55,7 @@ export function parseVisRally(text, teams, servingTeam) {
         if (attack) attack.grade = last.grade === '#' ? '/' : '#';
     }
     const winners = new Set(events.map(winnerOf).filter(Boolean));
-    if (winners.size > 1) errors.push('ผลในบรรทัดขัดแย้งกัน: ต้องมีทีมได้แต้มเพียงทีมเดียว');
+    if (winners.size > 1) errors.push(translate('ผลในบรรทัดขัดแย้งกัน: ต้องมีทีมได้แต้มเพียงทีมเดียว'));
     const winner = winners.size === 1 ? [...winners][0] : null;
     const suggestions = [];
     if (winner && last && !['OP', 'T'].includes(last.skill)) {

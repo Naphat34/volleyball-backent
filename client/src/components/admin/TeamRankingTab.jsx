@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../../api';
 import { Trophy, Filter, X, Calendar, Download, BarChart2 } from 'lucide-react';
@@ -50,6 +52,8 @@ const getMatchDisplayDate = (match) => {
 };
 
 export default function TeamRankingTab() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const [competitions, setCompetitions] = useState([]);
     const [uniqueBaseNames, setUniqueBaseNames] = useState([]);
     const [selectedBaseName, setSelectedBaseName] = useState('');
@@ -686,19 +690,16 @@ export default function TeamRankingTab() {
     return (
         <div className="official-page min-h-screen -m-6 p-6 space-y-6">
             <div className="official-header rounded-md px-6 py-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Standings Inspection</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">{ui("Standings Inspection")}</p>
                 <h2 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight">
-                    <BarChart2 size={24} /> Team Rankings
-                </h2>
+                    <BarChart2 size={24} />{ui("Team Rankings")}</h2>
             </div>
 
             {/* Filter Section */}
             <div className="official-panel rounded-md p-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-4 xl:grid-cols-5">
                     <div className="md:col-span-2 xl:col-span-2">
-                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">
-                            Competition
-                        </label>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">{ui("Competition")}</label>
                             <select
                             className="w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm outline-none transition-all hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                 value={selectedBaseName}
@@ -713,9 +714,7 @@ export default function TeamRankingTab() {
                     </div>
 
                     <div>
-                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">
-                            Gender
-                        </label>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">{ui("Gender")}</label>
                         <div className="flex min-h-[42px] items-center rounded-md border border-gray-200 bg-slate-50 p-1 shadow-sm">
                                 {availableGenders.map(g => (
                                 <button key={g} onClick={() => setGenderFilter(g)} className={`w-full rounded-md px-4 py-1.5 text-sm font-medium transition-all ${genderFilter === g ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-700'}`}>
@@ -726,31 +725,27 @@ export default function TeamRankingTab() {
                         </div>
 
                     <div>
-                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">
-                            Age Group
-                        </label>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">{ui("Age Group")}</label>
                             <select
                             className="w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm outline-none transition-all hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                 value={selectedAgeGroupId}
                                 onChange={(e) => setSelectedAgeGroupId(e.target.value)}
                             >
                                 {availableAgeGroups.map(group => (
-                                    <option key={group.id} value={group.id}>{group.label}</option>
+                                    <option key={group.id} value={group.id}>{ui(group.label)}</option>
                                 ))}
                         </select>
                     </div>
 
                     {pools.length > 0 && (
                         <div>
-                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                Pool
-                            </label>
+                            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">{ui("Pool")}</label>
                                 <select
                                 className="w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm outline-none transition-all hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                     value={selectedPool}
                                     onChange={(e) => setSelectedPool(e.target.value)}
                                 >
-                                    <option value="">All Pools</option>
+                                    <option value="">{ui("All Pools")}</option>
                                     {pools.map(p => (
                                         <option key={p} value={p}>{p}</option>
                                     ))}
@@ -764,11 +759,9 @@ export default function TeamRankingTab() {
                         onClick={handleExportExcel}
                         disabled={loading || standings.length === 0}
                             className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-white px-3 text-sm font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
-                        title="Export rankings as Excel"
+                        title={ui("Export rankings as Excel")}
                     >
-                        <Download size={16} />
-                        Export Excel
-                    </button>
+                        <Download size={16} />{ui("Export Excel")}</button>
                     </div>
                 </div>
             </div>
@@ -777,14 +770,12 @@ export default function TeamRankingTab() {
             <div className="official-panel rounded-md overflow-hidden">
                 <div className="official-panel-header flex items-center justify-between px-6 py-4">
                     <h3 className="flex items-center gap-2 font-semibold tracking-tight text-gray-900">
-                        <Trophy size={18} className="text-blue-600" /> Ranking Table
-                    </h3>
+                        <Trophy size={18} className="text-blue-600" />{ui("Ranking Table")}</h3>
                     <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-                        {standings.length} Teams
-                    </span>
+                        {standings.length}{ui("Teams")}</span>
                 </div>
                 {loading ? (
-                    <div className="p-10 text-center text-sm font-semibold text-slate-500">Loading standings...</div>
+                    <div className="p-10 text-center text-sm font-semibold text-slate-500">{ui("Loading standings...")}</div>
                 ) : standings.length === 0 ? (
                     <EmptyState text="No teams or matches found for this competition." />
                 ) : (
@@ -793,34 +784,34 @@ export default function TeamRankingTab() {
                             <thead className="official-table-head border-b border-gray-200 sticky top-0 z-10">
                                 {/* Header Grouping */}
                                 <tr className="border-b border-gray-200 text-xs font-bold uppercase tracking-wider text-gray-500">
-                                    <th colSpan="2" className="border-r border-gray-200 py-2 text-center">Ranking</th>
-                                    <th colSpan="3" className="border-r border-gray-200 bg-gray-50/60 py-2 text-center">Matches</th>
-                                    <th colSpan={resultCols.length} className="border-r border-gray-200 bg-blue-50/40 py-2 text-center text-blue-600">Result Details</th>
-                                    <th colSpan="1" className="border-r border-gray-200 py-2 text-center font-bold text-blue-600">Total</th>
-                                    <th colSpan="3" className="border-r border-gray-200 py-2 text-center">Sets</th>
-                                    <th colSpan="3" className="py-2 text-center">Points</th>
+                                    <th colSpan="2" className="border-r border-gray-200 py-2 text-center">{ui("Ranking")}</th>
+                                    <th colSpan="3" className="border-r border-gray-200 bg-gray-50/60 py-2 text-center">{ui("Matches")}</th>
+                                    <th colSpan={resultCols.length} className="border-r border-gray-200 bg-blue-50/40 py-2 text-center text-blue-600">{ui("Result Details")}</th>
+                                    <th colSpan="1" className="border-r border-gray-200 py-2 text-center font-bold text-blue-600">{ui("Total")}</th>
+                                    <th colSpan="3" className="border-r border-gray-200 py-2 text-center">{ui("Sets")}</th>
+                                    <th colSpan="3" className="py-2 text-center">{ui("Points")}</th>
                                 </tr>
                                 <tr className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                                    <th className="px-4 py-4 text-center w-16">Rank</th>
-                                    <th className="px-4 py-4">Team</th>
-                                    <th className="bg-gray-50/60 px-2 py-4 text-center" title="Total Matches">Total</th>
-                                    <th className="bg-gray-50/60 px-2 py-4 text-center" title="Won">W</th>
-                                    <th className="bg-gray-50/60 px-2 py-4 text-center" title="Lost">L</th>
+                                    <th className="px-4 py-4 text-center w-16">{ui("Rank")}</th>
+                                    <th className="px-4 py-4">{ui("Team")}</th>
+                                    <th className="bg-gray-50/60 px-2 py-4 text-center" title={ui("Total Matches")}>{ui("Total")}</th>
+                                    <th className="bg-gray-50/60 px-2 py-4 text-center" title={ui("Won")}>{ui("W")}</th>
+                                    <th className="bg-gray-50/60 px-2 py-4 text-center" title={ui("Lost")}>{ui("L")}</th>
 
                                     {/* Result Details */}
                                     {resultCols.map((col, i) => (
-                                        <th key={col} className={`px-2 py-4 text-center text-[10px] text-gray-500 ${i === 0 ? 'border-l border-gray-200' : ''}`} title={`Result ${col}`}>{col}</th>
+                                        <th key={col} className={`px-2 py-4 text-center text-[10px] text-gray-500 ${i === 0 ? 'border-l border-gray-200' : ''}`} title={ui(`Result {0}`, [col])}>{col}</th>
                                     ))}
 
-                                    <th className="border-l border-gray-200 px-4 py-4 text-center text-lg font-semibold text-blue-600" title="Points">POINTS</th>
+                                    <th className="border-l border-gray-200 px-4 py-4 text-center text-lg font-semibold text-blue-600" title={ui("Points")}>{ui("POINTS")}</th>
 
-                                    <th className="border-l border-gray-200 px-2 py-4 text-center" title="Sets Won">SW</th>
-                                    <th className="px-2 py-4 text-center" title="Sets Lost">SL</th>
-                                    <th className="px-2 py-4 text-center text-xs" title="Set Ratio">Ratio</th>
+                                    <th className="border-l border-gray-200 px-2 py-4 text-center" title={ui("Sets Won")}>{ui("SW")}</th>
+                                    <th className="px-2 py-4 text-center" title={ui("Sets Lost")}>{ui("SL")}</th>
+                                    <th className="px-2 py-4 text-center text-xs" title={ui("Set Ratio")}>{ui("Ratio")}</th>
 
-                                    <th className="border-l border-gray-200 px-2 py-4 text-center" title="Points Won">PW</th>
-                                    <th className="px-2 py-4 text-center" title="Points Lost">PL</th>
-                                    <th className="px-2 py-4 text-center text-xs" title="Point Ratio">Ratio</th>
+                                    <th className="border-l border-gray-200 px-2 py-4 text-center" title={ui("Points Won")}>{ui("PW")}</th>
+                                    <th className="px-2 py-4 text-center" title={ui("Points Lost")}>{ui("PL")}</th>
+                                    <th className="px-2 py-4 text-center text-xs" title={ui("Point Ratio")}>{ui("Ratio")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
@@ -838,13 +829,13 @@ export default function TeamRankingTab() {
                                             <div
                                                 className="flex cursor-pointer items-center gap-3 transition-opacity hover:opacity-80"
                                                 onClick={() => setViewingHistoryTeam(team)}
-                                                title="Click to view match history"
+                                                title={ui("Click to view match history")}
                                             >
                                                 <div className="w-10 h-10 rounded-md bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200 transition flex items-center justify-center">
-                                                    {team.logo_url ? <img src={team.logo_url} alt={team.name} className="h-full w-full object-contain p-1" /> : <Trophy size={18} className="text-gray-300" />}
+                                                    {team.logo_url ? <img src={team.logo_url} alt={displayNames.teamName(team)} className="h-full w-full object-contain p-1" /> : <Trophy size={18} className="text-gray-300" />}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <div className="text-base font-semibold text-slate-950 group-hover:text-blue-600 group-hover:underline underline-offset-2 decoration-indigo-500/30">{team.name}</div>
+                                                    <div className="text-base font-semibold text-slate-950 group-hover:text-blue-600 group-hover:underline underline-offset-2 decoration-indigo-500/30">{displayNames.teamName(team)}</div>
                                                     {team.code && <div className="text-xs text-slate-400 font-mono">{team.code}</div>}
                                                 </div>
                                             </div>
@@ -881,8 +872,8 @@ export default function TeamRankingTab() {
                     <div className="official-panel relative flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-md bg-white text-gray-900 shadow-2xl">
                         <div className="official-panel-header flex shrink-0 items-center justify-between px-6 py-4">
                             <div>
-                                <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight text-gray-900"><Calendar size={18} className="text-blue-600" /> Match History</h3>
-                                <p className="mt-1 text-sm font-medium text-gray-500">{viewingHistoryTeam.name}</p>
+                                <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight text-gray-900"><Calendar size={18} className="text-blue-600" />{' '}{ui("Match History")}</h3>
+                                <p className="mt-1 text-sm font-medium text-gray-500">{displayNames.teamName(viewingHistoryTeam)}</p>
                             </div>
                             <button onClick={() => setViewingHistoryTeam(null)} className="rounded-md p-2 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700"><X size={20} /></button>
                         </div>
@@ -899,22 +890,22 @@ export default function TeamRankingTab() {
                                     return new Date(dateB) - new Date(dateA);
                                 });
 
-                                if (teamMatches.length === 0) return <div className="p-12 text-center text-sm font-medium text-slate-500">No completed matches found for this team.</div>;
+                                if (teamMatches.length === 0) return <div className="p-12 text-center text-sm font-medium text-slate-500">{ui("No completed matches found for this team.")}</div>;
 
                                 return (
                                     <table className="w-full border-collapse text-left">
                                         <thead className="official-table-head sticky top-0 z-10">
                                             <tr>
-                                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Date / Round</th>
-                                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Opponent</th>
-                                                <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">Result</th>
-                                                <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">Score</th>
+                                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">{ui("Date / Round")}</th>
+                                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">{ui("Opponent")}</th>
+                                                <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">{ui("Result")}</th>
+                                                <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">{ui("Score")}</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 bg-white">
                                             {teamMatches.map(m => {
                                                 const isHome = String(m.home_team_id) === String(viewingHistoryTeam.id);
-                                                const opponentName = isHome ? (m.away_team || 'Unknown') : (m.home_team || 'Unknown');
+                                                const opponentName = isHome ? (displayNames.matchTeamName(m, 'away') || 'Unknown') : (displayNames.matchTeamName(m, 'home') || 'Unknown');
                                                 const myScore = isHome ? m.home_set_score : m.away_set_score;
                                                 const oppScore = isHome ? m.away_set_score : m.home_set_score;
                                                 const isWin = myScore > oppScore;
@@ -928,7 +919,7 @@ export default function TeamRankingTab() {
                                                         <td className="px-6 py-4 font-medium text-gray-800">{opponentName}</td>
                                                         <td className="px-6 py-4 text-center">
                                                             <span className={`rounded-md border px-2.5 py-1 text-xs font-bold ${isWin ? 'border-green-200 bg-green-100 text-green-700' : 'border-red-200 bg-red-100 text-red-700'}`}>
-                                                                {isWin ? 'WIN' : 'LOSS'}
+                                                                {isWin ? ui('WIN') : ui('LOSS')}
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
@@ -951,7 +942,7 @@ export default function TeamRankingTab() {
                             })()}
                         </div>
                         <div className="flex justify-end border-t border-gray-100 bg-gray-50 p-6">
-                            <button onClick={() => setViewingHistoryTeam(null)} className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-600 transition-all hover:bg-gray-50 hover:text-gray-900">Close</button>
+                            <button onClick={() => setViewingHistoryTeam(null)} className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-600 transition-all hover:bg-gray-50 hover:text-gray-900">{ui("Close")}</button>
                         </div>
                     </div>
                 </div>

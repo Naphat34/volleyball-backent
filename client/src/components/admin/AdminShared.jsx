@@ -1,3 +1,4 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
 import Swal from 'sweetalert2';
 import React from 'react';
 import { Users } from 'lucide-react';
@@ -14,21 +15,24 @@ export const Toast = Swal.mixin({
 
 // --- UI Components ---
 export function ActionButton({ onClick, color, icon, label }) {
+    const ui = useUiTranslation();
     const styles = {
         green: 'bg-green-50 hover:bg-green-100 text-green-600 border border-green-200',
         red: 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200',
     };
-    return <button onClick={onClick} className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold transition ${styles[color]}`}>{icon} {label}</button>;
+    return <button onClick={onClick} className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold transition ${styles[color]}`}>{icon} {ui(label)}</button>;
 }
 
 export function Input({ label, type = "text", value, onChange, required, placeholder }) {
-    return <FormField label={label} type={type} required={required} value={value} onChange={onChange} placeholder={placeholder} />;
+    const ui = useUiTranslation();
+    return <FormField label={ui(label)} type={type} required={required} value={value} onChange={onChange} placeholder={placeholder} />;
 }
 
 export function Button({ type, label, icon, full }) {
+    const ui = useUiTranslation();
     return (
         <SystemButton type={type || 'submit'} className={full ? 'w-full' : ''}>
-            {icon} {label}
+            {icon} {ui(label)}
         </SystemButton>
     );
 }
@@ -45,9 +49,10 @@ export function EmptyState({ text }) {
 }
 
 export function DetailItem({ label, value, full }) {
+    const ui = useUiTranslation();
     return (
         <div className={`p-3 rounded-lg border ${full ? 'col-span-2' : ''} bg-gray-50 border-gray-100`}>
-            <span className="block text-xs font-bold uppercase mb-1 text-gray-500">{label}</span>
+            <span className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui(label)}</span>
             <span className="font-bold text-lg">{value}</span>
         </div>
     );

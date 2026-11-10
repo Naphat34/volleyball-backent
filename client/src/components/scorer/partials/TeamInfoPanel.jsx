@@ -1,15 +1,19 @@
+import useDisplayNames from '../../../hooks/useDisplayNames';
+import useScorerTranslation from '../useScorerTranslation';
 import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
 import React from 'react';
 import { getContrastColorHex } from '../../../utils/common/colorUtils';
 
 export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     if (!team) return null;
 
     const { lineup = [], roster = [], liberos = {}, color = '#1d4ed8', subTracker } = team;
 
     // 1. ดึงข้อมูลนักกีฬาที่อยู่ในสนาม
     const validLineup = lineup
-        .map((p, index) => p ? { ...p, posIndex: index } : null)
+        .map((p, index) => p ? { ...roster.find(player => String(player.id || player.player_id) === String(p.id || p.player_id)), ...p, posIndex: index } : null)
         .filter(Boolean);
 
     const onCourtIds = validLineup.map(p => p.id || p.player_id);
@@ -31,7 +35,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                 className="flex items-center justify-center gap-2 bg-white px-4 py-3 text-center text-xl font-black uppercase tracking-wide"
                 style={{ borderBottom: `3px solid ${color}`, color: 'var(--scorer-control-ink, #000000)' }}
             >
-                <span className="w-full truncate" title={team.name}>{team.shortName?.trim() || getTeamCode(team.name)}</span>
+                <span className="w-full truncate" title={displayNames.teamName(team)}>{team.shortName?.trim() || getTeamCode(displayNames.teamName(team))}</span>
 
             </div>
 
@@ -42,7 +46,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
                     {!isRight && (
                         <div className="w-7 flex items-center justify-center border-r border-gray-200 shrink-0" style={{ backgroundColor: `${color}5A` }}>
-                            <span className={`${courtTextClass} text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl] rotate-180`}>On court</span>
+                            <span className={`${courtTextClass} text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl] rotate-180`}>{st("On court")}</span>
                         </div>
                     )}
 
@@ -106,15 +110,13 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
                                     {/* ชื่อนักกีฬา */}
                                     <div className="flex-1 text-slate-600 font-medium truncate text-sm">
-                                        {p.first_name || p.name}
+                                        {displayNames.personFirstName(p) || displayNames.personName(p)}
                                     </div>
 
                                     {/* Icon กัปตัน / ลิเบอโร่ */}
                                     <div className="flex items-center justify-end gap-1 shrink-0">
                                         {(p.isCaptain || p.is_captain || p.role === 'C') && (
-                                            <span className="mt-1 text-[10px] font-bold px-1.5 rounded-sm" style={{ backgroundColor: badgeBg, color: badgeColor }}>
-                                                C
-                                            </span>
+                                            <span className="mt-1 text-[10px] font-bold px-1.5 rounded-sm" style={{ backgroundColor: badgeBg, color: badgeColor }}>{st("C")}</span>
                                         )}
                                         {isLibero && (
                                             <span className="bg-[#f59e0b] text-white font-bold text-[10px] rounded px-1.5 py-0.5 leading-none">{liberoLabel}</span>
@@ -127,7 +129,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
                     {isRight && (
                         <div className="w-7 flex items-center justify-center border-l border-gray-200 shrink-0" style={{ backgroundColor: `${color}5A` }}>
-                            <span className={`${courtTextClass} text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl]`}>On court</span>
+                            <span className={`${courtTextClass} text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl]`}>{st("On court")}</span>
                         </div>
                     )}
                 </div>
@@ -136,7 +138,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                 <div className="flex flex-1 overflow-hidden min-h-[50%]">
                     {!isRight && (
                         <div className="w-7 bg-slate-400 flex items-center justify-center border-r border-gray-200 shrink-0">
-                            <span className="text-white text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl] rotate-180">On bench</span>
+                            <span className="text-white text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl] rotate-180">{st("On bench")}</span>
                         </div>
                     )}
 
@@ -218,7 +220,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                                     {/* ชื่อนักกีฬา และ คะแนนตอนเปลี่ยนตัว (ชิดขวา) */}
                                     <div className="flex-1 flex items-center justify-between overflow-hidden">
                                         <span className="font-medium truncate text-sm text-slate-600">
-                                            {p.first_name || p.name}
+                                            {displayNames.personFirstName(p) || displayNames.personName(p)}
                                         </span>
 
                                         {subScoreTexts.length > 0 && (
@@ -238,7 +240,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                                     {/* Icon กัปตัน / ลิเบอโร่ */}
                                     <div className="flex items-center justify-end gap-1 shrink-0">
                                         {(p.isCaptain || p.is_captain || p.role === 'C') && (
-                                            <span className="bg-[#3b82f6] text-white font-bold text-[10px] rounded px-1.5 py-0.5 leading-none">C</span>
+                                            <span className="bg-[#3b82f6] text-white font-bold text-[10px] rounded px-1.5 py-0.5 leading-none">{st("C")}</span>
                                         )}
                                         {isLibero && (
                                             <span className="bg-[#f59e0b] text-white font-bold text-[10px] rounded px-1.5 py-0.5 leading-none">{liberoLabel}</span>
@@ -251,7 +253,7 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
 
                     {isRight && (
                         <div className="w-7 bg-slate-400 flex items-center justify-center border-l border-gray-200 shrink-0">
-                            <span className="text-white text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl]">On bench</span>
+                            <span className="text-white text-[10px] font-bold tracking-widest uppercase [writing-mode:vertical-rl]">{st("On bench")}</span>
                         </div>
                     )}
                 </div>

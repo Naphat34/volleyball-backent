@@ -1,3 +1,5 @@
+const { normalizeNames } = require('../utils/bilingualNames');
+const { normalizeAthleteRoles, athleteError, withAthleteTransaction } = require('../utils/athleteIntegrity');
 const db = require('../config/db');
 
 const parseNullableInt = (val) => {
@@ -19,9 +21,10 @@ const parseNullablePersonName = (val) => {
 module.exports = {
 
     // Add Player to Team (Admin)
-    async addPlayerToTeam(req, res) {
+    async addPlayerToTeam(req, res, athleteConnection) {
         try {
             const { teamId } = req.params;
+            req.body = normalizeAthleteRoles(normalizeNames(req.body));
             const { 
                 number, first_name, last_name, nickname, position, 
                 height_cm, weight, birth_date, nationality, photo, 
@@ -50,18 +53,18 @@ module.exports = {
 
             // --- [LOGIC กัปตัน] ---
             if (cleanIsCaptain) {
-                await db.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
             }
 
             // --- [LOGIC ลิเบอโร่] ---
             if (cleanIsLibero1) {
-                await db.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
             }
             if (cleanIsLibero2) {
-                await db.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
             }
 
-            const result = await db.query(
+            const result = await athleteConnection.query(
                 `INSERT INTO players 
                 (team_id, number, first_name, last_name, nickname, position, height_cm, weight, birth_date, nationality, photo, gender, is_captain, is_libero1, is_libero2)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -71,18 +74,21 @@ module.exports = {
                     gender, cleanIsCaptain, cleanIsLibero1, cleanIsLibero2
                 ]
             );
-            const insertedPlayer = await db.query('SELECT * FROM players WHERE id = ?', [result.insertId]);
+            const insertedPlayer = await athleteConnection.query('SELECT * FROM players WHERE id = ?', [result.insertId]);
             res.status(201).json(insertedPlayer.rows[0]);
         } catch (err) {
             console.error("Add Player Error:", err);
-            res.status(500).json({ error: err.message });
+            const failure = athleteError(err); res.status(failure.status).json({ error: failure.message });
         }
     },
 
     // Update Player (Admin)
-    async updatePlayer(req, res) {
+    async updatePlayer(req, res, athleteConnection) {
         try {
             const { id } = req.params;
+            const current = await athleteConnection.query('SELECT * FROM players WHERE id = ? FOR UPDATE', [id]);
+            if (!current.rows.length) return res.status(404).json({ error: 'Player not found' });
+            req.body = normalizeAthleteRoles(normalizeNames(req.body, current.rows[0]), current.rows[0]);
             const { 
                 number, first_name, last_name, nickname, position, 
                 height_cm, weight, birth_date, nationality, photo, 
@@ -111,7 +117,7 @@ module.exports = {
             const cleanIsLibero2 = position === 'L' && (is_libero2 === true || is_libero2 === 'true');
 
             if (first_name !== undefined || last_name !== undefined) {
-                const currentPlayer = await db.query('SELECT first_name, last_name FROM players WHERE id = ?', [id]);
+                const currentPlayer = await athleteConnection.query('SELECT first_name, last_name FROM players WHERE id = ?', [id]);
                 if (!currentPlayer.rows.length) return res.status(404).json({ error: 'Player not found' });
                 const finalFirstName = first_name !== undefined ? cleanFirstName : parseNullablePersonName(currentPlayer.rows[0].first_name);
                 const finalLastName = last_name !== undefined ? cleanLastName : parseNullablePersonName(currentPlayer.rows[0].last_name);
@@ -122,23 +128,23 @@ module.exports = {
 
             // --- [LOGIC กัปตัน] --- Only run if is_captain is being updated
             if (is_captain !== undefined && cleanIsCaptain) {
-                const playerCheck = await db.query('SELECT team_id FROM players WHERE id = ?', [id]);
+                const playerCheck = await athleteConnection.query('SELECT team_id FROM players WHERE id = ?', [id]);
                 if (playerCheck.rows.length > 0) {
                     const teamId = playerCheck.rows[0].team_id;
-                    await db.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
+                    await athleteConnection.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
                 }
             }
 
             // --- [LOGIC ลิเบอโร่] --- Only run if position or libero flags are being updated
             if (position !== undefined && (is_libero1 !== undefined || is_libero2 !== undefined)) {
-                const playerCheck = await db.query('SELECT team_id FROM players WHERE id = ?', [id]);
+                const playerCheck = await athleteConnection.query('SELECT team_id FROM players WHERE id = ?', [id]);
                 if (playerCheck.rows.length > 0) {
                     const teamId = playerCheck.rows[0].team_id;
                     if (cleanIsLibero1) {
-                        await db.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
+                        await athleteConnection.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
                     }
                     if (cleanIsLibero2) {
-                        await db.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
+                        await athleteConnection.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
                     }
                 }
             }
@@ -168,7 +174,7 @@ module.exports = {
             }
 
             updateValues.push(id);
-            const result = await db.query(
+            const result = await athleteConnection.query(
                 `UPDATE players SET ${updateFields.join(', ')} WHERE id=?`,
                 updateValues
             );
@@ -177,30 +183,36 @@ module.exports = {
                 return res.status(404).json({ error: "Player not found" });
             }
 
-            const updatedPlayer = await db.query('SELECT * FROM players WHERE id = ?', [id]);
+            const updatedPlayer = await athleteConnection.query('SELECT * FROM players WHERE id = ?', [id]);
             if (updatedPlayer.rows.length === 0) {
                 return res.status(404).json({ error: "Player not found" });
             }
             res.json(updatedPlayer.rows[0]);
         } catch (err) {
             console.error("Update Player Error:", err);
-            res.status(500).json({ error: err.message });
+            const failure = athleteError(err); res.status(failure.status).json({ error: failure.message });
         }
     },
 
     // Delete Player (Admin)
-    async deletePlayer(req, res) {
+    async deletePlayer(req, res, athleteConnection) {
         try {
             const { id } = req.params;
-            const result = await db.query('DELETE FROM players WHERE id = ?', [id]);
+            const result = await athleteConnection.query('UPDATE players SET is_active = 0, is_playing = 0 WHERE id = ?', [id]);
             
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: "Player not found" });
             }
-            res.json({ message: "Player deleted successfully" });
+            res.json({ message: "Player archived successfully" });
         } catch (err) {
             console.error("Delete Player Error:", err);
-            res.status(500).json({ error: err.message });
+            const failure = athleteError(err); res.status(failure.status).json({ error: failure.message });
         }
     }
 };
+
+module.exports.updatePlayer = withAthleteTransaction(db, module.exports.updatePlayer);
+
+module.exports.deletePlayer = withAthleteTransaction(db, module.exports.deletePlayer);
+
+module.exports.addPlayerToTeam = withAthleteTransaction(db,module.exports.addPlayerToTeam);

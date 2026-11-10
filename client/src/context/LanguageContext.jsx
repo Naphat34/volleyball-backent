@@ -1,7 +1,11 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { translations } from '../utils/i18n/translations';
+import { normalizeLanguage, readLanguage } from '../utils/i18n/language';
+import { translateUi } from '../utils/i18n/uiTranslations';
 
 const LanguageContext = createContext();
+// Exported documents render in a separate React root without the app provider.
+export const useOptionalLanguage = () => useContext(LanguageContext) || { language: readLanguage() };
 
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
@@ -13,15 +17,25 @@ export const useLanguage = () => {
 
 export const LanguageProvider = ({ children }) => {
   // Read initial language from localStorage or default to THA
-  const [language, setLanguageState] = useState(() => {
-    return localStorage.getItem('language') || 'THA';
-  });
+  const [language, setLanguageState] = useState(readLanguage);
+
+  useEffect(() => {
+    const syncLanguage = event => {
+      if (event.key === 'language' || event.key === null) setLanguageState(readLanguage());
+    };
+    window.addEventListener('storage', syncLanguage);
+    return () => window.removeEventListener('storage', syncLanguage);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language === 'ENG' ? 'en' : 'th';
+  }, [language]);
 
   const setLanguage = (lang) => {
-    if (lang === 'THA' || lang === 'ENG') {
-      setLanguageState(lang);
-      localStorage.setItem('language', lang);
-    }
+    const next = normalizeLanguage(lang);
+    setLanguageState(next);
+    try { localStorage.setItem('language', next); }
+    catch { /* The current page can still switch language without persistent storage. */ }
   };
 
   // Helper function to fetch nested keys, e.g. t('nav.home')
@@ -45,11 +59,11 @@ export const LanguageProvider = ({ children }) => {
             break;
           }
         }
-        return engTranslation !== null ? engTranslation : key;
+        return engTranslation !== null ? translateUi(engTranslation, language) : key;
       }
     }
     
-    return translation;
+    return translateUi(translation, language);
   };
 
   return (

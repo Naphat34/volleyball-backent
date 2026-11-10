@@ -164,10 +164,10 @@ const validators = {
     const skill = body.skill || body.event_type;
     const hasVisGrade = body.grade !== undefined && body.grade !== null && body.grade !== '';
     if (hasVisGrade) {
-      if (!isVisSkill(skill)) return 'Invalid VIS skill';
-      if (!isVisGrade(body.grade)) return 'Invalid VIS grade';
-      if (!isPositiveIntLike(body.player_id)) return 'Player is required for VIS stats';
-      if (!isPositiveIntLike(body.team_id)) return 'Team is required for VIS stats';
+      if (!isVisSkill(skill)) return 'Invalid VIMS skill';
+      if (!isVisGrade(body.grade)) return 'Invalid VIMS grade';
+      if (!isPositiveIntLike(body.player_id)) return 'Player is required for VIMS stats';
+      if (!isPositiveIntLike(body.team_id)) return 'Team is required for VIMS stats';
     }
 
     if (body.score_home !== undefined && Number.isNaN(Number(body.score_home))) return 'Home score must be numeric';

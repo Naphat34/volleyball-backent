@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const sources = ['backend/config/visCodes.js', 'backend/utils/visTiming.js', 'backend/utils/visWorkflow.js', 'backend/utils/customVis.js', 'backend/utils/importCustomVis.js'];
+const sources = ['backend/config/visCodes.js', 'backend/utils/visTiming.js', 'backend/utils/visWorkflow.js', 'backend/utils/bilingualNames.js', 'backend/utils/customVis.js', 'backend/utils/importCustomVis.js'];
 const chunks = sources.map(path => fs.readFileSync(`${root}${path}`, 'utf8')
     .replace(/^const .* = require\([^\n]+\);\r?\n/gm, '')
     .replace(/module\.exports\s*=\s*\{[^}]+\};?/gs, ''));

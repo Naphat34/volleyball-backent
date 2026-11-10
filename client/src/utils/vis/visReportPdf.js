@@ -22,11 +22,11 @@ export function visReportFilename(match, exportedAt = new Date()) {
 
 /** Render match statistics using a consistent report header, tables and footer. */
 export function appendVisReportPages(pdf, font, data, options = {}) {
-    const report = buildVisReport(data);
+    const report = buildVisReport(data, options);
     const exported = options.exportedAt || new Date();
     const stamp = exported.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
     const matchNumber = report.match.match_number || report.match.id || '-';
-    const documentCode = `VIS-${matchNumber}`;
+    const documentCode = `VIMS-${matchNumber}`;
     const added = [];
     const players = report.teams.flatMap(team => team.players);
     let page, width, height, y, title, pageSize;
@@ -119,14 +119,14 @@ export function appendVisReportPages(pdf, font, data, options = {}) {
     }
     const value = (team, number) => team.count ? number : '-';
     const score = set => report.teams.map(team => set[team.key]).join(' - ');
-    const name = player => player.name || [player.first_name, player.last_name].filter(Boolean).join(' ') || `ผู้เล่น ${player.id}`;
+    const name = player => player.display_name || player.name || [player.first_name, player.last_name].filter(Boolean).join(' ') || `ผู้เล่น ${player.id}`;
     const notes = () => {
         paragraph('หมายเหตุ: ประมวลผลจากรายการสถิติที่บันทึกในระบบ ณ เวลาจัดทำรายงาน', 9, muted);
         paragraph('สัญลักษณ์: - = ไม่มีข้อมูลหรือไม่มีฐานคำนวณ; 0 = มีข้อมูลบันทึก แต่ไม่ปรากฏผลประเภทนั้น', 9, muted);
         if (report.excluded) paragraph(`รายการที่ไม่รวมในการประมวลผล: ${report.excluded} รายการ (ข้อมูลทีมหรือผลการประเมินไม่ครบถ้วน)`, 9, red);
     };
 
-    const p2Report = buildVisReport(data, { scoreSource: 'vis' });
+    const p2Report = buildVisReport(data, { ...options, scoreSource: 'vis' });
     appendMatchResultPages(pdf, font, data, p2Report, drawText, options);
     if (options.resultOnly) return p2Report;
     newPage('สรุปผลการแข่งขันและสถิติภาพรวม');
@@ -248,7 +248,7 @@ export function appendVisReportPages(pdf, font, data, options = {}) {
             return [event.set_number ?? event.set_id ?? '-', index + 1, team?.label || '-', getVisEventCode(event, players) || '-', describeVisEvent(event, players) + gradeDescription + substitution,
                 report.teams.map(item => scores[item.key] ?? '-').join(' - ')];
         });
-        table(['เซต', 'ลำดับ', 'ทีม', 'รหัส VIS', 'เหตุการณ์', 'คะแนน A - B'], rows.length ? rows : [['-', '-', '-', '-', 'ยังไม่มีเหตุการณ์', '-']], [40, 45, 40, 85, 430.89, 137], 10);
+        table(['เซต', 'ลำดับ', 'ทีม', 'รหัส VIMS', 'เหตุการณ์', 'คะแนน A - B'], rows.length ? rows : [['-', '-', '-', '-', 'ยังไม่มีเหตุการณ์', '-']], [40, 45, 40, 85, 430.89, 137], 10);
     }
     const total = pdf.getPageCount();
     for (const item of added) {

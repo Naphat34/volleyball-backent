@@ -177,7 +177,7 @@ exports.sync = endpoint(async (req, res, connection) => {
         const method = handlers[`${op.method} ${op.path}`];
         if (!method) fail('ไม่รองรับคำสั่ง Offline นี้');
         // Official events are the only point source. Never replay VIS statistics.
-        if (op.path === 'event' && (op.body.skill || op.body.grade)) fail('VIS ต้องบันทึกแยกจากคะแนนทางการ');
+        if (op.path === 'event' && (op.body.skill || op.body.grade)) fail('VIMS ต้องบันทึกแยกจากคะแนนทางการ');
         if (op.path === 'event' && op.body.event_type !== 'POINT') {
             const score = checkpoint.scores[Number(op.body.set_number)] || checkpoint.scores[checkpoint.set];
             op.body.score_home = score.home; op.body.score_away = score.away;

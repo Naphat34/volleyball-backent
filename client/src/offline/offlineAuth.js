@@ -58,7 +58,7 @@ export async function unlockOffline(pin, { section = null, readOnly = false, exp
     } catch { throw Error('PIN ไม่ถูกต้อง'); }
     if (!readOnly && grant.expiresAt <= Date.now()) throw Error('สิทธิ์ Offline หมดอายุ');
     if (!grant.user?.id || !['admin', 'statistician', 'score', 'scorer'].includes(grant.user.role)) throw Error('ข้อมูลสิทธิ์ Offline ไม่สมบูรณ์ กรุณาเตรียมสิทธิ์ออนไลน์ใหม่');
-    if (section && !canEnterSection(grant.user, section, true)) throw Error(`บัญชี ${grant.user.username} ไม่มีสิทธิ์เข้า ${section === 'vis' ? 'VIS' : 'ScorerControl'} กรุณาเลือกหน้าระบบที่มีสิทธิ์`);
+    if (section && !canEnterSection(grant.user, section, true)) throw Error(`บัญชี ${grant.user.username} ไม่มีสิทธิ์เข้า ${section === 'vis' ? 'VIMS' : 'ScorerControl'} กรุณาเลือกหน้าระบบที่มีสิทธิ์`);
     if (expectedUserId != null) {
         let current = null;
         try { current = offlineMode() ? getOfflineUser({ readOnly: true }) : JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null'); } catch { /* Reject a missing or changed identity below. */ }

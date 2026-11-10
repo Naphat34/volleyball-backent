@@ -316,7 +316,7 @@ module.exports = {
                         TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))) as name,
                         p.number,
                         p.photo as image_url,
-                        t.name as team_name,
+                        t.name as team_name, t.name_th AS team_name_th, t.name_en AS team_name_en,
                         ${valueExpression} as value
                     FROM (${visStatisticsSource}) me
                     JOIN matches m ON m.id = me.match_id
@@ -325,7 +325,7 @@ module.exports = {
                     WHERE m.competition_id = ?
                       AND me.player_id IS NOT NULL
                       ${extraWhere}
-                    GROUP BY p.id, p.first_name, p.last_name, p.number, p.photo, t.name
+                    GROUP BY p.id, p.first_name, p.last_name, p.first_name_th, p.last_name_th, p.first_name_en, p.last_name_en, p.number, p.photo, t.name
                     ORDER BY value DESC, p.number ASC
                     LIMIT 10
                 `, [competitionId]);

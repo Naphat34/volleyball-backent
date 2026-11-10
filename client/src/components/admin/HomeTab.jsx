@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback, Panel, StatusBadge } from '../ui/SystemUI';
 import { readViewPreference, writeViewPreference } from '../../utils/common/viewPreferences';
 import { isMatchFinished } from '../../utils/scorer/standings';
@@ -9,6 +11,8 @@ import { formatThaiDate, formatThaiTime } from '../../utils/formatters';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function HomeTab() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const { language } = useLanguage();
 
     const formatDate = (date) => {
@@ -250,7 +254,7 @@ export default function HomeTab() {
 
     return (
         <div className="space-y-5 font-sans text-slate-900">
-            {loadError && <Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load dashboard'} onRetry={async () => { await fetchCompetitions(); await fetchMatchData(); }} />}
+            {loadError && <Feedback error title={language === 'THA' ? ui('โหลดข้อมูลไม่สำเร็จ') : ui('Unable to load dashboard')} onRetry={async () => { await fetchCompetitions(); await fetchMatchData(); }} />}
             {/* Header section with Tournament selection */}
             <div className={`${panelClass} overflow-hidden`}>
                 <div className="border-b border-white/60 bg-[#122b52] px-5 py-5 text-white">
@@ -258,20 +262,20 @@ export default function HomeTab() {
                     <div>
                         <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">
                             <LayoutDashboard className="h-3.5 w-3.5" />
-                            {language === 'THA' ? 'ศูนย์ควบคุมการแข่งขัน' : 'Competition Control'}
+                            {language === 'THA' ? ui('ศูนย์ควบคุมการแข่งขัน') : ui('Competition Control')}
                         </div>
                         <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-white">
-                            {language === 'THA' ? 'แดชบอร์ดสรุปข้อมูลการแข่งขัน' : 'Competition Summary Dashboard'}
+                            {language === 'THA' ? ui('แดชบอร์ดสรุปข้อมูลการแข่งขัน') : ui('Competition Summary Dashboard')}
                         </h2>
                         <p className="mt-1 max-w-2xl text-sm text-blue-100">
-                            {language === 'THA' ? 'สรุปรายละเอียด สถิติ และสถานะภาพรวมของการแข่งขันแต่ละประเภท' : 'Summary of details, statistics, and overall status for each category.'}
+                            {language === 'THA' ? ui('สรุปรายละเอียด สถิติ และสถานะภาพรวมของการแข่งขันแต่ละประเภท') : ui('Summary of details, statistics, and overall status for each category.')}
                         </p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-4 shrink-0">
                         {/* Select Tournament */}
                         <div className="w-full sm:w-64">
-                            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-blue-100"><Filter size={13} />{language === 'THA' ? 'รายการแข่งขัน' : 'Tournament'}</label>
+                            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-blue-100"><Filter size={13} />{language === 'THA' ? ui('รายการแข่งขัน') : ui('Tournament')}</label>
                             <select
                                 className={selectClass}
                                 value={selectedBaseName}
@@ -285,13 +289,13 @@ export default function HomeTab() {
 
                         {/* Select Gender */}
                         <div>
-                            <label className="mb-1.5 block text-xs font-semibold text-blue-100">{language === 'THA' ? 'ประเภทการแข่งขัน' : 'Category'}</label>
+                            <label className="mb-1.5 block text-xs font-semibold text-blue-100">{language === 'THA' ? ui('ประเภทการแข่งขัน') : ui('Category')}</label>
                             <div className="flex rounded-md border border-white/20 bg-white/10 p-1 backdrop-blur">
                                 <button
                                     onClick={() => setFilterGender('All')}
                                     className={`rounded px-3 py-1.5 text-xs font-semibold transition ${filterGender === 'All' ? 'bg-white text-blue-800 shadow-sm' : 'text-blue-50 hover:bg-white/10'}`}
                                 >
-                                    {language === 'THA' ? 'ทั้งหมด' : 'All'}
+                                    {language === 'THA' ? ui('ทั้งหมด') : ui('All')}
                                 </button>
                                 {availableGenders.map(g => (
                                     <button
@@ -299,7 +303,7 @@ export default function HomeTab() {
                                         onClick={() => setFilterGender(g)}
                                         className={`rounded px-3 py-1.5 text-xs font-semibold transition ${filterGender === g ? 'bg-white text-blue-800 shadow-sm' : 'text-blue-50 hover:bg-white/10'}`}
                                     >
-                                        {g === 'Male' ? (language === 'THA' ? 'ชาย' : 'Men') : g === 'Female' ? (language === 'THA' ? 'หญิง' : 'Women') : g}
+                                        {g === 'Male' ? language === 'THA' ? ui('ชาย') : ui('Men') : g === 'Female' ? language === 'THA' ? ui('หญิง') : ui('Women') : g}
                                     </button>
                                 ))}
                             </div>
@@ -314,13 +318,13 @@ export default function HomeTab() {
                         onClick={() => setCurrentSubTab('overview')}
                         className={`${tabClass} ${currentSubTab === 'overview' ? activeTabClass : inactiveTabClass}`}
                     >
-                        {language === 'THA' ? 'ภาพรวมระบบ' : 'Overview'}
+                        {language === 'THA' ? ui('ภาพรวมระบบ') : ui('Overview')}
                     </button>
                     <button
                         onClick={() => setCurrentSubTab('schedule')}
                         className={`${tabClass} ${currentSubTab === 'schedule' ? activeTabClass : inactiveTabClass}`}
                     >
-                        {language === 'THA' ? 'ตารางแข่งทั้งหมด' : 'Full Schedule'}
+                        {language === 'THA' ? ui('ตารางแข่งทั้งหมด') : ui('Full Schedule')}
                     </button>
                 </div>
             </div>
@@ -329,7 +333,7 @@ export default function HomeTab() {
                 loading ? (
                     <div className="flex justify-center items-center py-20">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-700"></div>
-                        <span className="ml-3 text-sm text-gray-600">{language === 'THA' ? 'กำลังโหลดข้อมูล...' : 'Loading data...'}</span>
+                        <span className="ml-3 text-sm text-gray-600">{language === 'THA' ? ui('กำลังโหลดข้อมูล...') : ui('Loading data...')}</span>
                     </div>
                 ) : (
                     <div className="space-y-5">
@@ -346,7 +350,7 @@ export default function HomeTab() {
                                                 <Icon className="h-5 w-5" />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-xs font-semibold text-slate-500">{metric.label}</p>
+                                                <p className="text-xs font-semibold text-slate-500">{ui(metric.label)}</p>
                                                 <h4 className={`mt-0.5 font-semibold text-slate-950 ${metric.valueClass || 'text-2xl'}`}>
                                                     {metric.value} {metric.suffix && <span className="text-xs font-medium text-slate-500">{metric.suffix}</span>}
                                                 </h4>
@@ -374,67 +378,66 @@ export default function HomeTab() {
                                 {/* Column 1: Upcoming Matches */}
                                 <div className={`${panelClass} overflow-hidden p-4 space-y-4`}>
                                     <h3 className={sectionTitleClass}>
-                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-700"><Clock className="h-4 w-4" /></span> {language === 'THA' ? 'แมตช์ถัดไป' : 'Upcoming Matches'}
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-700"><Clock className="h-4 w-4" /></span> {language === 'THA' ? ui('แมตช์ถัดไป') : ui('Upcoming Matches')}
                                     </h3>
                                     {upcomingMatches.length > 0 ? (
                                         <div className="space-y-3">
                                             {upcomingMatches.map(match => (
                                                 <div key={match.id} className="rounded-md border border-blue-100 bg-blue-50/50 p-3 transition hover:border-blue-200 hover:bg-white">
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="rounded border border-blue-100 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">Match #{match.match_number}</span>
+                                                        <span className="rounded border border-blue-100 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">{ui("Match #")}{match.match_number}</span>
                                                         <span className="text-xs font-medium text-slate-500">{match.round_name}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between my-2 text-sm">
                                                         <div className="flex-1 font-medium text-gray-800 truncate text-left">
-                                                            {teams.find(t => t.id == match.home_team_id)?.name || match.home_team || 'TBD'}
+                                                            {(displayNames.teamName(teams.find(t => t.id == match.home_team_id)) || displayNames.matchTeamName(match, 'home')) || (ui('TBD'))}
                                                         </div>
-                                                        <span className="rounded bg-white px-2 py-0.5 text-[10px] font-semibold text-blue-500 shadow-sm shrink-0">VS</span>
+                                                        <span className="rounded bg-white px-2 py-0.5 text-[10px] font-semibold text-blue-500 shadow-sm shrink-0">{ui("VS")}</span>
                                                         <div className="flex-1 font-medium text-gray-800 truncate text-right">
-                                                            {teams.find(t => t.id == match.away_team_id)?.name || match.away_team || 'TBD'}
+                                                            {(displayNames.teamName(teams.find(t => t.id == match.away_team_id)) || displayNames.matchTeamName(match, 'away')) || (ui('TBD'))}
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-blue-100/70 text-xs text-slate-500">
                                                         <Calendar size={12} className="text-blue-400" />
-                                                        <span>{match.match_date ? formatDate(match.match_date) : (language === 'THA' ? 'ยังไม่กำหนดวันที่' : 'Date TBD')}</span>
+                                                        <span>{match.match_date ? formatDate(match.match_date) : language === 'THA' ? ui('ยังไม่กำหนดวันที่') : ui('Date TBD')}</span>
                                                         <span className="text-blue-200">|</span>
                                                         <Clock size={12} className="text-blue-400" />
-                                                        <span>{match.start_time ? formatTime(match.start_time) : (language === 'THA' ? 'ยังไม่กำหนดเวลา' : 'Time TBD')}</span>
+                                                        <span>{match.start_time ? formatTime(match.start_time) : language === 'THA' ? ui('ยังไม่กำหนดเวลา') : ui('Time TBD')}</span>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-gray-400 text-center py-6">{language === 'THA' ? 'ไม่มีแมตช์ที่รอแข่งขัน' : 'No upcoming matches'}</p>
+                                        <p className="text-xs text-gray-400 text-center py-6">{language === 'THA' ? ui('ไม่มีแมตช์ที่รอแข่งขัน') : ui('No upcoming matches')}</p>
                                     )}
                                 </div>
 
                                 {/* Column 2: Recent Results */}
                                 <div className={`${panelClass} overflow-hidden p-4 space-y-4`}>
                                     <h3 className={sectionTitleClass}>
-                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 text-amber-700"><Trophy className="h-4 w-4" /></span> {language === 'THA' ? 'ผลการแข่งขันล่าสุด' : 'Recent Results'}
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 text-amber-700"><Trophy className="h-4 w-4" /></span> {language === 'THA' ? ui('ผลการแข่งขันล่าสุด') : ui('Recent Results')}
                                     </h3>
                                     {recentMatches.length > 0 ? (
                                         <div className="space-y-3">
                                             {recentMatches.map(match => (
                                                 <div key={match.id} className="rounded-md border border-amber-100 bg-amber-50/45 p-3 transition hover:border-amber-200 hover:bg-white">
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="rounded border border-amber-100 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">Match #{match.match_number}</span>
-                                                        <span className="rounded border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">{language === 'THA' ? 'จบเกม' : 'Completed'}</span>
+                                                        <span className="rounded border border-amber-100 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">{ui("Match #")}{match.match_number}</span>
+                                                        <span className="rounded border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">{language === 'THA' ? ui('จบเกม') : ui('Completed')}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between my-2 text-sm">
                                                         <div className={`flex-1 font-medium truncate text-left ${Number(match.home_set_score) > Number(match.away_set_score) ? 'text-gray-900' : 'text-gray-600'}`}>
-                                                            {teams.find(t => t.id == match.home_team_id)?.name || match.home_team || 'TBD'}
+                                                            {(displayNames.teamName(teams.find(t => t.id == match.home_team_id)) || displayNames.matchTeamName(match, 'home')) || (ui('TBD'))}
                                                         </div>
                                                         <div className="px-3 py-0.5 bg-slate-950 text-white rounded font-mono font-semibold text-xs shadow-sm shrink-0 mx-2">
                                                             {match.home_set_score} - {match.away_set_score}
                                                         </div>
                                                         <div className={`flex-1 font-medium truncate text-right ${Number(match.away_set_score) > Number(match.home_set_score) ? 'text-gray-900' : 'text-gray-600'}`}>
-                                                            {teams.find(t => t.id == match.away_team_id)?.name || match.away_team || 'TBD'}
+                                                            {(displayNames.teamName(teams.find(t => t.id == match.away_team_id)) || displayNames.matchTeamName(match, 'away')) || (ui('TBD'))}
                                                         </div>
                                                     </div>
                                                     {match.set_scores && (
-                                                        <div className="text-[10px] text-gray-400 text-center font-mono mt-1 break-words">
-                                                            Set: {(() => {
+                                                        <div className="text-[10px] text-gray-400 text-center font-mono mt-1 break-words">{ui("Set:")}{(() => {
                                                                 try {
                                                                     const sets = typeof match.set_scores === 'string' ? JSON.parse(match.set_scores) : (Array.isArray(match.set_scores) ? match.set_scores : null);
                                                                     return sets ? sets.join(', ') : null;
@@ -446,14 +449,14 @@ export default function HomeTab() {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-gray-400 text-center py-6">{language === 'THA' ? 'ยังไม่มีแมตช์ที่บันทึกคะแนนสำเร็จ' : 'No recently completed matches'}</p>
+                                        <p className="text-xs text-gray-400 text-center py-6">{language === 'THA' ? ui('ยังไม่มีแมตช์ที่บันทึกคะแนนสำเร็จ') : ui('No recently completed matches')}</p>
                                     )}
                                 </div>
 
                                 {/* Column 3: Participating Teams */}
                                 <div className={`${panelClass} overflow-hidden p-4 space-y-4`}>
                                     <h3 className={sectionTitleClass}>
-                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 text-emerald-700"><Users className="h-4 w-4" /></span> {language === 'THA' ? `ทีมที่เข้าร่วมการแข่งขัน (${teams.length})` : `Participating Teams (${teams.length})`}
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 text-emerald-700"><Users className="h-4 w-4" /></span> {language === 'THA' ? ui(`ทีมที่เข้าร่วมการแข่งขัน ({0})`, [teams.length]) : ui(`Participating Teams ({0})`, [teams.length])}
                                     </h3>
                                     {teams.length > 0 ? (
                                         <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1">
@@ -461,20 +464,20 @@ export default function HomeTab() {
                                                 <div key={team.id} className="p-2 bg-emerald-50/35 border border-emerald-100 rounded-md flex items-center gap-2.5 truncate hover:bg-white transition">
                                                     <div className="w-8 h-8 rounded-md bg-white flex items-center justify-center overflow-hidden border border-emerald-100 shrink-0">
                                                         {team.logo_url ? (
-                                                            <img src={getCorrectImageUrl(team.logo_url)} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                                                            <img src={getCorrectImageUrl(team.logo_url)} alt={ui("Logo")} className="w-full h-full object-contain p-0.5" />
                                                         ) : (
                                                             <Shield size={16} className="text-emerald-300" />
                                                         )}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-xs font-medium text-gray-800 truncate leading-tight">{team.name}</p>
-                                                        <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">{team.code || 'CLUB'}</span>
+                                                        <p className="text-xs font-medium text-gray-800 truncate leading-tight">{displayNames.teamName(team)}</p>
+                                                        <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">{(team.code) || (ui('CLUB'))}</span>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-gray-400 text-center py-6">{language === 'THA' ? 'ไม่มีรายชื่อสโมสรในประเภทการแข่งขันนี้' : 'No club teams registered in this category'}</p>
+                                        <p className="text-xs text-gray-400 text-center py-6">{language === 'THA' ? ui('ไม่มีรายชื่อสโมสรในประเภทการแข่งขันนี้') : ui('No club teams registered in this category')}</p>
                                     )}
                                 </div>
                             </div>
@@ -484,25 +487,25 @@ export default function HomeTab() {
                                 <div className={`${panelClass} flex flex-wrap items-center gap-2 p-4`}>
                                     <div className="mr-2 flex items-center gap-2 text-sm font-medium text-gray-500">
                                         <ListFilter size={16} className="text-gray-400" />
-                                        <span>{language === 'THA' ? 'ตัวกรองสถานะ:' : 'Status Filter:'}</span>
+                                        <span>{language === 'THA' ? ui('ตัวกรองสถานะ:') : ui('Status Filter:')}</span>
                                     </div>
                                     <button
                                         onClick={() => setFilterStatus('all')}
                                         className={`${tabClass} ${filterStatus === 'all' ? activeTabClass : inactiveTabClass}`}
                                     >
-                                        {language === 'THA' ? `แมตช์ทั้งหมด (${matches.length})` : `All Matches (${matches.length})`}
+                                        {language === 'THA' ? ui(`แมตช์ทั้งหมด ({0})`, [matches.length]) : ui(`All Matches ({0})`, [matches.length])}
                                     </button>
                                     <button
                                         onClick={() => setFilterStatus('completed')}
                                         className={`${tabClass} ${filterStatus === 'completed' ? activeTabClass : inactiveTabClass}`}
                                     >
-                                        {language === 'THA' ? `จบการแข่งขัน (${completedCount})` : `Completed (${completedCount})`}
+                                        {language === 'THA' ? ui(`จบการแข่งขัน ({0})`, [completedCount]) : ui(`Completed ({0})`, [completedCount])}
                                     </button>
                                     <button
                                         onClick={() => setFilterStatus('scheduled')}
                                         className={`${tabClass} ${filterStatus === 'scheduled' ? activeTabClass : inactiveTabClass}`}
                                     >
-                                        {language === 'THA' ? `รอดำเนินการ (${scheduledCount})` : `Scheduled (${scheduledCount})`}
+                                        {language === 'THA' ? ui(`รอดำเนินการ ({0})`, [scheduledCount]) : ui(`Scheduled ({0})`, [scheduledCount])}
                                     </button>
                                 </div>
 
@@ -515,7 +518,7 @@ export default function HomeTab() {
                                                     {/* Left Match Details */}
                                                     <div className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-2 min-w-[132px] pb-4 md:pb-0 md:pr-5 border-b md:border-b-0 md:border-r border-slate-200 w-full md:w-auto justify-between md:justify-center">
                                                         <div>
-                                                            <span className="rounded-md border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-700">Match #{match.match_number}</span>
+                                                            <span className="rounded-md border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-700">{ui("Match #")}{match.match_number}</span>
                                                             <div className="mt-2 text-sm font-semibold text-slate-950">{match.round_name}</div>
                                                         </div>
                                                         <div className={`rounded-md px-2.5 py-1 text-[10px] font-semibold tracking-wide border ${
@@ -525,7 +528,7 @@ export default function HomeTab() {
                                                                     ? 'bg-violet-50 text-violet-700 border-violet-100'
                                                                     : 'bg-sky-50 text-sky-700 border-sky-100'
                                                         }`}>
-                                                            {match.gender === 'Male' ? (language === 'THA' ? 'ชาย' : 'Men') : match.gender === 'Female' ? (language === 'THA' ? 'หญิง' : 'Women') : match.gender}
+                                                            {match.gender === 'Male' ? language === 'THA' ? ui('ชาย') : ui('Men') : match.gender === 'Female' ? language === 'THA' ? ui('หญิง') : ui('Women') : ui(match.gender)}
                                                         </div>
                                                     </div>
 
@@ -533,13 +536,13 @@ export default function HomeTab() {
                                                     <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-4 w-full">
                                                         <div className="flex-1 flex flex-col md:flex-row items-center justify-center md:justify-end gap-3 w-full min-w-0">
                                                             <div className={`font-semibold text-base leading-snug text-center md:text-right order-2 md:order-1 min-w-0 ${match.status === 'completed' && Number(match.home_set_score) > Number(match.away_set_score) ? 'text-slate-950' : 'text-slate-700'}`}>
-                                                                {teams.find(t => t.id == match.home_team_id)?.name || match.home_team || 'TBD'}
+                                                                {(displayNames.teamName(teams.find(t => t.id == match.home_team_id)) || displayNames.matchTeamName(match, 'home')) || (ui('TBD'))}
                                                             </div>
                                                             <div className="w-11 h-11 rounded-lg bg-white flex items-center justify-center overflow-hidden border border-slate-200 order-1 md:order-2 shrink-0 shadow-sm">
                                                                 {teams.find(t => t.id == match.home_team_id)?.logo_url ? (
                                                                     <img 
                                                                     src={getCorrectImageUrl(teams.find(t => t.id == match.home_team_id).logo_url)} 
-                                                                    alt="Home" 
+                                                                    alt={ui("Home")}
                                                                     className="w-full h-full object-contain p-1" 
                                                                     />
                                                                 ) : (
@@ -566,12 +569,12 @@ export default function HomeTab() {
                                                                     )}
                                                                     {match.status === 'completed' && (
                                                                         <span className="whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
-                                                                            {language === 'THA' ? 'จบการแข่งขัน' : 'Completed'}
+                                                                            {language === 'THA' ? ui('จบการแข่งขัน') : ui('Completed')}
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             ) : (
-                                                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs font-semibold text-slate-400">VS</div>
+                                                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs font-semibold text-slate-400">{ui("VS")}</div>
                                                             )}
                                                         </div>
 
@@ -580,7 +583,7 @@ export default function HomeTab() {
                                                                 {teams.find(t => t.id == match.away_team_id)?.logo_url ? (
                                                                     <img 
                                                                     src={getCorrectImageUrl(teams.find(t => t.id == match.away_team_id).logo_url)} 
-                                                                    alt="Away" 
+                                                                    alt={ui("Away")}
                                                                     className="w-full h-full object-contain p-1" 
                                                                     />
                                                                 ) : (
@@ -588,7 +591,7 @@ export default function HomeTab() {
                                                                 )}
                                                                 </div>
                                                             <div className={`font-semibold text-base leading-snug text-center md:text-left order-2 min-w-0 ${match.status === 'completed' && Number(match.away_set_score) > Number(match.home_set_score) ? 'text-slate-950' : 'text-slate-700'}`}>
-                                                                {teams.find(t => t.id == match.away_team_id)?.name || match.away_team || 'TBD'}
+                                                                {(displayNames.teamName(teams.find(t => t.id == match.away_team_id)) || displayNames.matchTeamName(match, 'away')) || (ui('TBD'))}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -597,16 +600,14 @@ export default function HomeTab() {
                                                     <div className="flex flex-row flex-wrap md:flex-col gap-2 text-xs text-slate-500 min-w-[178px] justify-center md:justify-center text-center md:text-right border-t md:border-t-0 md:border-l border-slate-200 pt-4 md:pt-0 md:pl-5 w-full md:w-auto">
                                                         <div className="flex items-center justify-center md:justify-end gap-1.5 rounded-md bg-slate-50 px-2.5 py-1.5 md:bg-transparent md:px-0 md:py-0">
                                                             <Calendar size={13} className="text-blue-500" />
-                                                            {match.match_date ? formatDate(match.match_date) : (match.start_time && match.start_time.includes('T') ? formatDate(match.start_time) : (language === 'THA' ? 'ยังไม่กำหนดวันที่' : 'Date TBD'))}
+                                                            {match.match_date ? formatDate(match.match_date) : match.start_time && match.start_time.includes('T') ? formatDate(match.start_time) : language === 'THA' ? ui('ยังไม่กำหนดวันที่') : ui('Date TBD')}
                                                         </div>
                                                         <div className="flex items-center justify-center md:justify-end gap-1.5 rounded-md bg-slate-50 px-2.5 py-1.5 md:bg-transparent md:px-0 md:py-0">
                                                             <Clock size={13} className="text-blue-500" />
-                                                            {match.start_time
-                                                                ? formatTime(match.start_time)
-                                                                : (language === 'THA' ? 'ยังไม่กำหนดเวลา' : 'Time TBD')
+                                                            {match.start_time ? formatTime(match.start_time) : language === 'THA' ? ui('ยังไม่กำหนดเวลา') : ui('Time TBD')
                                                             }
                                                         </div>
-                                                        <div className="flex items-center justify-center md:justify-end gap-1.5"><MapPin size={13} className="text-gray-400" /> {match.location || (language === 'THA' ? 'ยังไม่กำหนดสนาม' : 'Location TBD')}</div>
+                                                        <div className="flex items-center justify-center md:justify-end gap-1.5"><MapPin size={13} className="text-gray-400" /> {(match.location) || (language === 'THA' ? ui('ยังไม่กำหนดสนาม') : ui('Location TBD'))}</div>
                                                     </div>
                                                 </div>
                                             </div>

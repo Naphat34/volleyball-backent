@@ -1,8 +1,10 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveAccess, navigateAccess } from '../../offline/accessRouting';
 
 export default function OfflineMatchGate({ session, children }) {
+    const ui = useUiTranslation();
     const { pathname } = useLocation(), navigate = useNavigate();
     const section = /^\/adminvis\/match\/[\w-]+$/.test(pathname) ? 'vis' : /^\/scorer\/\d+$/.test(pathname) ? 'scorer' : null;
     const gateKey = session.kind === 'offline' && section ? `${session.user.id}:${pathname}` : null;
@@ -19,5 +21,5 @@ export default function OfflineMatchGate({ session, children }) {
         return () => { active = false; };
     }, [gateKey, section, pathname, navigate, retry]);
     if (!gateKey || approved === gateKey) return children;
-    return <main className="min-h-screen bg-slate-950 p-6 text-white"><p role={error ? 'alert' : 'status'}>{error || 'กำลังตรวจแมตช์และสิทธิ์บันทึกในเครื่อง…'}</p>{error && <button className="mt-4 underline" onClick={() => setRetry(value => value + 1)}>ลองตรวจใหม่</button>}</main>;
+    return <main className="min-h-screen bg-slate-950 p-6 text-white"><p role={error ? 'alert' : 'status'}>{(error) || (ui('กำลังตรวจแมตช์และสิทธิ์บันทึกในเครื่อง…'))}</p>{error && <button className="mt-4 underline" onClick={() => setRetry(value => value + 1)}>{ui("ลองตรวจใหม่")}</button>}</main>;
 }

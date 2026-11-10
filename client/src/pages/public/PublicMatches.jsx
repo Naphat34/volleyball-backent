@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback } from '../../components/ui/SystemUI';
 import { readViewPreference, writeViewPreference } from '../../utils/common/viewPreferences';
 import PublicHeader from '../../components/layout/PublicHeader';
@@ -10,6 +12,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { groupPublicCompetitionCategories } from '../../utils/scorer/publicCompetitionGrouping';
 
 export default function PublicMatches() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const navigate = useNavigate();
     const { language, t } = useLanguage();
     const [competitions, setCompetitions] = useState([]);
@@ -93,14 +97,14 @@ export default function PublicMatches() {
             case 'completed':
             case 'finished':
             case 'MATCH_FINISHED':
-                return <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-xl font-bold">{language === 'THA' ? 'จบการแข่งขัน' : 'Finished'}</span>;
+                return <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-xl font-bold">{language === 'THA' ? ui('จบการแข่งขัน') : ui('Finished')}</span>;
             case 'LIVE':
             case 'live':
             case 'SET_PLAYING':
             case 'in_progress':
-                return <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-xl font-bold animate-pulse">● {language === 'THA' ? 'กำลังแข่ง' : 'Live'}</span>;
+                return <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-xl font-bold animate-pulse">● {language === 'THA' ? ui('กำลังแข่ง') : ui('Live')}</span>;
             default:
-                return <span className="bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-xl font-bold">{language === 'THA' ? 'ยังไม่เริ่ม' : 'Scheduled'}</span>;
+                return <span className="bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-xl font-bold">{language === 'THA' ? ui('ยังไม่เริ่ม') : ui('Scheduled')}</span>;
         }
     };
 
@@ -108,33 +112,33 @@ export default function PublicMatches() {
         <div className="app-page min-h-screen pb-20 font-sans text-gray-800">
             {/* Navbar */}
             <PublicHeader />
-            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load data'} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} retryLabel={language === 'THA' ? 'ลองใหม่' : 'Retry'} /></div>}
+            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? ui('โหลดข้อมูลไม่สำเร็จ') : ui('Unable to load data')} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} retryLabel={language === 'THA' ? 'ลองใหม่' : 'Retry'} /></div>}
             <div id="main-content" tabIndex={-1} />
 
             {/* Header */}
             <div className="bg-[#122b52] text-white py-12 px-4 shadow-lg">
                 <div className="w-full max-w-[1400px] mx-auto text-center px-4">
                     <h1 className="text-3xl md:text-4xl font-extrabold mb-4 flex items-center justify-center gap-3">
-                        <Calendar size={36} /> {language === 'THA' ? 'ตารางและผลการแข่งขัน' : 'Match Schedule & Results'}
+                        <Calendar size={36} /> {language === 'THA' ? ui('ตารางและผลการแข่งขัน') : ui('Match Schedule & Results')}
                     </h1>
-                    <p className="text-indigo-200 text-lg">{language === 'THA' ? 'ติดตามโปรแกรมการแข่งขันและผลคะแนนสด' : 'Follow match schedules and live score results'}</p>
+                    <p className="text-indigo-200 text-lg">{language === 'THA' ? ui('ติดตามโปรแกรมการแข่งขันและผลคะแนนสด') : ui('Follow match schedules and live score results')}</p>
                 </div>
             </div>
 
             {/* Filter Section */}
             <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
                 <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col md:flex-row items-center gap-4">
-                    <div className="flex items-center gap-2 text-indigo-700 font-bold whitespace-nowrap"><Trophy size={20} /> {language === 'THA' ? 'ประเภท:' : 'Category:'}</div>
+                    <div className="flex items-center gap-2 text-indigo-700 font-bold whitespace-nowrap"><Trophy size={20} /> {language === 'THA' ? ui('ประเภท:') : ui('Category:')}</div>
                     <div className="flex w-full flex-wrap gap-2">
-                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? 'ทั้งหมด' : 'All'}</button>
-                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{category.label}</button>)}
+                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('ทั้งหมด') : ui('All')}</button>
+                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</button>)}
                     </div>
                 </div>
             </div>
 
             <div className="mx-auto mt-5 grid max-w-[1400px] gap-3 px-4 sm:grid-cols-[1fr_auto] sm:px-6 lg:px-8">
-                <label className="text-sm font-semibold text-slate-600">{language === 'THA' ? 'ค้นหาทีม คู่แข่งขัน หรือสนาม' : 'Search teams, matches or venues'}<input type="search" value={searchTerm} onChange={event => setSearchTerm(event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal" placeholder={language === 'THA' ? 'พิมพ์คำค้นหา…' : 'Search…'} /></label>
-                <label className="text-sm font-semibold text-slate-600">{language === 'THA' ? 'สถานะ' : 'Status'}<select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal">{[['all', language === 'THA' ? 'ทั้งหมด' : 'All'], ['live', 'LIVE'], ['upcoming', language === 'THA' ? 'ยังไม่เริ่ม' : 'Upcoming'], ['finished', language === 'THA' ? 'จบแล้ว' : 'Finished']].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                <label className="text-sm font-semibold text-slate-600">{language === 'THA' ? ui('ค้นหาทีม คู่แข่งขัน หรือสนาม') : ui('Search teams, matches or venues')}<input type="search" value={searchTerm} onChange={event => setSearchTerm(event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal" placeholder={language === 'THA' ? ui('พิมพ์คำค้นหา…') : ui('Search…')} /></label>
+                <label className="text-sm font-semibold text-slate-600">{language === 'THA' ? ui('สถานะ') : ui('Status')}<select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="mt-1 block min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal">{[['all', language === 'THA' ? 'ทั้งหมด' : 'All'], ['live', 'LIVE'], ['upcoming', language === 'THA' ? 'ยังไม่เริ่ม' : 'Upcoming'], ['finished', language === 'THA' ? 'จบแล้ว' : 'Finished']].map(([value, label]) => <option key={value} value={value}>{ui(label)}</option>)}</select></label>
             </div>
             {/* Content */}
             <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mt-8">
@@ -143,7 +147,7 @@ export default function PublicMatches() {
                 ) : Object.keys(groupedMatches).length === 0 ? (
                     <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
                         <Activity size={48} className="mx-auto text-gray-300 mb-4"/>
-                        <p className="text-gray-500 text-lg">{language === 'THA' ? (searchTerm || statusFilter !== 'all' ? 'ไม่พบคู่แข่งขันตามตัวกรองที่เลือก' : 'ยังไม่มีโปรแกรมการแข่งขันในรายการนี้') : (searchTerm || statusFilter !== 'all' ? 'No matches match these filters.' : 'No matches scheduled in this tournament yet.')}</p>
+                        <p className="text-gray-500 text-lg">{language === 'THA' ? searchTerm || statusFilter !== 'all' ? ui('ไม่พบคู่แข่งขันตามตัวกรองที่เลือก') : ui('ยังไม่มีโปรแกรมการแข่งขันในรายการนี้') : searchTerm || statusFilter !== 'all' ? ui('No matches match these filters.') : ui('No matches scheduled in this tournament yet.')}</p>
                     </div>
                 ) : (
                     Object.keys(groupedMatches).map((dateKey, index) => (
@@ -166,10 +170,10 @@ export default function PublicMatches() {
                                             <div className="flex items-center gap-4">
                                                 <span className="flex items-center gap-1 font-medium text-gray-700">
                                                     <Clock size={14} className="text-blue-600"/>
-                                                    {language === 'THA' ? `${formatThaiTime(m.start_time)} น.` : m.start_time}
+                                                    {language === 'THA' ? ui(`{0} น.`, [formatThaiTime(m.start_time)]) : m.start_time}
                                                 </span>
                                                 <span className="hidden sm:flex items-center gap-1">
-                                                    <MapPin size={14}/> {m.stadium_name || (language === 'THA' ? 'สนามกีฬากลาง' : 'Central Stadium')}
+                                                    <MapPin size={14}/> {(m.stadium_name) || (language === 'THA' ? ui('สนามกีฬากลาง') : ui('Central Stadium'))}
                                                 </span>
                                             </div>
                                             <div>{m.round_name}</div>
@@ -181,8 +185,8 @@ export default function PublicMatches() {
 
                                                 {/* Team A */}
                                                 <div className="flex-1 flex flex-col items-center md:items-end gap-2 text-center md:text-right w-full">
-                                                    <img src={m.team_a_logo || "https://via.placeholder.com/60"} alt="Team A" className="w-16 h-16 object-contain" />
-                                                    <div className="font-bold text-lg leading-tight">{m.team_a_name}</div>
+                                                    <img src={m.team_a_logo || "https://via.placeholder.com/60"} alt={ui("Team A")} className="w-16 h-16 object-contain" />
+                                                    <div className="font-bold text-lg leading-tight">{displayNames.matchTeamName(m, 'home')}</div>
                                                 </div>
 
                                                 {/* VS / Score */}
@@ -198,7 +202,7 @@ export default function PublicMatches() {
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col items-center">
-                                                            <span className="text-2xl font-semibold text-gray-300">VS</span>
+                                                            <span className="text-2xl font-semibold text-gray-300">{ui("VS")}</span>
                                                             <div className="mt-2">{getStatusBadge(m.status)}</div>
                                                         </div>
                                                     )}
@@ -206,8 +210,8 @@ export default function PublicMatches() {
 
                                                 {/* Team B */}
                                                 <div className="flex-1 flex flex-col items-center md:items-start gap-2 text-center md:text-left w-full">
-                                                    <img src={m.team_b_logo || "https://via.placeholder.com/60"} alt="Team B" className="w-16 h-16 object-contain" />
-                                                    <div className="font-bold text-lg leading-tight">{m.team_b_name}</div>
+                                                    <img src={m.team_b_logo || "https://via.placeholder.com/60"} alt={ui("Team B")} className="w-16 h-16 object-contain" />
+                                                    <div className="font-bold text-lg leading-tight">{displayNames.matchTeamName(m, 'away')}</div>
                                                 </div>
 
                                             </div>
@@ -217,7 +221,7 @@ export default function PublicMatches() {
                                                 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-center gap-2 text-sm text-gray-500 overflow-x-auto">
                                                     {m.set_scores.map((set, setIndex) => (
                                                         <div key={set.set_number ?? setIndex} className="px-2 py-1 bg-gray-50 rounded border border-gray-200 whitespace-nowrap min-w-[80px] text-center">
-                                                            <div className="text-[10px] uppercase text-gray-400">Set {set.set_number ?? setIndex + 1}</div>
+                                                            <div className="text-[10px] uppercase text-gray-400">{ui("Set")}{' '}{set.set_number ?? setIndex + 1}</div>
                                                             <div className="font-bold text-gray-800 text-base">
                                                                 {typeof set === 'string' ? set : `${set.team_a ?? set.home ?? set.home_score ?? '—'} - ${set.team_b ?? set.away ?? set.away_score ?? '—'}`}
                                                             </div>

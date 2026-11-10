@@ -1,3 +1,5 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
+import { visCompetitionName, visCompetitionKey } from '../../utils/vis/dashboardLayout';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
@@ -16,6 +18,7 @@ const normalizeStatus = status => {
 };
 
 export default function AdminVis() {
+    const ui = useUiTranslation();
     const { matchId } = useParams();
     const navigate = useNavigate();
     const { language } = useLanguage();
@@ -46,16 +49,16 @@ export default function AdminVis() {
                     setMatches(response.data.map(match => ({ ...match, status: normalizeStatus(match.status) })));
                     setLastUpdated(new Date());
                     setError('');
-                    if (fromServer) void Swal.fire({ icon: 'success', title: th ? 'ดึงแมตช์สำเร็จ' : 'Matches loaded',
-                        text: th ? `ดึงแมตช์จาก Admin จำนวน ${response.serverMatchCount} แมตช์` : `Loaded ${response.serverMatchCount} Admin matches`,
-                        confirmButtonText: th ? 'ตกลง' : 'OK', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
+                    if (fromServer) void Swal.fire({ uiTextLocalized: true,  icon: 'success', title: th ? ui('ดึงแมตช์สำเร็จ') : ui('Matches loaded'),
+                        text: th ? ui(`ดึงแมตช์จาก Admin จำนวน {0} แมตช์`, [response.serverMatchCount]) : ui(`Loaded {0} Admin matches`, [response.serverMatchCount]),
+                        confirmButtonText: th ? ui('ตกลง') : ui('OK'), background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
                 }
             } catch (loadError) {
                 if (!cancelled) {
                     const message = loadError.response?.data?.error || loadError.message || (th ? 'โหลดรายการแมตช์ไม่สำเร็จ' : 'Unable to load matches');
                     setError(message);
-                    if (fromServer) void Swal.fire({ icon: 'error', title: th ? 'ดึงแมตช์ไม่สำเร็จ' : 'Unable to load matches', text: message,
-                        confirmButtonText: th ? 'ตกลง' : 'OK', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
+                    if (fromServer) void Swal.fire({ uiTextLocalized: true,  icon: 'error', title: th ? ui('ดึงแมตช์ไม่สำเร็จ') : ui('Unable to load matches'), text: ui(message),
+                        confirmButtonText: th ? ui('ตกลง') : ui('OK'), background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#0284c7' });
                 }
             } finally {
                 if (!cancelled && (!silent || fromServer)) setLoading(false);
@@ -65,7 +68,7 @@ export default function AdminVis() {
         updatesRef.current = updates;
         void updates.refresh(false);
         return () => { cancelled = true; updates.stop(); manualRequested.current = false; if (updatesRef.current === updates) updatesRef.current = null; };
-    }, [matchId, gate, th]);
+    }, [matchId, gate, th, ui]);
 
     const reload = (fromServer = false) => {
         if (!updatesRef.current) return;
@@ -82,7 +85,7 @@ export default function AdminVis() {
     const competitionLabel = match => [match.competition_name, match.age_group_name || match.category,
         getPublicGenderLabel(match.gender, language)].filter(Boolean).join(' · ');
     const visibleMatches = !matchId && !gate.serverMatchesLoaded ? matches.filter(match => match.is_custom_vis || match.is_offline_vis) : matches;
-    const competitions = [...new Map(visibleMatches.filter(match => match.competition_id).map(match => [String(match.competition_id), competitionLabel(match)])).entries()]
+    const competitions = [...new Map(visibleMatches.filter(match => match.competition_id).map(match => [visCompetitionKey(match.competition_name), visCompetitionName(match.competition_name)])).entries()]
         .sort((a, b) => a[1].localeCompare(b[1], th ? 'th' : 'en'));
     const activeMatch = matchId ? matches.find(match => String(match.id) === matchId) : null;
 

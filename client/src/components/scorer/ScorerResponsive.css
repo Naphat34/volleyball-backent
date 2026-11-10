@@ -1,0 +1,126 @@
+@media screen {
+    .scorer-shell {
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        min-height: 0;
+    }
+
+    .scorer-main, .scorer-center { min-height: 0; }
+    .scorer-center { position: relative; }
+    .scorer-shell button { touch-action: manipulation; }
+
+    /* Three desktop sidebars need more room than an iPad Pro in landscape. */
+    @media (max-width: 1535px) {
+        .scorer-shell { overflow: hidden; }
+        .scorer-shell > .scorer-main {
+            flex-wrap: nowrap;
+            overflow: hidden;
+            padding: 8px;
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+        }
+        .scorer-shell .scorer-center {
+            min-width: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            overscroll-behavior-y: contain;
+            scrollbar-gutter: stable;
+            gap: 8px;
+        }
+        .scorer-shell > .scorer-header {
+            padding-top: max(6px, env(safe-area-inset-top));
+            padding-left: max(10px, env(safe-area-inset-left));
+            padding-right: max(10px, env(safe-area-inset-right));
+        }
+        .scorer-shell > .scorer-header button,
+        .scorer-roster-shortcuts button,
+        .scorer-controls button,
+        .scorer-team-drawer button {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        .scorer-scoreboard { flex-shrink: 0; }
+        .scorer-score-cell { padding-block: 8px; }
+        .scorer-score-cell > span { font-size: clamp(40px, 5vw, 56px); line-height: 1; }
+        .scorer-scoreboard .scorer-team-name {
+            white-space: normal;
+            overflow-wrap: anywhere;
+            font-size: clamp(12px, 1.7vw, 16px);
+            line-height: 1.4;
+            letter-spacing: normal;
+            padding-inline: 8px;
+            margin-top: 4px;
+        }
+        .scorer-roster-shortcuts button {
+            min-width: 0;
+            padding: 6px 10px;
+            overflow-wrap: anywhere;
+            font-size: 12px;
+        }
+        .scorer-touch-scoring { flex-shrink: 0; }
+        .scorer-shell .scorer-court {
+            flex: none;
+            min-height: 0;
+            overflow: visible;
+            padding: 8px;
+        }
+        .scorer-shell .scorer-court-stage {
+            flex: none;
+            width: 100%;
+            max-height: none;
+            min-height: 0;
+            aspect-ratio: 538 / 300;
+        }
+        .scorer-court > button { min-height: 44px; flex-shrink: 0; }
+        .scorer-shell .scorer-player-token { width: clamp(44px, 7dvh, 60px); height: clamp(44px, 7dvh, 60px); }
+        .scorer-shell .scorer-player-number { font-size: clamp(24px, 4dvh, 36px); }
+        .scorer-shell .scorer-controls {
+            height: auto;
+            min-height: 120px;
+            padding: 10px;
+            flex-shrink: 0;
+        }
+        .scorer-team-drawer > div { height: 100%; height: 100dvh; }
+        .scorer-team-drawer > div > :last-child { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+        .scorer-dialog { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+        .scorer-dialog > div {
+            min-width: 0;
+            max-width: 100%;
+            max-height: calc(100dvh - 32px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+        .scorer-dialog button { min-height: 44px; }
+        .scorer-dialog :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), select, textarea) { font-size: 16px; }
+    }
+
+    @media (min-width: 640px) and (max-width: 1535px) {
+        .scorer-controls .scorer-controls-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 1.5fr) minmax(0, 1fr);
+            gap: 10px;
+        }
+        .scorer-controls-grid > :nth-child(1) { order: 1; }
+        .scorer-controls-grid > :nth-child(2) { order: 2; }
+        .scorer-controls-grid > :nth-child(3) { order: 3; }
+    }
+
+    @media (max-width: 1535px) and (orientation: landscape) {
+        .scorer-shell .scorer-court-stage { max-width: min(100%, calc(32dvh * 538 / 300)); }
+    }
+
+    @media (max-width: 1100px) {
+        .scorer-lineup-modal .scorer-lineup-columns { flex-wrap: wrap; overflow-y: auto; }
+        .scorer-lineup-columns .scorer-lineup-roster { width: 50%; padding: 12px; min-height: 260px; }
+        .scorer-lineup-columns .scorer-lineup-courts {
+            order: -1;
+            width: 100%;
+            flex-direction: row;
+            justify-content: center;
+            gap: 12px;
+            padding: 12px;
+            overflow: visible;
+        }
+        .scorer-lineup-courts > div { width: min(230px, calc(50% - 6px)); align-self: stretch; }
+        .scorer-setup-modal .scorer-setup-heading { flex-wrap: wrap; gap: 12px; padding: 12px; }
+    }
+}

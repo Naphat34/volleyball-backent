@@ -1,3 +1,4 @@
+import useUiTranslation from './hooks/useUiTranslation';
 import AppThemeControl from './components/layout/AppThemeControl';
 import PageBoundary from './components/layout/PageBoundary';
 import React, { lazy, Suspense } from 'react';
@@ -49,11 +50,12 @@ const PrivateRoute = ({ children, roleRequired }) => {
 };
 
 function App() {
+    const ui = useUiTranslation();
   return (
     <BrowserRouter>
       <AppThemeControl />
       <PageBoundary>
-      <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title="กำลังเปิดหน้า / Loading page…" /></div>}>
+      <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title={ui("กำลังเปิดหน้า / Loading page…")} /></div>}>
       <Routes>
         <Route path="/scorer-offline" element={<PrivateRoute roleRequired={['admin','score','scorer','statistician']}><ScorerOfflineHome /></PrivateRoute>} />
         <Route path="/adminvis" element={<PrivateRoute roleRequired={['admin', 'statistician']}><AdminVis /></PrivateRoute>} />

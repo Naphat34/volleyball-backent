@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback } from 'react';
 import api, { api as apiHelper } from '../../api'; // Path to your api setup
 import { Trophy, Calendar, CheckCircle, Edit3, Save, X, PlusCircle, Shield, Settings } from 'lucide-react';
@@ -7,6 +9,8 @@ import { cleanCompetitionTitle, formatForInput, formatThaiDateTime } from '../..
 import PreMatchSetupModal from '../scorer/modals/PreMatchSetupModal';
 
 export default function MatchesManager({ competitionId, competition, onClose }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const maxSets = Number(competition?.max_sets) || 5;
     const competitionAgeGroupId = competition?.age_group_id || competition?.category || competition?.category_id || null;
     const competitionStadiumName = competition?.stadium_name || competition?.stadium || competition?.location || '';
@@ -72,21 +76,21 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
     }, [competition?.gender, competitionStadiumName]);
 
     const handleGenerateMatches = async () => {
-        const result = await Swal.fire({
-            title: 'Create Schedule?',
-            text: "System will generate Round Robin schedule automatically.",
+        const result = await Swal.fire({ uiTextLocalized: true,
+            title: ui('Create Schedule?'),
+            text: ui("System will generate Round Robin schedule automatically."),
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Generate'
+            confirmButtonText: ui('Generate')
         });
 
         if (result.isConfirmed) {
             try {
                 await api.post(`/competitions/${competitionId}/generate-matches`);
-                Swal.fire('Success', 'Matches generated!', 'success');
+                Swal.fire({uiTextLocalized:true,title:ui('Success'),text:ui('Matches generated!'),icon:'success'});
                 fetchData();
             } catch (err) {
-                Swal.fire('Error', err.response?.data?.error || 'Failed', 'error');
+                Swal.fire({uiTextLocalized:true,title:ui('Error'),text:(err.response?.data?.error) || (ui('Failed')),icon:'error'});
             }
         }
     };
@@ -102,13 +106,13 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
         
         // 1.1 เช็คว่าเลือก Competition หรือยัง
         if (!competitionId) {
-            Swal.fire('Error', 'กรุณาเลือกรายการแข่งขันก่อน (Please select a competition)', 'error');
+            Swal.fire({uiTextLocalized:true,title:ui('Error'),text:ui('กรุณาเลือกรายการแข่งขันก่อน (Please select a competition)'),icon:'error'});
             return;
         }
 
         // 1.2 เช็คว่าเลือกทีมซ้ำกันหรือไม่ (ถ้าเลือกครบทั้ง 2 ทีม)
         if (newMatchForm.home_team_id && newMatchForm.away_team_id && newMatchForm.home_team_id === newMatchForm.away_team_id) {
-            Swal.fire('Warning', 'ทีมเหย้าและทีมเยือนต้องไม่ใช่ทีมเดียวกัน', 'warning');
+            Swal.fire({uiTextLocalized:true,title:ui('Warning'),text:ui('ทีมเหย้าและทีมเยือนต้องไม่ใช่ทีมเดียวกัน'),icon:'warning'});
             return;
         }
 
@@ -155,11 +159,11 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
             if (editingMatchId) {
                 // --- UPDATE (แก้ไข) ---
                 await api.put(`/matches/${editingMatchId}`, payload);
-                Swal.fire('Success', 'อัปเดตข้อมูลการแข่งขันเรียบร้อยแล้ว', 'success');
+                Swal.fire({uiTextLocalized:true,title:ui('Success'),text:ui('อัปเดตข้อมูลการแข่งขันเรียบร้อยแล้ว'),icon:'success'});
             } else {
                 // --- CREATE (สร้างใหม่) ---
                 await api.post('/matches', payload);
-                Swal.fire('Success', 'สร้างแมตช์การแข่งขันใหม่สำเร็จ', 'success');
+                Swal.fire({uiTextLocalized:true,title:ui('Success'),text:ui('สร้างแมตช์การแข่งขันใหม่สำเร็จ'),icon:'success'});
             }
 
             // ---------------------------------------------------------
@@ -187,7 +191,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
             
             // ดึงข้อความ Error จาก Backend มาแสดง (ถ้ามี)
             const errorMsg = error.response?.data?.error || error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
-            Swal.fire('Error', errorMsg, 'error');
+            Swal.fire({uiTextLocalized:true,title:ui('Error'),text:ui(errorMsg),icon:'error'});
         }
     };
 
@@ -254,9 +258,9 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
 
             setEditingMatch(null);
             fetchData();
-            Swal.fire({
+            Swal.fire({ uiTextLocalized: true,
                 icon: 'success',
-                title: 'Saved',
+                title: ui('Saved'),
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
@@ -264,15 +268,15 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
             });
         } catch (err) {
             console.error("Save score error:", err);
-            Swal.fire('Error', 'Save failed', 'error');
+            Swal.fire({uiTextLocalized:true,title:ui('Error'),text:ui('Save failed'),icon:'error'});
         }
     };
 
     const handleOpenSetup = async (match) => {
         try {
-            Swal.fire({
-                title: 'Loading...',
-                text: 'กำลังโหลดข้อมูลการตั้งค่าการแข่งขัน / Loading setup details...',
+            Swal.fire({ uiTextLocalized: true,
+                title: ui('Loading...'),
+                text: ui('กำลังโหลดข้อมูลการตั้งค่าการแข่งขัน / Loading setup details...'),
                 allowOutsideClick: false,
                 didOpen: () => {
                     Swal.showLoading();
@@ -387,15 +391,15 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
             Swal.close();
         } catch (err) {
             console.error("Open Setup Error:", err);
-            Swal.fire('Error', 'Failed to load match setup data', 'error');
+            Swal.fire({uiTextLocalized:true,title:ui('Error'),text:ui('Failed to load match setup data'),icon:'error'});
         }
     };
 
     const handleSetupConfirm = async (data) => {
         try {
-            Swal.fire({
-                title: 'Saving...',
-                text: 'กำลังบันทึกข้อมูลการตั้งค่า / Saving setup details...',
+            Swal.fire({ uiTextLocalized: true,
+                title: ui('Saving...'),
+                text: ui('กำลังบันทึกข้อมูลการตั้งค่า / Saving setup details...'),
                 allowOutsideClick: false,
                 didOpen: () => {
                     Swal.showLoading();
@@ -442,16 +446,16 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
             setSetupMatch(null);
             fetchData();
 
-            Swal.fire({
+            Swal.fire({ uiTextLocalized: true,
                 icon: 'success',
-                title: 'Saved',
-                text: 'บันทึกข้อมูลการแข่งขันเรียบร้อยแล้ว / Setup details saved successfully.',
-                confirmButtonText: 'OK',
+                title: ui('Saved'),
+                text: ui('บันทึกข้อมูลการแข่งขันเรียบร้อยแล้ว / Setup details saved successfully.'),
+                confirmButtonText: ui('OK'),
                 confirmButtonColor: '#3085d6'
             });
         } catch (error) {
             console.error("Failed to update match officials during setup:", error);
-            Swal.fire('Error', 'Failed to save match setup details', 'error');
+            Swal.fire({uiTextLocalized:true,title:ui('Error'),text:ui('Failed to save match setup details'),icon:'error'});
         }
     };
 
@@ -459,8 +463,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
         <div className="bg-white rounded-md shadow-lg p-6 w-full mx-auto mt-4 animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Trophy className="text-yellow-500" /> Match Schedule
-                </h2>
+                    <Trophy className="text-yellow-500" />{ui("Match Schedule")}</h2>
                 <div className="flex gap-2">
                     <button
                         onClick={() => {
@@ -473,30 +476,25 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                         }}
                         className="bg-blue-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition flex items-center gap-2"
                     >
-                        <PlusCircle size={16} /> New Match
-                    </button>
+                        <PlusCircle size={16} />{ui("New Match")}</button>
 
                     {matches.length === 0 && (
-                        <button onClick={handleGenerateMatches} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition">
-                            Generate Schedule (Round Robin)
-                        </button>
+                        <button onClick={handleGenerateMatches} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition">{ui("Generate Schedule (Round Robin)")}</button>
                     )}
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 px-3">
-                        Close
-                    </button>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 px-3">{ui("Close")}</button>
                 </div>
             </div>
 
-            {loading ? <p>Loading...</p> : (
+            {loading ? <p>{ui("Loading...")}</p> : (
                 <div className="space-y-4">
-                    {matches.length === 0 && <div className="text-center py-10 text-gray-400">No matches found.</div>}
+                    {matches.length === 0 && <div className="text-center py-10 text-gray-400">{ui("No matches found.")}</div>}
 
                     {matches.map((match) => (
                         <div key={match.id} className="border rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4 hover:shadow-md transition bg-gray-50">
 
                             {/* Round Info */}
                             <div className="text-sm font-semibold text-gray-500 w-24 text-center md:text-left">
-                                <div className="text-xs text-gray-400">Match {match.match_number}</div>
+                                <div className="text-xs text-gray-400">{ui("Match")}{' '}{match.match_number}</div>
                                 {match.round_name}
                             </div>
 
@@ -505,7 +503,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                 <div className="text-right w-1/3 flex items-center justify-end gap-3">
                                     <div>
                                         <div className="font-bold text-gray-800 text-base md:text-lg leading-tight">
-                                            {teams.find(t => t.id == match.home_team_id)?.name || match.home_team || '-'}
+                                            {displayNames.teamName(teams.find(t => t.id == match.home_team_id)) || displayNames.matchTeamName(match, 'home') || '-'}
                                         </div>
                                         <div className="text-xs text-gray-400 font-mono">{match.home_team_code}</div>
                                     </div>
@@ -524,7 +522,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                             {typeof match.set_scores === 'object' ? match.set_scores.join(', ') : match.set_scores}
                                         </div>
                                     )}
-                                    <div className="mt-1 text-xs text-blue-600 font-medium">{match.start_time ? formatThaiDateTime(match.start_time) : 'TBD'}</div>
+                                    <div className="mt-1 text-xs text-blue-600 font-medium">{match.start_time ? formatThaiDateTime(match.start_time) : ui('TBD')}</div>
                                     <div className="text-[10px] text-gray-400">{match.location}</div>
                                 </div>
 
@@ -534,7 +532,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                     </div>
                                     <div>
                                         <div className="font-bold text-gray-800 text-base md:text-lg leading-tight">
-                                            {teams.find(t => t.id == match.away_team_id)?.name || match.away_team || '-'}
+                                            {displayNames.teamName(teams.find(t => t.id == match.away_team_id)) || displayNames.matchTeamName(match, 'away') || '-'}
                                         </div>
                                         <div className="text-xs text-gray-400 font-mono">{match.away_team_code}</div>
                                     </div>
@@ -546,21 +544,21 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                 <button
                                     onClick={() => handleEditMatch(match)}
                                     className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition"
-                                    title="Edit Details"
+                                    title={ui("Edit Details")}
                                 >
                                     <Edit3 size={18} />
                                 </button>
                                 <button
                                     onClick={() => openScoreModal(match)}
                                     className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition"
-                                    title="Update Score"
+                                    title={ui("Update Score")}
                                 >
                                     <Trophy size={18} />
                                 </button>
                                 <button
                                     onClick={() => handleOpenSetup(match)}
                                     className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition"
-                                    title="Prematch Setup"
+                                    title={ui("Prematch Setup")}
                                 >
                                     <Settings size={18} />
                                 </button>
@@ -582,9 +580,9 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-lg leading-tight">
-                                        {editingMatchId ? 'แก้ไขข้อมูลการแข่งขัน' : 'เพิ่มแมตช์การแข่งขันใหม่'}
+                                        {editingMatchId ? ui('แก้ไขข้อมูลการแข่งขัน') : ui('เพิ่มแมตช์การแข่งขันใหม่')}
                                     </h3>
-                                    <p className="text-xs text-blue-100 font-medium">Tournament: {cleanCompetitionTitle(competition?.title || competition?.name)}</p>
+                                    <p className="text-xs text-blue-100 font-medium">{ui("Tournament:")}{' '}{cleanCompetitionTitle(competition?.title || competition?.name)}</p>
                                 </div>
                             </div>
                             <button 
@@ -599,66 +597,66 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                             {/* Section 1: Match Identification */}
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Round (รอบแข่ง)</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Round (รอบแข่ง)")}</label>
                                     <input 
                                         type="text" 
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
                                         value={newMatchForm.round_name} 
                                         onChange={e => setNewMatchForm({ ...newMatchForm, round_name: e.target.value })} 
                                         required 
-                                        placeholder="e.g. Round 1" 
+                                        placeholder={ui("e.g. Round 1")}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Match No. (แมตช์ที่)</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Match No. (แมตช์ที่)")}</label>
                                     <input 
                                         type="number" 
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
                                         value={newMatchForm.match_number} 
                                         onChange={e => setNewMatchForm({ ...newMatchForm, match_number: e.target.value })} 
-                                        placeholder="e.g. 1" 
+                                        placeholder={ui("e.g. 1")}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Pool / Group (สาย)</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Pool / Group (สาย)")}</label>
                                     <input 
                                         type="text" 
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
                                         value={newMatchForm.pool_name} 
                                         onChange={e => setNewMatchForm({ ...newMatchForm, pool_name: e.target.value })} 
-                                        placeholder="e.g. A" 
+                                        placeholder={ui("e.g. A")}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Gender (ประเภททีม)</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Gender (ประเภททีม)")}</label>
                                     <select
                                         className="w-full p-2 border rounded-lg text-sm bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm text-gray-900"
                                         value={newMatchForm.gender}
                                         onChange={e => setNewMatchForm({ ...newMatchForm, gender: e.target.value })}
                                         required
                                     >
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Mixed">Mixed</option>
+                                        <option value="Male">{ui("Male")}</option>
+                                        <option value="Female">{ui("Female")}</option>
+                                        <option value="Mixed">{ui("Mixed")}</option>
                                     </select>
                                 </div>
                             </div>
 
                             {/* Section 2: Competitors Selection */}
                             <div className="bg-gray-50 border border-gray-150 rounded-xl p-4 shadow-inner">
-                                <div className="text-center font-bold text-xs text-gray-400 mb-3 uppercase tracking-wider">Competitors / คู่แข่งขัน</div>
+                                <div className="text-center font-bold text-xs text-gray-400 mb-3 uppercase tracking-wider">{ui("Competitors / คู่แข่งขัน")}</div>
                                 <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
                                     {/* Home Team */}
                                     <div className="md:col-span-5 space-y-2">
-                                        <label className="block text-xs font-bold uppercase text-gray-600">Home Team (ทีมเหย้า)</label>
+                                        <label className="block text-xs font-bold uppercase text-gray-600">{ui("Home Team (ทีมเหย้า)")}</label>
                                         <select
                                             className="w-full p-2.5 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm border-gray-300 text-gray-900"
                                             value={newMatchForm.home_team_id}
                                             onChange={e => setNewMatchForm({ ...newMatchForm, home_team_id: e.target.value })}
                                             required
                                         >
-                                            <option value="">-- Select Home Team --</option>
-                                            {teams.map(t => <option key={t.id} value={t.id}>[{t.code}] {t.name}</option>)}
+                                            <option value="">{ui("-- Select Home Team --")}</option>
+                                            {teams.map(t => <option key={t.id} value={t.id}>[{t.code}] {displayNames.teamName(t)}</option>)}
                                         </select>
                                         {teams.find(t => t.id.toString() === newMatchForm.home_team_id.toString()) && (() => {
                                             const homeTeam = teams.find(t => t.id.toString() === newMatchForm.home_team_id.toString());
@@ -668,7 +666,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                                         {homeTeam.logo_url ? <img src={homeTeam.logo_url} className="w-full h-full object-contain p-0.5" alt="" /> : <Shield size={14} className="text-gray-400" />}
                                                     </div>
                                                     <div className="truncate">
-                                                        <p className="text-xs font-bold text-gray-800 truncate">{homeTeam.name}</p>
+                                                        <p className="text-xs font-bold text-gray-800 truncate">{displayNames.teamName(homeTeam)}</p>
                                                         <p className="text-[10px] text-gray-500 font-mono">{homeTeam.code}</p>
                                                     </div>
                                                 </div>
@@ -678,24 +676,22 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
 
                                     {/* VS Badge */}
                                     <div className="md:col-span-1 flex justify-center py-2 md:py-0">
-                                        <span className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-xs shadow-md border-2 border-white">
-                                            VS
-                                        </span>
+                                        <span className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-xs shadow-md border-2 border-white">{ui("VS")}</span>
                                     </div>
 
                                     {/* Away Team */}
                                     <div className="md:col-span-5 space-y-2">
-                                        <label className="block text-xs font-bold uppercase text-gray-600">Away Team (ทีมเยือน)</label>
+                                        <label className="block text-xs font-bold uppercase text-gray-600">{ui("Away Team (ทีมเยือน)")}</label>
                                         <select
                                             className="w-full p-2.5 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-sm border-gray-300 text-gray-900"
                                             value={newMatchForm.away_team_id}
                                             onChange={e => setNewMatchForm({ ...newMatchForm, away_team_id: e.target.value })}
                                             required
                                         >
-                                            <option value="">-- Select Away Team --</option>
+                                            <option value="">{ui("-- Select Away Team --")}</option>
                                             {teams
                                                 .filter(t => t.id.toString() !== newMatchForm.home_team_id.toString())
-                                                .map(t => <option key={t.id} value={t.id}>[{t.code}] {t.name}</option>)
+                                                .map(t => <option key={t.id} value={t.id}>[{t.code}] {displayNames.teamName(t)}</option>)
                                             }
                                         </select>
                                         {teams.find(t => t.id.toString() === newMatchForm.away_team_id.toString()) && (() => {
@@ -706,7 +702,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                                         {awayTeam.logo_url ? <img src={awayTeam.logo_url} className="w-full h-full object-contain p-0.5" alt="" /> : <Shield size={14} className="text-gray-400" />}
                                                     </div>
                                                     <div className="truncate">
-                                                        <p className="text-xs font-bold text-gray-800 truncate">{awayTeam.name}</p>
+                                                        <p className="text-xs font-bold text-gray-800 truncate">{displayNames.teamName(awayTeam)}</p>
                                                         <p className="text-[10px] text-gray-500 font-mono">{awayTeam.code}</p>
                                                     </div>
                                                 </div>
@@ -719,7 +715,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                             {/* Section 3: Time and Venue */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Date (วันที่แข่งขัน)</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Date (วันที่แข่งขัน)")}</label>
                                     <input 
                                         type="date" 
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
@@ -731,7 +727,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Time (เวลาแข่งขัน)</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Time (เวลาแข่งขัน)")}</label>
                                     <input 
                                         type="time" 
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
@@ -743,21 +739,20 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Location / Venue (สถานที่แข่งขัน)</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Location / Venue (สถานที่แข่งขัน)")}</label>
                                     <input 
                                         type="text" 
                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white border-gray-300 text-gray-900 text-sm shadow-sm"
                                         value={newMatchForm.location} 
                                         onChange={e => setNewMatchForm({ ...newMatchForm, location: e.target.value })} 
-                                        placeholder="e.g. Court 1, Main Gymnasium" 
+                                        placeholder={ui("e.g. Court 1, Main Gymnasium")}
                                     />
                                 </div>
                             </div>
 
                             {newMatchForm.start_time && (
                                 <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 text-center animate-in fade-in duration-200">
-                                    <p className="text-xs text-blue-700 font-bold">
-                                        📅 กำหนดการแข่งขัน: {formatThaiDateTime(newMatchForm.start_time)}
+                                    <p className="text-xs text-blue-700 font-bold">{ui("📅 กำหนดการแข่งขัน:")}{formatThaiDateTime(newMatchForm.start_time)}
                                     </p>
                                 </div>
                             )}
@@ -781,15 +776,13 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                         });
                                     }}
                                     className="px-5 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm active:scale-95"
-                                >
-                                    Cancel
-                                </button>
+                                >{ui("Cancel")}</button>
                                 <button
                                     type="submit"
                                     className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold text-sm rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
                                 >
                                     {editingMatchId ? <Edit3 size={15} /> : <PlusCircle size={15} />}
-                                    {editingMatchId ? "บันทึกการแก้ไข" : "สร้างแมตช์แข่งขัน"}
+                                    {editingMatchId ? ui("บันทึกการแก้ไข") : ui("สร้างแมตช์แข่งขัน")}
                                 </button>
                             </div>
                         </form>
@@ -802,13 +795,13 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">Update Score</h3>
+                            <h3 className="font-bold text-lg">{ui("Update Score")}</h3>
                             <button onClick={() => setEditingMatch(null)}><X size={20} /></button>
                         </div>
 
                         <div className="flex justify-center items-center gap-4 mb-6">
                             <div className="text-center">
-                                <label className="block text-sm text-gray-500 mb-1">{editingMatch.home_team}</label>
+                                <label className="block text-sm text-gray-500 mb-1">{displayNames.matchTeamName(editingMatch, 'home')}</label>
                                 <input
                                     type="number"
                                     className="w-16 text-center border rounded p-2 text-xl font-bold"
@@ -818,7 +811,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                             </div>
                             <span className="text-2xl font-bold text-gray-300">-</span>
                             <div className="text-center">
-                                <label className="block text-sm text-gray-500 mb-1">{editingMatch.away_team}</label>
+                                <label className="block text-sm text-gray-500 mb-1">{displayNames.matchTeamName(editingMatch, 'away')}</label>
                                 <input
                                     type="number"
                                     className="w-16 text-center border rounded p-2 text-xl font-bold"
@@ -829,13 +822,13 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                         </div>
 
                         <div className="space-y-2 mb-6">
-                            <label className="block text-sm font-medium text-gray-700">Set Scores (Points)</label>
+                            <label className="block text-sm font-medium text-gray-700">{ui("Set Scores (Points)")}</label>
                             <div className="grid grid-cols-5 gap-2">
                                 {scoreForm.sets_detail.map((val, idx) => (
                                     <input
                                         key={idx}
                                         type="text"
-                                        placeholder={`S${idx + 1}`}
+                                        placeholder={ui(`S{0}`, [idx + 1])}
                                         className="border rounded p-1 text-center text-sm"
                                         value={val}
                                         onChange={(e) => {
@@ -846,15 +839,14 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                     />
                                 ))}
                             </div>
-                            <p className="text-xs text-gray-400 text-center">Format e.g. "25-20"</p>
+                            <p className="text-xs text-gray-400 text-center">{ui("Format e.g. \"25-20\"")}</p>
                         </div>
 
                         <button
                             onClick={handleSaveScore}
                             className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
                         >
-                            <Save size={18} /> Save Result
-                        </button>
+                            <Save size={18} />{ui("Save Result")}</button>
                     </div>
                 </div>
             )}

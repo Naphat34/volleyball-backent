@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import { calculateStandings } from '../../utils/scorer/standings';
 import { Feedback, StatusBadge } from '../../components/ui/SystemUI';
 import PublicHeader from '../../components/layout/PublicHeader';
@@ -24,19 +26,22 @@ const getTeamLogo = (match, side) => (
 );
 
 const TeamBadge = ({ name, logoUrl, size = 'md' }) => {
+    const ui = useUiTranslation();
     const sizeClass = size === 'lg' ? 'h-14 w-14 text-sm' : 'h-9 w-9 text-[10px]';
     const initials = String(name || 'TBD').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 
     return (
         <div className={`${sizeClass} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white font-bold text-slate-500`}>
             {logoUrl ? (
-                <img src={logoUrl} alt={name || 'Team'} className="h-full w-full object-contain p-1" />
+                <img src={logoUrl} alt={(name) || (ui('Team'))} className="h-full w-full object-contain p-1" />
             ) : initials}
         </div>
     );
 };
 
 export default function LandingPage() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const navigate = useNavigate();
     const { language, t } = useLanguage();
     const [competitions, setCompetitions] = useState([]);
@@ -153,7 +158,7 @@ export default function LandingPage() {
         if (!match) {
             return (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                    {isThai ? 'ยังไม่มีแมตช์สำหรับรายการนี้' : 'No match available for this competition'}
+                    {isThai ? ui('ยังไม่มีแมตช์สำหรับรายการนี้') : ui('No match available for this competition')}
                 </div>
             );
         }
@@ -171,11 +176,11 @@ export default function LandingPage() {
                     <span className="rounded bg-blue-50 px-2 py-1 text-blue-700">#{match.match_number || '-'}</span>
                     <span className="flex items-center gap-1"><Clock size={13} />{formatThaiTime(match.start_time)}</span>
                     {statusIsLive(match.status) ? (
-                        <span className="rounded bg-red-100 px-2 py-1 text-red-700">LIVE</span>
+                        <span className="rounded bg-red-100 px-2 py-1 text-red-700">{ui("LIVE")}</span>
                     ) : statusIsFinished(match.status) ? (
-                        <span className="rounded bg-slate-100 px-2 py-1 text-slate-600">{isThai ? 'จบแล้ว' : 'Finished'}</span>
+                        <span className="rounded bg-slate-100 px-2 py-1 text-slate-600">{isThai ? ui('จบแล้ว') : ui('Finished')}</span>
                     ) : (
-                        <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-700">{isThai ? 'กำลังจะมาถึง' : 'Upcoming'}</span>
+                        <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-700">{isThai ? ui('กำลังจะมาถึง') : ui('Upcoming')}</span>
                     )}
                 </div>
 
@@ -207,27 +212,25 @@ export default function LandingPage() {
     return (
         <div className="app-page min-h-screen pb-16 font-sans text-slate-800">
             <PublicHeader />
-            {(loadError || competitionError || statisticsError) && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={isThai ? 'โหลดข้อมูลไม่สำเร็จ' : 'Unable to load competition data'} description={isThai ? 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่' : 'Check your connection and try again.'} onRetry={() => setReloadKey(key => key + 1)} retryLabel={isThai ? 'ลองใหม่' : 'Retry'} /></div>}
+            {(loadError || competitionError || statisticsError) && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={isThai ? ui('โหลดข้อมูลไม่สำเร็จ') : ui('Unable to load competition data')} description={isThai ? 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่' : 'Check your connection and try again.'} onRetry={() => setReloadKey(key => key + 1)} retryLabel={isThai ? 'ลองใหม่' : 'Retry'} /></div>}
 
             <section className="bg-[#122b52] text-white">
                 <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-12">
                     <div className="flex flex-col justify-center">
                         <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-blue-50">
                             <Trophy size={15} />
-                            {isThai ? 'ศูนย์กลางการแข่งขันวอลเลย์บอล' : 'Volleyball Competition Centre'}
+                            {isThai ? ui('ศูนย์กลางการแข่งขันวอลเลย์บอล') : ui('Volleyball Competition Centre')}
                         </div>
-                        <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight md:text-5xl">{isThai ? 'ทุกการแข่งขัน ในที่เดียว' : 'Every match. One place.'}</h1>
+                        <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight md:text-5xl">{isThai ? ui('ทุกการแข่งขัน ในที่เดียว') : ui('Every match. One place.')}</h1>
                         <p className="mt-4 max-w-2xl text-base leading-7 text-blue-50 md:text-lg">
-                            {isThai
-                                ? 'ติดตามแมตช์สด ตารางแข่งขัน ผลการแข่งขัน ตารางคะแนน และสถิตินักกีฬาของทุกรายการแข่งขัน'
-                                : 'Follow live matches, schedules, results, standings, and player statistics across competitions.'}
+                            {isThai ? ui('ติดตามแมตช์สด ตารางแข่งขัน ผลการแข่งขัน ตารางคะแนน และสถิตินักกีฬาของทุกรายการแข่งขัน') : ui('Follow live matches, schedules, results, standings, and player statistics across competitions.')}
                         </p>
                         <div className="mt-7 flex flex-wrap gap-3">
                             <button onClick={() => navigate('/matches')} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-blue-950 hover:bg-blue-50">
-                                {isThai ? 'ดูตารางแข่งขัน' : 'View Schedule'} <ArrowRight size={18} />
+                                {isThai ? ui('ดูตารางแข่งขัน') : ui('View Schedule')} <ArrowRight size={18} />
                             </button>
                             <button onClick={() => navigate('/teams')} className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/10">
-                                {isThai ? 'ทีมเข้าร่วม' : 'Teams'} <Users size={18} />
+                                {isThai ? ui('ทีมเข้าร่วม') : ui('Teams')} <Users size={18} />
                             </button>
                         </div>
                     </div>
@@ -235,13 +238,11 @@ export default function LandingPage() {
                     <div className="rounded-xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
                         <div className="mb-3 flex items-center justify-between">
                             <div>
-                                <div className="flex flex-wrap items-center gap-2"><StatusBadge tone={liveMatches.length ? 'live' : 'info'} dot>{liveMatches.length ? 'LIVE' : (isThai ? 'แมตช์เด่น' : 'Featured')}</StatusBadge>{lastUpdated && <span className="text-xs text-blue-100">{isThai ? 'อัปเดต' : 'Updated'} {lastUpdated.toLocaleTimeString(isThai ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}</div>
-                                <div className="mt-1 text-lg font-black">{isThai ? '\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e17\u0e35\u0e48\u0e40\u0e1b\u0e34\u0e14' : 'Open competitions'}</div>
+                                <div className="flex flex-wrap items-center gap-2"><StatusBadge tone={liveMatches.length ? 'live' : 'info'} dot>{liveMatches.length ? ui('LIVE') : isThai ? ui('แมตช์เด่น') : ui('Featured')}</StatusBadge>{lastUpdated && <span className="text-xs text-blue-100">{isThai ? ui('อัปเดต') : ui('Updated')} {lastUpdated.toLocaleTimeString(isThai ? 'th-TH' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}</span>}</div>
+                                <div className="mt-1 text-lg font-black">{isThai ? ui('\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e17\u0e35\u0e48\u0e40\u0e1b\u0e34\u0e14') : ui('Open competitions')}</div>
                             </div>
                             {featuredMatch && (
-                                <button onClick={() => navigate(`/match-centre/${featuredMatch.id}`)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-950 hover:bg-blue-50">
-                                    Match Centre
-                                </button>
+                                <button onClick={() => navigate(`/match-centre/${featuredMatch.id}`)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-950 hover:bg-blue-50">{ui("Match Centre")}</button>
                             )}
                         </div>
                         {MatchCard({ match: featuredMatch })}
@@ -255,10 +256,10 @@ export default function LandingPage() {
                         <div className="rounded-xl border border-slate-200 bg-white">
                             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                                 <h2 className="flex items-center gap-2 font-black text-blue-950">
-                                    <CalendarDays size={20} /> {isThai ? 'โปรแกรมและผลล่าสุด' : 'Schedule & Results'}
+                                    <CalendarDays size={20} /> {isThai ? ui('โปรแกรมและผลล่าสุด') : ui('Schedule & Results')}
                                 </h2>
                                 <button onClick={() => navigate('/matches')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
-                                    {isThai ? 'ดูทั้งหมด' : 'View all'}
+                                    {isThai ? ui('ดูทั้งหมด') : ui('View all')}
                                 </button>
                             </div>
                             <div className="space-y-3 p-5">
@@ -266,7 +267,7 @@ export default function LandingPage() {
                                     <div className="py-12 text-center text-sm text-slate-500">{t('common.loading')}</div>
                                 ) : matches.length === 0 ? (
                                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-500">
-                                        {isThai ? 'ยังไม่มีโปรแกรมการแข่งขันในรายการนี้' : 'No matches in this competition yet.'}
+                                        {isThai ? ui('ยังไม่มีโปรแกรมการแข่งขันในรายการนี้') : ui('No matches in this competition yet.')}
                                     </div>
                                 ) : (
                                     [...liveMatches, ...upcomingMatches, ...recentResults].slice(0, 5).map((match) => (
@@ -283,7 +284,7 @@ export default function LandingPage() {
                                     onClick={() => navigate(link.path)}
                                     className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-4 text-sm font-black text-slate-700 hover:border-blue-300 hover:bg-blue-50"
                                 >
-                                    {link.icon} {link.label}
+                                    {link.icon} {ui(link.label)}
                                 </button>
                             ))}
                         </div>
@@ -293,16 +294,16 @@ export default function LandingPage() {
                         <div className="rounded-xl border border-slate-200 bg-white">
                             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                                 <h2 className="flex items-center gap-2 font-black text-blue-950">
-                                    <BarChart3 size={20} /> {isThai ? 'อันดับทีม' : 'Standings'}
+                                    <BarChart3 size={20} /> {isThai ? ui('อันดับทีม') : ui('Standings')}
                                 </h2>
                                 <button onClick={() => navigate('/standings')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
-                                    {isThai ? 'ตารางเต็ม' : 'Full table'}
+                                    {isThai ? ui('ตารางเต็ม') : ui('Full table')}
                                 </button>
                             </div>
                             <div className="p-5">
                                 {standingsPreview.length === 0 ? (
                                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-500">
-                                        {isThai ? 'ยังไม่มีคะแนนสะสม' : 'No standings yet.'}
+                                        {isThai ? ui('ยังไม่มีคะแนนสะสม') : ui('No standings yet.')}
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
@@ -310,10 +311,10 @@ export default function LandingPage() {
                                             <div key={team.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
                                                 <div className="w-6 text-center text-sm font-black text-blue-700">{index + 1}</div>
                                                 <TeamBadge name={team.name} logoUrl={team.logo_url} />
-                                                <div className="min-w-0 flex-1 truncate text-sm font-bold">{team.name}</div>
+                                                <div className="min-w-0 flex-1 truncate text-sm font-bold">{displayNames.teamName(team)}</div>
                                                 <div className="text-right">
                                                     <div className="text-sm font-black text-slate-900">{team.points}</div>
-                                                    <div className="text-[10px] uppercase text-slate-400">PTS</div>
+                                                    <div className="text-[10px] uppercase text-slate-400">{ui("PTS")}</div>
                                                 </div>
                                             </div>
                                         ))}
@@ -325,16 +326,16 @@ export default function LandingPage() {
                         <div className="rounded-xl border border-slate-200 bg-white">
                             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                                 <h2 className="flex items-center gap-2 font-black text-blue-950">
-                                    <Star size={20} /> {isThai ? 'นักกีฬาน่าสนใจ' : 'Top Performers'}
+                                    <Star size={20} /> {isThai ? ui('นักกีฬาน่าสนใจ') : ui('Top Performers')}
                                 </h2>
                                 <button onClick={() => navigate('/stats')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
-                                    {isThai ? 'สถิติทั้งหมด' : 'All stats'}
+                                    {isThai ? ui('สถิติทั้งหมด') : ui('All stats')}
                                 </button>
                             </div>
                             <div className="p-5">
                                 {topPlayers.length === 0 ? (
                                     <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-500">
-                                        {isThai ? 'ยังไม่มีข้อมูลสถิตินักกีฬา' : 'No player statistics yet.'}
+                                        {isThai ? ui('ยังไม่มีข้อมูลสถิตินักกีฬา') : ui('No player statistics yet.')}
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 gap-3">
@@ -344,9 +345,9 @@ export default function LandingPage() {
                                                     {item.icon}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="text-xs font-bold text-slate-500">{item.label}</div>
+                                                    <div className="text-xs font-bold text-slate-500">{ui(item.label)}</div>
                                                     <div className="truncate text-sm font-black text-slate-900">
-                                                        {item.player.player_name || item.player.name || `${item.player.first_name || ''} ${item.player.last_name || ''}`.trim() || '-'}
+                                                        {displayNames.personName(item.player) || displayNames.personName(item.player) || `${displayNames.personFirstName(item.player) || ''} ${displayNames.personLastName(item.player) || ''}`.trim() || '-'}
                                                     </div>
                                                 </div>
                                                 <div className="text-right text-sm font-black text-blue-700">
@@ -362,9 +363,7 @@ export default function LandingPage() {
                 </section>
             </main>
 
-            <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
-                Copyright {new Date().getFullYear()} Volley Manager. All rights reserved.
-            </footer>
+            <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">{ui("Copyright")}{new Date().getFullYear()}{ui("Volley Manager. All rights reserved.")}</footer>
         </div>
     );
 }

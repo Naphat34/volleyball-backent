@@ -1,3 +1,5 @@
+import useDisplayNames from '../../../hooks/useDisplayNames';
+import useScorerTranslation from '../useScorerTranslation';
 import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
 import React from 'react';
 import { X } from 'lucide-react';
@@ -22,27 +24,30 @@ export default function MobileTeamDrawer({
     onPointScored,
     challengeEnabled = true
 }) {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     if (!mobilePanelTeam) return null;
 
-    const team = mobilePanelTeam === 'home' ? leftTeam : rightTeam;
+    const team = [leftTeam, rightTeam].find(candidate => candidate?.code === mobilePanelTeam);
+    if (!team) return null;
     const isRallyOrLineup = workflowStep === 'RALLY' || workflowStep === 'LINEUP';
     const activeColor = teamColors[mobilePanelTeam];
     const contrastColor = getContrastColorHex(activeColor);
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[150] flex items-center justify-end xl:hidden animate-fade-in pointer-events-auto">
+        <div className="scorer-team-drawer fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[150] flex items-center justify-end 2xl:hidden animate-fade-in pointer-events-auto">
             <div className="bg-white w-full max-w-sm h-full flex flex-col shadow-2xl relative overflow-hidden">
                 {/* Drawer Header */}
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3
                         className="min-w-0 flex-1 truncate pr-3 text-base font-extrabold uppercase text-slate-800"
-                        title={team.name}
+                        title={displayNames.teamName(team)}
                     >
-                        {team.shortName?.trim() || getTeamCode(team.name)}
+                        {team.shortName?.trim() || getTeamCode(displayNames.teamName(team))}
                     </h3>
                     <button
                         onClick={onClose}
-                        aria-label="Close team panel"
+                        aria-label={st("Close team panel")}
                         className="min-h-11 min-w-11 p-1 rounded-full hover:bg-slate-200 text-slate-500 transition-colors"
                     >
                         <X size={20} />
@@ -50,10 +55,10 @@ export default function MobileTeamDrawer({
                 </div>
 
                 {/* Drawer Body - Team Roster */}
-                <div className="flex-1 overflow-y-auto p-2">
+                <div className="flex-1 min-h-0 overflow-y-auto p-2">
                     <TeamInfoPanel
                         team={team}
-                        align="left"
+                        align={team.code === leftTeam.code ? 'left' : 'right'}
                         onPlayerClick={(side, pos) => {
                             onPlayerClick(side, pos);
                             onClose();
@@ -74,9 +79,7 @@ export default function MobileTeamDrawer({
                                 disabled={isRallyOrLineup}
                                 className="border text-[11px] font-bold py-2 rounded bg-white hover:bg-slate-50 disabled:opacity-50 animate-pulse"
                                 style={{ borderColor: activeColor, color: '#000' }}
-                            >
-                                Libero in
-                            </button>
+                            >{st("Libero in")}</button>
                         </div>
 
                         {/* Actions */}
@@ -92,10 +95,8 @@ export default function MobileTeamDrawer({
                                     disabled={!challengeEnabled || challenges[mobilePanelTeam] <= 0 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[10px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
-                                    title={challengeEnabled ? 'Video challenge' : 'Challenge system is not enabled for this match'}
-                                >
-                                    Video chall.
-                                </button>
+                                    title={challengeEnabled ? st('Video challenge') : st('Challenge system is not enabled for this match')}
+                                >{st("Video chall.")}</button>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -114,9 +115,7 @@ export default function MobileTeamDrawer({
                                     disabled={timeouts[mobilePanelTeam] >= 2 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
-                                >
-                                    Timeout
-                                </button>
+                                >{st("Timeout")}</button>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -135,9 +134,7 @@ export default function MobileTeamDrawer({
                                     disabled={isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
-                                >
-                                    Substitution
-                                </button>
+                                >{st("Substitution")}</button>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -157,9 +154,7 @@ export default function MobileTeamDrawer({
                         disabled={workflowStep !== 'RALLY'}
                         className="w-full font-bold py-3 rounded-md text-[13px] hover:opacity-90 disabled:opacity-50 transition-opacity"
                         style={{ backgroundColor: activeColor, color: contrastColor }}
-                    >
-                        Point scored
-                    </button>
+                    >{st("Point scored")}</button>
                 </div>
             </div>
         </div>

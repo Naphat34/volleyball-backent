@@ -1,8 +1,11 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { PDFDownloadLink, PDFViewer, BlobProvider } from '@react-pdf/renderer';
 import { Eye, FileDown, Loader2, Printer, X } from 'lucide-react';
 import { api } from '../../api';
 import O2FormDocument from './O2FormDocument';
+import { compositionPlayers, compositionStaff, compositionRosterReady } from '../../utils/reports/compositionRoster';
 
 const GENDER_ORDER = { Male: 1, Female: 2 };
 
@@ -60,11 +63,19 @@ const sanitizeFileName = (value) => (
 );
 
 const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] }) => {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const [selectedGroupKey, setSelectedGroupKey] = useState('');
     const [previewForm, setPreviewForm] = useState(null);
     const [entryRosterById, setEntryRosterById] = useState({});
     const [rosterLoading, setRosterLoading] = useState(false);
+    const [rosterError, setRosterError] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
     const [ageGroups, setAgeGroups] = useState([]);
+    const [leg, setLeg] = useState(1);
+    const [revision, setRevision] = useState(1);
+    const [referenceDate, setReferenceDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }));
+    const [printedAt] = useState(() => new Date().toISOString());
 
     useEffect(() => {
         let cancelled = false;
@@ -139,20 +150,26 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
         let cancelled = false;
 
         const loadEntryRosters = async () => {
-            if (!selectedGroup) return;
+            setEntryRosterById({});
+            setRosterError(false);
+            if (!selectedGroup) { setRosterLoading(false); return; }
 
             const missingEntries = selectedGroup.items.filter(
-                (competition) => competition.team_entry_id && !entryRosterById[competition.team_entry_id]
+                (competition) => competition.team_entry_id
             );
 
-            if (missingEntries.length === 0) return;
+            if (missingEntries.length === 0) { setRosterLoading(false); return; }
 
             setRosterLoading(true);
             try {
                 const results = await Promise.all(
                     missingEntries.map(async (competition) => {
-                        const response = await api.getMyTeamEntryPlayers(competition.team_entry_id);
-                        return [competition.team_entry_id, response.data];
+                        const [playerResponse, staffResponse] = await Promise.all([
+                            api.getMyTeamEntryPlayers(competition.team_entry_id),
+                            api.getMyTeamEntryStaff(competition.team_entry_id),
+                        ]);
+                        if (!Array.isArray(playerResponse.data?.players) || !Array.isArray(staffResponse.data?.staff)) throw new Error('Invalid composition roster response');
+                        return [competition.team_entry_id, { players: playerResponse.data.players, staff: staffResponse.data.staff }];
                     })
                 );
 
@@ -163,7 +180,8 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                     }));
                 }
             } catch (error) {
-                console.error('Load O-2 entry roster failed:', error);
+                console.error('Load team composition roster failed:', error);
+                if (!cancelled) setRosterError(true);
             } finally {
                 if (!cancelled) setRosterLoading(false);
             }
@@ -174,34 +192,9 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
         return () => {
             cancelled = true;
         };
-    }, [selectedGroup, entryRosterById]);
+    }, [selectedGroup, players, staff, retryCount]);
 
-    const buildPlayersForCompetition = (competition) => {
-        const roster = entryRosterById[competition.team_entry_id];
-        const gender = normalizeGender(competition.gender || competition.competition_gender || competition.entry_gender);
-        const fallbackPlayers = players.filter((player) => !gender || normalizeGender(player.gender) === gender);
-
-        if (roster?.players) {
-            const selectedPlayers = roster.players
-                .filter((player) => Number(player.selected) === 1)
-                .map((player) => ({
-                    ...player,
-                    number: player.entry_number ?? player.number,
-                    is_captain: player.entry_is_captain ?? player.is_captain,
-                    is_libero1: player.entry_is_libero1 ?? player.is_libero1,
-                    is_libero2: player.entry_is_libero2 ?? player.is_libero2,
-                    is_playing: player.entry_is_playing ?? player.is_playing,
-                }));
-
-            return selectedPlayers.length > 0 ? selectedPlayers : fallbackPlayers;
-        }
-
-        return fallbackPlayers;
-    };
-
-    // Team staff belong to the user's single registered team, so include the
-    // complete team list in every O-2 form instead of filtering by roster entry.
-    const buildStaffForCompetition = () => (Array.isArray(staff) ? staff : []);
+    useEffect(() => { setPreviewForm(null); }, [selectedGroup, players, staff, leg, revision, referenceDate]);
 
     const buildFormData = (competition) => {
         const gender = normalizeGender(competition.gender || competition.competition_gender || competition.entry_gender);
@@ -216,74 +209,80 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
             key: `${competition.id}_${competition.team_entry_id || 'entry'}_${gender}`,
             gender,
             genderLabel: getGenderLabel(gender),
-            rosterReady: !competition.team_entry_id || Boolean(entryRosterById[competition.team_entry_id]),
+            rosterReady: !rosterLoading && !rosterError && compositionRosterReady(competition, entryRosterById[competition.team_entry_id]),
             teamInfo: {
                 ...teamInfo,
                 name: teamInfo?.name || '',
                 code: teamInfo?.code || '',
                 competition_name: competitionName,
+                competition_name_en: competition.name_en || competition.title_en || '',
+                competition_name_th: competition.name_th || competition.title_th || '',
+                association_logo_url: competition.association_logo_url || teamInfo?.association_logo_url || '',
+                association_name: competition.association_name || teamInfo?.association_name || '',
+                leg, revision, reference_date: referenceDate, printed_at: printedAt,
                 competition_logo_url: competition.logo_url || competition.competition_logo_url || competition.logo || '',
             },
-            players: buildPlayersForCompetition(competition),
-            staff: buildStaffForCompetition(competition),
+            players: compositionPlayers(competition, entryRosterById[competition.team_entry_id], players),
+            staff: compositionStaff(competition, entryRosterById[competition.team_entry_id], staff),
         };
     };
 
     const selectedForms = selectedGroup?.items.map(buildFormData) || [];
-    const pdfKey = `${selectedGroupKey}_${players.length}_${staff.length}_${JSON.stringify(teamInfo)}_${JSON.stringify(Object.keys(entryRosterById))}`;
+    const pdfKey = JSON.stringify(selectedForms);
 
     return (
         <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                <FileDown className="text-red-600" /> Download O-2 Form
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                ระบบจะสร้างไฟล์ PDF ใบ O-2 แยกตามประเภทชายและหญิงสำหรับทีม <strong>{teamInfo?.name}</strong>
+                <FileDown className="text-red-600" />{ui("Download Team composition")}</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{ui("สร้างเอกสาร Team composition แยกประเภทชายและหญิงสำหรับทีม ")}<strong>{displayNames.teamName(teamInfo)}</strong>
             </p>
 
             <div className="mb-6">
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                    เลือกรายการแข่งขัน
-                </label>
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">{ui("เลือกรายการแข่งขัน")}</label>
                 <select
                     value={selectedGroupKey}
                     onChange={(event) => setSelectedGroupKey(event.target.value)}
                     className="w-full max-w-md px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-red-500 outline-none"
                 >
-                    <option value="">-- เลือกรายการแข่งขัน --</option>
+                    <option value="">{ui("-- เลือกรายการแข่งขัน --")}</option>
                     {competitionGroups.map((group) => (
                         <option key={group.key} value={group.key}>
-                            {group.label}
+                            {ui(group.label)}
                         </option>
                     ))}
                 </select>
                 {!selectedGroupKey && (
-                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                        * กรุณาเลือกรายการแข่งขันเพื่อสร้างใบ O-2
-                    </p>
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{ui("* กรุณาเลือกรายการแข่งขันเพื่อสร้าง Team composition")}</p>
                 )}
             </div>
 
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3 max-w-xl">
+                <label className="text-sm text-gray-700 dark:text-gray-200">{ui('ช่วงการแข่งขัน (Leg)')}<input type="number" min="1" max="99" value={leg} onChange={event => setLeg(Math.max(1, Math.min(99, Number(event.target.value) || 1)))} className="mt-1 block w-full rounded border p-2 bg-white dark:bg-gray-700" /></label>
+                <label className="text-sm text-gray-700 dark:text-gray-200">{ui('ฉบับแก้ไข')}<input type="number" min="1" max="999" value={revision} onChange={event => setRevision(Math.max(1, Math.min(999, Number(event.target.value) || 1)))} className="mt-1 block w-full rounded border p-2 bg-white dark:bg-gray-700" /></label>
+                <label className="text-sm text-gray-700 dark:text-gray-200">{ui('วันที่อ้างอิงเอกสาร')}<input type="date" required value={referenceDate} onChange={event => { if (event.target.value) setReferenceDate(event.target.value); }} className="mt-1 block w-full rounded border p-2 bg-white dark:bg-gray-700" /></label>
+            </div>
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">{ui('อายุคำนวณจากปีอ้างอิง ลบปีเกิด ช่องภาษาอังกฤษใช้ชื่อที่ลงทะเบียนไว้')}</p>
+            {rosterError && <div role="alert" className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                {ui('โหลดรายชื่อนักกีฬาหรือเจ้าหน้าที่ไม่สำเร็จ กรุณาลองใหม่ก่อนสร้างเอกสาร')}
+                <button type="button" className="ml-3 underline font-semibold" onClick={() => setRetryCount(count => count + 1)}>{ui('ลองใหม่')}</button>
+            </div>}
             {rosterLoading && (
                 <div className="mb-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
-                    <Loader2 className="animate-spin" size={16} />
-                    กำลังโหลดรายชื่อนักกีฬาตามรุ่นแข่งขัน...
-                </div>
+                    <Loader2 className="animate-spin" size={16} />{ui("กำลังโหลดรายชื่อนักกีฬาตามรุ่นแข่งขัน...")}</div>
             )}
 
             {selectedGroup && (
                 <div className="grid gap-3 md:grid-cols-2">
                     {selectedForms.map((form) => {
-                        const fileName = `${sanitizeFileName(form.teamInfo.code || teamInfo?.name)}_O2_${getGenderFileLabel(form.gender)}.pdf`;
+                        const fileName = `${sanitizeFileName(form.teamInfo.code || displayNames.teamName(teamInfo))}_Team_composition_${getGenderFileLabel(form.gender)}.pdf`;
 
                         return (
                             <div key={form.key} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/30">
                                 <div className="mb-3">
-                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                        ใบ O-2 ประเภท{form.genderLabel}
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{ui("Team composition ประเภท ")}{ui(form.genderLabel)}
                                     </p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {form.rosterReady ? `นักกีฬา ${form.players.length} คน` : 'กำลังเตรียมรายชื่อนักกีฬา'}
+                                        {form.rosterReady ? ui(`นักกีฬา {0} คน`, [form.players.length]) : ui('กำลังเตรียมรายชื่อนักกีฬา')}
                                     </p>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
@@ -299,19 +298,13 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                         {({ loading }) => (
                                             !form.rosterReady ? (
                                                 <>
-                                                    <Loader2 className="animate-spin" size={18} />
-                                                    Loading...
-                                                </>
+                                                    <Loader2 className="animate-spin" size={18} />{ui("Loading...")}</>
                                             ) : loading ? (
                                                 <>
-                                                    <Loader2 className="animate-spin" size={18} />
-                                                    Generating...
-                                                </>
+                                                    <Loader2 className="animate-spin" size={18} />{ui("Generating...")}</>
                                             ) : (
                                                 <>
-                                                    <FileDown size={18} />
-                                                    Download
-                                                </>
+                                                    <FileDown size={18} />{ui("Download")}</>
                                             )
                                         )}
                                     </PDFDownloadLink>
@@ -323,9 +316,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                             : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
                                             }`}
                                     >
-                                        <Eye size={18} />
-                                        Preview
-                                    </button>
+                                        <Eye size={18} />{ui("Preview")}</button>
                                 </div>
                             </div>
                         );
@@ -338,7 +329,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                     <div className="bg-white dark:bg-gray-800 w-full h-full rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
                             <h3 className="font-bold text-lg flex items-center gap-2 text-gray-900 dark:text-white">
-                                <Eye className="text-indigo-500" /> Preview O-2 ประเภท{previewForm.genderLabel}
+                                <Eye className="text-indigo-500" />{' '}{ui("Preview Team composition ประเภท ")}{ui(previewForm.genderLabel)}
                             </h3>
                             <div className="flex items-center gap-3">
                                 <BlobProvider
@@ -356,9 +347,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                             disabled={loading}
                                             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-bold text-sm shadow-md disabled:opacity-50"
                                         >
-                                            {loading ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}
-                                            Print O-2
-                                        </button>
+                                            {loading ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}{ui("Print Team composition")}</button>
                                     )}
                                 </BlobProvider>
                                 <button

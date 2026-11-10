@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { visSetScoreSlots } from './visSetScores.js';
+import { visSetScoreSlots, visMatchFinished } from './visSetScores.js';
 
 test('set slots show completed scores, current live points and unplayed placeholders separately', () => {
     const rows = visSetScoreSlots({ maxSets: 5, completedSets: [{ set: 1, home: 25, away: 20 }], currentSet: 2, score: { home: 7, away: 9 }, started: true });
@@ -17,4 +17,12 @@ test('waiting sets remain empty and a finished match does not overwrite its last
     assert.equal(rows[1].home, 25);
     assert.equal(rows[1].away, 0);
     assert.equal(rows[1].active, false);
+});
+
+test('VIMS finish ignores official completion and requires two wins in three or three wins in five', () => {
+    assert.equal(visMatchFinished({phase:'PLAYING',status:'completed',setsWon:{home:1,away:1},maxSets:3}),false);
+    assert.equal(visMatchFinished({phase:'PLAYING',setsWon:{home:2,away:0},maxSets:3}),true);
+    assert.equal(visMatchFinished({phase:'PLAYING',setsWon:{home:2,away:2},maxSets:5}),false);
+    assert.equal(visMatchFinished({phase:'PLAYING',setsWon:{home:3,away:2},maxSets:5}),true);
+    assert.equal(visMatchFinished({phase:'MATCH_FINISHED',setsWon:{home:2,away:1},maxSets:'3'}),true);
 });

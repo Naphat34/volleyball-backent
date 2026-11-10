@@ -1,3 +1,5 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../../api';
 import { Users, Shield, User, Eye, X, CheckCircle, Briefcase } from 'lucide-react';
@@ -6,6 +8,8 @@ import Swal from 'sweetalert2';
 import { formatThaiDate } from '../../utils/formatters';
 
 export default function PlayerViewTab() {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const [competitions, setCompetitions] = useState([]);
     const [registeredTeams, setRegisteredTeams] = useState([]);
     const [teamPlayers, setTeamPlayers] = useState([]);
@@ -210,37 +214,34 @@ export default function PlayerViewTab() {
     return (
         <div className="official-page min-h-screen -m-6 p-6 space-y-6">
             <div className="official-header rounded-md px-6 py-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Roster Inspection</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">{ui("Roster Inspection")}</p>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <Users size={24} /> Player, Coach & Staff View
-                </h2>
+                    <Users size={24} />{ui("Player, Coach & Staff View")}</h2>
             </div>
             {/* Filters */}
             <div className="official-panel p-6 rounded-md">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {/* Competition Dropdown */}
                     <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Competition</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Competition")}</label>
                         <select
                             value={selectedBaseName}
                             onChange={(e) => setSelectedBaseName(e.target.value)}
                             className="w-full px-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
-                            <option value="">-- Choose Competition --</option>
+                            <option value="">{ui("-- Choose Competition --")}</option>
                             {uniqueBaseNames.map(name => <option key={name} value={name}>{name}</option>)}
                         </select>
                     </div>
 
                     {/* Gender Filter */}
                     <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gender</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Gender")}</label>
                         <div className="flex bg-slate-50 border border-gray-200 shadow-sm rounded-md p-1 min-h-[42px] items-center">
                             <button
                                 onClick={() => setFilterGender('All')}
                                 className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === 'All' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'}`}
-                            >
-                                All
-                            </button>
+                            >{ui("All")}</button>
                             {availableGenders.map(g => (
                                 <button
                                     key={g}
@@ -254,14 +255,14 @@ export default function PlayerViewTab() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Age Group</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Age Group")}</label>
                         <select
                             value={filterAgeGroup}
                             onChange={(e) => setFilterAgeGroup(e.target.value)}
                             disabled={!selectedBaseName || availableAgeGroups.length === 0}
                             className="w-full px-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
-                            <option value="All">All</option>
+                            <option value="All">{ui("All")}</option>
                             {availableAgeGroups.map(ag => (
                                 <option key={ag.id} value={ag.id}>{ag.name}</option>
                             ))}
@@ -270,14 +271,14 @@ export default function PlayerViewTab() {
 
                     {/* Team Dropdown */}
                     <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Team</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Team")}</label>
                         <select
                             value={selectedTeamKey}
                             onChange={(e) => setSelectedTeamKey(e.target.value)}
                             disabled={!selectedBaseName || registeredTeams.length === 0}
                             className="w-full px-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-100 focus:border-blue-500 hover:border-blue-400 outline-none bg-white border-gray-200 text-sm font-medium text-gray-700 transition-all shadow-sm"
                         >
-                            <option value="">-- Choose Team --</option>
+                            <option value="">{ui("-- Choose Team --")}</option>
                             {registeredTeams.map(t => (
                                 <option key={getTeamSelectionKey(t)} value={getTeamSelectionKey(t)}>
                                     {getTeamOptionLabel(t)}
@@ -291,8 +292,8 @@ export default function PlayerViewTab() {
             {/* Player List */}
             <div className="official-panel rounded-md overflow-hidden mb-6">
                 <div className="official-panel-header px-6 py-4 flex justify-between items-center">
-                    <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Users size={18} className="text-blue-600" /> Player List</h3>
-                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{teamPlayers.length} Players</span>
+                    <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Users size={18} className="text-blue-600" />{' '}{ui("Player List")}</h3>
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{teamPlayers.length}{' '}{ui("Players")}</span>
                 </div>
 
                 {!selectedTeam ? (
@@ -304,10 +305,10 @@ export default function PlayerViewTab() {
                         <table className="w-full text-left">
                             <thead className="official-table-head">
                                 <tr>
-                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">No.</th>
-                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Position</th>
-                                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Actions</th>
+                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">{ui("No.")}</th>
+                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">{ui("Name")}</th>
+                                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">{ui("Position")}</th>
+                                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">{ui("Actions")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -320,15 +321,15 @@ export default function PlayerViewTab() {
                                                     {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-full h-full p-2 text-gray-400" />}
                                                 </div>
                                                 <div className="font-medium text-gray-900">
-                                                    {p.first_name} {p.last_name}
-                                                    {isTruthyFlag(p.is_captain) ? <span className="ml-2 text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-full font-bold" title="Captain">C</span> : null}
+                                                    {displayNames.personFirstName(p)} {displayNames.personLastName(p)}
+                                                    {isTruthyFlag(p.is_captain) ? <span className="ml-2 text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded-full font-bold" title={ui("Captain")}>{ui("C")}</span> : null}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4"><span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium border border-blue-100">{p.position}</span></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => setViewingPlayer(p)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="View Details">
+                                                <button onClick={() => setViewingPlayer(p)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-50 rounded-lg transition" title={ui("View Details")}>
                                                     <Eye size={16} />
                                                 </button>
                                                 {/* <button onClick={() => handleEditPlayer(p)} className="p-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg transition" title="Edit">
@@ -351,8 +352,8 @@ export default function PlayerViewTab() {
             {selectedTeam && (
                 <div className="official-panel rounded-md overflow-hidden">
                     <div className="official-panel-header px-6 py-4 flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Briefcase size={18} className="text-emerald-600" /> Staff List</h3>
-                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{teamStaff.length} Staff</span>
+                        <h3 className="font-semibold text-gray-900 tracking-tight flex items-center gap-2"><Briefcase size={18} className="text-emerald-600" />{' '}{ui("Staff List")}</h3>
+                        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{teamStaff.length}{' '}{ui("Staff")}</span>
                     </div>
 
                     {teamStaff.length === 0 ? (
@@ -362,15 +363,15 @@ export default function PlayerViewTab() {
                             <table className="w-full text-left">
                                 <thead className="official-table-head">
                                     <tr>
-                                        <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Name</th>
-                                        <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">Role</th>
+                                        <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">{ui("Name")}</th>
+                                        <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider">{ui("Role")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {teamStaff.map(s => (
                                         <tr key={s.id} className="transition hover:bg-gray-50">
-                                            <td className="px-6 py-4 font-medium text-gray-900">{s.first_name} {s.last_name}</td>
-                                            <td className="px-6 py-4"><span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium border border-purple-100">{s.role}</span></td>
+                                            <td className="px-6 py-4 font-medium text-gray-900">{displayNames.personFirstName(s)} {displayNames.personLastName(s)}</td>
+                                            <td className="px-6 py-4"><span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium border border-purple-100">{ui(s.role)}</span></td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -396,7 +397,7 @@ export default function PlayerViewTab() {
                             <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
                                 <div className="w-32 h-32 rounded-full border-4 shadow-xl overflow-hidden flex items-center justify-center border-white bg-gray-50">
                                     {viewingPlayer.photo ? (
-                                        <img src={viewingPlayer.photo} alt="Player" className="w-full h-full object-cover" />
+                                        <img src={viewingPlayer.photo} alt={ui("Player")} className="w-full h-full object-cover" />
                                     ) : (
                                         <User size={64} className="text-gray-400" />
                                     )}
@@ -410,45 +411,44 @@ export default function PlayerViewTab() {
                             {/* Name & Team */}
                             <div className="text-center mb-6">
                                 <h2 className="text-2xl font-semibold tracking-tight mb-1">
-                                    {viewingPlayer.first_name} {viewingPlayer.last_name}
+                                    {displayNames.personFirstName(viewingPlayer)} {displayNames.personLastName(viewingPlayer)}
                                 </h2>
                                 <div className="flex items-center justify-center gap-2 text-sm font-medium text-gray-500">
                                     <Shield size={14} className="text-blue-600" />
-                                    <span>{selectedTeam.name || 'Unknown Team'}</span>
+                                    <span>{(displayNames.teamName(selectedTeam)) || (ui('Unknown Team'))}</span>
                                 </div>
                             </div>
 
                             {/* Badges (Captain / Position) */}
                             <div className="flex gap-3 mb-8">
                                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-indigo-700 border border-blue-200 uppercase tracking-wider">
-                                    {viewingPlayer.position || 'N/A'}
+                                    {(viewingPlayer.position) || (ui('N/A'))}
                                 </span>
                                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200 font-mono">
                                     #{viewingPlayer.number}
                                 </span>
                                 {isTruthyFlag(viewingPlayer.is_captain) ? (
                                     <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 flex items-center gap-1">
-                                        <CheckCircle size={12} /> Captain
-                                    </span>
+                                        <CheckCircle size={12} />{ui("Captain")}</span>
                                 ) : null}
                             </div>
 
                             {/* Stats Grid */}
                             <div className="w-full grid grid-cols-2 gap-4">
                                 <div className="p-4 rounded-xl border text-center bg-gray-50/50 border-gray-100">
-                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Height</div>
+                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">{ui("Height")}</div>
                                     <div className="text-xl font-semibold text-gray-900">
-                                        {viewingPlayer.height_cm ? `${viewingPlayer.height_cm}` : '-'} <span className="text-sm text-gray-400 font-medium">cm</span>
+                                        {viewingPlayer.height_cm ? `${viewingPlayer.height_cm}` : '-'} <span className="text-sm text-gray-400 font-medium">{ui("cm")}</span>
                                     </div>
                                 </div>
                                 <div className="p-4 rounded-xl border text-center bg-gray-50/50 border-gray-100">
-                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Weight</div>
+                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">{ui("Weight")}</div>
                                     <div className="text-xl font-semibold text-gray-900">
-                                        {viewingPlayer.weight ? `${viewingPlayer.weight}` : '-'} <span className="text-sm text-gray-400 font-medium">kg</span>
+                                        {viewingPlayer.weight ? `${viewingPlayer.weight}` : '-'} <span className="text-sm text-gray-400 font-medium">{ui("kg")}</span>
                                     </div>
                                 </div>
                                 <div className="p-4 rounded-xl border text-center col-span-2 bg-gray-50/50 border-gray-100">
-                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Date of Birth</div>
+                                    <div className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">{ui("Date of Birth")}</div>
                                     <div className="text-lg font-semibold text-gray-900">
                                         {viewingPlayer.birth_date ? formatThaiDate(viewingPlayer.birth_date) : '-'}
                                     </div>

@@ -1,11 +1,13 @@
+import useScorerTranslation from '../useScorerTranslation';
 import React, { useRef, useState, useEffect } from 'react';
 import SignaturePad from '../partials/SignaturePad';
 import { PenTool, XCircle, CheckCircle } from 'lucide-react';
 
 const SignatureBox = ({ title, value, onClick }) => {
+    const st = useScorerTranslation();
     return (
         <div className="flex flex-col gap-2 w-full">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{title}</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{st(title)}</span>
             <button
                 type="button"
                 onClick={onClick}
@@ -13,19 +15,16 @@ const SignatureBox = ({ title, value, onClick }) => {
             >
                 {value ? (
                     <div className="w-full h-full p-3 flex items-center justify-center bg-white relative">
-                        <img src={value} alt={title} className="max-w-full max-h-full object-contain" />
+                        <img src={value} alt={st(title)} className="max-w-full max-h-full object-contain" />
                         <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold gap-1.5">
-                            <PenTool size={14} /> แก้ไขลายเซ็น
-                        </div>
+                            <PenTool size={14} />{st("แก้ไขลายเซ็น")}</div>
                     </div>
                 ) : (
                     <>
                         <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-indigo-50 text-slate-400 group-hover:text-indigo-500 flex items-center justify-center transition-all group-hover:scale-105">
                             <PenTool size={18} />
                         </div>
-                        <span className="text-[11px] font-black text-slate-400 group-hover:text-indigo-500 transition-colors uppercase tracking-wider">
-                            คลิกเพื่อลงชื่อ
-                        </span>
+                        <span className="text-[11px] font-black text-slate-400 group-hover:text-indigo-500 transition-colors uppercase tracking-wider">{st("คลิกเพื่อลงชื่อ")}</span>
                     </>
                 )}
             </button>
@@ -34,6 +33,7 @@ const SignatureBox = ({ title, value, onClick }) => {
 };
 
 export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, isPostMatch, matchSignatures }) {
+    const st = useScorerTranslation();
     const [signatures, setSignatures] = useState({
         homeCoach: null,
         homeCaptain: null,
@@ -77,26 +77,26 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
     // Helper for overlay field titles
     const getFieldTitle = (field) => {
         switch (field) {
-            case 'homeCoach': return `${teamHome} Coach`;
-            case 'homeCaptain': return `${teamHome} Captain`;
-            case 'awayCoach': return `${teamAway} Coach`;
-            case 'awayCaptain': return `${teamAway} Captain`;
-            case 'referee2': return '2nd Referee (ผู้ตัดสินที่ 2)';
-            case 'referee1': return '1st Referee (ผู้ตัดสินที่ 1)';
+            case 'homeCoach': return st('{0} Coach', [teamHome]);
+            case 'homeCaptain': return st('{0} Captain', [teamHome]);
+            case 'awayCoach': return st('{0} Coach', [teamAway]);
+            case 'awayCaptain': return st('{0} Captain', [teamAway]);
+            case 'referee2': return st('2nd Referee (ผู้ตัดสินที่ 2)');
+            case 'referee1': return st('1st Referee (ผู้ตัดสินที่ 1)');
             default: return '';
         }
     };
 
     return (
-        <div className="fixed inset-0 z-[110] pointer-events-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all font-sans">
+        <div className="scorer-dialog fixed inset-0 z-[110] pointer-events-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in transition-all font-sans">
             <div className="bg-white p-8 rounded-[2.5rem] max-w-2xl w-full flex flex-col items-center justify-center space-y-8 shadow-2xl animate-in zoom-in duration-300">
                 <div className="space-y-2 text-center">
                     <h2 className="text-2xl font-semibold flex items-center justify-center gap-3 text-slate-800 tracking-tight">
                         <PenTool className="text-blue-600" size={28} /> 
-                        {isPostMatch ? 'FINAL MATCH SIGNATURES (ลงนามท้ายแมตช์)' : 'OFFICIAL SIGNATURES (ลงนามก่อนแข่ง)'}
+                        {isPostMatch ? st('FINAL MATCH SIGNATURES (ลงนามท้ายแมตช์)') : st('OFFICIAL SIGNATURES (ลงนามก่อนแข่ง)')}
                     </h2>
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
-                        {isPostMatch ? 'Captains and Referees sign to verify final scoresheet' : 'Sign before the match (Optional)'}
+                        {isPostMatch ? st('Captains and Referees sign to verify final scoresheet') : st('Sign before the match (Optional)')}
                     </p>
                 </div>
 
@@ -107,11 +107,11 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                             <div className="flex flex-col gap-6">
                                 <div className="flex items-center gap-2 border-b-2 border-blue-100 pb-2">
                                     <span className="w-3 h-3 rounded-full bg-blue-600"></span>
-                                    <span className="font-semibold text-slate-700 uppercase">Captains (กัปตันทีม)</span>
+                                    <span className="font-semibold text-slate-700 uppercase">{st("Captains (กัปตันทีม)")}</span>
                                 </div>
                                 <div className="flex flex-col gap-4">
                                     <SignatureBox
-                                        title={`${teamHome} Captain`}
+                                        title={st(`{0} Captain`, [teamHome])}
                                         value={signatures.homeCaptain}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.homeCaptain;
@@ -119,7 +119,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                         }}
                                     />
                                     <SignatureBox
-                                        title={`${teamAway} Captain`}
+                                        title={st(`{0} Captain`, [teamAway])}
                                         value={signatures.awayCaptain}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.awayCaptain;
@@ -133,11 +133,11 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                             <div className="flex flex-col gap-6">
                                 <div className="flex items-center gap-2 border-b-2 border-indigo-100 pb-2">
                                     <span className="w-3 h-3 rounded-full bg-indigo-600"></span>
-                                    <span className="font-semibold text-slate-700 uppercase">Referees (ผู้ตัดสิน)</span>
+                                    <span className="font-semibold text-slate-700 uppercase">{st("Referees (ผู้ตัดสิน)")}</span>
                                 </div>
                                 <div className="flex flex-col gap-4">
                                     <SignatureBox
-                                        title="2nd Referee (ผู้ตัดสินที่ 2)"
+                                        title={st("2nd Referee (ผู้ตัดสินที่ 2)")}
                                         value={signatures.referee2}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.referee2;
@@ -145,7 +145,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                         }}
                                     />
                                     <SignatureBox
-                                        title="1st Referee (ผู้ตัดสินที่ 1)"
+                                        title={st("1st Referee (ผู้ตัดสินที่ 1)")}
                                         value={signatures.referee1}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.referee1;
@@ -165,7 +165,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                 </div>
                                 <div className="flex flex-col gap-4">
                                     <SignatureBox
-                                        title="Home Coach"
+                                        title={st("Home Coach")}
                                         value={signatures.homeCoach}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.homeCoach;
@@ -173,7 +173,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                         }}
                                     />
                                     <SignatureBox
-                                        title="Home Captain"
+                                        title={st("Home Captain")}
                                         value={signatures.homeCaptain}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.homeCaptain;
@@ -191,7 +191,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                 </div>
                                 <div className="flex flex-col gap-4">
                                     <SignatureBox
-                                        title="Away Coach"
+                                        title={st("Away Coach")}
                                         value={signatures.awayCoach}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.awayCoach;
@@ -199,7 +199,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                         }}
                                     />
                                     <SignatureBox
-                                        title="Away Captain"
+                                        title={st("Away Captain")}
                                         value={signatures.awayCaptain}
                                         onClick={() => {
                                             tempSignatureRef.current = signatures.awayCaptain;
@@ -218,27 +218,22 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                             <button 
                                 onClick={handleSaveSignatures} 
                                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold uppercase tracking-[0.2em] text-sm transition-all shadow-xl shadow-emerald-200 active:scale-95 flex justify-center items-center gap-2"
-                            >
-                                กลับหน้าหลัก <CheckCircle size={18} />
+                            >{st("กลับหน้าหลัก")}<CheckCircle size={18} />
                             </button>
                         ) : (
-                            <div className="w-full py-4 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl font-bold text-xs text-center px-4 animate-pulse">
-                                ⚠️ กรุณาลงนามกัปตันทั้งสองทีม และผู้ตัดสินที่ 1-2 ให้ครบเพื่อเปิดปุ่มกลับหน้าหลัก
-                            </div>
+                            <div className="w-full py-4 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl font-bold text-xs text-center px-4 animate-pulse">{st("⚠️ กรุณาลงนามกัปตันทั้งสองทีม และผู้ตัดสินที่ 1-2 ให้ครบเพื่อเปิดปุ่มกลับหน้าหลัก")}</div>
                         )
                     ) : (
                         <div className="grid grid-cols-2 gap-4">
-                            <button 
+                            <button aria-label={st('Close')}
                                 onClick={() => onConfirm(signatures)} 
                                 className="w-full py-4 bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-lg font-semibold uppercase tracking-[0.2em] text-sm transition-all active:scale-95 flex justify-center items-center gap-2"
                             >
-                                <XCircle size={18} /> SKIP / NEXT
-                            </button>
+                                <XCircle size={18} />{st("SKIP / NEXT")}</button>
                             <button 
                                 onClick={handleSaveSignatures} 
                                 className="w-full py-4 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg font-semibold uppercase tracking-[0.2em] text-sm transition-all shadow-xl shadow-indigo-200 active:scale-95 flex justify-center items-center gap-2"
-                            >
-                                SAVE & CONTINUE <CheckCircle size={18} />
+                            >{st("SAVE & CONTINUE")}<CheckCircle size={18} />
                             </button>
                         </div>
                     )}
@@ -247,14 +242,13 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
 
             {/* 📝 LARGE SIGNATURE OVERLAY DIALOG 📝 */}
             {activeField && (
-                <div className="fixed inset-0 z-[120] bg-slate-955/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+                <div className="scorer-dialog fixed inset-0 z-[120] bg-slate-955/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
                     <div className="bg-white p-6 rounded-[2rem] max-w-xl w-full flex flex-col gap-6 shadow-2xl border border-slate-100 animate-in zoom-in duration-200">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                             <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
-                                <PenTool className="text-indigo-600" size={22} />
-                                ลงลายมือชื่อ — {getFieldTitle(activeField)}
+                                <PenTool className="text-indigo-600" size={22} />{st("ลงลายมือชื่อ —")}{getFieldTitle(activeField)}
                             </h3>
-                            <button
+                            <button aria-label={st('Close')}
                                 type="button"
                                 onClick={() => {
                                     setActiveField(null);
@@ -286,9 +280,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                     tempSignatureRef.current = null;
                                 }}
                                 className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl uppercase tracking-wider text-sm transition-all active:scale-95"
-                            >
-                                ยกเลิก
-                            </button>
+                            >{st("ยกเลิก")}</button>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -297,9 +289,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                     tempSignatureRef.current = null;
                                 }}
                                 className="py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl uppercase tracking-wider text-sm transition-all shadow-md shadow-indigo-200 active:scale-95"
-                            >
-                                บันทึก (Save)
-                            </button>
+                            >{st("บันทึก (Save)")}</button>
                         </div>
                     </div>
                 </div>

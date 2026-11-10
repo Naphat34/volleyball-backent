@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api';
 import Swal from 'sweetalert2';
 import {
@@ -23,6 +25,8 @@ const getOfficialKind = (role) => ['score', 'scorer', 'statistician'].includes(r
     : role === 'referee' ? 'referee' : null;
 
 const AccountsTab = () => {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +51,7 @@ const AccountsTab = () => {
     });
 
     // Fetch Users
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         setIsLoading(true);
         try {
             // Assuming api is an axios instance or supports generic get
@@ -55,18 +59,18 @@ const AccountsTab = () => {
             setUsers(response.data || []);
         } catch (error) {
             console.error("Failed to fetch users", error);
-            Swal.fire({
+            Swal.fire({ uiTextLocalized: true,
                 icon: 'error',
-                title: error.response?.data?.error || 'Failed to load user accounts'
+                title: (error.response?.data?.error) || (ui('Failed to load user accounts'))
             });
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [ui]);
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [fetchUsers]);
 
     // Handlers
     const handleOpenModal = (mode, user = null) => {
@@ -113,10 +117,10 @@ const AccountsTab = () => {
             })
             .catch((error) => {
                 console.error('Failed to load official records', error);
-                Swal.fire({ icon: 'error', title: error.response?.data?.error || 'Failed to load official records' });
+                Swal.fire({ uiTextLocalized: true,  icon: 'error', title: (error.response?.data?.error) || (ui('Failed to load official records')) });
             });
         return () => { isCurrent = false; };
-    }, [isModalOpen, formData.role]);
+    }, [isModalOpen, formData.role, ui]);
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
@@ -160,39 +164,39 @@ const AccountsTab = () => {
             }
             await fetchUsers();
             handleCloseModal();
-            Swal.fire({
+            Swal.fire({ uiTextLocalized: true,
                 icon: 'success',
-                title: modalMode === 'create' ? 'User account created' : 'User account updated'
+                title: modalMode === 'create' ? ui('User account created') : ui('User account updated')
             });
         } catch (error) {
             console.error("Operation failed", error);
-            Swal.fire({
+            Swal.fire({ uiTextLocalized: true,
                 icon: 'error',
-                title: error.response?.data?.error || 'Failed to save user account'
+                title: (error.response?.data?.error) || (ui('Failed to save user account'))
             });
         }
     };
 
     const handleDelete = async (id) => {
-        const confirmation = await Swal.fire({
+        const confirmation = await Swal.fire({ uiTextLocalized: true,
             icon: 'warning',
-            title: 'Delete this user?',
-            text: 'This action cannot be undone.',
+            title: ui('Delete this user?'),
+            text: ui('This action cannot be undone.'),
             showCancelButton: true,
-            confirmButtonText: 'Delete',
-            cancelButtonText: 'Cancel',
+            confirmButtonText: ui('Delete'),
+            cancelButtonText: ui('Cancel'),
             confirmButtonColor: '#dc2626'
         });
         if (confirmation.isConfirmed) {
             try {
                 await api.deleteUser(id);
                 await fetchUsers();
-                Swal.fire({ icon: 'success', title: 'User account deleted' });
+                Swal.fire({ uiTextLocalized: true,  icon: 'success', title: ui('User account deleted') });
             } catch (error) {
                 console.error("Delete failed", error);
-                Swal.fire({
+                Swal.fire({ uiTextLocalized: true,
                     icon: 'error',
-                    title: error.response?.data?.error || 'Failed to delete user account'
+                    title: (error.response?.data?.error) || (ui('Failed to delete user account'))
                 });
             }
         }
@@ -211,18 +215,14 @@ const AccountsTab = () => {
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <User className="text-blue-600" /> Accounts Management
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                        Manage user accounts, roles, and permissions.
-                    </p>
+                        <User className="text-blue-600" />{ui("Accounts Management")}</h2>
+                    <p className="text-sm text-gray-500">{ui("Manage user accounts, roles, and permissions.")}</p>
                 </div>
                 <button
                     onClick={() => handleOpenModal('create')}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
                 >
-                    <Plus size={18} /> Add New User
-                </button>
+                    <Plus size={18} />{ui("Add New User")}</button>
             </div>
 
             {/* Search Bar */}
@@ -232,7 +232,7 @@ const AccountsTab = () => {
                 </div>
                 <input
                     type="text"
-                    placeholder="Search users by username or team..."
+                    placeholder={ui("Search users by username or team...")}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500"
@@ -244,10 +244,10 @@ const AccountsTab = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b border-gray-200 text-gray-500">
-                            <th className="p-4 font-medium">User</th>
-                            <th className="p-4 font-medium">Role</th>
-                            <th className="p-4 font-medium">Status</th>
-                            <th className="p-4 font-medium text-right">Actions</th>
+                            <th className="p-4 font-medium">{ui("User")}</th>
+                            <th className="p-4 font-medium">{ui("Role")}</th>
+                            <th className="p-4 font-medium">{ui("Status")}</th>
+                            <th className="p-4 font-medium text-right">{ui("Actions")}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -255,13 +255,12 @@ const AccountsTab = () => {
                             <tr>
                                 <td colSpan="4" className="p-8 text-center">
                                     <div className="flex justify-center items-center gap-2 text-gray-500">
-                                        <Loader2 className="animate-spin" /> Loading users...
-                                    </div>
+                                        <Loader2 className="animate-spin" />{ui("Loading users...")}</div>
                                 </td>
                             </tr>
                         ) : filteredUsers.length === 0 ? (
                             <tr>
-                                <td colSpan="4" className="p-8 text-center text-gray-500">No users found.</td>
+                                <td colSpan="4" className="p-8 text-center text-gray-500">{ui("No users found.")}</td>
                             </tr>
                         ) : (
                             filteredUsers.map(user => (
@@ -273,7 +272,7 @@ const AccountsTab = () => {
                                             </div>
                                             <div>
                                                 <div className="font-medium">{user.username}</div>
-                                                <div className="text-sm text-gray-500">{user.team_name || [user.firstname, user.lastname].filter(Boolean).join(' ') || '-'}</div>
+                                                <div className="text-sm text-gray-500">{displayNames.linkedTeamName(user) || [displayNames.personFirstName(user), displayNames.personLastName(user)].filter(Boolean).join(' ') || '-'}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -293,7 +292,7 @@ const AccountsTab = () => {
                                                 : 'bg-red-100 text-red-800'
                                             }`}>
                                             {user.status === 'active' ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
-                                            {user.status}
+                                            {ui(user.status)}
                                         </span>
                                     </td>
                                     <td className="p-4 text-right">
@@ -318,37 +317,36 @@ const AccountsTab = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="w-full max-w-md rounded-md shadow-2xl transform transition-all bg-white text-gray-900">
                         <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                            <h3 className="text-xl font-bold">{modalMode === 'create' ? 'Add New User' : 'Edit User'}</h3>
+                            <h3 className="text-xl font-bold">{modalMode === 'create' ? ui('Add New User') : ui('Edit User')}</h3>
                             <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                            <div><label className="block text-sm font-medium mb-1">Username</label><div className="relative"><User className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="text" name="username" required value={formData.username} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="johndoe" /></div></div>
-                            <div><label className="block text-sm font-medium mb-1">Password {modalMode === 'edit' && <span className="text-xs font-normal text-gray-500">(Leave blank to keep)</span>}</label><div className="relative"><Key className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="password" name="password" required={modalMode === 'create'} value={formData.password} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="••••••••" /></div></div>
+                            <div><label className="block text-sm font-medium mb-1">{ui("Username")}</label><div className="relative"><User className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="text" name="username" required value={formData.username} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder={ui("johndoe")} /></div></div>
+                            <div><label className="block text-sm font-medium mb-1">{ui("Password")}{' '}{modalMode === 'edit' && <span className="text-xs font-normal text-gray-500">{ui("(Leave blank to keep)")}</span>}</label><div className="relative"><Key className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="password" name="password" required={modalMode === 'create'} value={formData.password} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="••••••••" /></div></div>
                             {['score', 'scorer', 'statistician', 'referee'].includes(formData.role) && (
                                 <div className="grid grid-cols-2 gap-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
-                                    <div className="col-span-2 text-sm font-semibold text-blue-900">Official profile (linked to this account)</div>
-                                    <label className="col-span-2 text-sm font-medium">Existing official record
-                                        <select name="official_id" value={formData.official_id} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2">
-                                            <option value="">Create a new official record</option>
+                                    <div className="col-span-2 text-sm font-semibold text-blue-900">{ui("Official profile (linked to this account)")}</div>
+                                    <label className="col-span-2 text-sm font-medium">{ui("Existing official record")}<select name="official_id" value={formData.official_id} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2">
+                                            <option value="">{ui("Create a new official record")}</option>
                                             {(officialRecords[getOfficialKind(formData.role)] || [])
                                                 .filter((record) => !record.user_id || String(record.user_id) === String(selectedUser?.id))
-                                                .map((record) => <option key={record.id} value={record.id}>{record.firstname} {record.lastname}{record.country ? ` · ${record.country}` : ''}</option>)}
+                                                .map((record) => <option key={record.id} value={record.id}>{displayNames.personFirstName(record)} {displayNames.personLastName(record)}{record.country ? ` · ${record.country}` : ''}</option>)}
                                         </select>
                                     </label>
-                                    <label className="text-sm font-medium">First name<input name="firstname" required value={formData.firstname} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
-                                    <label className="text-sm font-medium">Last name<input name="lastname" required value={formData.lastname} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
-                                    <label className="text-sm font-medium">Country<input name="country" value={formData.country} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
-                                    {formData.role === 'referee' && <label className="text-sm font-medium">Referee code<input name="code" value={formData.code} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>}
-                                    <p className="col-span-2 text-xs text-gray-600">This profile will also appear in Officials and match assignment lists.</p>
+                                    <label className="text-sm font-medium">{ui("First name")}<input name="firstname" required value={formData.firstname} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                                    <label className="text-sm font-medium">{ui("Last name")}<input name="lastname" required value={formData.lastname} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                                    <label className="text-sm font-medium">{ui("Country")}<input name="country" value={formData.country} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>
+                                    {formData.role === 'referee' && <label className="text-sm font-medium">{ui("Referee code")}<input name="code" value={formData.code} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2" /></label>}
+                                    <p className="col-span-2 text-xs text-gray-600">{ui("This profile will also appear in Officials and match assignment lists.")}</p>
                                 </div>
                             )}
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-sm font-medium mb-1">Role</label><div className="relative"><Shield className="absolute left-3 top-2.5 text-gray-400" size={18} /><select name="role" value={formData.role} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-gray-50 border-gray-300">{USER_ROLES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select></div></div>
-                                <div><label className="block text-sm font-medium mb-1">Status</label><select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300"><option value="active">Active</option><option value="inactive">Inactive</option><option value="banned">Banned</option></select></div>
+                                <div><label className="block text-sm font-medium mb-1">{ui("Role")}</label><div className="relative"><Shield className="absolute left-3 top-2.5 text-gray-400" size={18} /><select name="role" value={formData.role} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-gray-50 border-gray-300">{USER_ROLES.map(({ value, label }) => <option key={value} value={value}>{ui(label)}</option>)}</select></div></div>
+                                <div><label className="block text-sm font-medium mb-1">{ui("Status")}</label><select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300"><option value="active">{ui("Active")}</option><option value="inactive">{ui("Inactive")}</option><option value="banned">{ui("Banned")}</option></select></div>
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
-                                <button type="button" onClick={handleCloseModal} className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700">Cancel</button>
-                                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"><Save size={18} /> {modalMode === 'create' ? 'Create User' : 'Save Changes'}</button>
+                                <button type="button" onClick={handleCloseModal} className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700">{ui("Cancel")}</button>
+                                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"><Save size={18} /> {modalMode === 'create' ? ui('Create User') : ui('Save Changes')}</button>
                             </div>
                         </form>
                     </div>

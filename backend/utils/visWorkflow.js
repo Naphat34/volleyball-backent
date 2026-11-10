@@ -16,7 +16,7 @@ function awardServe(state, winner) {
     state.servingTeam = winner;
 }
 function initialState(maxSets = 5) {
-    return { revision: 0, phase: 'PLAYING', currentSet: 1, maxSets: Number(maxSets), score: { home: 0, away: 0 }, setsWon: { home: 0, away: 0 }, completedSets: [], lineups: { home: [], away: [] }, liberos: { home: null, away: null }, servingTeam: null, firstSetHomeLeft: true, isHomeLeft: true, officialReady: true, history: [] };
+    return { revision: 0, phase: 'PLAYING', currentSet: 1, maxSets: Number(maxSets), score: { home: 0, away: 0 }, setsWon: { home: 0, away: 0 }, completedSets: [], lineups: { home: [], away: [] }, liberos: { home: null, away: null }, liberoReplacements: { home: null, away: null }, lastLiberoRally: { home: null, away: null }, servingTeam: null, firstSetHomeLeft: true, isHomeLeft: true, officialReady: true, history: [] };
 }
 function actionDetails(action) { return parse(action.details ?? action.description); }
 function projectOfficialState(match, actions = []) {
@@ -80,6 +80,12 @@ function projectOfficialState(match, actions = []) {
             continue;
         }
         if (event.skill === 'TIMEOUT') state.timeouts[event.team]++;
+        if (event.skill === 'LIBERO_REPLACEMENT') {
+            const { playerOut, playerIn, replacement } = event.details;
+            state.lineups[event.team] = state.lineups[event.team].map(id => id === playerOut ? playerIn : id);
+            state.liberoReplacements[event.team] = replacement;
+            state.lastLiberoRally[event.team] = Number(event.score_home) + Number(event.score_away);
+        }
         if (event.skill === 'SUBSTITUTION') {
             state.substitutions[event.team]++;
             state.lineups[event.team] = state.lineups[event.team].map(id => id === event.details.playerOut ? event.details.playerIn : id);
@@ -98,20 +104,22 @@ function projectOfficialState(match, actions = []) {
     return { state, session: { operations: [...(setup.lineupOperations || []), ...(setup.controlOperations || []), ...stats.map(action => actionDetails(action).operationId).filter(Boolean)] }, rallies: [] };
 }
 function resolveContext(state, rallies, context) {
-    if (!context?.key || context.key !== state.context.key) fail('VIS context changed. Refresh before recording.', 409);
+    if (!context?.key || context.key !== state.context.key) fail('VIMS context changed. Refresh before recording.', 409);
     return copy(state.context);
 }
 function applyCommand(previous, command) {
     const state = copy(previous);
-    if (command.type === 'UNDO') { const undo = state.history.pop(); if (!undo) fail('No VIS statistic to undo', 409); return { state, undo }; }
-    if (command.type !== 'STAT') fail('VIS records statistics only.');
+    if (command.type === 'UNDO') { const undo = state.history.pop(); if (!undo) fail('No VIMS statistic to undo', 409); return { state, undo }; }
+    if (command.type !== 'STAT') fail('VIMS records statistics only.');
     if (!['home', 'away'].includes(command.team)) fail('Invalid team');
     const skill = normalizeVisSkill(command.skill), grade = normalizeVisGrade(command.grade);
-    if (!isVisSkill(skill) || !isVisGrade(grade)) fail('Invalid VIS skill or grade');
+    if (!isVisSkill(skill) || !isVisGrade(grade)) fail('Invalid VIMS skill or grade');
     const player = Number(command.player), context = command.officialContext;
-    if (!context) fail('Select a VIS recording context.', 409);
+    if (!context) fail('Select a VIMS recording context.', 409);
     const onCourt = context.lineups?.[command.team] || [];
-    if (onCourt.length && !onCourt.includes(player)) fail('Select a player on court for the VIS lineup');
+    if (onCourt.length && !onCourt.includes(player)) fail('Select a player on court for the VIMS lineup');
+    assertLiberoReady(previous);
+    if (previous.liberoReplacements?.[command.team]?.libero === player && ['S', 'B'].includes(skill)) fail('Libero cannot serve or block');
     const winner = rallyWinner(skill, grade, command.team);
     if (winner) { state.score[winner]++; awardServe(state, winner); }
     return { state, event: { skill, grade, team: command.team, player, details: { statisticalRallyWinner: winner, visContext: { ...context, scoreBefore: context.score, scoreAfter: copy(state.score) } } } };
@@ -119,6 +127,7 @@ function applyCommand(previous, command) {
 function applyRally(previous, events) {
     if (!Array.isArray(events) || !events.length || events.length > 60) fail('Invalid rally events');
     const state = copy(previous), winners = new Set();
+    assertLiberoReady(previous);
     for (const event of events) {
         if (!['home', 'away'].includes(event.team)) fail('Invalid rally team');
         const teamEvent = (event.skill === 'OP' && event.grade === '#') || (event.skill === 'T' && event.grade === '=');
@@ -126,6 +135,7 @@ function applyRally(previous, events) {
             if (!isVisSkill(event.skill) || !(isVisGrade(event.grade) || event.grade === '' || (event.skill === 'A' && event.grade === '/'))) fail('Invalid rally skill or result');
             if (!Number.isSafeInteger(event.player) || !state.lineups[event.team].includes(event.player)) fail('Select a player on court');
         } else if (event.player != null) fail('Team result cannot name a player');
+        if (previous.liberoReplacements?.[event.team]?.libero === event.player && ['S', 'B'].includes(event.skill)) fail('Libero cannot serve or block');
         if (event.skill === 'S' && (event.team !== previous.servingTeam || event.player !== previous.lineups[event.team][0])) fail('Server must be position P1 of the serving team');
         const winner = rallyWinner(event.skill, event.grade, event.team);
         if (winner) winners.add(winner);
@@ -157,4 +167,41 @@ function configureVisSettings(setup, state, command) {
     setup.substitutionLimit = limit;
     return setup;
 }
-module.exports = { initialState, projectOfficialState, resolveContext, applyCommand, applyRally, rallyWinner, visDashboardSummary, configureVisSettings, normalizeVisTiming, fail };
+function assertLiberoReady(state) {
+    for (const team of ['home', 'away']) {
+        const active = state.liberoReplacements?.[team];
+        const position = active ? state.lineups[team].indexOf(active.libero) : -1;
+        if (active && (![0, 4, 5].includes(position) || position === 0 && state.servingTeam === team)) fail('กรุณานำผู้เล่นเดิมกลับแทน Libero ก่อนเริ่มแรลลี่ถัดไป');
+    }
+}
+function isLiberoPlayer(player) {
+    return ['L', 'LIBERO', 'L1', 'L2'].includes(String(player?.position || player?.role || '').toUpperCase())
+        || [player?.is_libero, player?.is_libero1, player?.is_libero2].some(value => value === true || Number(value) === 1);
+}
+function validateLiberoReplacement(state, command, liberoIds) {
+    const { team, playerOut, playerIn } = command;
+    if (!['home', 'away'].includes(team) || !state.setupComplete || state.phase === 'MATCH_FINISHED') fail('Complete the set lineup before recording');
+    const active = state.liberoReplacements?.[team], lineup = state.lineups[team];
+    if (!Number.isSafeInteger(playerOut) || !Number.isSafeInteger(playerIn) || !lineup.includes(playerOut) || lineup.includes(playerIn)) fail('Select an on-court player and a bench player');
+    const rally = Number(state.score.home) + Number(state.score.away);
+    if (state.lastLiberoRally?.[team] === rally) fail('ต้องมีแรลลี่จบอย่างน้อยหนึ่งครั้งระหว่างการสลับ Libero');
+    let replacement = null;
+    if (active) {
+        if (playerOut !== active.libero || (playerIn !== active.regular && !liberoIds.includes(playerIn))) fail('Return the replaced player or select the other Libero');
+        if (liberoIds.includes(playerIn)) replacement = { ...active, libero: playerIn };
+    } else {
+        const position = lineup.indexOf(playerOut);
+        if (!liberoIds.includes(playerIn) || liberoIds.includes(playerOut) || ![0, 4, 5].includes(position)
+            || position === 0 && state.servingTeam === team) fail('Libero may replace a back-row non-serving player only');
+        replacement = { libero: playerIn, regular: playerOut };
+    }
+    return { playerOut, playerIn, replacement };
+}
+function substitutionPairs(command) {
+    const pairs = command.pairs;
+    if (!Array.isArray(pairs) || pairs.length < 1 || pairs.length > 6 || pairs.some(pair => !pair || !Number.isSafeInteger(pair.playerOut) || !Number.isSafeInteger(pair.playerIn) || pair.playerOut === pair.playerIn)) fail('Select 1–6 valid substitution pairs');
+    const ids = pairs.flatMap(pair => [pair.playerOut, pair.playerIn]);
+    if (new Set(ids).size !== ids.length) fail('A player may appear only once in a substitution batch');
+    return pairs;
+}
+module.exports = { substitutionPairs, isLiberoPlayer, validateLiberoReplacement, initialState, projectOfficialState, resolveContext, applyCommand, applyRally, rallyWinner, visDashboardSummary, configureVisSettings, normalizeVisTiming, fail };

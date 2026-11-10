@@ -1,6 +1,14 @@
 import { dashboardSetResult } from './dashboardResult.js';
 import { dashboardMatchStatus } from './dashboardStatus.js';
 
+export function visCompetitionName(name = '') {
+    return String(name).replace(/\s*\((?:male|female|men|women|boys|girls|ชาย|หญิง)\)\s*$/i, '').trim();
+}
+
+export function visCompetitionKey(name) {
+    return 'name:' + visCompetitionName(name).toLocaleLowerCase();
+}
+
 export function groupVisMatches(rows, allMatches = rows) {
     const keyOf = match => `${match.is_custom_vis ? 'custom' : 'official'}:${match.competition_id || match.competition_name || 'vis'}`;
     const counts = new Map();
@@ -8,7 +16,7 @@ export function groupVisMatches(rows, allMatches = rows) {
     const groups = new Map();
     for (const match of rows) {
         const key = keyOf(match);
-        if (!groups.has(key)) groups.set(key, { key, title: match.competition_name || 'VIS', total: counts.get(key), matches: [] });
+        if (!groups.has(key)) groups.set(key, { key, title: match.competition_name || 'VIMS', total: counts.get(key), matches: [] });
         groups.get(key).matches.push(match);
     }
     return [...groups.values()];

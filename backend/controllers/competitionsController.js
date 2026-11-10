@@ -1,3 +1,4 @@
+const { athleteError } = require('../utils/athleteIntegrity');
 const db = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLogger');
 const { normalizeTeamGender } = require('../utils/teamGender');
@@ -707,7 +708,7 @@ module.exports = {
         FROM team_entries te
         JOIN competitions c ON c.id = te.competition_id
         LEFT JOIN age_groups ag ON ag.id = COALESCE(te.age_group_id, c.age_group_id)
-        WHERE te.id = ? AND te.team_id = ?
+        WHERE te.id = ? AND te.team_id = ? FOR UPDATE
       `, [entryId, teamId]);
 
       if (entryRes.rows.length === 0) {
@@ -716,6 +717,24 @@ module.exports = {
       }
 
       const entry = entryRes.rows[0];
+      const history = await client.query(`SELECT m.id FROM matches m WHERE m.competition_id = ?
+        AND (m.home_team_id = ? OR m.away_team_id = ?)
+        AND (m.status <> 'scheduled' OR EXISTS (SELECT 1 FROM match_actions a WHERE a.match_id = m.id)
+          OR EXISTS (SELECT 1 FROM match_events e WHERE e.match_id = m.id)
+          OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id = m.id)) LIMIT 1`, [entry.competition_id, teamId, teamId]);
+      if (history.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({error:'รายชื่อรายการนี้ถูกใช้ในการแข่งขันแล้ว ไม่สามารถเขียนทับประวัติได้'}); }
+      const previousRoster = await client.query('SELECT * FROM team_entry_players WHERE team_entry_id = ? FOR UPDATE', [entry.id]);
+      const previousById = new Map(previousRoster.rows.map(player => [String(player.player_id), player]));
+      const overrides = new Map();
+      if (req.body.players !== undefined) {
+        if (!Array.isArray(req.body.players)) throw Object.assign(new Error('ข้อมูลรายชื่อไม่ถูกต้อง'),{status:400});
+        for (const value of req.body.players) {
+          const id = Number(value.id), number = Number(value.number), role = String(value.role || '');
+          if (!uniquePlayerIds.includes(id) || overrides.has(id) || !Number.isInteger(number) || number < 1 || number > 999
+            || !['','S','OH','OPP','MB','L','C','L1','L2','L1+C','L2+C'].includes(role)) throw Object.assign(new Error('เบอร์หรือบทบาทรายรายการไม่ถูกต้อง'),{status:400});
+          overrides.set(id,{number,position:role,is_captain:role.includes('C')?1:0,is_libero1:role.startsWith('L1')?1:0,is_libero2:role.startsWith('L2')?1:0});
+        }
+      }
       const maxPlayers = parseNullableInt(entry.max_players);
 
       if (maxPlayers && uniquePlayerIds.length > maxPlayers) {
@@ -727,11 +746,19 @@ module.exports = {
       if (uniquePlayerIds.length > 0) {
         const placeholders = uniquePlayerIds.map(() => '?').join(',');
         const playersRes = await client.query(`
-          SELECT p.id, p.team_id, p.number, p.position, p.gender, p.is_captain, p.is_libero1, p.is_libero2, p.is_playing
+          SELECT p.id, p.team_id, p.number, p.position, p.gender, p.is_captain, p.is_libero1, p.is_libero2, p.is_playing, p.is_active
           FROM players p
           WHERE p.id IN (${placeholders})
         `, uniquePlayerIds);
-        selectedPlayers = playersRes.rows;
+        selectedPlayers = playersRes.rows.map(player => {
+          const saved = previousById.get(String(player.id));
+          const snapshot = saved ? { ...player, number: saved.number, position: saved.role, is_captain: saved.is_captain,
+            is_libero1: saved.is_libero1, is_libero2: saved.is_libero2, is_playing: saved.is_playing } : player;
+          return { ...snapshot, ...overrides.get(Number(player.id)) };
+        });
+        if (selectedPlayers.some(player => Number(player.is_active) === 0 && !previousById.has(String(player.id)))) {
+          await client.query('ROLLBACK'); return res.status(400).json({error:'ไม่สามารถเพิ่มนักกีฬาที่ปิดใช้งานแล้ว'});
+        }
       }
 
       if (selectedPlayers.length !== uniquePlayerIds.length) {
@@ -786,6 +813,12 @@ module.exports = {
         }
       }
 
+      if (selectedPlayers.filter(p => String(p.position || '').startsWith('L') || Number(p.is_libero1) === 1 || Number(p.is_libero2) === 1).length > 2
+          || selectedPlayers.filter(p => Number(p.is_captain) === 1).length > 1
+          || selectedPlayers.filter(p => Number(p.is_libero1) === 1).length > 1
+          || selectedPlayers.filter(p => Number(p.is_libero2) === 1).length > 1) {
+        await client.query('ROLLBACK'); return res.status(400).json({error:'รายรายการมีกัปตันได้หนึ่งคน และ Libero ได้สูงสุดสองคน โดย L1 และ L2 ไม่ซ้ำ'});
+      }
       const numberCounts = new Map();
       for (const player of selectedPlayers) {
         const playerNumber = parseNullableInt(player.number);
@@ -836,7 +869,7 @@ module.exports = {
     } catch (err) {
       await client.query('ROLLBACK');
       console.error("Update Team Entry Players Error:", err);
-      res.status(500).json({ error: err.message });
+      const failure = athleteError(err); res.status(failure.status).json({ error: failure.message });
     } finally {
       client.release();
     }
@@ -1230,7 +1263,7 @@ module.exports = {
           te.display_name,
           te.status,
           c.title as competition_title,
-          t.name as team_name
+          t.name as team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
         FROM team_entries te
         LEFT JOIN competitions c ON c.id = te.competition_id
         LEFT JOIN teams t ON t.id = te.team_id

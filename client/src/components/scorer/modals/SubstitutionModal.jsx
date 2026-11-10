@@ -1,9 +1,13 @@
+import useDisplayNames from '../../../hooks/useDisplayNames';
+import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useEffect } from 'react';
 import { isPlayerLibero } from '../../../utils/scorer/playerFilters';
 
 export default function SubstitutionModal({ 
     isOpen, onClose, teamName, roster, currentLineup, playerOut, posIndex, subTracker, disqualifiedPlayers = [], initialExceptional, onConfirm
 }) {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     const [selectedPlayerIn, setSelectedPlayerIn] = useState(null);
     const [isExceptional, setIsExceptional] = useState(false); 
     
@@ -120,12 +124,12 @@ export default function SubstitutionModal({
     // ==========================================
     if (isConfirmStep) {
         return (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300">
+            <div className="scorer-dialog fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300">
                 <div className="bg-white rounded-3xl shadow-2xl w-[500px] overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
                     
                     {/* Header */}
                     <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                        <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Confirm Substitution</span>
+                        <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">{st("Confirm Substitution")}</span>
                         <div className="flex gap-1.5">
                             <div className="w-2.5 h-2.5 rounded-full bg-slate-200"></div>
                             <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
@@ -139,13 +143,13 @@ export default function SubstitutionModal({
                             
                             {/* OUT PLAYER CARD */}
                             <div className="flex-1 flex flex-col items-center">
-                                <div className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter mb-2">Player Out</div>
+                                <div className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter mb-2">{st("Player Out")}</div>
                                 <div className="w-full aspect-[3/4] bg-rose-50 rounded-2xl border-2 border-rose-100 flex flex-col items-center justify-center relative overflow-hidden shadow-sm group">
                                     <div className="absolute top-2 left-2 p-1.5 bg-rose-500 rounded-lg text-white">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
                                     </div>
                                     <span className="text-6xl font-black text-rose-600 mb-1 leading-none">{localPlayerOut?.number}</span>
-                                    <span className="text-xs font-bold text-rose-700 px-3 truncate w-full text-center">{localPlayerOut?.first_name || localPlayerOut?.name}</span>
+                                    <span className="text-xs font-bold text-rose-700 px-3 truncate w-full text-center">{displayNames.personFirstName(localPlayerOut) || displayNames.personName(localPlayerOut)}</span>
                                 </div>
                             </div>
 
@@ -158,13 +162,13 @@ export default function SubstitutionModal({
 
                             {/* IN PLAYER CARD */}
                             <div className="flex-1 flex flex-col items-center">
-                                <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter mb-2">Player In</div>
+                                <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter mb-2">{st("Player In")}</div>
                                 <div className="w-full aspect-[3/4] bg-emerald-50 rounded-2xl border-2 border-emerald-100 flex flex-col items-center justify-center relative overflow-hidden shadow-sm group">
                                     <div className="absolute top-2 right-2 p-1.5 bg-emerald-500 rounded-lg text-white">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
                                     </div>
                                     <span className="text-6xl font-black text-emerald-600 mb-1 leading-none">{selectedPlayerIn?.number}</span>
-                                    <span className="text-xs font-bold text-emerald-700 px-3 truncate w-full text-center">{selectedPlayerIn?.first_name || selectedPlayerIn?.name}</span>
+                                    <span className="text-xs font-bold text-emerald-700 px-3 truncate w-full text-center">{displayNames.personFirstName(selectedPlayerIn) || displayNames.personName(selectedPlayerIn)}</span>
                                 </div>
                             </div>
 
@@ -173,9 +177,7 @@ export default function SubstitutionModal({
                         {/* EXCEPTIONAL BADGE */}
                         {isExceptional && (
                             <div className="mt-4 px-4 py-1.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-widest border border-amber-100 flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                                Exceptional Substitution
-                            </div>
+                                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>{st("Exceptional Substitution")}</div>
                         )}
 
                         {/* ACTION BUTTONS */}
@@ -184,15 +186,11 @@ export default function SubstitutionModal({
                                 onClick={finalizeSubstitution} 
                                 className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                                Confirm
-                            </button>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{st("Confirm")}</button>
                             <button 
                                 onClick={() => setIsConfirmStep(false)} 
                                 className="px-8 h-14 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95"
-                            >
-                                Back
-                            </button>
+                            >{st("Back")}</button>
                         </div>
                     </div>
                 </div>
@@ -205,7 +203,7 @@ export default function SubstitutionModal({
     // 🌟 หน้า 1: หน้าต่างเลือกนักกีฬา (Selection)
     // ==========================================
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300">
+        <div className="scorer-dialog fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300">
             <div className="bg-white rounded-[2.5rem] shadow-2xl w-[900px] h-[650px] overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-300">
                 
                 {/* Modern Header Bar */}
@@ -215,8 +213,8 @@ export default function SubstitutionModal({
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 8 4 4-4 4M6 8l-4 4 4 4M2 12h20"/></svg>
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">Substitution</h3>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{teamName || 'Select Team'}</p>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">{st("Substitution")}</h3>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{teamName || st('Select Team')}</p>
                         </div>
                     </div>
                     <button 
@@ -236,9 +234,9 @@ export default function SubstitutionModal({
                                 <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
                                 </div>
-                                <span className="font-black text-slate-900 text-sm uppercase tracking-wider">Out</span>
+                                <span className="font-black text-slate-900 text-sm uppercase tracking-wider">{st("Out")}</span>
                             </div>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Players on Court</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{st("Players on Court")}</span>
                         </div>
                         
                         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 gap-2">
@@ -266,14 +264,14 @@ export default function SubstitutionModal({
                                         </div>
                                         <div className="ml-4 flex-1 truncate">
                                             <div className={`font-bold text-sm leading-none truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                                                {p.first_name || p.name}
+                                                {displayNames.personFirstName(p) || displayNames.personName(p)}
                                             </div>
                                             
                                         </div>
                                         {p.isCaptain && (
                                             <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border shrink-0 ${
                                                 isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-amber-50 border-amber-200 text-amber-600'
-                                            }`}>C</div>
+                                            }`}>{st("C")}</div>
                                         )}
                                     </button>
                                 );
@@ -295,11 +293,11 @@ export default function SubstitutionModal({
                                 <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
                                 </div>
-                                <span className="font-black text-slate-900 text-sm uppercase tracking-wider">In</span>
+                                <span className="font-black text-slate-900 text-sm uppercase tracking-wider">{st("In")}</span>
                             </div>
                             
                             <label className="group flex items-center gap-2 cursor-pointer">
-                                <span className="text-[10px] font-bold text-slate-400 group-hover:text-amber-500 transition-colors uppercase tracking-widest">Exceptional</span>
+                                <span className="text-[10px] font-bold text-slate-400 group-hover:text-amber-500 transition-colors uppercase tracking-widest">{st("Exceptional")}</span>
                                 <div className="relative inline-flex items-center">
                                     <input 
                                         type="checkbox" 
@@ -319,8 +317,8 @@ export default function SubstitutionModal({
                                     <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-3">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                                     </div>
-                                    <div className="text-xs font-bold text-slate-600 uppercase mb-1">Rule Violation</div>
-                                    <div className="text-[10px] font-medium text-slate-400">{ruleMessage}</div>
+                                    <div className="text-xs font-bold text-slate-600 uppercase mb-1">{st("Rule Violation")}</div>
+                                    <div className="text-[10px] font-medium text-slate-400">{st(ruleMessage)}</div>
                                 </div>
                             ) : (
                                 <>
@@ -347,13 +345,13 @@ export default function SubstitutionModal({
                                                 </div>
                                                 <div className="ml-4 flex-1 truncate">
                                                     <div className={`font-bold text-sm leading-none truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                                                        {p.first_name || p.name}
+                                                        {displayNames.personFirstName(p) || displayNames.personName(p)}
                                                     </div>
                                                 </div>
                                                 {isLib && (
                                                     <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border shrink-0 ${
                                                         isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-indigo-50 border-indigo-200 text-indigo-600'
-                                                    }`}>L</div>
+                                                    }`}>{st("L")}</div>
                                                 )}
                                             </button>
                                         );
@@ -361,7 +359,7 @@ export default function SubstitutionModal({
                                     {eligibleBenchPlayers.length === 0 && (
                                         <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
                                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-2 opacity-20"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                                            <div className="text-xs font-bold uppercase tracking-widest">No Players</div>
+                                            <div className="text-xs font-bold uppercase tracking-widest">{st("No Players")}</div>
                                         </div>
                                     )}
                                 </>
@@ -377,8 +375,8 @@ export default function SubstitutionModal({
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                         </div>
                         <div className="flex-1">
-                            <p className="text-xs font-bold text-slate-900 leading-tight">Need assistance?</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Select an active player on the left and a replacement from the bench on the right.</p>
+                            <p className="text-xs font-bold text-slate-900 leading-tight">{st("Need assistance?")}</p>
+                            <p className="text-[10px] text-slate-400 mt-1">{st("Select an active player on the left and a replacement from the bench on the right.")}</p>
                         </div>
                     </div>
                     
@@ -386,9 +384,7 @@ export default function SubstitutionModal({
                         <button 
                             onClick={onClose}
                             className="px-8 h-14 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-2xl border border-slate-200 transition-all active:scale-95"
-                        >
-                            Cancel
-                        </button>
+                        >{st("Cancel")}</button>
                         <button 
                             onClick={handleRunSubstitution}
                             disabled={!selectedPlayerIn}
@@ -397,9 +393,7 @@ export default function SubstitutionModal({
                                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100' 
                                 : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                             }`}
-                        >
-                            Proceed to Preview
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        >{st("Proceed to Preview")}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                         </button>
                     </div>
                 </div>

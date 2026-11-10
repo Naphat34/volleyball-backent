@@ -1,7 +1,11 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useScorerTranslation from './useScorerTranslation';
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle } from 'lucide-react';
 
 const LineupSelector = ({ teamName, players, onConfirm }) => {
+    const displayNames = useDisplayNames();
+    const st = useScorerTranslation();
     const [selectedStarters, setSelectedStarters] = useState([]);
     const [selectedLibero, setSelectedLibero] = useState(null);
 
@@ -68,13 +72,11 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                             <div className="flex justify-between items-start mb-4">
                                 <span className={`text-2xl font-bold font-mono ${isStarter ? 'text-blue-700' : isLibero ? 'text-yellow-700' : 'text-gray-900'}`}>#{player.number}</span>
                                 <div className="flex flex-col items-end gap-1">
-                                    <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]" title={player.name}>
-                                        {player.name}
+                                    <span className="text-sm font-medium text-gray-700 truncate max-w-[120px]" title={displayNames.personName(player)}>
+                                        {displayNames.personName(player)}
                                     </span>
                                     {isLiberoPos && (
-                                        <span className="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2 py-0.5 rounded-full font-bold">
-                                            LIBERO
-                                        </span>
+                                        <span className="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-2 py-0.5 rounded-full font-bold">{st("LIBERO")}</span>
                                     )}
                                 </div>
                             </div>
@@ -89,7 +91,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                                             : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:text-gray-900'
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
-                                    {isStarter ? '✓ Starter' : 'Starter'}
+                                    {isStarter ? st('✓ Starter') : st('Starter')}
                                 </button>
                                 <button 
                                     onClick={() => selectLibero(player)} 
@@ -100,7 +102,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                                             : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:text-gray-900'
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
-                                    {isLibero ? '✓ Libero' : 'Libero'}
+                                    {isLibero ? st('✓ Libero') : st('Libero')}
                                 </button>
                             </div>
                         </div>
@@ -110,16 +112,14 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
             
             <div className="flex flex-col sm:flex-row justify-between items-center bg-gray-50 rounded-xl p-4 border border-gray-200 gap-4">
                 <div className="flex flex-wrap items-center gap-6 text-sm">
-                    <span className="text-gray-600 font-medium">
-                        Starters: <span className={`font-bold ml-1 px-2 py-1 rounded-md ${
+                    <span className="text-gray-600 font-medium">{st("Starters:")}<span className={`font-bold ml-1 px-2 py-1 rounded-md ${
                             selectedStarters.length === 6 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
                         }`}>
                             {selectedStarters.length} / 6
                         </span>
                     </span>
-                    <span className="text-gray-600 font-medium">
-                        Libero: <span className="font-bold ml-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-md">
-                            {selectedLibero ? `#${selectedLibero.number}` : 'None'}
+                    <span className="text-gray-600 font-medium">{st("Libero:")}<span className="font-bold ml-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-md">
+                            {selectedLibero ? `#${selectedLibero.number}` : st('None')}
                         </span>
                     </span>
                 </div>
@@ -132,8 +132,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                              disabled:cursor-not-allowed shadow-sm 
                              transition-all duration-200 flex items-center justify-center gap-2"
                 >
-                    <CheckCircle size={18} />
-                    Confirm {teamName}
+                    <CheckCircle size={18} />{st("Confirm")}{teamName}
                 </button>
             </div>
         </div>

@@ -73,6 +73,26 @@ test('save commits all four sections together without changing team registration
     assert.equal(setup.home.staff[0].first_name, 'Coach');
 });
 
+test('athlete edits retain bilingual names and roles without updating master registrations', async () => {
+    const f = fixture(); await prepare(f);
+    Object.assign(f.req.body.draft.home.players[0], { number: 12, first_name: 'ชื่อใหม่', first_name_th: 'ชื่อใหม่', first_name_en: 'New name', last_name_en: 'Surname', role: 'L2+C', position: 'L' });
+    const res = f.response(); await f.controller.save(f.req, res);
+    assert.equal(res.code, 200);
+    assert.equal(f.state.updates.length, 1);
+    assert.match(f.state.updates[0].sql, /^UPDATE matches/);
+    const setup = JSON.parse(f.state.updates[0].args.at(-2));
+    const edited = setup.home.players[0];
+    assert.equal(edited.id, player.id);
+    assert.equal(edited.number, 12);
+    assert.equal(edited.first_name_th, 'ชื่อใหม่');
+    assert.equal(edited.first_name_en, 'New name');
+    assert.equal(edited.last_name_en, 'Surname');
+    assert.equal(edited.role, 'L2+C');
+    assert.equal(edited.is_captain, 1);
+    assert.equal(edited.is_libero2, 1);
+    assert.equal(f.data.home.players[0].number, 7);
+});
+
 test('shirt colors persist per match and are restored when settings reopen', async () => {
     const f = fixture(); await prepare(f);
     f.req.body.draft.home.color = '#AABBCC';
@@ -152,4 +172,14 @@ test('settings retain per-match point rules when reopened', async () => {
     const settings = await prepare(f);
     assert.equal(settings.draft.pointsPerSet, 21);
     assert.equal(settings.draft.decidingSetPoints, 11);
+});
+
+test('legacy match snapshots retain joined teams translations; explicit match translations take precedence', () => {
+    for (const value of [undefined,null,'','   ']) {
+        const match={home_team_name_en:'Santhithamvittayamulaniti',away_team_name_en:'Watbanna',match_setup:{home:{name:'Home',name_en:value},away:{name:'Away',name_en:value}}};
+        applyMatchSetup(match);
+        assert.equal(match.home_team_name_en,'Santhithamvittayamulaniti');assert.equal(match.away_team_name_en,'Watbanna');
+    }
+    const match={home_team_name_en:'Master',match_setup:{home:{name:'H',name_en:'Match English'},away:{name:'A'}}};
+    assert.equal(applyMatchSetup(match).home_team_name_en,'Match English');
 });

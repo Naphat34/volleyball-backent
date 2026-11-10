@@ -1,3 +1,4 @@
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React from 'react';
 import { Calendar, MapPin, Swords, Edit2, Trash2, FileText } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -12,6 +13,7 @@ const MatchList = ({
     onClick,
     isAdmin = false // Default to false (read-only)
 }) => {
+    const ui = useUiTranslation();
 
     if (!matches || matches.length === 0) {
         return <EmptyState text="No matches found." darkMode={darkMode} />;
@@ -46,7 +48,7 @@ const MatchList = ({
                                         m.gender === 'Male' ? 'border-blue-200 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20' :
                                             'border-purple-200 text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20'
                                         }`}>
-                                        {m.gender === 'Female' ? 'หญิง' : m.gender === 'Male' ? 'ชาย' : m.gender}
+                                        {m.gender === 'Female' ? ui('หญิง') : m.gender === 'Male' ? ui('ชาย') : ui(m.gender)}
                                     </span>
                                 )}
                             </div>
@@ -60,8 +62,7 @@ const MatchList = ({
                             {/* บรรทัด 3: วันที่ และ เวลา (เน้นเวลา) */}
                             <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                 <Calendar size={12} className="mr-1.5 shrink-0" />
-                                {m.start_time || m.match_date ? (
-                                    <div className="flex items-center gap-1">
+                                {m.start_time || m.match_date ? <div className="flex items-center gap-1">
                                         <span>{formatThaiDate(m.start_date || m.match_date)}</span>
                                         {(m.start_time) && (
                                             <>
@@ -71,8 +72,7 @@ const MatchList = ({
                                                 </span>
                                             </>
                                         )}
-                                    </div>
-                                ) : 'TBD'}
+                                    </div> : ui('TBD')}
                             </div>
 
                             {/* บรรทัด 4: สนามแข่งขัน */}
@@ -120,16 +120,12 @@ const MatchList = ({
                                         {/* 3. ป้ายสถานะ (Completed Badge) */}
                                         {isCompleted && (
                                             <div className="flex flex-col items-center gap-1 mt-1">
-                                                <span className="text-[9px] px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 font-bold whitespace-nowrap border border-green-200 dark:border-green-700">
-                                                    จบการแข่งขันเป็นทางการ
-                                                </span>
+                                                <span className="text-[9px] px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 font-bold whitespace-nowrap border border-green-200 dark:border-green-700">{ui("จบการแข่งขันเป็นทางการ")}</span>
                                             </div>
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
-                                        VS
-                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">{ui("VS")}</div>
                                 )}
                             </div>
 
@@ -155,19 +151,15 @@ const MatchList = ({
                                         <button
                                             onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}`, '_blank'); }}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
-                                            title="Official Score Sheet"
+                                            title={ui("Official Score Sheet")}
                                         >
-                                            <FileText size={12} />
-                                            Official Score Sheet
-                                        </button>
+                                            <FileText size={12} />{ui("Official Score Sheet")}</button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}?view=result`, '_blank'); }}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
-                                            title="O-4 Match Report"
+                                            title={ui("O-4 Match Report")}
                                         >
-                                            <FileText size={12} />
-                                            O-4 Match Report
-                                        </button>
+                                            <FileText size={12} />{ui("O-4 Match Report")}</button>
                                     </div>
                                 )}
                             </div>

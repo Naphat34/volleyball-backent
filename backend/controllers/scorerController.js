@@ -1,5 +1,7 @@
+const { getMatchTeamStaff } = require('../utils/matchTeamStaff');
 const { applyMatchSetup, setupPlayers, setupStaff, parseSetup, normalizeTeam } = require('../utils/matchSetup');
 const db = require('../config/db');
+const { normalizeNames, playerNameFields } = require('../utils/bilingualNames');
 const { normalizeVisGrade, normalizeVisSkill } = require('../config/visCodes');
 
 const hasTableColumn = async (tableName, columnName) => {
@@ -215,8 +217,9 @@ module.exports = {
     async createMatchTeamPlayer(req, res) {
         try {
             const { matchId, teamId } = req.params;
-            const firstName = parseNullablePlayerName(req.body.first_name);
-            const lastName = parseNullablePlayerName(req.body.last_name);
+            const names = normalizeNames(req.body);
+            const firstName = parseNullablePlayerName(names.first_name);
+            const lastName = parseNullablePlayerName(names.last_name);
             const number = parseNullableInt(req.body.number);
 
             if (!firstName || !lastName || !number || number < 1) {
@@ -254,9 +257,9 @@ module.exports = {
             }
 
             const result = await db.query(
-                `INSERT INTO players (team_id, first_name, last_name, number, gender)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [teamId, firstName, lastName, number, parseNullableString(req.body.gender) || match.gender || null]
+                `INSERT INTO players (team_id, first_name, last_name, number, gender, ${playerNameFields.join(', ')})
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [teamId, firstName, lastName, number, parseNullableString(req.body.gender) || match.gender || null, ...playerNameFields.map(field => names[field] ?? null)]
             );
 
             if (match.competition_id) {
@@ -278,15 +281,16 @@ module.exports = {
             res.status(201).json(player.rows[0]);
         } catch (err) {
             console.error('Create Match Team Player Error', err);
-            res.status(500).json({ error: 'Database error' });
+            res.status(err.status || 500).json({ error: err.status ? err.message : 'Database error' });
         }
     },
 
     async updateMatchTeamPlayer(req, res) {
         try {
             const { matchId, teamId, playerId } = req.params;
-            const firstName = parseNullablePlayerName(req.body.first_name);
-            const lastName = parseNullablePlayerName(req.body.last_name);
+            const names = normalizeNames(req.body);
+            const firstName = parseNullablePlayerName(names.first_name);
+            const lastName = parseNullablePlayerName(names.last_name);
             const number = parseNullableInt(req.body.number);
 
             if (!firstName || !lastName || !number || number < 1) {
@@ -352,6 +356,8 @@ module.exports = {
                     ? [firstName, lastName, number, playerId]
                     : [firstName, lastName, playerId]
             );
+            const translatedFields = playerNameFields.filter(field => names[field] !== undefined);
+            if (translatedFields.length) await db.query(`UPDATE players SET ${translatedFields.map(field => field + '=?').join(', ')} WHERE id=?`, [...translatedFields.map(field => names[field]), playerId]);
             if (match.competition_id) {
                 await db.query(
                     `UPDATE team_entry_players tep
@@ -366,7 +372,7 @@ module.exports = {
             res.json(player.rows[0]);
         } catch (err) {
             console.error('Update Match Team Player Error', err);
-            res.status(500).json({ error: 'Database error' });
+            res.status(err.status || 500).json({ error: err.status ? err.message : 'Database error' });
         }
     },
 
@@ -398,12 +404,12 @@ module.exports = {
             const result = await db.query(`
                 SELECT 
                     m.*, 
-                    t1.name as home_team_name, 
-                    t2.name as away_team_name,
+                    t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en,
+                    t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en,
                     t1.code as home_team_code,
                     t2.code as away_team_code,
-                    t1.logo_url as home_logo_url,
-                    t2.logo_url as away_logo_url,
+                    t1.logo_url as home_logo_url, t1.coach as home_coach,
+                    t2.logo_url as away_logo_url, t2.coach as away_coach,
                     t1.main_color as home_main_color,
                     t1.second_color as home_second_color,
                     t1.third_color as home_third_color,
@@ -630,13 +636,14 @@ module.exports = {
             let playersMap = {};
             if (allPlayerIds.length > 0) {
                 const playersRes = await db.query(`
-                    SELECT id, first_name, last_name, number, position 
+                    SELECT id, first_name, last_name, first_name_th, last_name_th, first_name_en, last_name_en, number, position
                     FROM players 
                     WHERE id IN (${allPlayerIds.map(() => '?').join(',')})
                 `, allPlayerIds);
 
                 playersRes.rows.forEach(p => {
                     playersMap[p.id] = {
+                        ...p,
                         id: p.id,
                         number: p.number,
                         name: [parseNullablePlayerName(p.first_name), parseNullablePlayerName(p.last_name)].filter(Boolean).join(' '),
@@ -1380,8 +1387,8 @@ module.exports = {
             const matchResult = await db.query(`
                 SELECT 
                     m.*, 
-                    t1.name as home_team_name, t1.code as home_team_code, t1.logo_url as home_logo_url,
-                    t2.name as away_team_name, t2.code as away_team_code, t2.logo_url as away_logo_url,
+                    t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en, t1.code as home_team_code, t1.logo_url as home_logo_url, t1.coach as home_coach,
+                    t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en, t2.code as away_team_code, t2.logo_url as away_logo_url, t2.coach as away_coach,
                     COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title,
                     c.gender as competition_gender, c.sport as competition_sport,
                     c.start_date as start_date, c.end_date as end_date,
@@ -1465,6 +1472,10 @@ module.exports = {
                 `${playerLibero1Expr} as is_libero1`,
                 `${playerLibero2Expr} as is_libero2`
             ];
+            playerSelectFields.push('p.position AS playing_position'); fallbackSelectFields.push('p.position AS playing_position');
+            for (const field of ['first_name_th','last_name_th','first_name_en','last_name_en']) if (playerColumnNames.has(field)) {
+                playerSelectFields.push('p.' + field); fallbackSelectFields.push('p.' + field);
+            }
             if (playerColumnNames.has('photo')) {
                 playerSelectFields.push('p.photo');
                 fallbackSelectFields.push('p.photo');
@@ -1525,15 +1536,8 @@ module.exports = {
 
             // Staff records belong to the team. Return the complete team list instead of
             // requiring a team_entry_staff assignment for this competition/category.
-            const getTeamStaffForMatch = async (teamId) => db.query(`
-                SELECT id, team_id, first_name, last_name, role, gender
-                FROM team_staff
-                WHERE team_id = ?
-                ORDER BY role ASC, first_name ASC, last_name ASC, id ASC
-            `, [teamId]);
-
-            const homeStaff = await getTeamStaffForMatch(match.home_team_id);
-            const awayStaff = await getTeamStaffForMatch(match.away_team_id);
+            const homeStaff = {rows:await getMatchTeamStaff(db,match,'home')};
+            const awayStaff = {rows:await getMatchTeamStaff(db,match,'away')};
 
             res.json({
                 match,
@@ -1564,8 +1568,8 @@ module.exports = {
             const matchResult = await db.query(`
                 SELECT 
                     m.*, 
-                    t1.name as home_team_name, t1.code as home_team_code,
-                    t2.name as away_team_name, t2.code as away_team_code,
+                    t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en, t1.code as home_team_code,
+                    t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en, t2.code as away_team_code,
                     COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title, c.gender as competition_gender, c.gender as competition_category,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     ag.name as age_group_name,
@@ -1615,8 +1619,8 @@ module.exports = {
             const homePlayers = await getRosterPlayersForMatchTeam(
                 match.competition_id,
                 match.home_team_id,
-                'p.id, p.first_name, p.last_name, COALESCE(tep.number, p.number) as number, COALESCE(tep.role, p.position) as position',
-                'p.id, p.first_name, p.last_name, p.number, p.position',
+                'p.id, p.first_name, p.last_name, p.first_name_th, p.last_name_th, p.first_name_en, p.last_name_en, COALESCE(tep.number, p.number) as number, COALESCE(tep.role, p.position) as position',
+                'p.id, p.first_name, p.last_name, p.first_name_th, p.last_name_th, p.first_name_en, p.last_name_en, p.number, p.position',
                 {
                     ageGroupId: match.match_age_group_id,
                     gender: rosterGender,
@@ -1626,8 +1630,8 @@ module.exports = {
             const awayPlayers = await getRosterPlayersForMatchTeam(
                 match.competition_id,
                 match.away_team_id,
-                'p.id, p.first_name, p.last_name, COALESCE(tep.number, p.number) as number, COALESCE(tep.role, p.position) as position',
-                'p.id, p.first_name, p.last_name, p.number, p.position',
+                'p.id, p.first_name, p.last_name, p.first_name_th, p.last_name_th, p.first_name_en, p.last_name_en, COALESCE(tep.number, p.number) as number, COALESCE(tep.role, p.position) as position',
+                'p.id, p.first_name, p.last_name, p.first_name_th, p.last_name_th, p.first_name_en, p.last_name_en, p.number, p.position',
                 {
                     ageGroupId: match.match_age_group_id,
                     gender: rosterGender,

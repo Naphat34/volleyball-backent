@@ -20,3 +20,18 @@
     color: transparent;
     caret-color: var(--vis-d15345e, #15345e);
 }
+
+.vis-code-typing-glow {
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: vis-code-typing-glow 450ms ease-out both;
+}
+@keyframes vis-code-typing-glow {
+    from { box-shadow: 0 0 0 2px var(--vs-accent, #0284c7), 0 0 12px 2px var(--vs-accent, #0284c7); opacity: .7; }
+    to { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .vis-code-typing-glow { animation: none; }
+}

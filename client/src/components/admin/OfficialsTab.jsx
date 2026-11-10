@@ -1,8 +1,12 @@
+import useDisplayNames from '../../hooks/useDisplayNames';
+import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api';
 import { User, Plus, Edit2, Trash2, X, Save, Flag, FileText } from 'lucide-react';
 
 export default function Referees({ darkMode = false }) {
+    const displayNames = useDisplayNames();
+    const ui = useUiTranslation();
     const [activeTab, setActiveTab] = useState('referee'); // referee, scorer, linejudge
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -53,7 +57,7 @@ export default function Referees({ darkMode = false }) {
             fetchData();
         } catch (err) {
             console.error("Error saving official:", err);
-            alert('Failed to save data. Please check console.');
+            alert(ui('Failed to save data. Please check console.'));
         }
     };
 
@@ -66,7 +70,7 @@ export default function Referees({ darkMode = false }) {
             fetchData();
         } catch (err) {
             console.error("Error deleting official:", err);
-            alert('Failed to delete.');
+            alert(ui('Failed to delete.'));
         }
     };
 
@@ -92,16 +96,15 @@ export default function Referees({ darkMode = false }) {
         <div className="official-page min-h-screen p-6 transition-colors duration-200 text-gray-800">
             <div className="official-header rounded-md px-6 py-5 flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Match Administration</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">{ui("Match Administration")}</p>
                     <h1 className="text-2xl font-bold flex items-center gap-2 tracking-tight">
-                        <User className="text-white" /> Officials Management
-                    </h1>
+                        <User className="text-white" />{ui("Officials Management")}</h1>
                 </div>
                 <button
                     onClick={() => openModal()}
                     className="bg-white/95 text-blue-700 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-50 transition-colors font-semibold shadow-sm"
                 >
-                    <Plus size={20} /> Add New {activeTab === 'linejudge' ? 'Line Judge' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                    <Plus size={20} />{' '}{ui("Add New")}{' '}{activeTab === 'linejudge' ? ui('Line Judge') : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </button>
             </div>
 
@@ -117,7 +120,7 @@ export default function Referees({ darkMode = false }) {
                             }`}
                     >
                         {getTabIcon(tab)}
-                        {tab === 'linejudge' ? 'Line Judges' : tab + 's'}
+                        {tab === 'linejudge' ? ui('Line Judges') : tab + 's'}
                     </button>
                 ))}
             </div>
@@ -125,22 +128,22 @@ export default function Referees({ darkMode = false }) {
             {/* List */}
             <div className="official-panel rounded-md overflow-hidden">
                 {loading ? (
-                    <div className="text-center py-10 text-gray-500">Loading...</div>
+                    <div className="text-center py-10 text-gray-500">{ui("Loading...")}</div>
                 ) : data.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                         <User size={48} className="mb-2 opacity-20" />
-                        <p>No officials found in this category.</p>
+                        <p>{ui("No officials found in this category.")}</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead className={darkMode ? 'bg-gray-700/50 text-gray-300' : 'official-table-head'}>
                                 <tr>
-                                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Country</th>
-                                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Code</th>
-                                    {activeTab !== 'linejudge' && <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Login Account</th>}
-                                    <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Actions</th>
+                                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">{ui("Name")}</th>
+                                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">{ui("Country")}</th>
+                                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">{ui("Code")}</th>
+                                    {activeTab !== 'linejudge' && <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">{ui("Login Account")}</th>}
+                                    <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">{ui("Actions")}</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-100'}`}>
@@ -149,24 +152,24 @@ export default function Referees({ darkMode = false }) {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'official-icon-box'}`}>
-                                                    {item.firstname.charAt(0)}
+                                                    {displayNames.personFirstName(item).charAt(0)}
                                                 </div>
-                                                <span className="font-medium">{item.firstname} {item.lastname}</span>
+                                                <span className="font-medium">{displayNames.personFirstName(item)} {displayNames.personLastName(item)}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                                                {item.country || 'Unknown'}
+                                                {(item.country) || (ui('Unknown'))}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                                                {item.code || 'No Code'}
+                                                {(item.code) || (ui('No Code'))}
                                             </div>
                                         </td>
                                         {activeTab !== 'linejudge' && (
                                             <td className="px-6 py-4 text-sm text-gray-600">
-                                                {item.account_username || <span className="text-gray-400">No login linked</span>}
+                                                {item.account_username || <span className="text-gray-400">{ui("No login linked")}</span>}
                                             </td>
                                         )}
 
@@ -191,7 +194,7 @@ export default function Referees({ darkMode = false }) {
                         <div className="official-header px-6 py-4 flex justify-between items-center">
                             <h3 className="text-lg font-bold flex items-center gap-2">
                                 {editItem ? <Edit2 size={18} /> : <Plus size={18} />}
-                                {editItem ? 'Edit' : 'Add'} {activeTab === 'linejudge' ? 'Line Judge' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                                {editItem ? ui('Edit') : ui('Add')} {activeTab === 'linejudge' ? ui('Line Judge') : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                             </h3>
                             <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-full transition"><X size={20} /></button>
                         </div>
@@ -199,49 +202,48 @@ export default function Referees({ darkMode = false }) {
                         <div className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">First Name</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("First Name")}</label>
                                     <input
                                         value={formData.firstname}
                                         onChange={e => setFormData({ ...formData, firstname: e.target.value })}
                                         className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
-                                        placeholder="John"
+                                        placeholder={ui("John")}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Last Name</label>
+                                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Last Name")}</label>
                                     <input
                                         value={formData.lastname}
                                         onChange={e => setFormData({ ...formData, lastname: e.target.value })}
                                         className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
-                                        placeholder="Doe"
+                                        placeholder={ui("Doe")}
                                     />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Country / Association</label>
+                                <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Country / Association")}</label>
                                 <input
                                     value={formData.country}
                                     onChange={e => setFormData({ ...formData, country: e.target.value })}
                                     className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
-                                    placeholder="THA"
+                                    placeholder={ui("THA")}
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Code</label>
+                                <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Code")}</label>
                                 <input
                                     value={formData.code}
                                     onChange={e => setFormData({ ...formData, code: e.target.value })}
                                     className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900"
-                                    placeholder="THA"
+                                    placeholder={ui("THA")}
                                 />
                             </div>
                         </div>
 
                         <div className="px-6 py-4 border-t flex justify-end gap-3 border-gray-100 bg-gray-50">
-                            <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition">Cancel</button>
+                            <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition">{ui("Cancel")}</button>
                             <button onClick={handleSave} className="official-primary-button px-6 py-2 rounded-md font-medium transition-colors flex items-center gap-2">
-                                <Save size={18} /> Save
-                            </button>
+                                <Save size={18} />{ui("Save")}</button>
                         </div>
                     </div>
                 </div>
