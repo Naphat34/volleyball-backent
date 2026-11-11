@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "node --test src/**/*.test.js",
     "test:unit": "node --test src/**/*.test.js",
+    "test:ranking-export": "node --test src/utils/reports/teamRankingExcel.test.js",
     "test:pwa": "node scripts/checkVisPwa.mjs",
     "test:i18n": "node --test src/utils/i18n/*.test.js src/utils/scorer/scorerTeamNames.test.js && node scripts/checkUiLanguages.mjs",
     "test:admin-vis": "node --test src/utils/vis/adminVims.test.js",

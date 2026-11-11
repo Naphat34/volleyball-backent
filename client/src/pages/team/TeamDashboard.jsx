@@ -1,7 +1,9 @@
+import TeamStaffAssignments from '../../components/team/TeamStaffAssignments';
+import PlayerExcelImport from '../../components/team/PlayerExcelImport';
 import { competitionName } from '../../utils/i18n/competitionNames';
 import { readLanguage } from '../../utils/i18n/language';
 import VisThemeToggle from '../../components/vis/VisThemeToggle';
-import { Users, Trophy, UserPlus, Plus, Calendar, Shield, Briefcase, Activity, Edit2, PlayCircle, Trash2, MapPin, User, X, Star, Clock, Search, Download, LogOut, BarChart2, Swords, Printer, Upload, Palette, Home, Building2, Check as SystemCheck } from 'lucide-react';
+import { Users, Trophy, UserPlus, Plus, Calendar, Shield, Briefcase, Activity, Edit2, PlayCircle, Trash2, MapPin, User, X, Star, Clock, Search, Download, LogOut, BarChart2, Swords, Printer, Upload, Palette, Home, Building2 } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { Panel } from '../../components/ui/SystemUI';
@@ -237,7 +239,6 @@ export default function TeamDashboard() {
     const [joinGenderSelections, setJoinGenderSelections] = useState({});
     const [entryRosterModal, setEntryRosterModal] = useState(null);
     const [entryRosterPlayers, setEntryRosterPlayers] = useState([]);
-    const [entryRosterSelectedIds, setEntryRosterSelectedIds] = useState([]);
     const [entryRosterLoading, setEntryRosterLoading] = useState(false);
 
     const [teamInfo, setTeamInfo] = useState(null);
@@ -317,32 +318,6 @@ export default function TeamDashboard() {
         if (isTruthyFlag(player.is_libero1)) return 'L1';
         if (isTruthyFlag(player.is_libero2)) return 'L2';
         return '';
-    };
-
-    const getRosterPlayerRole = player => {
-        if (player.entry_role_edited) return player.entry_role;
-        const captain = Number(player.entry_is_captain ?? player.is_captain) === 1;
-        const l1 = Number(player.entry_is_libero1 ?? player.is_libero1) === 1;
-        const l2 = Number(player.entry_is_libero2 ?? player.is_libero2) === 1;
-        if (l1 || l2) return (l1 ? 'L1' : 'L2') + (captain ? '+C' : '');
-        return captain ? 'C' : player.entry_role ?? player.position ?? '';
-    };
-    const getRosterPlayerNumber = (player = {}) => (
-        player.entry_number ?? player.number ?? ''
-    );
-
-    const getEntryRosterScopeLabel = () => {
-        if (!entryRosterModal) return language === 'THA' ? 'รุ่นนี้' : 'this roster';
-        const competitionName = normalizeCompetitionTitle(entryRosterModal.competition);
-        const ageGroup = entryRosterModal.entry?.age_group_name || 'General';
-        const gender = entryRosterModal.entry?.competition_gender || entryRosterModal.entry?.gender || '';
-        return [competitionName, ageGroup, gender].filter(Boolean).join(' / ');
-    };
-
-    const getLockedRosterLabel = (player = {}) => {
-        const ageGroup = player.locked_age_group_name || 'General';
-        const gender = player.locked_competition_gender || '';
-        return [ageGroup, gender].filter(Boolean).join(' / ');
     };
 
     const loadRosterView = useCallback(async () => {
@@ -662,6 +637,15 @@ export default function TeamDashboard() {
     const handlePlayerSubmit = async (e) => {
         e.preventDefault();
         const playerPayload = buildPlayerPayload();
+        const jerseyNumber = Number(playerPayload.number);
+        if (!Number.isInteger(jerseyNumber) || jerseyNumber < 1 || jerseyNumber > 999) {
+            Toast.fire({ icon: 'error', title: language === 'THA' ? 'หมายเลขเสื้อต้องเป็นจำนวนเต็ม 1–999' : 'Jersey number must be an integer from 1 to 999' });
+            return;
+        }
+        if (players.some(player => Number(player.number) === jerseyNumber && String(player.id) !== String(editingPlayerId))) {
+            Toast.fire({ icon: 'error', title: language === 'THA' ? 'หมายเลขเสื้อนี้มีนักกีฬาในทีมใช้งานแล้ว กรุณาเลือกหมายเลขอื่น' : 'Jersey number is already used by this team' });
+            return;
+        }
 
         const confirmation = await Swal.fire({ uiTextLocalized: true,
             title: language === 'THA' ? editingPlayerId ? ui('ยืนยันการแก้ไขข้อมูลผู้เล่น?') : ui('ยืนยันการเพิ่มผู้เล่น?') : editingPlayerId ? ui('Confirm player update?') : ui('Confirm adding player?'),
@@ -869,83 +853,8 @@ export default function TeamDashboard() {
             const res = await api.getMyTeamEntryPlayers(entryId);
             setEntryRosterModal({ competition, entry: res.data.entry });
             setEntryRosterPlayers(res.data.players || []);
-            setEntryRosterSelectedIds((res.data.selectedPlayerIds || []).map(id => Number(id)).filter(Number.isFinite));
         } catch (err) {
             Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'โหลดรายชื่อนักกีฬาไม่สำเร็จ' : 'Failed to load roster') });
-        } finally {
-            setEntryRosterLoading(false);
-        }
-    };
-
-    const toggleEntryRosterPlayer = (player) => {
-        if (!player.gender_eligible) return;
-        if (player.roster_locked) return;
-        const playerId = Number(player.id);
-        if (!Number.isFinite(playerId)) return;
-
-        setEntryRosterSelectedIds(prev => {
-            if (prev.includes(playerId)) {
-                return prev.filter(id => id !== playerId);
-            }
-            return [...prev, playerId];
-        });
-    };
-
-    const saveEntryRoster = async () => {
-        if (!entryRosterModal?.entry?.id) return;
-
-        const validSelectedIds = entryRosterSelectedIds.filter((id) => {
-            const player = entryRosterPlayers.find(item => Number(item.id) === Number(id));
-            return player && player.gender_eligible && !player.roster_locked;
-        });
-        if (validSelectedIds.length !== entryRosterSelectedIds.length) {
-            setEntryRosterSelectedIds(validSelectedIds);
-        }
-
-        const selectedPlayers = entryRosterPlayers.filter(player => validSelectedIds.includes(Number(player.id)));
-        const numberCounts = selectedPlayers.reduce((acc, player) => {
-            const number = String(getRosterPlayerNumber(player) || '').trim();
-            if (!number) return acc;
-            acc[number] = (acc[number] || 0) + 1;
-            return acc;
-        }, {});
-        const duplicateNumbers = Object.entries(numberCounts)
-            .filter(([, count]) => count > 1)
-            .map(([number]) => number);
-
-        if (duplicateNumbers.length > 0) {
-            const rosterScope = getEntryRosterScopeLabel();
-            Toast.fire({
-                icon: 'error',
-                title: language === 'THA'
-                    ? `หมายเลขเสื้อซ้ำใน ${rosterScope}: ${duplicateNumbers.join(', ')}`
-                    : `Duplicate jersey numbers in ${rosterScope}: ${duplicateNumbers.join(', ')}`
-            });
-            return;
-        }
-
-        const confirmation = await Swal.fire({ uiTextLocalized: true,
-            title: language === 'THA' ? ui('ยืนยันการบันทึกรายชื่อ?') : ui('Confirm roster update?'),
-            text: language === 'THA' ? ui(`ระบบจะบันทึกนักกีฬาที่เลือก {0} คนใน {1}`, [validSelectedIds.length, getEntryRosterScopeLabel()]) : ui(`{0} selected player(s) will be saved for {1}.`, [validSelectedIds.length, getEntryRosterScopeLabel()]),
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: PRIMARY_BLUE,
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: t('common.confirm'),
-            cancelButtonText: t('common.cancel')
-        });
-        if (!confirmation.isConfirmed) return;
-
-        setEntryRosterLoading(true);
-        try {
-            await api.updateMyTeamEntryPlayers(entryRosterModal.entry.id, validSelectedIds, selectedPlayers.map(player => ({
-                id: Number(player.id), number: Number(getRosterPlayerNumber(player)), role: getRosterPlayerRole(player)
-            })));
-            Toast.fire({ icon: 'success', title: language === 'THA' ? 'บันทึกรายชื่อรุ่นนี้แล้ว' : 'Roster saved' });
-            setEntryRosterModal(null);
-            fetchData();
-        } catch (err) {
-            Toast.fire({ icon: 'error', title: err.response?.data?.error || (language === 'THA' ? 'บันทึกไม่สำเร็จ' : 'Failed to save roster') });
         } finally {
             setEntryRosterLoading(false);
         }
@@ -1029,20 +938,7 @@ export default function TeamDashboard() {
         ? (language === 'THA' ? "ไม่พบข้อมูลผู้เล่นที่ค้นหา" : "No players found matching your search.")
         : (language === 'THA' ? "ยังไม่มีผู้เล่นในทีม" : "No players added yet.");
 
-    const entryRosterDuplicateNumbers = useMemo(() => {
-        const counts = new Map();
-        entryRosterPlayers
-            .filter(player => entryRosterSelectedIds.includes(player.id))
-            .forEach(player => {
-                const number = String((player.entry_number ?? player.number) || '').trim();
-                if (!number) return;
-                counts.set(number, (counts.get(number) || 0) + 1);
-            });
 
-        return new Set([...counts.entries()]
-            .filter(([, count]) => count > 1)
-            .map(([number]) => number));
-    }, [entryRosterPlayers, entryRosterSelectedIds]);
 
     const openScheduleCompetitions = useMemo(() => (
         myCompetitions.filter(competition => String(competition.status || '').toLowerCase() === 'open')
@@ -1449,9 +1345,11 @@ export default function TeamDashboard() {
                                                     {getTeamGender(teamInfo?.gender || teamInfo?.category) === 'Female' ? language === 'THA' ? ui('หญิง') : ui('Women') : language === 'THA' ? ui('ชาย') : ui('Men')}
                                                 </div>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <Input label={ui("ชื่อ (ไทย)")} value={playerForm.first_name_th || ''} onChange={e => setPlayerForm({ ...playerForm, first_name_th: e.target.value })} /><Input label={ui("First name (English)")} value={playerForm.first_name_en || ''} onChange={e => setPlayerForm({ ...playerForm, first_name_en: e.target.value })} />
-                                                <Input label={ui("นามสกุล (ไทย)")} value={playerForm.last_name_th || ''} onChange={e => setPlayerForm({ ...playerForm, last_name_th: e.target.value })} /><Input label={ui("Last name (English)")} value={playerForm.last_name_en || ''} onChange={e => setPlayerForm({ ...playerForm, last_name_en: e.target.value })} />
+                                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                                                <Input label={ui("ชื่อ (ไทย)")} value={playerForm.first_name_th || ''} onChange={e => setPlayerForm({ ...playerForm, first_name_th: e.target.value })} />
+                                                <Input label={ui("นามสกุล (ไทย)")} value={playerForm.last_name_th || ''} onChange={e => setPlayerForm({ ...playerForm, last_name_th: e.target.value })} />
+                                                <Input label={ui("First name (English)")} value={playerForm.first_name_en || ''} onChange={e => setPlayerForm({ ...playerForm, first_name_en: e.target.value })} />
+                                                <Input label={ui("Last name (English)")} value={playerForm.last_name_en || ''} onChange={e => setPlayerForm({ ...playerForm, last_name_en: e.target.value })} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">
                                                 <Input label={ui("คำนำหน้า")} value={playerForm.title || ''} onChange={e => setPlayerForm({ ...playerForm, title: e.target.value })} />
@@ -1552,6 +1450,9 @@ export default function TeamDashboard() {
                                         title={!getTeamGender(teamInfo?.gender || teamInfo?.category) ? language === 'THA' ? ui('กรุณากำหนดประเภททีมก่อนเพิ่มนักกีฬา') : ui('Set team type before adding players') : undefined}
                                         className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-blue-800 shadow-sm transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#142b50] disabled:cursor-not-allowed disabled:opacity-55">
                                         <Plus size={18} strokeWidth={2.25} />{ui("Add Player")}</button>
+                                </div>
+                                <div className="mb-4">
+                                    <PlayerExcelImport gender={getTeamGender(teamInfo?.gender || teamInfo?.category)} players={players} onImported={fetchData} language={language} />
                                 </div>
                                 {!getTeamGender(teamInfo?.gender || teamInfo?.category) && <p className="text-right text-xs text-amber-700">{language === 'THA' ? ui('กรุณาแก้ไขข้อมูลทีมและเลือกประเภทชายหรือหญิงก่อนเพิ่มนักกีฬา') : ui('Edit team information and choose Men or Women before adding players.')}</p>}
                                 <div className="official-panel rounded-md overflow-hidden">
@@ -1671,7 +1572,7 @@ export default function TeamDashboard() {
                     )}
 
                     {activeTab === 'staff' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <><TeamStaffAssignments competitions={myCompetitions} onSaved={() => { api.getMyStaff().then(response => setStaff(response.data || [])).catch(error => console.error('Refresh staff assignments failed:', error)); }} /><div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-1">
                                 <div className="official-panel rounded-md sticky top-0 overflow-hidden">
                                     <div className="official-panel-header px-6 py-4 flex items-center justify-between">
@@ -1751,7 +1652,7 @@ export default function TeamDashboard() {
                                     )}
                                 </div>
                             </div>
-                        </div>
+                        </div></>
                     )}
 
                     {/* ========================== PLAYER STATS TAB ========================== */}
@@ -1900,13 +1801,16 @@ export default function TeamDashboard() {
                                                             <div>
                                                                 <div className="font-medium text-gray-900">{getAgeGroupLabel(c)} / {getGenderLabel(c.gender)}</div>
                                                                 <div className="mt-1 text-xs text-gray-500">{ui("Registration:")}{' '}{(c.registration_status) || (ui('pending'))}</div>
+                                                                <div className="mt-1 text-xs text-blue-700">{c.roster_count || 0} {language === 'THA' ? 'คน' : 'players'} · {c.roster_locked_at ? (language === 'THA' ? 'ล็อกรายชื่อแล้ว' : 'Roster locked') : (language === 'THA' ? 'ซิงก์อัตโนมัติ' : 'Auto sync')}</div>
+                                                                {c.roster_sync_error && <p className="mt-1 max-w-lg text-xs text-red-600">{c.roster_sync_error}</p>}
                                                             </div>
                                                             <div className="flex flex-wrap items-center gap-2">
                                                                 <button
                                                                     onClick={() => openEntryRosterModal(c)}
+                                                                    disabled={entryRosterLoading}
                                                                     className="px-4 py-2 bg-blue-600 border border-blue-600 text-white font-medium rounded-md text-sm hover:bg-blue-700 transition cursor-pointer flex items-center gap-2"
                                                                 >
-                                                                    <Users size={16} />{ui("Roster")}</button>
+                                                                    <Users size={16} />{language === 'THA' ? 'ดูรายชื่อนักกีฬา' : 'View players'}</button>
                                                                 <button
                                                                     onClick={() => {
                                                                         setActiveTab('schedule');
@@ -2340,131 +2244,31 @@ export default function TeamDashboard() {
             )}
 
             {entryRosterModal && (
-                <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-md border border-gray-200 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-start bg-gray-50">
-                            <div>
-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <Users size={20} className="text-gray-500" />
-                                    {language === 'THA' ? ui('จัดรายชื่อนักกีฬา') : ui('Manage Roster')}
-                                </h3>
-                                <p className="text-sm text-gray-500 mt-1">{normalizeCompetitionTitle(entryRosterModal.competition)}</p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    {(entryRosterModal.entry.age_group_name) || (ui('General'))} / {entryRosterModal.entry.competition_gender}
-                                </p>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-label={language === 'THA' ? 'รายชื่อนักกีฬา' : 'Competition players'}>
+                    <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-md bg-white text-gray-900">
+                        <div className="flex items-start justify-between border-b p-5">
+                            <div><h3 className="text-lg font-bold">{language === 'THA' ? 'รายชื่อนักกีฬา' : 'Competition players'}</h3>
+                                <p>{normalizeCompetitionTitle(entryRosterModal.competition)} · {entryRosterModal.entry.age_group_name} / {entryRosterModal.entry.competition_gender}</p>
+                                <p className="mt-2 text-sm">{entryRosterModal.entry.roster_locked_at ? (language === 'THA' ? 'ล็อกรายชื่อแล้ว' : 'Roster locked') : (language === 'THA' ? 'ซิงก์จากทะเบียนทีมอัตโนมัติ' : 'Automatically synced from team register')}</p>
                             </div>
-                            <button onClick={() => setEntryRosterModal(null)} className="text-gray-400 hover:text-gray-600">
-                                <X size={20} />
-                            </button>
+                            <button type="button" onClick={() => setEntryRosterModal(null)} aria-label={language === 'THA' ? 'ปิด' : 'Close'}><X size={20} /></button>
                         </div>
-
-                        <div className="px-6 py-3 border-b border-gray-100 flex items-center justify-between text-sm">
-                            <span className="font-medium text-gray-700">
-                                {language === 'THA' ? ui('เลือกแล้ว') : ui('Selected')}: {entryRosterSelectedIds.length}
-                                {entryRosterModal.entry.max_players ? ` / ${entryRosterModal.entry.max_players}` : ''}
-                            </span>
-                            <span className="text-gray-500">
-                                {language === 'THA' ? ui('เลือกได้เฉพาะเพศตรงรุ่น และนักกีฬาที่ยังไม่ลงรุ่นอื่น') : ui('Only matching gender and unassigned players can be selected')}
-                            </span>
+                        <div className="overflow-auto p-5">
+                            {entryRosterModal.entry.roster_sync_error && <p role="alert" className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">{entryRosterModal.entry.roster_sync_error}</p>}
+                            <p className="mb-4 text-sm text-gray-600">{language === 'THA' ? 'แก้ไขรายชื่อและเบอร์ที่หน้าจัดการนักกีฬา ระบบซิงก์จนกว่าจะปิดรับสมัคร ถึงวันเริ่มแข่งขัน หรือใช้รายชื่อในแมตช์แล้ว หลังล็อก การแก้ทะเบียนทีมจะไม่เปลี่ยนรายชื่อรายการนี้' : 'Edit players and jersey numbers in the team register. Sync stops when registration closes, the competition starts, or a match uses the roster. Locked rosters retain their saved details.'}</p>
+                            <p className="mb-3 font-semibold">{language === 'THA' ? 'รายชื่อในรายการ' : 'Registered players'}: {entryRosterPlayers.filter(p => Number(p.selected) === 1).length} / {entryRosterModal.entry.max_players || '—'}</p>
+                            <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="border p-2">#</th><th className="border p-2">{language === 'THA' ? 'ชื่อ–นามสกุล' : 'Name'}</th><th className="border p-2">{language === 'THA' ? 'บทบาท' : 'Role'}</th></tr></thead>
+                                <tbody>{entryRosterPlayers.filter(p => Number(p.selected) === 1).map(p => <tr key={p.id}><td className="border p-2">{p.entry_number}</td><td className="border p-2">{displayNames.personFirstName(p)} {displayNames.personLastName(p)}</td><td className="border p-2">{p.entry_role || '—'} {Number(p.entry_is_captain) === 1 ? '(C)' : ''}</td></tr>)}</tbody></table></div>
+                            {!entryRosterModal.entry.roster_locked_at && <p className="mt-4 text-sm text-gray-600">{language === 'THA' ? 'นักกีฬาที่ไม่ผ่านเพศ/อายุ หรือถูกจัดลงรุ่นอายุน้อยกว่าในรายการเดียวกัน จะไม่อยู่ในรายชื่อนี้ รุ่น U ใช้อายุไม่เกินรุ่นในวันเริ่มแข่งขัน' : 'Players outside gender/age criteria or assigned to a younger eligible category are excluded. U categories use age at most the category limit on the competition start date.'}</p>}
                         </div>
-
-                        <div className="px-6 py-3 border-b border-gray-100 bg-blue-50 text-xs leading-relaxed text-blue-800">
-                            {language === 'THA' ? ui(`กำลังจัดรายชื่อสำหรับ {0} นักกีฬา 1 คนลงได้เพียง 1 รุ่น และเลขเสื้อห้ามซ้ำเฉพาะรายชื่อของรุ่น/รายการนี้`, [getEntryRosterScopeLabel()]) : ui(`Editing roster for {0}. Each player can be assigned to one category only; jersey number duplicates are checked within this roster.`, [getEntryRosterScopeLabel()])}
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {entryRosterPlayers.length === 0 ? (
-                                <EmptyState text={language === 'THA' ? 'ยังไม่มีนักกีฬาในทีมนี้' : 'No players found for this team.'} />
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {entryRosterPlayers.map(player => {
-                                        const selected = entryRosterSelectedIds.includes(Number(player.id));
-                                        const locked = Boolean(player.roster_locked);
-                                        const disabled = !player.gender_eligible || locked;
-                                        const rosterNumber = String(getRosterPlayerNumber(player) || '').trim();
-                                        const hasDuplicateNumber = selected && rosterNumber && entryRosterDuplicateNumbers.has(rosterNumber);
-                                        const lockedRosterLabel = getLockedRosterLabel(player);
-                                        return (
-                                            <button
-                                                key={player.id}
-                                                type="button"
-                                                onClick={() => toggleEntryRosterPlayer(player)}
-                                                disabled={disabled || entryRosterLoading}
-                                                className={`text-left p-4 rounded-md border transition flex items-center justify-between gap-4 ${
-                                                    hasDuplicateNumber
-                                                        ? 'border-red-300 bg-red-50'
-                                                        : selected
-                                                        ? 'border-blue-500 bg-blue-50'
-                                                        : disabled
-                                                            ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                                                            : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                <div className="min-w-0">
-                                                    <div className="font-bold text-gray-900 truncate">
-                                                        #{rosterNumber || '-'} {displayNames.personFirstName(player)} {displayNames.personLastName(player)}
-                                                    </div>
-                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                                                        <span>{player.gender || '-'} / {player.position || '-'} / {player.birth_date ? ui(`{0} yrs`, [calculateAge(player.birth_date)]) : '-'}</span>
-                                                        {hasDuplicateNumber && (
-                                                            <span className="rounded border border-red-200 bg-white px-1.5 py-0.5 font-semibold text-red-600">
-                                                                {language === 'THA' ? ui('เลขซ้ำในรุ่นนี้') : ui('Duplicate in roster')}
-                                                            </span>
-                                                        )}
-                                                        {locked && (
-                                                            <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">
-                                                                {language === 'THA' ? ui(`ลงแล้ว: {0}`, [lockedRosterLabel || 'รุ่นอื่น']) : ui(`Assigned: {0}`, [lockedRosterLabel || 'another category'])}
-                                                            </span>
-                                                        )}
-                                                        {!player.gender_eligible && (
-                                                            <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-semibold text-gray-500">
-                                                                {language === 'THA' ? ui('เพศไม่ตรงรุ่น') : ui('Gender mismatch')}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
-                                                    selected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'
-                                                }`}>
-                                                    {selected ? <SystemCheck size={16} aria-hidden="true" /> : null}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-
-                        <section className="space-y-2 border-t p-6">
-                            <p>{ui("เบอร์และบทบาทเฉพาะรายการนี้ · ไม่เปลี่ยนทะเบียนหลัก")}</p>
-                            {entryRosterPlayers.filter(player => entryRosterSelectedIds.includes(Number(player.id))).map(player => <div key={player.id} className="flex flex-wrap items-center gap-2 text-sm">
-                                <span>{displayNames.personFirstName(player)} {displayNames.personLastName(player)}</span>
-                                <input aria-label={'เบอร์รายรายการ ' + player.id} className="w-20 rounded border p-2" type="number" min="1" max="999" value={getRosterPlayerNumber(player)} disabled={entryRosterLoading} onChange={event => setEntryRosterPlayers(previous => previous.map(p => p.id === player.id ? {...p,entry_number:event.target.value} : p))} />
-                                <select aria-label={'บทบาทรายรายการ ' + player.id} className="rounded border p-2" value={getRosterPlayerRole(player)} disabled={entryRosterLoading} onChange={event => setEntryRosterPlayers(previous => previous.map(p => p.id === player.id ? {...p,entry_role:event.target.value,entry_role_edited:true} : p))}>
-                                    {['','S','OH','OPP','MB','L','C','L1','L2','L1+C','L2+C'].map(role => <option key={role} value={role}>{(role) || (ui('ทั่วไป'))}</option>)}
-                                </select>
-                            </div>)}
-                        </section>
-                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setEntryRosterModal(null)}
-                                className="px-4 py-2 border rounded-md text-sm font-medium text-blue-700 bg-white border-blue-200 hover:bg-blue-50"
-                            >
-                                {language === 'THA' ? ui('ยกเลิก') : ui('Cancel')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={saveEntryRoster}
-                                disabled={entryRosterLoading}
-                                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-200 disabled:cursor-not-allowed text-white rounded-md text-sm font-medium"
-                            >
-                                {language === 'THA' ? ui('บันทึกรายชื่อ') : ui('Save Roster')}
-                            </button>
+                        <div className="flex justify-end gap-3 border-t p-4">
+                            <button type="button" onClick={() => { setEntryRosterModal(null); setActiveTab('roster'); }} className="rounded border px-4 py-2">{language === 'THA' ? 'ไปจัดการนักกีฬา' : 'Manage team players'}</button>
+                            <button type="button" onClick={() => setEntryRosterModal(null)} className="rounded bg-blue-600 px-4 py-2 text-white">{language === 'THA' ? 'ปิด' : 'Close'}</button>
                         </div>
                     </div>
                 </div>
             )}
+
 
         </div>
     );

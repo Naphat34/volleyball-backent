@@ -6,6 +6,8 @@ import {
   Key, Loader2, Mail, Phone, Plus, Save, Search, Shield, Trash2, Trophy, Users, X
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useLanguage } from '../../context/LanguageContext';
+import { groupPublicCompetitions, findCompetitionGroupById } from '../../utils/scorer/publicCompetitionGrouping';
 
 const normalizeGender = (value) => {
   const gender = String(value || '').trim().toLowerCase();
@@ -49,6 +51,7 @@ const teamMatchesSearch = (team, searchTerm) => {
 };
 
 export default function ClubsTab({ initialSearch = '' }) {
+  const { language } = useLanguage();
   const displayNames = useDisplayNames();
     const ui = useUiTranslation();
   useEffect(() => { setSearchTerm(initialSearch); }, [initialSearch]);
@@ -163,16 +166,23 @@ export default function ClubsTab({ initialSearch = '' }) {
     [competitions]
   );
 
+  const openCompetitionGroups = useMemo(
+    () => groupPublicCompetitions(openCompetitions, language),
+    [openCompetitions, language]
+  );
+
   const filteredEntries = useMemo(() => {
     const openCompetitionIds = new Set(openCompetitions.map((competition) => Number(competition.id)));
+    const group = findCompetitionGroupById(openCompetitionGroups, selectedCompetition);
+    const selectedIds = new Set((group?.items || []).map(competition => Number(competition.id)));
     return teamEntries.filter((entry) => {
       const matchesCompetition = selectedCompetition === 'all'
         || (selectedCompetition === 'open'
           ? openCompetitionIds.has(Number(entry.competition_id))
-          : Number(entry.competition_id) === Number(selectedCompetition));
+          : selectedIds.has(Number(entry.competition_id)));
       return matchesCompetition && teamMatchesSearch(entry, searchTerm);
     });
-  }, [teamEntries, searchTerm, selectedCompetition, openCompetitions]);
+  }, [teamEntries, searchTerm, selectedCompetition, openCompetitions, openCompetitionGroups]);
 
   const groupedEntries = useMemo(() => {
     const groups = new Map();
@@ -362,7 +372,7 @@ export default function ClubsTab({ initialSearch = '' }) {
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <label htmlFor="team-competition-filter" className="text-sm font-semibold text-blue-950">{ui("รายการแข่งขันที่เปิดรับสมัคร")}<span className="ml-2 text-xs font-normal text-blue-700">{openCompetitions.length}{' '}{ui("รายการ")}</span>
+        <label htmlFor="team-competition-filter" className="text-sm font-semibold text-blue-950">{ui("รายการแข่งขันที่เปิดรับสมัคร")}<span className="ml-2 text-xs font-normal text-blue-700">{openCompetitionGroups.length}{' '}{ui("รายการ")}</span>
         </label>
         <select
           id="team-competition-filter"
@@ -371,8 +381,8 @@ export default function ClubsTab({ initialSearch = '' }) {
           className="min-h-10 w-full rounded-lg border border-blue-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-200 sm:max-w-md"
         >
           <option value="open">{ui("ทุกรายการแข่งขันที่เปิดรับสมัคร")}</option>
-          {openCompetitions.map((competition) => (
-            <option key={competition.id} value={String(competition.id)}>{displayNames.competitionName(competition) || (ui(`รายการแข่งขัน #{0}`, [competition.id]))}</option>
+          {openCompetitionGroups.map((group) => (
+            <option key={group.key} value={String(group.items[0].id)}>{group.title || (ui(`รายการแข่งขัน #{0}`, [group.items[0].id]))}</option>
           ))}
           <option value="all">{ui("ดูทีมจากทุกรายการแข่งขัน (รวมรายการปิด)")}</option>
         </select>

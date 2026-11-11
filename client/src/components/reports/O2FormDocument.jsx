@@ -1,5 +1,5 @@
 import React from 'react';
-import { Page, Text as PdfText, View, Document, StyleSheet, Font, Image, Svg, Circle } from '@react-pdf/renderer';
+import { Page, Text as PdfText, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
 import { compositionModel, personNames, value, dateLabel } from '../../utils/reports/teamComposition';
 import '../../utils/reports/reactPdfBrowserCompat';
 
@@ -9,12 +9,13 @@ const Text = ({ children, ...props }) => <PdfText {...props}>{React.Children.map
 const navy = '#102f50';
 const styles = StyleSheet.create({
   page: { padding: 22.5, minHeight: 595.28, fontFamily: 'CompositionSarabun', fontSize: 6.7, lineHeight: 1.15, color: '#20272d' },
-  header: { height: 71, border: '0.7pt solid #22313b', flexDirection: 'row', padding: 7, alignItems: 'center' },
-  competitionLogo: { width: 126, height: 57, objectFit: 'contain', marginRight: 16 },
-  headerContent: { flex: 1, height: 57 },
+  header: { minHeight: 80, border: '0.7pt solid #22313b', flexDirection: 'row', padding: 7, alignItems: 'center' },
+  competitionLogo: { width: 126, height: 57, objectFit: 'contain', marginRight: 10 },
+  headerContent: { flex: 1 },
   title: { color: navy, fontSize: 12, lineHeight: 1.3, fontWeight: 700 },
   subtitle: { color: '#667078', fontSize: 8, lineHeight: 1.3 },
-  rule: { borderBottom: '0.8pt solid #c9274b', paddingBottom: 3, marginBottom: 7 },
+  competitionSubtitle: { marginTop: 3, flexShrink: 0 },
+  rule: { borderBottom: '0.8pt solid #c9274b', paddingBottom: 4, marginBottom: 7, flexShrink: 0 },
   details: { flexDirection: 'row', alignItems: 'center' },
   teamLogo: { width: 30, height: 29, objectFit: 'contain', marginRight: 9 },
   teamName: { fontSize: 12, lineHeight: 1.3, fontWeight: 700 },
@@ -23,7 +24,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', borderLeft: '0.5pt solid #949da6', borderBottom: '0.5pt solid #949da6', minHeight: 11.5 },
   cell: { borderRight: '0.5pt solid #949da6', paddingHorizontal: 3, paddingVertical: 1, justifyContent: 'center' },
   tableHead: { backgroundColor: '#e9eef3', borderTop: '0.5pt solid #949da6', height: 21, fontWeight: 700 },
-  legend: { fontSize: 6.5, color: '#68717a', marginTop: 3 },
   bottom: { flexDirection: 'row', gap: 16, marginTop: 4 },
   subhead: { backgroundColor: '#e9eef3', border: '0.5pt solid #949da6', paddingHorizontal: 4, paddingVertical: 1, color: navy, fontWeight: 700 },
   footer: { position: 'absolute', bottom: 23, left: 22.5, right: 22.5, borderTop: '0.7pt solid #22313b', paddingTop: 3, flexDirection: 'row', color: '#68717a', fontSize: 6.5 },
@@ -80,15 +80,14 @@ export default function O2FormDocument({ teamInfo = {}, players = [], staff = []
   return <Document title={`Team composition - ${teamEn || teamTh}`} author="Volley Manager">{model.pages.map((pageRows, pageIndex) => <Page key={pageIndex} size="A4" orientation="landscape" style={styles.page} wrap={false}>
     <View style={styles.header}>
       {competitionLogo && <Image src={competitionLogo} style={styles.competitionLogo} />}
-      <View style={styles.headerContent}><View style={styles.rule}><Text style={styles.title}>{value(teamInfo.competition_name_en, teamInfo.competition_name, 'Volleyball competition')}</Text>{teamInfo.competition_name_th && <Text style={styles.subtitle}>{teamInfo.competition_name_th}</Text>}</View><View style={styles.details}><View style={{ width: 120 }}><Text style={{ fontSize: 9, lineHeight: 1.3 }}>Team composition</Text><Text style={{ color: '#68717a', fontSize: 6.5 }}>{`Leg ${teamInfo.leg || 1} · Revision ${teamInfo.revision || 1} · ${dateLabel(reference)}`}</Text></View>{teamLogo && <Image src={teamLogo} style={styles.teamLogo} />}<View style={{ flex: 1 }}><Text style={styles.teamName}>{teamTh || teamEn || '-'}</Text>{teamTh && teamEn && <Text style={styles.subtitle}>{teamEn}</Text>}</View></View></View>
+      <View style={styles.headerContent}><View style={styles.rule}><Text style={styles.title}>{value(teamInfo.competition_name_en, teamInfo.competition_name, 'Volleyball competition')}</Text>{teamInfo.competition_name_th && <Text style={[styles.subtitle, styles.competitionSubtitle]}>{teamInfo.competition_name_th}</Text>}</View><View style={styles.details}><View style={{ width: 120 }}><Text style={{ fontSize: 9, lineHeight: 1.3 }}>Team composition</Text><Text style={{ color: '#68717a', fontSize: 6.5 }}>{[teamInfo.show_leg !== false ? `Leg ${teamInfo.leg || 1}` : '', `Revision ${teamInfo.revision || 1}`, dateLabel(reference)].filter(Boolean).join(' · ')}</Text></View>{teamLogo && <Image src={teamLogo} style={styles.teamLogo} />}<View style={{ flex: 1 }}><Text style={styles.teamName}>{teamTh || teamEn || '-'}</Text>{teamTh && teamEn && <Text style={styles.subtitle}>{teamEn}</Text>}</View></View></View>
       {associationLogo && <Image src={associationLogo} style={styles.associationLogo} />}
     </View>
     <Text style={styles.section}>PLAYERS</Text>
     <View style={[styles.row, styles.tableHead]}>{[[6.4, 'Shirt no'], [10.7, 'Last name'], [9.3, 'First name'], [16.4, 'ชื่อ - นามสกุล'], [10.7, 'Shirt name'], [3.8, 'Pos.'], [7.5, 'Birthdate'], [3.2, 'Age'], [4.6, 'Height\n[cm]'], [4.6, 'Weight\n[kg]'], [5.4, 'FIVB ID'], [17.4, 'ภูมิลำเนา / Domicile']].map(([width, label]) => <Cell key={label} width={width} center={width < 8}>{label}</Cell>)}</View>
-    {Array.from({ length: 20 }, (_, index) => { const p = pageRows[index]; return <View style={[styles.row, { height: 11.5 }]} key={index}>
-      <View style={[styles.cell, { width: '4%', flexDirection: 'row', alignItems: 'center', gap: 2 }]}><Text>{p ? p.number || '-' : ' '}</Text>{p?.foreign && <Svg width={3} height={3}><Circle cx={1.5} cy={1.5} r={1.5} fill="#1b59c4" /></Svg>}</View><Cell width={2.4} center style={{ fontWeight: 700 }}>{p?.role || ' '}</Cell><Cell width={10.7}>{p ? String(p.last || '-').toUpperCase() : ' '}</Cell><Cell width={9.3}>{p ? p.first || '-' : ' '}</Cell><Cell width={16.4}>{p ? p.th || '-' : ' '}</Cell><Cell width={10.7}>{p ? String(p.shirt || '-').toUpperCase() : ' '}</Cell><Cell width={3.8} center>{p ? p.position || '-' : ' '}</Cell><Cell width={7.5} center>{p ? p.birth || '-' : ' '}</Cell><Cell width={3.2} center>{p ? p.age ?? '-' : ' '}</Cell><Cell width={4.6} center>{p ? p.height ?? '-' : ' '}</Cell><Cell width={4.6} center>{p ? p.weight ?? '-' : ' '}</Cell><Cell width={5.4} center>{p ? p.fivb || '-' : ' '}</Cell><Cell width={17.4}>{p ? p.domicile || '-' : ' '}</Cell>
-    </View>; })}
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}><Svg width={3} height={3}><Circle cx={1.5} cy={1.5} r={1.5} fill="#1b59c4" /></Svg><Text style={{ fontSize: 6.5, color: '#68717a' }}>ต่างชาติ / Foreign</Text></View>
+    {pageRows.map(p => <View style={[styles.row, { height: 11.5 }]} key={p.key}>
+      <View style={[styles.cell, { width: '4%', flexDirection: 'row', alignItems: 'center', gap: 2 }]}><Text>{p ? p.number || '-' : ' '}</Text></View><Cell width={2.4} center style={{ fontWeight: 700 }}>{p?.role || ' '}</Cell><Cell width={10.7}>{p ? String(p.last || '-').toUpperCase() : ' '}</Cell><Cell width={9.3}>{p ? p.first || '-' : ' '}</Cell><Cell width={16.4}>{p ? p.th || '-' : ' '}</Cell><Cell width={10.7}>{p ? String(p.shirt || '-').toUpperCase() : ' '}</Cell><Cell width={3.8} center>{p ? p.position || '-' : ' '}</Cell><Cell width={7.5} center>{p ? p.birth || '-' : ' '}</Cell><Cell width={3.2} center>{p ? p.age ?? '-' : ' '}</Cell><Cell width={4.6} center>{p ? p.height ?? '-' : ' '}</Cell><Cell width={4.6} center>{p ? p.weight ?? '-' : ' '}</Cell><Cell width={5.4} center>{p ? p.fivb || '-' : ' '}</Cell><Cell width={17.4}>{p ? p.domicile || '-' : ' '}</Cell>
+    </View>)}
     <View style={styles.bottom}><Officials staff={staff} /><Uniforms team={teamInfo} /><View style={{ flex: 1 }}><Text style={styles.section}>STATISTICS  สถิติ</Text><View style={[styles.row, styles.tableHead, { height: 12 }]}>{['Data', 'Minimum', 'Average', 'Maximum'].map(label => <Cell key={label} width={label === 'Data' ? 34 : 22} center>{label}</Cell>)}</View>{model.stats.map(stat => <View key={stat.key} style={styles.row}><Cell width={34} style={{ fontWeight: 700 }}>{({ age: 'Age:', height: 'Height [cm]:', weight: 'Weight [kg]:' })[stat.key]}</Cell>{[stat.min, stat.average, stat.max].map((v, i) => <Cell key={i} width={22} center>{v}</Cell>)}</View>)}</View></View>
     <View style={styles.footer}><Text style={{ width: '42%' }}>{value(teamInfo.association_name, teamInfo.federation_name, 'Volley Manager')}</Text><Text style={{ width: '30%', textAlign: 'center' }}>{timestamp}</Text><Text style={{ width: '28%', textAlign: 'right' }}>{`Page ${pageIndex + 1} of ${model.pages.length}`}</Text></View>
   </Page>)}</Document>;

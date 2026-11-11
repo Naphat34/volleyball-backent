@@ -1,5 +1,5 @@
 import { competitionName, localizedReference } from '../i18n/competitionNames.js';
-import { cleanCompetitionTitle } from '../formatters';
+import { cleanCompetitionTitle } from '../formatters.js';
 
 export const normalizePublicGender = (value) => {
   const gender = String(value || '').trim().toLowerCase();
@@ -58,8 +58,8 @@ export const groupPublicCompetitions = (competitions = [], language = 'THA') => 
   const groups = new Map();
 
   competitions.forEach((competition) => {
-    const title = cleanCompetitionTitle(competition?.title || competition?.name || '');
-    const key = title.toLowerCase();
+    const title = cleanCompetitionTitle(competition?.title_th || competition?.title_en || competition?.title || competition?.name || '');
+    const key = title.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase() || `competition-${competition.id}`;
     if (!groups.has(key)) {
       groups.set(key, {
         key,

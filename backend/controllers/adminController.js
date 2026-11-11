@@ -211,8 +211,8 @@ module.exports = {
     }
 };
 
-module.exports.updatePlayer = withAthleteTransaction(db, module.exports.updatePlayer);
+module.exports.updatePlayer = withAthleteTransaction(db, module.exports.updatePlayer, { syncRoster: 'admin' });
 
-module.exports.deletePlayer = withAthleteTransaction(db, module.exports.deletePlayer);
+module.exports.deletePlayer = withAthleteTransaction(db, module.exports.deletePlayer, { syncRoster: 'admin' });
 
-module.exports.addPlayerToTeam = withAthleteTransaction(db,module.exports.addPlayerToTeam);
+module.exports.addPlayerToTeam = withAthleteTransaction(db,module.exports.addPlayerToTeam, { syncRoster: 'admin' });

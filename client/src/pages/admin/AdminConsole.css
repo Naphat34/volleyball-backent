@@ -72,6 +72,7 @@
 .ac-conflict>div {display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;}
 .ac-report-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0;}
 .ac-report-grid .ac-panel {padding:22px;margin:0;}
+.ac-report-composition.is-expanded {grid-column:1 / -1;}
 .ac-report-grid h3 {margin:10px 0;}
 .ac-report-grid p,.ac-report-vims p {margin:8px 0 16px;color:var(--ad-muted);font-size:13px;}
 .ac-report-icon {color:var(--ad-accent);}

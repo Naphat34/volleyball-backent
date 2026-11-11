@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const { createRequire } = require('node:module');
-const { normalizeAthleteRoles, withAthleteTransaction } = require('../utils/athleteIntegrity');
+const { normalizeAthleteRoles, withAthleteTransaction, validateTeamPlayerNumber, athleteError } = require('../utils/athleteIntegrity');
 const { linkAthlete, retainUnchangedLinks } = require('../utils/customAthleteLinks');
 
 test('partial role updates preserve current Libero, reject double flags, and clear flags when leaving L', () => {
@@ -33,17 +33,32 @@ function controller(file,query) {
     vm.runInNewContext(fs.readFileSync(filename,'utf8'),scope,{filename});
     return Object.keys(scope.module.exports).length ? scope.module.exports : scope.exports;
 }
-test('team master number edit does not rewrite competition snapshots',async()=>{
+test('team master number edit does not rewrite locked competition snapshots',async()=>{
     const queries=[];
     const c=controller('../controllers/teamController',async(sql,args)=>{
         queries.push(sql);
         if(sql.includes('FROM users u'))return {rows:[{team_id:2}]};
+        if(sql.includes('SELECT te.*')) return {rows:[{id:3,roster_locked_at:'2026-01-01'}]};
+        if(sql.includes('AND (? IS NULL OR id<>?)')) return {rows:[]};
         if(sql.startsWith('UPDATE players'))return {rows:[],affectedRows:1};
         return {rows:[{id:5,team_id:2,number:args?.[0]===25?25:7,position:'OH'}]};
     });
     const res=response();await c.updatePlayer({params:{id:5},user:{id:1},body:{number:25}},res);
     assert.equal(res.code,200);assert.ok(queries.some(sql=>sql.startsWith('UPDATE players')));
-    assert.ok(queries.every(sql=>!sql.includes('team_entry_players')));
+    assert.ok(queries.every(sql=>!sql.trim().startsWith('DELETE FROM team_entry_players') && !sql.trim().startsWith('INSERT INTO team_entry_players')));
+});
+
+test('jersey validation checks team scope, excludes the edited player, and normalizes leading zeroes', async()=>{
+    const calls=[];
+    const connection={query:async(sql,args)=>{calls.push({sql,args});return {rows:[]};}};
+    await validateTeamPlayerNumber(connection,2,'007',5);
+    assert.deepEqual(calls[0].args,[2,7,5,5]);
+    assert.ok(calls[0].sql.includes('COALESCE(is_active,1)=1'));
+    await assert.rejects(validateTeamPlayerNumber({query:async()=>({rows:[{id:6}]})},2,7,5),error=>error.status===409);
+    for(const value of ['',0,-1,1.5,'7x',1000,null]) await assert.rejects(validateTeamPlayerNumber(connection,2,value),error=>error.status===400);
+    assert.equal(calls.length,1,'invalid input must not reach SQL');
+    assert.equal(athleteError({code:'ER_DUP_ENTRY',message:'uq_players_team_active_number'}).status,409);
+    assert.match(athleteError({code:'ER_DUP_ENTRY',message:'uq_players_team_active_number'}).message,/Jersey number/);
 });
 test('both player delete endpoints archive and preserve referenced rows',async()=>{
     for(const file of ['../controllers/teamController','../controllers/adminController']){
@@ -67,20 +82,10 @@ test('editing/reordering custom roster invalidates links instead of attaching a 
     assert.ok(queries.some(sql=>sql.startsWith('DELETE')));
 });
 
-test('entry saves preserve their own number, accept explicit overrides, and reject edits after match activity',async()=>{
-    for(const mode of ['preserve','override','history']) {
-        const queries=[];
-        const c=controller('../controllers/competitionsController',async(sql,args)=>{
-            const text=sql.trim();queries.push({text,args});
-            if(text.startsWith('SELECT team_id FROM users'))return {rows:[{team_id:2}]};
-            if(text.includes('FROM team_entries te') && text.includes('WHERE te.id'))return {rows:[{id:3,team_id:2,competition_id:4,max_players:14}]};
-            if(text.startsWith('SELECT m.id FROM matches'))return {rows:mode==='history'?[{id:8}]:[]};
-            if(text.startsWith('SELECT * FROM team_entry_players'))return {rows:[{player_id:5,number:7,role:'OH',is_captain:0,is_libero1:0,is_libero2:0,is_playing:1}]};
-            if(text.startsWith('SELECT p.id, p.team_id'))return {rows:[{id:5,team_id:2,number:22,position:'OH',is_active:1}]};
-            return {rows:[],affectedRows:1};
-        });
-        const res=response();await c.updateMyTeamEntryPlayers({params:{entryId:3},user:{id:1},body:{player_ids:[5],...(mode==='override'?{players:[{id:5,number:9,role:'L1'}]}:{})}},res);
-        if(mode==='history') {assert.equal(res.code,409);assert.ok(!queries.some(q=>q.text.startsWith('DELETE')));}
-        else {assert.equal(res.code,200);const inserted=queries.find(q=>q.text.startsWith('INSERT INTO team_entry_players'));assert.equal(inserted.args[2],mode==='override'?9:7);assert.ok(!queries.some(q=>q.text.startsWith('UPDATE players')));}
-    }
+test('manual entry saves are rejected because rosters come from the team register',async()=>{
+    const queries=[];
+    const c=controller('../controllers/competitionsController',async sql=>{queries.push(sql);return {rows:[]};});
+    const res=response();
+    await c.updateMyTeamEntryPlayers({params:{entryId:3},user:{id:1},body:{player_ids:[5]}},res);
+    assert.equal(res.code,409);assert.equal(queries.length,0);
 });

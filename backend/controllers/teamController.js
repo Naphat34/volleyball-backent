@@ -981,7 +981,7 @@ exports.addPlayerToMyTeam = async (req, res, athleteConnection) => {
     console.error(err);
     if (isDuplicateKeyError(err)) {
       return res.status(409).json({
-        error: 'Player number reuse is blocked by an old database index. Please run the latest migrations and try again.'
+        error: athleteError(err).message
       });
     }
     const failure = athleteError(err); res.status(failure.status).json({ error: failure.message });
@@ -1711,8 +1711,8 @@ exports.getMyMatchesByGender = async (req, res) => {
   }
 };
 
-exports.addPlayerToMyTeam = withAthleteTransaction(db, exports.addPlayerToMyTeam);
+exports.addPlayerToMyTeam = withAthleteTransaction(db, exports.addPlayerToMyTeam, { syncRoster: true });
 
-exports.updatePlayer = withAthleteTransaction(db, exports.updatePlayer);
+exports.updatePlayer = withAthleteTransaction(db, exports.updatePlayer, { syncRoster: true });
 
-exports.deletePlayer = withAthleteTransaction(db, exports.deletePlayer);
+exports.deletePlayer = withAthleteTransaction(db, exports.deletePlayer, { syncRoster: true });

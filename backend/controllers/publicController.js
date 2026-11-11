@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { refreshTeamEntries, refreshCompetitionEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { visStatisticsSource } = require('../utils/visStatistics');
 
 const hasTableColumn = async (tableName, columnName) => {
@@ -61,6 +62,7 @@ module.exports = {
     async getCompetitionTeams(req, res) {
         try {
             const { competitionId } = req.params;
+            await refreshCompetitionEntries(db, competitionId);
             const [rows] = await db.query(`
                 SELECT
                        te.id as team_entry_id,
@@ -91,8 +93,9 @@ module.exports = {
             let rows = [];
 
             if (competitionId) {
+                await refreshTeamEntries(db, teamId);
                 const [entryRows] = await db.query(`
-                    SELECT p.id,
+                    SELECT p.id, tep.athlete_snapshot,
                         p.first_name,
                         p.last_name,
                         COALESCE(tep.role, p.position) as position,
@@ -114,10 +117,10 @@ module.exports = {
                       AND (tep.is_playing = 1 OR tep.is_playing = true OR tep.is_playing IS NULL)
                     ORDER BY COALESCE(tep.number, p.number) ASC, p.id ASC
                 `, [teamId, competitionId]);
-                rows = entryRows;
+                rows = entryRows.map(restoreSnapshot);
             }
 
-            if (!rows.length) {
+            if (!rows.length && !competitionId) {
                 const [fallbackRows] = await db.query(`
                     SELECT id,
                         first_name,

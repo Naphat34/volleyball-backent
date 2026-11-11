@@ -1,3 +1,4 @@
+import { rewriteApiUrls } from './utils/common/apiResponse';
 import axios from 'axios';
 import { getAuthToken } from './auth/authStorage';
 import { offlineMode } from './offline/offlineAuth';
@@ -35,30 +36,7 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
-    const replaceLocalhost = (data) => {
-      if (typeof data === 'string') {
-        return data
-          // 1. เปลี่ยน http://localhost:3000 เป็น API_ORIGIN ที่ตั้งค่าไว้
-          .replace(/http:\/\/localhost:3000/g, API_ORIGIN)
-          // 2. ป้องกัน Mixed Content โดยบังคับเปลี่ยน http:// ของ Render ให้เป็น https:// ทั้งหมด
-          .replace(/^http:\/\/(.*\.onrender\.com)/g, 'https://$1');
-      }
-      if (Array.isArray(data)) {
-        return data.map(replaceLocalhost);
-      }
-      if (data !== null && typeof data === 'object') {
-        const updatedData = {};
-        for (const key in data) {
-          updatedData[key] = replaceLocalhost(data[key]);
-        }
-        return updatedData;
-      }
-      return data;
-    };
-
-    if (response.data) {
-      response.data = replaceLocalhost(response.data);
-    }
+    if (response.data) response.data = rewriteApiUrls(response.data, API_ORIGIN);
     return response;
   },
   (error) => {
@@ -98,6 +76,9 @@ export const api = {
   downloadReport: (type, format) => apiClient.get(`/reports/${encodeURIComponent(type)}.${encodeURIComponent(format)}`, {
     responseType: 'blob',
   }),
+
+  getTeamCompositionEntries: () => apiClient.get('/reports/team-composition/entries'),
+  getTeamCompositionReport: entryId => apiClient.get(`/reports/team-composition/${encodeURIComponent(entryId)}`),
 
   // Admin
   getPendingUsers: () => apiClient.get('/admin/pending-users'),
@@ -156,6 +137,7 @@ export const api = {
   getMyCompetitions: () => apiClient.get('/my-team/competitions'),
   getMyTeamEntries: () => apiClient.get('/my-team/entries'),
   getMyTeamEntryPlayers: (entryId) => apiClient.get(`/my-team/entries/${entryId}/players`),
+  updateMyTeamEntryStaff: (entryId, staff_ids) => apiClient.put(`/my-team/entries/${encodeURIComponent(entryId)}/staff`, { staff_ids }),
   getMyTeamEntryStaff: (entryId) => apiClient.get(`/my-team/entries/${entryId}/staff`),
   updateMyTeamEntryPlayers: (entryId, player_ids, players) => apiClient.put(`/my-team/entries/${entryId}/players`, { player_ids, players }),
   getPublicCompetitionMatches: (id) => apiClient.get(`/public/competitions/${id}/matches`),

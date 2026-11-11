@@ -827,7 +827,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-900">{isEditing ? ui('Edit Match') : ui('Create New Match')}</h3>
-                                    <p className="mt-0.5 text-xs text-gray-500">{(selectedBaseName) || (ui('Competition'))} / {(matchForm.gender) || (ui('Gender'))} / {(modalAgeGroups.find(ag => String(ag.id) === String(matchForm.age_group_id || matchForm.category))?.name) || (ui('Age group'))}</p>
+                                    <p className="mt-0.5 text-xs text-gray-500">{displayNames.competitionGroupName(selectedBaseName, competitions) || ui('Competition')} / {ui(matchForm.gender || 'Gender')} / {displayNames.referenceName(modalAgeGroups.find(ag => String(ag.id) === String(matchForm.age_group_id || matchForm.category)) || {}) || ui('Age group')}</p>
                                 </div>
                                 <button type="button" onClick={() => setShowModal(false)} className="p-2 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" aria-label={ui("Close")}>
                                     <X size={18} />

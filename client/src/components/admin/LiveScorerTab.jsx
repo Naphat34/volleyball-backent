@@ -409,7 +409,7 @@ export default function LiveScorerTab({ darkMode }) {
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900 tracking-tight">{ui("Match Officials & Setup")}</h3>
-                                    <p className="text-sm text-gray-500">{formData.title}</p>
+                                    <p className="text-sm text-gray-500">{displayNames.competitionGroupName(selectedBaseName, competitions) || formData.title}</p>
                                 </div>
                             </div>
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">

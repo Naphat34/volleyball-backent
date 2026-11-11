@@ -1,3 +1,5 @@
+const { teamCompositionStaff } = require('../utils/teamCompositionStaff');
+const { syncTeamEntries, refreshTeamEntries, refreshCompetitionEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { competitionInput } = require('../utils/competitionInput');
 const { athleteError } = require('../utils/athleteIntegrity');
 const db = require('../config/db');
@@ -403,6 +405,8 @@ module.exports = {
         })
         .map((competition) => competition.id);
 
+      await refreshCompetitionEntries(db, id);
+
       await db.query(
         `UPDATE competitions 
          SET title=?, details=?, sport=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, scoring_config=?, stadium_id=?, logo_url=?, title_th=?, title_en=?, short_title_th=?, short_title_en=?, details_th=?, details_en=?
@@ -421,6 +425,8 @@ module.exports = {
           [cleanLogoUrl, ...siblingIds]
         );
       }
+
+      await refreshCompetitionEntries(db, id);
 
       const updatedCompetition = await db.query('SELECT * FROM competitions WHERE id = ?', [id]);
       if (updatedCompetition.rows.length === 0) {
@@ -492,6 +498,8 @@ module.exports = {
         return res.status(400).json({ error: 'Invalid competition status' });
       }
 
+      await refreshCompetitionEntries(db, id);
+
       const result = await db.query(
         'UPDATE competitions SET status = ? WHERE id = ?',
         [status, id]
@@ -500,6 +508,8 @@ module.exports = {
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: 'Competition not found' });
       }
+
+      await refreshCompetitionEntries(db, id);
 
       const updatedCompetition = await db.query('SELECT * FROM competitions WHERE id = ?', [id]);
       if (updatedCompetition.rows.length === 0) {
@@ -544,6 +554,8 @@ module.exports = {
 
       if (!teamId) return res.json([]);
 
+      await refreshTeamEntries(db, teamId);
+
       const result = await db.query(`
         SELECT
           c.*,
@@ -551,6 +563,9 @@ module.exports = {
           te.display_name as entry_display_name,
           te.status as registration_status,
           te.registered_at,
+          te.roster_locked_at,
+          te.roster_sync_error,
+          (SELECT COUNT(*) FROM team_entry_players ep WHERE ep.team_entry_id=te.id) AS roster_count,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
           ag.name as age_group_name
         FROM competitions c
@@ -574,6 +589,8 @@ module.exports = {
       const teamId = userRes.rows[0]?.team_id;
 
       if (!teamId) return res.json([]);
+
+      await refreshTeamEntries(db, teamId);
 
       const result = await db.query(`
         SELECT
@@ -610,6 +627,8 @@ module.exports = {
 
       if (!teamId) return res.status(400).json({ error: 'Team not found' });
 
+      await refreshTeamEntries(db, teamId);
+
       const entryRes = await db.query(`
         SELECT
           te.*,
@@ -631,38 +650,16 @@ module.exports = {
       const entry = entryRes.rows[0];
 
       const playersRes = await db.query(`
-        SELECT
-          p.*,
-          CASE WHEN tep.id IS NULL THEN 0 ELSE 1 END as selected,
-          tep.number as entry_number,
-          tep.role as entry_role,
-          tep.is_captain as entry_is_captain,
-          tep.is_libero1 as entry_is_libero1,
-          tep.is_libero2 as entry_is_libero2,
-          tep.is_playing as entry_is_playing,
-          other_te.id as locked_team_entry_id,
-          other_c.title as locked_competition_title,
-          other_c.gender as locked_competition_gender,
-          other_ag.name as locked_age_group_name
-        FROM players p
-        LEFT JOIN team_entry_players tep
-          ON tep.player_id = p.id AND tep.team_entry_id = ?
-        LEFT JOIN team_entry_players other_tep
-          ON other_tep.player_id = p.id
-        LEFT JOIN team_entries other_te
-          ON other_te.id = other_tep.team_entry_id
-         AND other_te.team_id = ?
-         AND other_te.id <> ?
-        LEFT JOIN competitions other_c
-          ON other_c.id = other_te.competition_id
-         AND other_c.title = ?
-        LEFT JOIN age_groups other_ag
-          ON other_ag.id = COALESCE(other_te.age_group_id, other_c.age_group_id)
-        WHERE p.team_id = ?
-        ORDER BY p.number ASC, p.id ASC
-      `, [entry.id, teamId, entry.id, entry.competition_title, teamId]);
+        SELECT p.*, CASE WHEN tep.id IS NULL THEN 0 ELSE 1 END AS selected,
+          tep.number AS entry_number,tep.role AS entry_role,
+          tep.is_captain AS entry_is_captain,tep.is_libero1 AS entry_is_libero1,
+          tep.is_libero2 AS entry_is_libero2,tep.is_playing AS entry_is_playing,tep.athlete_snapshot
+        FROM players p LEFT JOIN team_entry_players tep ON tep.player_id=p.id AND tep.team_entry_id=?
+        WHERE p.team_id=? AND (COALESCE(p.is_active,1)=1 OR tep.id IS NOT NULL)
+        ORDER BY COALESCE(tep.number,p.number),p.id
+      `, [entry.id,teamId]);
 
-      const eligiblePlayers = playersRes.rows.map((player) => ({
+      const eligiblePlayers = playersRes.rows.map(restoreSnapshot).map((player) => ({
         ...player,
         gender_eligible: genderMatches(player.gender, entry.competition_gender),
         roster_locked: Number(player.selected) !== 1
@@ -689,201 +686,10 @@ module.exports = {
   },
 
   async updateMyTeamEntryPlayers(req, res) {
-    const client = await db.pool.connect();
-    try {
-      const userId = req.user.id;
-      const { entryId } = req.params;
-      const playerIds = Array.isArray(req.body.player_ids) ? req.body.player_ids : [];
-
-      const uniquePlayerIds = [...new Set(playerIds.map((id) => parseNullableInt(id)).filter(Boolean))];
-
-      await client.query('BEGIN');
-
-      const teamId = await getUserActiveTeamId(client, userId);
-      if (!teamId) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Team not found' });
-      }
-
-      const entryRes = await client.query(`
-        SELECT
-          te.*,
-          c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
-          c.gender as competition_gender,
-          c.max_players,
-          COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
-          ag.name as age_group_name
-        FROM team_entries te
-        JOIN competitions c ON c.id = te.competition_id
-        LEFT JOIN age_groups ag ON ag.id = COALESCE(te.age_group_id, c.age_group_id)
-        WHERE te.id = ? AND te.team_id = ? FOR UPDATE
-      `, [entryId, teamId]);
-
-      if (entryRes.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Team entry not found' });
-      }
-
-      const entry = entryRes.rows[0];
-      const history = await client.query(`SELECT m.id FROM matches m WHERE m.competition_id = ?
-        AND (m.home_team_id = ? OR m.away_team_id = ?)
-        AND (m.status <> 'scheduled' OR EXISTS (SELECT 1 FROM match_actions a WHERE a.match_id = m.id)
-          OR EXISTS (SELECT 1 FROM match_events e WHERE e.match_id = m.id)
-          OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id = m.id)) LIMIT 1`, [entry.competition_id, teamId, teamId]);
-      if (history.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({error:'รายชื่อรายการนี้ถูกใช้ในการแข่งขันแล้ว ไม่สามารถเขียนทับประวัติได้'}); }
-      const previousRoster = await client.query('SELECT * FROM team_entry_players WHERE team_entry_id = ? FOR UPDATE', [entry.id]);
-      const previousById = new Map(previousRoster.rows.map(player => [String(player.player_id), player]));
-      const overrides = new Map();
-      if (req.body.players !== undefined) {
-        if (!Array.isArray(req.body.players)) throw Object.assign(new Error('ข้อมูลรายชื่อไม่ถูกต้อง'),{status:400});
-        for (const value of req.body.players) {
-          const id = Number(value.id), number = Number(value.number), role = String(value.role || '');
-          if (!uniquePlayerIds.includes(id) || overrides.has(id) || !Number.isInteger(number) || number < 1 || number > 999
-            || !['','S','OH','OPP','MB','L','C','L1','L2','L1+C','L2+C'].includes(role)) throw Object.assign(new Error('เบอร์หรือบทบาทรายรายการไม่ถูกต้อง'),{status:400});
-          overrides.set(id,{number,position:role,is_captain:role.includes('C')?1:0,is_libero1:role.startsWith('L1')?1:0,is_libero2:role.startsWith('L2')?1:0});
-        }
-      }
-      const maxPlayers = parseNullableInt(entry.max_players);
-
-      if (maxPlayers && uniquePlayerIds.length > maxPlayers) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: `Roster exceeds maximum players (${maxPlayers})` });
-      }
-
-      let selectedPlayers = [];
-      if (uniquePlayerIds.length > 0) {
-        const placeholders = uniquePlayerIds.map(() => '?').join(',');
-        const playersRes = await client.query(`
-          SELECT p.id, p.team_id, p.number, p.position, p.gender, p.is_captain, p.is_libero1, p.is_libero2, p.is_playing, p.is_active
-          FROM players p
-          WHERE p.id IN (${placeholders})
-        `, uniquePlayerIds);
-        selectedPlayers = playersRes.rows.map(player => {
-          const saved = previousById.get(String(player.id));
-          const snapshot = saved ? { ...player, number: saved.number, position: saved.role, is_captain: saved.is_captain,
-            is_libero1: saved.is_libero1, is_libero2: saved.is_libero2, is_playing: saved.is_playing } : player;
-          return { ...snapshot, ...overrides.get(Number(player.id)) };
-        });
-        if (selectedPlayers.some(player => Number(player.is_active) === 0 && !previousById.has(String(player.id)))) {
-          await client.query('ROLLBACK'); return res.status(400).json({error:'ไม่สามารถเพิ่มนักกีฬาที่ปิดใช้งานแล้ว'});
-        }
-      }
-
-      if (selectedPlayers.length !== uniquePlayerIds.length) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'One or more players were not found' });
-      }
-
-      const invalidTeamPlayer = selectedPlayers.find((player) => String(player.team_id) !== String(teamId));
-      if (invalidTeamPlayer) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'One or more players do not belong to this team' });
-      }
-
-      const invalidGenderPlayer = selectedPlayers.find((player) => !genderMatches(player.gender, entry.competition_gender));
-      if (invalidGenderPlayer) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'One or more players do not match this competition gender' });
-      }
-
-      if (uniquePlayerIds.length > 0) {
-        const placeholders = uniquePlayerIds.map(() => '?').join(',');
-        const lockedPlayersRes = await client.query(`
-          SELECT
-            p.id,
-            p.number,
-            p.first_name,
-            p.last_name,
-            c.title as competition_title, c.title_th as competition_title_th, c.title_en as competition_title_en,
-            c.gender as competition_gender,
-            ag.name as age_group_name
-          FROM team_entry_players tep
-          JOIN team_entries te ON te.id = tep.team_entry_id
-          JOIN competitions c ON c.id = te.competition_id
-          LEFT JOIN age_groups ag ON ag.id = COALESCE(te.age_group_id, c.age_group_id)
-          JOIN players p ON p.id = tep.player_id
-          WHERE te.team_id = ?
-            AND te.id <> ?
-            AND c.title = ?
-            AND tep.player_id IN (${placeholders})
-        `, [teamId, entry.id, entry.competition_title, ...uniquePlayerIds]);
-
-        if (lockedPlayersRes.rows.length > 0) {
-          await client.query('ROLLBACK');
-          const lockedNames = lockedPlayersRes.rows.map((player) => {
-            const name = [player.first_name, player.last_name].filter(Boolean).join(' ') || `#${player.number}`;
-            const rosterScope = [player.age_group_name || 'General', player.competition_gender].filter(Boolean).join(' / ');
-            return `${name}${rosterScope ? ` (${rosterScope})` : ''}`;
-          });
-          return res.status(400).json({
-            error: `One or more players are already assigned to another category: ${lockedNames.join(', ')}`
-          });
-        }
-      }
-
-      if (selectedPlayers.filter(p => String(p.position || '').startsWith('L') || Number(p.is_libero1) === 1 || Number(p.is_libero2) === 1).length > 2
-          || selectedPlayers.filter(p => Number(p.is_captain) === 1).length > 1
-          || selectedPlayers.filter(p => Number(p.is_libero1) === 1).length > 1
-          || selectedPlayers.filter(p => Number(p.is_libero2) === 1).length > 1) {
-        await client.query('ROLLBACK'); return res.status(400).json({error:'รายรายการมีกัปตันได้หนึ่งคน และ Libero ได้สูงสุดสองคน โดย L1 และ L2 ไม่ซ้ำ'});
-      }
-      const numberCounts = new Map();
-      for (const player of selectedPlayers) {
-        const playerNumber = parseNullableInt(player.number);
-        if (!playerNumber) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ error: 'Every selected player must have a valid number' });
-        }
-
-        numberCounts.set(playerNumber, (numberCounts.get(playerNumber) || 0) + 1);
-      }
-
-      const duplicateNumbers = [...numberCounts.entries()]
-        .filter(([, count]) => count > 1)
-        .map(([number]) => number);
-      if (duplicateNumbers.length > 0) {
-        await client.query('ROLLBACK');
-        const rosterScope = [
-          entry.competition_title,
-          entry.age_group_name || 'General',
-          entry.competition_gender,
-        ].filter(Boolean).join(' / ');
-        return res.status(400).json({
-          error: `Duplicate player number in ${rosterScope}: ${duplicateNumbers.join(', ')}`
-        });
-      }
-
-      await client.query('DELETE FROM team_entry_players WHERE team_entry_id = ?', [entry.id]);
-
-      for (const player of selectedPlayers) {
-        await client.query(`
-          INSERT INTO team_entry_players
-            (team_entry_id, player_id, number, role, is_captain, is_libero1, is_libero2, is_playing)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          entry.id,
-          player.id,
-          player.number,
-          player.position,
-          player.is_captain || 0,
-          player.is_libero1 || 0,
-          player.is_libero2 || 0,
-          player.is_playing !== undefined && player.is_playing !== null ? player.is_playing : 1,
-        ]);
-      }
-
-      await client.query('COMMIT');
-      res.json({ message: 'Roster updated', player_count: selectedPlayers.length });
-    } catch (err) {
-      await client.query('ROLLBACK');
-      console.error("Update Team Entry Players Error:", err);
-      const failure = athleteError(err); res.status(failure.status).json({ error: failure.message });
-    } finally {
-      client.release();
-    }
+    return res.status(409).json({ error: 'รายชื่อซิงก์จากทะเบียนทีมอัตโนมัติ กรุณาแก้ไขที่หน้าจัดการนักกีฬา / Rosters sync automatically; edit the team player register.' });
   },
 
-  // สมัครเข้าร่วมแข่งขัน
+
   async getMyTeamEntryStaff(req, res) {
     try {
       const userId = req.user.id;
@@ -924,10 +730,13 @@ module.exports = {
         .filter((staff) => Number(staff.selected) === 1)
         .map((staff) => staff.id);
 
+      const reportStaff = await teamCompositionStaff(db, entryId, staffRes.rows.filter(staff => Number(staff.selected) === 1));
       res.json({
         entry: entryRes.rows[0],
         staff: staffRes.rows,
         selectedStaffIds,
+        report_staff: reportStaff.staff,
+        staff_source: reportStaff.source,
       });
     } catch (err) {
       console.error("Get Team Entry Staff Error:", err);
@@ -939,9 +748,10 @@ module.exports = {
     const client = await db.pool.connect();
     try {
       const userId = req.user.id;
-      const { entryId } = req.params;
-      const staffIds = Array.isArray(req.body.staff_ids) ? req.body.staff_ids : [];
-      const uniqueStaffIds = [...new Set(staffIds.map((id) => parseNullableInt(id)).filter(Boolean))];
+      const entryId = Number(req.params.entryId);
+      const staffIds = req.body.staff_ids;
+      if (!Number.isSafeInteger(entryId) || entryId < 1 || !Array.isArray(staffIds) || staffIds.length > 50 || staffIds.some(id => !Number.isSafeInteger(Number(id)) || Number(id) < 1)) return res.status(400).json({ error: 'Invalid entry staff selection' });
+      const uniqueStaffIds = [...new Set(staffIds.map(Number))];
 
       await client.query('BEGIN');
 
@@ -952,7 +762,7 @@ module.exports = {
       }
 
       const entryRes = await client.query(
-        'SELECT id FROM team_entries WHERE id = ? AND team_id = ?',
+        'SELECT id FROM team_entries WHERE id = ? AND team_id = ? FOR UPDATE',
         [entryId, teamId]
       );
 
@@ -964,7 +774,7 @@ module.exports = {
       if (uniqueStaffIds.length > 0) {
         const placeholders = uniqueStaffIds.map(() => '?').join(',');
         const staffRes = await client.query(
-          `SELECT id, team_id FROM team_staff WHERE id IN (${placeholders})`,
+          `SELECT id, team_id FROM team_staff WHERE id IN (${placeholders}) FOR UPDATE`,
           uniqueStaffIds
         );
 
@@ -989,6 +799,7 @@ module.exports = {
         );
       }
 
+      await writeAuditLog(req, 'team_entry.staff_update', 'team_entry', entryId, { staff_ids: uniqueStaffIds }, client);
       await client.query('COMMIT');
       res.json({ message: 'Entry staff updated', staff_count: uniqueStaffIds.length });
     } catch (err) {
@@ -1027,6 +838,12 @@ module.exports = {
       if (!competition) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: "Competition not found" });
+      }
+
+      const cutoff = await client.query("SELECT status, start_date <= CURRENT_DATE AS started FROM competitions WHERE id=?", [compId]);
+      if (competition.status !== 'open' || Number(cutoff.rows[0]?.started)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'รายการนี้ปิดรับสมัครแล้ว / Registration is closed' });
       }
 
       const teamRes = await client.query('SELECT * FROM teams WHERE id = ? FOR UPDATE', [teamId]);
@@ -1103,6 +920,7 @@ module.exports = {
         [teamId, compId, competition.gender, competition.age_group_id]
       );
 
+      await syncTeamEntries(client, teamId);
       await client.query('COMMIT');
       res.json({ message: "Register Success (Wait for approval)" });
 

@@ -1,5 +1,6 @@
 // Authored application copy. Data values and official codes are never translated here.
 export const applicationCopy = `
+ใช้รายชื่อเจ้าหน้าที่จากทะเบียนทีมที่บันทึกไว้ใน Team dashboard|Using officials from the team roster saved in Team dashboard.
 สร้าง {0} ประเภทแข่งขัน ข้ามรายการซ้ำ {1} ประเภท|Created {0} categories; skipped {1} existing categories
 กรุณากรอกชื่อไทย–อังกฤษ วันที่ สนาม และประเภทแข่งขันให้ครบ|Complete both competition names, dates, venue and categories.
 วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น|End date must not precede start date

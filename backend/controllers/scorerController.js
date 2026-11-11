@@ -1,4 +1,5 @@
 const { getMatchTeamStaff } = require('../utils/matchTeamStaff');
+const { refreshTeamEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { applyMatchSetup, setupPlayers, setupStaff, parseSetup, normalizeTeam } = require('../utils/matchSetup');
 const db = require('../config/db');
 const { normalizeNames, playerNameFields } = require('../utils/bilingualNames');
@@ -123,6 +124,7 @@ const normalizeRosterPlayer = (player = {}) => {
 };
 
 const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFields = 'p.*', fallbackSelectFields = 'p.*', options = {}) => {
+    if (competitionId) await refreshTeamEntries(db, teamId);
     const entryPlayingWhere = options.entryHasIsPlaying
         ? 'AND (tep.is_playing = 1 OR tep.is_playing = true OR tep.is_playing IS NULL)'
         : '';
@@ -154,7 +156,7 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
     ];
 
     const entryRoster = await db.query(`
-        SELECT ${entrySelectFields}
+        SELECT ${entrySelectFields}, tep.athlete_snapshot
         FROM team_entry_players tep
         JOIN team_entries te ON te.id = tep.team_entry_id
         JOIN competitions c ON c.id = te.competition_id
@@ -163,13 +165,13 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
           AND te.team_id = ?
           ${ageGroupWhere}
           ${genderWhere}
-          ${playerGenderFilter.sql}
+          ${playerGenderFilter.sql.replaceAll('p.gender', "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(tep.athlete_snapshot,'$.gender')),'null'),p.gender)")}
           ${entryPlayingWhere}
-          ${displayablePlayerWhere}
         ORDER BY COALESCE(tep.number, p.number) ASC, p.id ASC
     `, entryParams);
 
-    if (entryRoster.rows.length > 0) {
+    entryRoster.rows = entryRoster.rows.map(restoreSnapshot);
+    if (entryRoster.rows.length > 0 || competitionId) {
         return entryRoster;
     }
 
@@ -234,6 +236,10 @@ module.exports = {
             if (!match) return res.status(404).json({ error: 'Match not found' });
             if (![match.home_team_id, match.away_team_id].some((id) => String(id) === String(teamId))) {
                 return res.status(400).json({ error: 'Team does not belong to this match' });
+            }
+
+            if (match.competition_id) {
+                return res.status(409).json({ error: 'เพิ่มนักกีฬาที่ทะเบียนทีม รายชื่อรายการซิงก์อัตโนมัติก่อนปิดรับเท่านั้น / Add players through the team register before roster lock.' });
             }
 
             const duplicate = match.competition_id
@@ -306,6 +312,8 @@ module.exports = {
             if (![match.home_team_id, match.away_team_id].some((id) => String(id) === String(teamId))) {
                 return res.status(400).json({ error: 'Team does not belong to this match' });
             }
+
+            if (match.competition_id) return res.status(409).json({ error: 'แก้ข้อมูลนักกีฬาที่ทะเบียนทีม รายชื่อที่ล็อกแล้วจะคงเดิม / Edit the team register; locked competition rosters are retained.' });
 
             const playerRes = await db.query(
                 `SELECT p.id, p.team_id
@@ -636,12 +644,19 @@ module.exports = {
             let playersMap = {};
             if (allPlayerIds.length > 0) {
                 const playersRes = await db.query(`
-                    SELECT id, first_name, last_name, first_name_th, last_name_th, first_name_en, last_name_en, number, position
-                    FROM players 
-                    WHERE id IN (${allPlayerIds.map(() => '?').join(',')})
-                `, allPlayerIds);
+                    SELECT p.id,p.team_id,p.first_name,p.last_name,p.first_name_th,p.last_name_th,p.first_name_en,p.last_name_en,
+                        COALESCE(ep.number,p.number) AS number,COALESCE(ep.role,p.position) AS position,
+                        ep.athlete_snapshot,m.match_setup
+                    FROM players p JOIN matches m ON m.id=?
+                    LEFT JOIN team_entries te ON te.competition_id=m.competition_id AND te.team_id=p.team_id
+                    LEFT JOIN team_entry_players ep ON ep.team_entry_id=te.id AND ep.player_id=p.id
+                    WHERE p.id IN (${allPlayerIds.map(() => '?').join(',')})
+                `, [matchId,...allPlayerIds]);
 
-                playersRes.rows.forEach(p => {
+                playersRes.rows.map(restoreSnapshot).forEach(saved => {
+                    const setup = parseSetup(saved.match_setup);
+                    const override = setup && [...(setup.home?.players || []),...(setup.away?.players || [])].find(p => Number(p.id) === Number(saved.id));
+                    const p = { ...saved,...override };
                     playersMap[p.id] = {
                         ...p,
                         id: p.id,
@@ -1023,6 +1038,28 @@ module.exports = {
             }
 
             const match = matchRes.rows[0];
+            // Keep match selections in the match snapshot, never overwrite the competition roster.
+            if (!match.match_setup && match.competition_id) {
+                const competition = (await db.query('SELECT * FROM competitions WHERE id=?', [match.competition_id])).rows[0];
+                const scoring = typeof competition.scoring_config === 'string' ? JSON.parse(competition.scoring_config) : competition.scoring_config || {};
+                const setup = {
+                    title: competition.title, gender: competition.gender, maxSets: competition.max_sets || 3,
+                    pointsPerSet: scoring.regular_set_points || 25, decidingSetPoints: scoring.deciding_set_points || 15,
+                };
+                for (const side of ['home','away']) {
+                    const teamId = match[`${side}_team_id`];
+                    const team = (await db.query('SELECT * FROM teams WHERE id=?', [teamId])).rows[0];
+                    const roster = await getRosterPlayersForMatchTeam(match.competition_id, teamId,
+                        'p.*,tep.number AS number,tep.role AS position,tep.is_captain AS is_captain,tep.is_libero1 AS is_libero1,tep.is_libero2 AS is_libero2',
+                        'p.*', { requireEntryRoster: true });
+                    const players = roster.rows.map(player => ({ ...player, role: Number(player.is_libero1) ? 'L1' : Number(player.is_libero2) ? 'L2' : '',
+                        is_captain: Number(player.is_captain) }));
+                    for (const player of players) if (player.is_captain) player.role += player.role ? '+C' : 'C';
+                    setup[side] = { name: team.name, name_th: team.name_th, name_en: team.name_en, code: team.code || '', players,
+                        staff: await getMatchTeamStaff(db,match,side) };
+                }
+                match.match_setup = setup;
+            }
             if (match.match_setup) {
                 const setup = parseSetup(match.match_setup);
                 for (const [side, submitted] of [['home', homePlayers], ['away', awayPlayers]]) {

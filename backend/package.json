@@ -22,6 +22,7 @@
     "test:vis:timing": "node --test tests/visTiming.test.js tests/visRallyController.test.js tests/officialVisOffline.test.js tests/customVis.test.js tests/visOffline.test.js",
     "test:vis:history": "node --test tests/visSetHistory.test.js tests/visRallyController.test.js",
     "test:athletes": "node --test tests/athleteIntegrity.test.js tests/athleteIntegrity.mysql.test.js",
+    "test:rosters": "node --test tests/automaticEntryRoster.test.js tests/automaticEntryRoster.mysql.test.js tests/athleteIntegrity.test.js tests/teamCompositionReport.test.js tests/scorerBilingualNames.test.js",
     "migrate:athletes": "node scripts/migrateAthleteIntegrity.js",
     "migrate:names": "node scripts/migrateBilingualNames.js",
     "test:names": "node --test tests/bilingualNames.test.js tests/bilingualNames.mysql.test.js"

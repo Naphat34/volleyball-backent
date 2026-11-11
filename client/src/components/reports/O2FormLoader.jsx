@@ -73,6 +73,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
     const [retryCount, setRetryCount] = useState(0);
     const [ageGroups, setAgeGroups] = useState([]);
     const [leg, setLeg] = useState(1);
+    const [showLeg, setShowLeg] = useState(true);
     const [revision, setRevision] = useState(1);
     const [referenceDate, setReferenceDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }));
     const [printedAt] = useState(() => new Date().toISOString());
@@ -169,7 +170,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                             api.getMyTeamEntryStaff(competition.team_entry_id),
                         ]);
                         if (!Array.isArray(playerResponse.data?.players) || !Array.isArray(staffResponse.data?.staff)) throw new Error('Invalid composition roster response');
-                        return [competition.team_entry_id, { players: playerResponse.data.players, staff: staffResponse.data.staff }];
+                        return [competition.team_entry_id, { players: playerResponse.data.players, staff: staffResponse.data.report_staff || staffResponse.data.staff, staff_source: staffResponse.data.staff_source }];
                     })
                 );
 
@@ -194,7 +195,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
         };
     }, [selectedGroup, players, staff, retryCount]);
 
-    useEffect(() => { setPreviewForm(null); }, [selectedGroup, players, staff, leg, revision, referenceDate]);
+    useEffect(() => { setPreviewForm(null); }, [selectedGroup, players, staff, leg, showLeg, revision, referenceDate]);
 
     const buildFormData = (competition) => {
         const gender = normalizeGender(competition.gender || competition.competition_gender || competition.entry_gender);
@@ -219,11 +220,12 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                 competition_name_th: competition.name_th || competition.title_th || '',
                 association_logo_url: competition.association_logo_url || teamInfo?.association_logo_url || '',
                 association_name: competition.association_name || teamInfo?.association_name || '',
-                leg, revision, reference_date: referenceDate, printed_at: printedAt,
+                leg, show_leg: showLeg, revision, reference_date: referenceDate, printed_at: printedAt,
                 competition_logo_url: competition.logo_url || competition.competition_logo_url || competition.logo || '',
             },
             players: compositionPlayers(competition, entryRosterById[competition.team_entry_id], players),
             staff: compositionStaff(competition, entryRosterById[competition.team_entry_id], staff),
+            staffSource: entryRosterById[competition.team_entry_id]?.staff_source,
         };
     };
 
@@ -257,7 +259,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
             </div>
 
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3 max-w-xl">
-                <label className="text-sm text-gray-700 dark:text-gray-200">{ui('ช่วงการแข่งขัน (Leg)')}<input type="number" min="1" max="99" value={leg} onChange={event => setLeg(Math.max(1, Math.min(99, Number(event.target.value) || 1)))} className="mt-1 block w-full rounded border p-2 bg-white dark:bg-gray-700" /></label>
+                <div className="text-sm text-gray-700 dark:text-gray-200"><label className="flex items-center gap-2"><input type="checkbox" checked={showLeg} onChange={event => setShowLeg(event.target.checked)} />{ui('ช่วงการแข่งขัน (Leg)')}</label><input aria-label={ui('หมายเลข Leg')} disabled={!showLeg} type="number" min="1" max="99" value={leg} onChange={event => setLeg(Math.max(1, Math.min(99, Number(event.target.value) || 1)))} className="mt-1 block w-full rounded border p-2 bg-white disabled:opacity-50 dark:bg-gray-700" /></div>
                 <label className="text-sm text-gray-700 dark:text-gray-200">{ui('ฉบับแก้ไข')}<input type="number" min="1" max="999" value={revision} onChange={event => setRevision(Math.max(1, Math.min(999, Number(event.target.value) || 1)))} className="mt-1 block w-full rounded border p-2 bg-white dark:bg-gray-700" /></label>
                 <label className="text-sm text-gray-700 dark:text-gray-200">{ui('วันที่อ้างอิงเอกสาร')}<input type="date" required value={referenceDate} onChange={event => { if (event.target.value) setReferenceDate(event.target.value); }} className="mt-1 block w-full rounded border p-2 bg-white dark:bg-gray-700" /></label>
             </div>
@@ -285,6 +287,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                         {form.rosterReady ? ui(`นักกีฬา {0} คน`, [form.players.length]) : ui('กำลังเตรียมรายชื่อนักกีฬา')}
                                     </p>
                                 </div>
+                                {form.staffSource === 'team' && form.staff.length > 0 && <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{ui('ใช้รายชื่อเจ้าหน้าที่จากทะเบียนทีมที่บันทึกไว้ใน Team dashboard')}</p>}
                                 <div className="flex flex-wrap gap-3">
                                     <PDFDownloadLink
                                         key={`dl-${pdfKey}_${form.key}`}

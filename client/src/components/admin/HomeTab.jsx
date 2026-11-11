@@ -213,7 +213,7 @@ export default function HomeTab() {
             tone: 'from-blue-600 to-sky-500',
             ring: 'bg-blue-50 text-blue-700 border-blue-100',
             label: language === 'THA' ? 'รายการแข่งขัน' : 'Tournament',
-            value: selectedBaseName,
+            value: displayNames.competitionGroupName(selectedBaseName, competitions),
             valueClass: 'text-sm line-clamp-1',
             detail: filterGender === 'All'
                 ? (language === 'THA' ? 'ทุกประเภท' : 'All Categories')

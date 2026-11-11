@@ -1,0 +1,15 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {LanguageProvider} from '../../src/context/LanguageContext';
+import AdminReportCenter from '../../src/components/admin/AdminReportCenter';
+import client from '../../src/api';
+import '../../src/index.css';
+import '../../src/styles/AppTheme.css';
+import '../../src/pages/admin/AdminConsole.css';
+localStorage.setItem('language','ENG');
+window.compositionRequests=[];
+const base={competition_id:5,title:'รายการเดิม',title_th:'การแข่งขันตัวอย่าง',title_en:'Example Championship',age_group_id:1,age_group_name:'U15',team_id:7,team_name:'ทีมตัวอย่าง',team_name_th:'ทีมตัวอย่าง',team_name_en:'Example Club',team_code:'CLUB',status:'approved'};
+const entries=[{...base,team_entry_id:11,gender:'Male'},{...base,team_entry_id:12,gender:'Female'}];
+const detail={staff_source:'team',teamInfo:{id:7,team_entry_id:11,name:'ทีมตัวอย่าง',name_th:'ทีมตัวอย่าง',name_en:'Example Club',code:'CLUB',competition_name:'รายการเดิม',competition_name_th:'การแข่งขันตัวอย่าง',competition_name_en:'Example Championship',age_group_name:'U15',entry_gender:'Male',main_color:'#800080',second_color:'#ffffff',libero_main_color:'#facc15'},players:Array.from({length:6},(_,i)=>({id:i+1,selected:1,number:99,entry_number:i+1,entry_role:i===2?'L1':'OH',entry_is_captain:i===0?1:0,entry_is_libero1:i===2?1:0,entry_is_libero2:0,first_name_th:'นักกีฬา',last_name_th:'ตัวอย่าง',first_name_en:'Example',last_name_en:'Player',jersey_name:'PLAYER',height_cm:180+i,weight:70+i,birth_date:'2012-03-08',position:'OH'})),staff:[{id:1,selected:1,role:'Head Coach',first_name:'ผู้ฝึกสอน',last_name:'ตัวอย่าง'}]};
+client.defaults.adapter=async config=>{window.compositionRequests.push(config.url);return {config,status:200,statusText:'OK',headers:{},data:config.url.endsWith('/entries')?entries:detail};};
+createRoot(document.getElementById('root')).render(<LanguageProvider><main className="admin-console" style={{padding:24}}><AdminReportCenter onNavigate={()=>{}} /></main></LanguageProvider>);

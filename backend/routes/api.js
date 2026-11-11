@@ -19,6 +19,7 @@ const ageGroupController = require('../controllers/ageGroupController');
 const playerController = require('../controllers/playerController');
 const stadiumsController = require('../controllers/stadiumsController');
 const reportController = require('../controllers/reportController');
+const teamCompositionReportController = require('../controllers/teamCompositionReportController');
 const officialRoutes = require('./officialRoutes');
 const scorerRoutes = require('./scorerRoutes');
 
@@ -185,14 +186,14 @@ router.get('/my-team/players/stats', teamController.getMyPlayersStats);
 router.get('/my-team/staff', authMiddleware.canManageOwnTeam, teamController.getMyTeamStaff);
 router.post('/my-team/staff', authMiddleware.canManageOwnTeam, teamController.addStaffToMyTeam);
 router.put('/my-team/staff/:id', authMiddleware.canManageOwnTeam, teamController.updateStaff);
-router.put('/my-team/staff/:id/entries', authMiddleware.canManageOwnTeam, teamController.updateMyStaffEntries);
+router.put('/my-team/staff/:id/entries', authMiddleware.hasAnyRole(['team_staff']), authMiddleware.canManageOwnTeam, teamController.updateMyStaffEntries);
 router.delete('/my-team/staff/:id', authMiddleware.canManageOwnTeam, teamController.deleteStaff);
 router.get('/my-team/competitions', competitionsController.getMyCompetitions);
 router.get('/my-team/entries', competitionsController.getMyTeamEntries);
 router.get('/my-team/entries/:entryId/players', competitionsController.getMyTeamEntryPlayers);
 router.put('/my-team/entries/:entryId/players', authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryPlayers);
 router.get('/my-team/entries/:entryId/staff', authMiddleware.canManageOwnTeam, competitionsController.getMyTeamEntryStaff);
-router.put('/my-team/entries/:entryId/staff', authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryStaff);
+router.put('/my-team/entries/:entryId/staff', authMiddleware.hasAnyRole(['team_staff']), authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryStaff);
 router.post('/competitions/join', authMiddleware.canManageOwnTeam, competitionsController.joinCompetition);
 router.post('/competitions/leave', authMiddleware.canManageOwnTeam, competitionsController.leaveCompetition);
 
@@ -210,6 +211,8 @@ router.get('/match/:matchId/lineup/:teamId', authMiddleware.canAccessOwnMatchTea
 router.delete('/match/:matchId/lineup/:teamId', authMiddleware.canScoreMatches, matchController.deleteTeamLineup);
 
 // --- Reports ---
+router.get('/reports/team-composition/entries', authMiddleware.canExportReports, teamCompositionReportController.entries);
+router.get('/reports/team-composition/:entryId', authMiddleware.canExportReports, teamCompositionReportController.detail);
 router.get('/reports/:type.:format', authMiddleware.canExportReports, reportController.exportReport);
 
 // --- Monitoring ---
