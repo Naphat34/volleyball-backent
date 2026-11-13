@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { ArrowUpRight as UiArrowUpRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -38,13 +39,13 @@ export default function VisMatchTable({ group, th, user, onClaim, onRelease, sor
                             <span className="vd-badge vd-source">{manual ? (th ? 'สร้างเองโดยสกอร์' : 'Scorer-created') : m.is_offline_vis ? ui('Offline') : m.is_custom_vis ? m.published ? th ? ui('เผยแพร่แล้ว') : ui('Published') : th ? ui('สร้างเอง') : ui('Custom') : th ? ui('จากเซิร์ฟเวอร์') : ui('Server')}</span>
                         </div>{manual && <small>{th ? 'ผู้สร้าง: ' : 'Created by: '}{m.manual_creator || m.manual_owner_id}<br />{th ? 'ผู้รับงาน: ' : 'Statistics: '}{m.manual_vis_assignee || (th ? 'ยังไม่มีผู้รับงาน' : 'Unassigned')}</small>}</td>
                         <td className="vd-updated">{date(m.updated_at || m.created_at)}</td>
-                        <td><div className="vd-row-actions"><div className="vd-row-main">{manual && !m.manual_vis_assignee_id && <button disabled={busy} onClick={() => onClaim(m)}>{th ? 'รับงานสถิติ' : 'Claim statistics'}</button>}{manual && m.manual_vis_assignee_id && (assignedToMe || user?.role === 'admin') && <button disabled={busy} onClick={() => onRelease(m)}>{th ? 'คืนงานสถิติ' : 'Release statistics'}</button>}
+                        <td><div className="vd-row-actions"><div className="vd-row-main">{manual && !m.manual_vis_assignee_id && <GuardedButton disabled={busy} onClick={() => onClaim(m)}>{th ? 'รับงานสถิติ' : 'Claim statistics'}</GuardedButton>}{manual && m.manual_vis_assignee_id && (assignedToMe || user?.role === 'admin') && <GuardedButton disabled={busy} onClick={() => onRelease(m)}>{th ? 'คืนงานสถิติ' : 'Release statistics'}</GuardedButton>}
                             {(!manual || assignedToMe) && matchStatus !== 'cancelled' && m.home_team_id && m.away_team_id && <Link className="vd-primary" to={`/adminvis/match/${m.id}`}>{matchStatus === 'completed' ? th ? ui('ตรวจสอบสถิติ') : ui('Review') : th ? ui('บันทึกสถิติ') : ui('Scouting')}</Link>}
-                            <button disabled={busy || manual} onClick={() => onSettings(m)}>{th ? ui('ตั้งค่าแมตช์') : ui('Settings')}</button>
-                        </div><div className="vd-row-secondary"><button disabled={busy} onClick={() => onStats(m)}>{th ? ui('สถิติ') : ui('Stats')}</button><button disabled={busy} onClick={() => onPDF(m)} title={th ? ui('ใบบันทึกผลการแข่งขัน P-2') : ui('Match result P-2')}>{ui("P-2")}</button>
+                            <GuardedButton disabled={busy || manual} onClick={() => onSettings(m)}>{th ? ui('ตั้งค่าแมตช์') : ui('Settings')}</GuardedButton>
+                        </div><div className="vd-row-secondary"><GuardedButton disabled={busy} onClick={() => onStats(m)}>{th ? ui('สถิติ') : ui('Stats')}</GuardedButton><GuardedButton disabled={busy} onClick={() => onPDF(m)} title={th ? ui('ใบบันทึกผลการแข่งขัน P-2') : ui('Match result P-2')}>{ui("P-2")}</GuardedButton>
                             <ScorerActionDropdown label={`${th ? 'เมนูแมตช์' : 'Match menu'} ${m.match_number || m.id}`}>
-                                <button disabled={busy} onClick={() => onExport(m)}>{th ? ui('ส่งออก JSON') : ui('Export JSON')}</button>
-                                {m.is_custom_vis && <button disabled={busy || manual} onClick={() => onSettings(m)}>{th ? ui('จัดการ / เผยแพร่') : ui('Manage / publish')}</button>}
+                                <GuardedButton disabled={busy} onClick={() => onExport(m)}>{th ? ui('ส่งออก JSON') : ui('Export JSON')}</GuardedButton>
+                                {m.is_custom_vis && <GuardedButton disabled={busy || manual} onClick={() => onSettings(m)}>{th ? ui('จัดการ / เผยแพร่') : ui('Manage / publish')}</GuardedButton>}
                                 {m.published && <a href={`/vis-live/${m.public_token}`} target="_blank" rel="noreferrer"><><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("Livescore ↗").replace(/↗\uFE0F?/gu, '').trim()}</></a>}
                             </ScorerActionDropdown>
                         </div></div></td>

@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -54,9 +55,9 @@ export default function ScorerActionDropdown({ label, children }) {
         items[next].focus();
     };
     return <>
-        <button ref={trigger} type="button" aria-label={ui(label)} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)} onKeyDown={event => {
+        <GuardedButton ref={trigger} type="button" aria-label={ui(label)} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)} onKeyDown={event => {
             if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); }
-        }}>⋯</button>
+        }}>⋯</GuardedButton>
         {open && createPortal(<div ref={panel} id={id} className="scorer-action-menu" role="region" aria-label={ui(label)} onKeyDown={navigate} onBlur={event => {
             if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget) && !trigger.current?.contains(event.relatedTarget)) setOpen(false);
         }} onClick={event => {

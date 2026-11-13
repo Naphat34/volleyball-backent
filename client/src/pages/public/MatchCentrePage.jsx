@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { io } from 'socket.io-client';
@@ -102,9 +103,9 @@ export default function MatchCentrePage() {
         return (
             <div className="app-page min-h-screen text-gray-800 font-sans flex flex-col justify-center items-center">
                 <p className="text-gray-500 font-medium mb-4">{language === 'THA' ? ui('ไม่พบข้อมูลการแข่งขัน') : ui('Match not found')}</p>
-                <button onClick={() => navigate('/matches')} className="px-4 py-2 bg-[#14366A] text-white rounded-xl cursor-pointer">
+                <GuardedButton onClick={() => navigate('/matches')} className="px-4 py-2 bg-[#14366A] text-white rounded-xl cursor-pointer">
                     {language === 'THA' ? ui('กลับไปหน้าตารางการแข่งขัน') : ui('Back to Match Schedule')}
-                </button>
+                </GuardedButton>
             </div>
         );
     }
@@ -198,12 +199,12 @@ export default function MatchCentrePage() {
             {/* Top Navigation (Secondary) */}
             <div className="bg-white/90 backdrop-blur border-b border-blue-100">
                 <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center justify-between">
-                    <button
+                    <GuardedButton
                         onClick={() => navigate(-1)}
                         className="flex items-center gap-2 text-gray-600 hover:text-[#14366A] font-medium transition cursor-pointer"
                     >
                         <ArrowLeft size={18} /> {language === 'THA' ? ui('ย้อนกลับ') : ui('Back')}
-                    </button>
+                    </GuardedButton>
                     <span className="font-bold text-[#14366A] text-lg">{t('landing.matchCentre')}</span>
                     <div className="w-20"></div> {/* Spacer for balance */}
                 </div>

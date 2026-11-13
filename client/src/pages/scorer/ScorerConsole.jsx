@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import { resolveApprovedLineup, hasCompleteStartingLineup } from '../../utils/scorer/approvedLineup';
 import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import { scorerIcons } from '../../utils/i18n/alertIcons';
@@ -3949,7 +3950,7 @@ export default function ScorerConsole() {
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-2"><VisThemeToggle compact />
                     <div role="group" aria-label={st('Interface language')} className="flex shrink-0 items-center rounded-md border border-slate-200 bg-white p-0.5">
                         {[['THA', 'THAI'], ['ENG', 'EN']].map(([code, label]) => (
-                            <button
+                            <GuardedButton
                                 key={code}
                                 type="button"
                                 lang={code === 'THA' ? 'th' : 'en'}
@@ -3959,10 +3960,10 @@ export default function ScorerConsole() {
                                 className={`h-7 rounded px-2 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${language === code ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                             >
                                 {ui(label)}
-                            </button>
+                            </GuardedButton>
                         ))}
                     </div>
-                    <button
+                    <GuardedButton
                         type="button"
                         onClick={toggleFullscreen}
                         disabled={!document.fullscreenEnabled && !isFullscreen}
@@ -3972,7 +3973,7 @@ export default function ScorerConsole() {
                         aria-pressed={isFullscreen}
                     >
                         {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
-                    </button>
+                    </GuardedButton>
 
                     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
                         <span tabIndex={0} className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${scorerOfflineActive(matchId) ? 'bg-slate-100 text-slate-600' : realtimeConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}
@@ -3988,17 +3989,17 @@ export default function ScorerConsole() {
                         <span className="whitespace-nowrap px-1 text-xs font-semibold text-slate-600"
                             title={lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('th-TH') : st('No successful server sync in this session')}>{st("Sync Last")}{lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('en-GB', { hour12: false }) : '--'}
                         </span>
-                        {liveSyncStatus === 'error' && <button type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary" title={st("ลองบันทึกอีกครั้ง / Retry")} aria-label={st("ลองบันทึกอีกครั้ง / Retry")}><RefreshCcw size={16} aria-hidden="true" /></button>}
+                        {liveSyncStatus === 'error' && <GuardedButton type="button" onClick={() => retryLiveStateRef.current?.()} className="ui-button ui-button-secondary" title={st("ลองบันทึกอีกครั้ง / Retry")} aria-label={st("ลองบันทึกอีกครั้ง / Retry")}><RefreshCcw size={16} aria-hidden="true" /></GuardedButton>}
                     </div>
 
                     <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-sm">
-                        <button type="button" onClick={() => setShowSetup(true)} className="2xl:hidden inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 hover:bg-slate-100" title={st('Match settings')} aria-label={st('Match settings')}><Settings size={18} /></button>
-                        <button type="button" onClick={handleUndo} disabled={history.length === 0} className="2xl:hidden inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 hover:bg-slate-100 disabled:opacity-40" title={st('Undo last action')} aria-label={st('Undo last action')}><RotateCcw size={18} /></button>
-                        <button onClick={handleProtest} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title={st("Protest / Forfeit")}>
+                        <GuardedButton type="button" onClick={() => setShowSetup(true)} className="2xl:hidden inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 hover:bg-slate-100" title={st('Match settings')} aria-label={st('Match settings')}><Settings size={18} /></GuardedButton>
+                        <GuardedButton type="button" onClick={handleUndo} disabled={history.length === 0} className="2xl:hidden inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 hover:bg-slate-100 disabled:opacity-40" title={st('Undo last action')} aria-label={st('Undo last action')}><RotateCcw size={18} /></GuardedButton>
+                        <GuardedButton onClick={handleProtest} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title={st("Protest / Forfeit")}>
                             <Whistle size={16} />
-                        </button>
-                        <button onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title={st("Match Log")}><ListChecks size={16} /></button>
-                        <button
+                        </GuardedButton>
+                        <GuardedButton onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title={st("Match Log")}><ListChecks size={16} /></GuardedButton>
+                        <GuardedButton
                             onClick={() => {
                                 const role = getStoredUser()?.role || 'admin';
                                 if (role === 'score') {
@@ -4011,7 +4012,7 @@ export default function ScorerConsole() {
                             title={st("Exit")}
                         >
                             <X size={16} />
-                        </button>
+                        </GuardedButton>
                     </div>
                 </div>
             </header>
@@ -4131,30 +4132,30 @@ export default function ScorerConsole() {
 
                         {/* Mobile Roster buttons */}
                         <div className="scorer-roster-shortcuts flex 2xl:hidden border-t border-slate-100">
-                            <button
+                            <GuardedButton
                                 onClick={(e) => { e.stopPropagation(); setMobilePanelTeam(leftTeam.code); }}
                                 className="flex-1 py-2 text-[10px] font-bold text-center border-r border-slate-100 hover:bg-slate-50 transition-colors"
                                 style={{ color: getLeftTeam().color }}
                             >
-                                {displayNames.teamName(leftTeam)}{st("— Roster & Actions")}</button>
-                            <button
+                                {displayNames.teamName(leftTeam)}{st("— Roster & Actions")}</GuardedButton>
+                            <GuardedButton
                                 onClick={(e) => { e.stopPropagation(); setMobilePanelTeam(rightTeam.code); }}
                                 className="flex-1 py-2 text-[10px] font-bold text-center hover:bg-slate-50 transition-colors"
                                 style={{ color: getRightTeam().color }}
                             >
-                                {displayNames.teamName(rightTeam)}{st("— Roster & Actions")}</button>
+                                {displayNames.teamName(rightTeam)}{st("— Roster & Actions")}</GuardedButton>
                         </div>
                     </div>
 
                     <div className="scorer-touch-scoring grid grid-cols-2 gap-3 2xl:hidden">
                         {[leftTeam, rightTeam].map(team => (
-                            <button key={team.code} type="button" onClick={() => handlePoint(team.code)}
+                            <GuardedButton key={team.code} type="button" onClick={() => handlePoint(team.code)}
                                 disabled={workflowStep !== 'RALLY'}
                                 className="flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40"
                                 style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}>
                                 <span aria-hidden="true" className="text-xl">+</span>
                                 <span className="truncate">{st('Point scored')} · {displayNames.teamName(team)}</span>
-                            </button>
+                            </GuardedButton>
                         ))}
                     </div>
 
@@ -4176,14 +4177,14 @@ export default function ScorerConsole() {
                                 disableLibero={workflowStep === 'RALLY'}
                             />
                         </div>
-                        <button
+                        <GuardedButton
                             type="button"
                             onClick={handleSwapCourtSide}
                             disabled={workflowStep === 'RALLY'}
                             title={workflowStep === 'RALLY' ? st('Cannot swap court side during rally') : st('Swap court side')}
                             className="relative z-10 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-700"
                         >
-                            <ArrowLeftRight size={16} strokeWidth={2.5} />{st("Swap court side")}</button>
+                            <ArrowLeftRight size={16} strokeWidth={2.5} />{st("Swap court side")}</GuardedButton>
                     </div>
 
                     {/* OVERLAYS */}

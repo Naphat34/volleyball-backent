@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import React from 'react';
@@ -97,18 +98,18 @@ export default function StaffChallengeRequestModal({
 
                 {/* Actions Footer */}
                 <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-2">
-                    <button
+                    <GuardedButton
                         onClick={onInvalid}
                         className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
-                    >{st("Invalid")}</button>
-                    <button
+                    >{st("Invalid")}</GuardedButton>
+                    <GuardedButton
                         onClick={onPostpone}
                         className="flex-1 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
-                    >{st("Postpone")}</button>
-                    <button
+                    >{st("Postpone")}</GuardedButton>
+                    <GuardedButton
                         onClick={onAccept}
                         className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
-                    >{st("Accept")}</button>
+                    >{st("Accept")}</GuardedButton>
                 </div>
             </div>
         </div>

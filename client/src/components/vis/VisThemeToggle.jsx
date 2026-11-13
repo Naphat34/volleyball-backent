@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useVisTranslation from './useVisTranslation';
 import { useVisTheme } from './visThemeContext';
@@ -10,8 +11,8 @@ export default function VisThemeToggle({ compact = false }) {
     const { language } = useLanguage();
     const dark = theme === 'dark';
     const label = language === 'THA' ? vt('โหมดมืด') : 'Dark mode';
-    return <button type="button" className={`vis-theme-toggle${compact ? ' vis-theme-toggle-compact' : ''}`} role="switch" aria-label={ui(label)} title={ui(label)}
+    return <GuardedButton type="button" className={`vis-theme-toggle${compact ? ' vis-theme-toggle-compact' : ''}`} role="switch" aria-label={ui(label)} title={ui(label)}
         aria-checked={dark} onClick={() => setTheme(dark ? 'light' : 'dark')}>
         <span className="vis-theme-toggle-thumb" aria-hidden="true" />
-    </button>;
+    </GuardedButton>;
 }

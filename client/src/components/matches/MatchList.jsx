@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React from 'react';
 import { Calendar, MapPin, Swords, Edit2, Trash2, FileText } from 'lucide-react';
@@ -148,18 +149,18 @@ const MatchList = ({
                                 {/* --- ปุ่มเดิม: Manual Score (สีเขียว) --- */}
                                 {onScore && (
                                     <div className="flex flex-col gap-2">
-                                        <button
+                                        <GuardedButton
                                             onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}`, '_blank'); }}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
                                             title={ui("Official Score Sheet")}
                                         >
-                                            <FileText size={12} />{ui("Official Score Sheet")}</button>
-                                        <button
+                                            <FileText size={12} />{ui("Official Score Sheet")}</GuardedButton>
+                                        <GuardedButton
                                             onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}?view=result`, '_blank'); }}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
                                             title={ui("O-4 Match Report")}
                                         >
-                                            <FileText size={12} />{ui("O-4 Match Report")}</button>
+                                            <FileText size={12} />{ui("O-4 Match Report")}</GuardedButton>
                                     </div>
                                 )}
                             </div>

@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState } from 'react';
 import { X, Check } from 'lucide-react';
@@ -73,28 +74,28 @@ export default function SubstitutionRequestModal({ request, teamName, onClose, o
                 </div>
 
                 <div className="p-6 bg-slate-50 border-t flex gap-3">
-                    <button 
+                    <GuardedButton
                         onClick={() => onPostpone(request)} 
                         className="flex-1 py-3 px-4 bg-white border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-all shadow-sm"
-                    >{st("Postpone")}</button>
-                    <button 
+                    >{st("Postpone")}</GuardedButton>
+                    <GuardedButton
                         onClick={() => onReject(request)} 
                         className="flex-1 py-3 px-4 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl transition-all shadow-sm shadow-rose-500/20"
-                    >{st("Reject")}</button>
-                    <button 
+                    >{st("Reject")}</GuardedButton>
+                    <GuardedButton
                         onClick={handleAccept} 
                         className="flex-1 py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-2"
                     >
-                        <Check size={20} strokeWidth={3} />{st("Accept")}</button>
+                        <Check size={20} strokeWidth={3} />{st("Accept")}</GuardedButton>
                 </div>
 
                 {/* Close button (acts like postpone/cancel) */}
-                <button aria-label={st('Close')}
+                <GuardedButton aria-label={st('Close')}
                     onClick={() => onClose()}
                     className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
                 >
                     <X size={24} />
-                </button>
+                </GuardedButton>
             </div>
         </div>
     );

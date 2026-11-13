@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useRef, useState } from 'react';
@@ -67,9 +68,9 @@ export default function ScorerCreateMatch({ matchId, sources = [], onClose, onSa
         });
     };
     return <dialog ref={dialog} className="scm-dialog" aria-labelledby="scm-title" onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}>
-        <header><div><h2 id="scm-title">{matchId ? ui('จัดการแมตช์สร้างเอง') : ui('สร้างแมตช์เอง')}</h2><p>{ui("ออนไลน์ · ส่วนตัวเมื่อสร้าง · แยกจากตารางคะแนนทางการ")}</p></div><button type="button" disabled={busy} aria-label={ui("ปิด")} onClick={onClose}><X size={20} /></button></header>
+        <header><div><h2 id="scm-title">{matchId ? ui('จัดการแมตช์สร้างเอง') : ui('สร้างแมตช์เอง')}</h2><p>{ui("ออนไลน์ · ส่วนตัวเมื่อสร้าง · แยกจากตารางคะแนนทางการ")}</p></div><GuardedButton type="button" disabled={busy} aria-label={ui("ปิด")} onClick={onClose}><X size={20} /></GuardedButton></header>
         <nav aria-label={ui("ขั้นตอนสร้างแมตช์")}>{['ข้อมูลและกติกา', 'ทีมและนักกีฬา', 'ตรวจสอบ'].map((label, i) => <span key={label} aria-current={step === i + 1 ? 'step' : undefined}>{i + 1}. {ui(label)}</span>)}</nav>
-        <form onSubmit={event => { event.preventDefault(); if (busy) return; if (step < 3) { setError(''); setStep(step + 1); } else void save(false); }}>
+        <GuardedForm onSubmit={event => { event.preventDefault(); if (busy) return; if (step < 3) { setError(''); setStep(step + 1); } else void save(false); }}>
             <div className="scm-content"><fieldset disabled={busy} className="scm-fields">
                 {error && <p role="alert" className="scm-error">{ui(error)}</p>}
                 {step === 1 && <div className="scm-grid">
@@ -99,15 +100,15 @@ export default function ScorerCreateMatch({ matchId, sources = [], onClose, onSa
                                 <td><input aria-label={ui(`ชื่อ นักกีฬาคนที่ {0}`, [i+1])} maxLength={50} value={p.first_name} onChange={event => player(side,i,{first_name:event.target.value})} /><details><summary>{ui('Bilingual names')}</summary>{[['first_name_th','First name (Thai)'],['last_name_th','Last name (Thai)'],['first_name_en','First name (English)'],['last_name_en','Last name (English)']].map(([field,label]) => <label key={field}>{ui(label)}<input maxLength={50} aria-label={ui('{0} · Player {1}',[ui(label),i+1])} value={p[field] || ''} onChange={event => player(side,i,{[field]:event.target.value})}/></label>)}</details></td>
                                 <td><input aria-label={ui(`นามสกุล นักกีฬาคนที่ {0}`, [i+1])} maxLength={50} value={p.last_name} onChange={event => player(side,i,{last_name:event.target.value})} /></td>
                                 <td className="scm-captain-cell"><input aria-label={ui(`กัปตัน นักกีฬาคนที่ {0}`, [i+1])} type="checkbox" checked={p.is_captain} onChange={event => team(side,{players:form[side].players.map((item,j) => ({...item,is_captain:j===i ? event.target.checked : false}))})} /></td>
-                                <td><button type="button" className="scm-remove-player" aria-label={ui(`ลบนักกีฬาคนที่ {0}`, [i+1])} onClick={() => team(side,{players:form[side].players.filter((_,j) => j !== i)})}>{ui("ลบ")}</button></td>
+                                <td><GuardedButton type="button" className="scm-remove-player" aria-label={ui(`ลบนักกีฬาคนที่ {0}`, [i+1])} onClick={() => team(side,{players:form[side].players.filter((_,j) => j !== i)})}>{ui("ลบ")}</GuardedButton></td>
                             </tr>)}</tbody>
                         </table>
                     </div>
-                    <button type="button" disabled={form[side].players.length>=30} onClick={() => team(side,{players:[...form[side].players,{number:'',first_name:'',last_name:'',position:'',is_captain:false}]})}>{ui("+ เพิ่มนักกีฬา (")}{form[side].players.length}/30)</button>
+                    <GuardedButton type="button" disabled={form[side].players.length>=30} onClick={() => team(side,{players:[...form[side].players,{number:'',first_name:'',last_name:'',position:'',is_captain:false}]})}>{ui("+ เพิ่มนักกีฬา (")}{form[side].players.length}/30)</GuardedButton>
                 </section>)}</div>}
                 {step === 3 && <section className="scm-summary"><h3>{(form.title) || (ui('แมตช์สร้างเอง'))}</h3><p>{(form.home.name) || (ui('ยังไม่ระบุทีม'))} ({form.home.players.length}{' '}{ui("คน) —")}{' '}{(form.away.name) || (ui('ยังไม่ระบุทีม'))} ({form.away.players.length}{' '}{ui("คน)")}</p><p>{(form.date) || (ui('ยังไม่ระบุวันที่'))} {form.time} · {(form.location) || (ui('ยังไม่ระบุสนาม'))}</p><p>{ui("ชนะ")}{' '}{Math.ceil(form.maxSets/2)}{' '}{ui("ใน")}{' '}{form.maxSets}{' '}{ui("เซต · เซตละ")}{' '}{form.pointsPerSet}{' '}{ui("คะแนน · เซตตัดสิน")}{' '}{form.decidingSetPoints}{' '}{ui("คะแนน")}</p><p>{ui("Challenge:")}{' '}{form.hasChallenge ? ui('เปิด') : ui('ปิด')}</p><p>{ui("บันทึกฉบับร่างได้แม้รายชื่อยังไม่ครบ ก่อนเปิดบันทึกคะแนนต้องมีผู้เล่นทั่วไปอย่างน้อยทีมละ 6 คนและกัปตันทีมละหนึ่งคน")}</p><p>{ui("ผลแมตช์นี้ไม่รวมตารางคะแนนรายการแข่งขันทางการ และยังไม่เผยแพร่ Livescore จนกว่าจะกดเผยแพร่จากแดชบอร์ด")}</p></section>}
             </fieldset></div>
-            <footer><button type="button" disabled={busy || step===1} onClick={() => {setError('');setStep(step-1);}}>{ui("ย้อนกลับ")}</button><div>{busy && <span role="status">{ui("กำลังบันทึก…")}</span>}{step < 3 ? <button className="scm-primary" disabled={busy} type="submit">{ui("ถัดไป")}</button> : <><button disabled={busy} type="submit">{ui("บันทึกฉบับร่าง")}</button><button disabled={busy} type="button" className="scm-primary" onClick={() => void save(true)}>{ui("บันทึกและเปิด Scorer")}</button></>}</div></footer>
-        </form>
+            <footer><GuardedButton type="button" disabled={busy || step===1} onClick={() => {setError('');setStep(step-1);}}>{ui("ย้อนกลับ")}</GuardedButton><div>{busy && <span role="status">{ui("กำลังบันทึก…")}</span>}{step < 3 ? <GuardedButton className="scm-primary" disabled={busy} type="submit">{ui("ถัดไป")}</GuardedButton> : <><GuardedButton disabled={busy} type="submit">{ui("บันทึกฉบับร่าง")}</GuardedButton><GuardedButton disabled={busy} type="button" className="scm-primary" onClick={() => void save(true)}>{ui("บันทึกและเปิด Scorer")}</GuardedButton></>}</div></footer>
+        </GuardedForm>
     </dialog>;
 }

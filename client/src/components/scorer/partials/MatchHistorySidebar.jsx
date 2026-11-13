@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { Settings, Timer, Volleyball, ArrowDown, ArrowUp } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import { formatScorerEvent } from '../../../utils/scorer/scorerEventPresentation';
@@ -138,13 +139,13 @@ const MatchHistorySidebar = ({
 
             {/* Top Row: Staff connection status */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-white">
-                <button
+                <GuardedButton
                     onClick={() => setShowSetup(true)}
                     aria-label={st("Match settings")}
                     className="p-1 border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 transition-colors"
                 >
                     <Settings size={18} />
-                </button>
+                </GuardedButton>
                 <div className="text-xs font-bold text-slate-700 flex-1 px-3">{st("Staff connections")}</div>
                 <div className="flex gap-3 text-xs font-bold">
                     <div className="flex items-center gap-1.5" title={st(`{0} Staff`, [isHomeLeft ? displayNames.matchTeamName(matchData, 'home') : displayNames.matchTeamName(matchData, 'away')])}>
@@ -186,7 +187,7 @@ const MatchHistorySidebar = ({
                         const completed = completedSetMap.get(setNum);
                         const isActive = selectedSet === setNum;
                         return (
-                            <button
+                            <GuardedButton
                                 key={setNum}
                                 aria-pressed={isActive}
                                 onClick={() => setActiveHistoryTab(setNum)}
@@ -200,7 +201,7 @@ const MatchHistorySidebar = ({
                                 {completed && (
                                     <span className="ml-1">{completed.home}-{completed.away}</span>
                                 )}
-                            </button>
+                            </GuardedButton>
                         );
                     })}
                 </div>
@@ -445,7 +446,7 @@ const MatchHistorySidebar = ({
                         const isHome = String(req.team_id) === String(matchData.teamHomeId);
                         const teamColor = isHome ? teamColors.home : teamColors.away;
                         return (
-                            <button
+                            <GuardedButton
                                 key={req.id}
                                 onClick={() => {
                                     setActiveChallengeRequest(req);
@@ -457,7 +458,7 @@ const MatchHistorySidebar = ({
                             >
                                 <span className="truncate">{st("Challenge:")}{' '}{displayNames.linkedTeamName(req)}</span>
                                 <span className="shrink-0 text-[8px] bg-white text-slate-900 border border-slate-300 px-1 py-0.5 rounded font-mono uppercase font-black">{st("Resume")}</span>
-                            </button>
+                            </GuardedButton>
                         );
                     })}
                 </div>
@@ -465,11 +466,11 @@ const MatchHistorySidebar = ({
 
             {/* Undo Button at Bottom */}
             <div className="p-3 bg-white border-t border-slate-200 shrink-0">
-                <button
+                <GuardedButton
                     onClick={handleUndo}
                     disabled={history.length === 0}
                     className="w-full py-2.5 bg-rose-700 text-white text-sm font-semibold border border-rose-700 rounded enabled:hover:bg-rose-50 enabled:hover:text-rose-800 enabled:hover:border-rose-800 disabled:bg-slate-100 disabled:text-slate-600 disabled:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 transition-colors"
-                >{st("Undo last action")}</button>
+                >{st("Undo last action")}</GuardedButton>
             </div>
 
         </aside>

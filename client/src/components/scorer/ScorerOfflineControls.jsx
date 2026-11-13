@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { CloudOff as UiCloudOff, X as UiX } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useState } from 'react';
@@ -19,23 +20,23 @@ export default function ScorerOfflineControls({ matchId, flushState }) {
         return () => { active = false; window.removeEventListener('scorer-offline-updated', refresh); };
     }, [matchId]);
     const run = async action => { setBusy(true); setNotice(''); try { await action(); } catch (error) { setNotice(error.response?.data?.error || error.message); } finally { setBusy(false); } };
-    return <div><button className="ui-button ui-button-secondary" onClick={() => setOpen(value => !value)} aria-expanded={open}><><UiCloudOff size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("☁ Offline").replace(/☁\uFE0F?/gu, '').trim()}</>{' '}{record?.queue.length ? `(${record.queue.length})` : ''}</button>
+    return <div><GuardedButton className="ui-button ui-button-secondary" onClick={() => setOpen(value => !value)} aria-expanded={open}><><UiCloudOff size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("☁ Offline").replace(/☁\uFE0F?/gu, '').trim()}</>{' '}{record?.queue.length ? `(${record.queue.length})` : ''}</GuardedButton>
         {busy && createPortal(<div role="status" className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 text-lg text-white">{ui("กำลังดำเนินการ กรุณารอ…")}</div>,document.body)}
         {open && <section role="dialog" aria-label={ui("ScorerControl Offline")} className="fixed right-3 top-20 z-[90] max-h-[80vh] w-[min(95vw,650px)] space-y-3 overflow-y-auto rounded-xl border border-slate-400 bg-white p-5 text-sm text-slate-800 shadow-xl">
-            <div className="flex justify-between"><strong>{ui("ScorerControl Offline · เครื่องหลักหนึ่งเครื่อง")}</strong><button onClick={() => setOpen(false)} aria-label={ui("ปิด")}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></div>
+            <div className="flex justify-between"><strong>{ui("ScorerControl Offline · เครื่องหลักหนึ่งเครื่อง")}</strong><GuardedButton onClick={() => setOpen(false)} aria-label={ui("ปิด")}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></GuardedButton></div>
             <p>{ui("ต้องใช้ production build ผ่าน HTTPS/localhost และเปิดแอปออนไลน์ให้ PWA พร้อมก่อนตัดเครือข่าย")}</p>
             <p className="text-amber-700">{ui("การล้างข้อมูลเว็บไซต์อาจลบงานที่ยังไม่ซิงค์ กรุณาสำรอง JSON · งานคำขอจากเครื่องเจ้าหน้าที่ทีมต้องใช้ออนไลน์")}</p>
             <AccessStatus /><OfflineSetup getPermit={() => client.get('/scorer/offline-permit')} />
             <div className="flex flex-wrap gap-2">
-                {!scorerOfflineActive(matchId) && <button disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => {
+                {!scorerOfflineActive(matchId) && <GuardedButton disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => {
                     if (EventQueue.getQueue().some(event => String(event.matchId) === String(matchId))) throw Error('รอคิวออนไลน์ของแมตช์นี้ส่งครบก่อนจอง Offline');
                     await flushState();
                     await ensureOfflineShell();
                     await prepareScorer(client, matchId); window.location.reload();
-                })}>{ui("ดาวน์โหลดและจองแมตช์ Offline")}</button>}
-                {record && <button disabled={busy} className="ui-button ui-button-secondary" onClick={() => run(() => backupScorer(matchId))}>{ui("สำรอง JSON")}</button>}
-                {scorerOfflineActive(matchId) && <><button disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => { await flushState(); await syncScorer(client, matchId); setNotice('ซิงค์สำเร็จ ยังคงจองเครื่องหลัก'); })}>{ui("ซิงค์")}</button><button disabled={busy} className="ui-button ui-button-secondary" onClick={() => run(async () => { await flushState(); await syncScorer(client, matchId, true); window.location.reload(); })}>{ui("ซิงค์และคืนสิทธิ์")}</button></>}
-                {record?.released && <button disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => { await client.post(`/scorer/match/${matchId}/offline-confirm`); window.location.reload(); })}>{ui("ตรวจสอบแล้ว · ยืนยันผลทางการ")}</button>}
+                })}>{ui("ดาวน์โหลดและจองแมตช์ Offline")}</GuardedButton>}
+                {record && <GuardedButton disabled={busy} className="ui-button ui-button-secondary" onClick={() => run(() => backupScorer(matchId))}>{ui("สำรอง JSON")}</GuardedButton>}
+                {scorerOfflineActive(matchId) && <><GuardedButton disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => { await flushState(); await syncScorer(client, matchId); setNotice('ซิงค์สำเร็จ ยังคงจองเครื่องหลัก'); })}>{ui("ซิงค์")}</GuardedButton><GuardedButton disabled={busy} className="ui-button ui-button-secondary" onClick={() => run(async () => { await flushState(); await syncScorer(client, matchId, true); window.location.reload(); })}>{ui("ซิงค์และคืนสิทธิ์")}</GuardedButton></>}
+                {record?.released && <GuardedButton disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => { await client.post(`/scorer/match/${matchId}/offline-confirm`); window.location.reload(); })}>{ui("ตรวจสอบแล้ว · ยืนยันผลทางการ")}</GuardedButton>}
             </div>
             <p>{record ? ui(`{0} คำสั่งรอซิงค์ · ล่าสุด {1}`, [record.queue.length, record.syncedAt || 'ยังไม่ซิงค์']) : ui('ยังไม่ได้ดาวน์โหลดแมตช์นี้')}</p>
             <a className="text-blue-700 underline" href={`/login?reauth=1&returnTo=${encodeURIComponent(`/scorer/${matchId}`)}`}>{ui("เข้าสู่ระบบออนไลน์ / ปลดล็อกด้วย PIN")}</a>

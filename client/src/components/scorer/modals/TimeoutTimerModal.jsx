@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useEffect, useState } from 'react';
 import { X, Clock, Play, Pause, RotateCcw } from 'lucide-react';
@@ -82,12 +83,12 @@ const TimeoutTimerModal = ({ isOpen, onClose, duration = 30, title = 'Timeout', 
                             <p className="text-xs text-gray-500 dark:text-gray-400 font-bold">{durationText}</p>
                         </div>
                     </div>
-                    <button aria-label={st('Close')}
+                    <GuardedButton aria-label={st('Close')}
                         onClick={onClose}
                         className="bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-500 dark:text-gray-300 p-2 rounded-full transition-colors"
                     >
                         <X size={20} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 {/* Timer Display */}
@@ -112,7 +113,7 @@ const TimeoutTimerModal = ({ isOpen, onClose, duration = 30, title = 'Timeout', 
 
                     {/* Controls */}
                     <div className="grid grid-cols-3 gap-3 w-full">
-                        <button 
+                        <GuardedButton
                             onClick={() => setIsRunning(!isRunning)}
                             className={`col-span-2 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${
                                 isRunning 
@@ -121,13 +122,13 @@ const TimeoutTimerModal = ({ isOpen, onClose, duration = 30, title = 'Timeout', 
                             }`}
                         >
                             {isRunning ? <><Pause size={24}/>{' '}{st("PAUSE")}</> : <><Play size={24}/>{' '}{st("RESUME")}</>}
-                        </button>
-                        <button 
+                        </GuardedButton>
+                        <GuardedButton
                             onClick={() => { setTimeLeft(duration); setIsRunning(true); }}
                             className="col-span-1 py-4 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-gray-300 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center"
                         >
                             <RotateCcw size={24} />
-                        </button>
+                        </GuardedButton>
                     </div>
                 </div>
             </div>

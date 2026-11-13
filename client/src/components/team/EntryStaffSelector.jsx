@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import { useLanguage } from '../../context/LanguageContext';
@@ -37,9 +38,9 @@ export default function EntryStaffSelector({ entryId, onSaved }) {
         {loading ? <p role="status">{t('กำลังโหลดเจ้าหน้าที่…', 'Loading team staff…')}</p> : <>
             {!staff.length && !error && <p>{t('ยังไม่มีเจ้าหน้าที่ในทะเบียนทีม กรุณาเพิ่มข้อมูลเจ้าหน้าที่ก่อน', 'No team staff registered. Add team staff first.')}</p>}
             <fieldset disabled={saving} className="space-y-2">{staff.map(person => <label key={person.id} className="flex cursor-pointer items-center gap-3 rounded border p-3 text-sm"><input type="checkbox" checked={selected.includes(Number(person.id))} onChange={event => { setSelected(previous => event.target.checked ? [...previous, Number(person.id)] : previous.filter(id => id !== Number(person.id))); setSaved(false); }} /><span><strong>{names.personName(person)}</strong><span className="ml-2 text-gray-500">{ui(person.role)}</span></span></label>)}</fieldset>
-            <div className="ac-row-actions mt-3"><button type="button" onClick={save} disabled={saving || !selected.length}>{saving ? t('กำลังบันทึก…', 'Saving…') : t('บันทึกเจ้าหน้าที่ประจำรายการ', 'Save entry officials')}</button></div>
+            <div className="ac-row-actions mt-3"><GuardedButton type="button" onClick={save} disabled={saving || !selected.length}>{saving ? t('กำลังบันทึก…', 'Saving…') : t('บันทึกเจ้าหน้าที่ประจำรายการ', 'Save entry officials')}</GuardedButton></div>
         </>}
-        {error && <p className="ac-alert" role="alert">{error}<button type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>{t('ลองใหม่', 'Retry')}</button></p>}
+        {error && <p className="ac-alert" role="alert">{error}<GuardedButton type="button" className="ml-2 underline" onClick={() => setRetry(value => value + 1)}>{t('ลองใหม่', 'Retry')}</GuardedButton></p>}
         {saved && <p className="text-sm text-green-700 dark:text-green-300" role="status">{t(`บันทึกเจ้าหน้าที่ประจำรายการแล้ว ${selected.length} คน`, `${selected.length} entry officials saved.`)}</p>}
     </section>;
 }

@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { calculateStandings } from '../../utils/scorer/standings';
@@ -167,7 +168,7 @@ export default function LandingPage() {
         const awaySets = match.team_b_score ?? match.away_set_score ?? '-';
 
         return (
-            <button
+            <GuardedButton
                 type="button"
                 onClick={() => navigate(`/match-centre/${match.id}`)}
                 className={`w-full rounded-xl border border-slate-200 bg-white text-left transition hover:border-blue-300 hover:bg-blue-50/40 ${compact ? 'p-3' : 'p-5'}`}
@@ -205,7 +206,7 @@ export default function LandingPage() {
                         {match.round_name && <span>{match.round_name}</span>}
                     </div>
                 )}
-            </button>
+            </GuardedButton>
         );
     };
 
@@ -226,12 +227,12 @@ export default function LandingPage() {
                             {isThai ? ui('ติดตามแมตช์สด ตารางแข่งขัน ผลการแข่งขัน ตารางคะแนน และสถิตินักกีฬาของทุกรายการแข่งขัน') : ui('Follow live matches, schedules, results, standings, and player statistics across competitions.')}
                         </p>
                         <div className="mt-7 flex flex-wrap gap-3">
-                            <button onClick={() => navigate('/matches')} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-blue-950 hover:bg-blue-50">
+                            <GuardedButton onClick={() => navigate('/matches')} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-blue-950 hover:bg-blue-50">
                                 {isThai ? ui('ดูตารางแข่งขัน') : ui('View Schedule')} <ArrowRight size={18} />
-                            </button>
-                            <button onClick={() => navigate('/teams')} className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/10">
+                            </GuardedButton>
+                            <GuardedButton onClick={() => navigate('/teams')} className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/10">
                                 {isThai ? ui('ทีมเข้าร่วม') : ui('Teams')} <Users size={18} />
-                            </button>
+                            </GuardedButton>
                         </div>
                     </div>
 
@@ -242,7 +243,7 @@ export default function LandingPage() {
                                 <div className="mt-1 text-lg font-black">{isThai ? ui('\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e17\u0e35\u0e48\u0e40\u0e1b\u0e34\u0e14') : ui('Open competitions')}</div>
                             </div>
                             {featuredMatch && (
-                                <button onClick={() => navigate(`/match-centre/${featuredMatch.id}`)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-950 hover:bg-blue-50">{ui("Match Centre")}</button>
+                                <GuardedButton onClick={() => navigate(`/match-centre/${featuredMatch.id}`)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-950 hover:bg-blue-50">{ui("Match Centre")}</GuardedButton>
                             )}
                         </div>
                         {MatchCard({ match: featuredMatch })}
@@ -258,9 +259,9 @@ export default function LandingPage() {
                                 <h2 className="flex items-center gap-2 font-black text-blue-950">
                                     <CalendarDays size={20} /> {isThai ? ui('โปรแกรมและผลล่าสุด') : ui('Schedule & Results')}
                                 </h2>
-                                <button onClick={() => navigate('/matches')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                                <GuardedButton onClick={() => navigate('/matches')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
                                     {isThai ? ui('ดูทั้งหมด') : ui('View all')}
-                                </button>
+                                </GuardedButton>
                             </div>
                             <div className="space-y-3 p-5">
                                 {loading ? (
@@ -279,13 +280,13 @@ export default function LandingPage() {
 
                         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                             {quickLinks.map((link) => (
-                                <button
+                                <GuardedButton
                                     key={link.path}
                                     onClick={() => navigate(link.path)}
                                     className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-4 text-sm font-black text-slate-700 hover:border-blue-300 hover:bg-blue-50"
                                 >
                                     {link.icon} {ui(link.label)}
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </div>
@@ -296,9 +297,9 @@ export default function LandingPage() {
                                 <h2 className="flex items-center gap-2 font-black text-blue-950">
                                     <BarChart3 size={20} /> {isThai ? ui('อันดับทีม') : ui('Standings')}
                                 </h2>
-                                <button onClick={() => navigate('/standings')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                                <GuardedButton onClick={() => navigate('/standings')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
                                     {isThai ? ui('ตารางเต็ม') : ui('Full table')}
-                                </button>
+                                </GuardedButton>
                             </div>
                             <div className="p-5">
                                 {standingsPreview.length === 0 ? (
@@ -328,9 +329,9 @@ export default function LandingPage() {
                                 <h2 className="flex items-center gap-2 font-black text-blue-950">
                                     <Star size={20} /> {isThai ? ui('นักกีฬาน่าสนใจ') : ui('Top Performers')}
                                 </h2>
-                                <button onClick={() => navigate('/stats')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                                <GuardedButton onClick={() => navigate('/stats')} className="text-sm font-bold text-blue-600 hover:text-blue-700">
                                     {isThai ? ui('สถิติทั้งหมด') : ui('All stats')}
-                                </button>
+                                </GuardedButton>
                             </div>
                             <div className="p-5">
                                 {topPlayers.length === 0 ? (

@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { Shirt as UiShirt } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
@@ -201,9 +202,9 @@ export default function MatchInfoModal({ isOpen, matchData, onConfirm, onCancel 
                         <input type="text" className="w-40 border border-gray-400 h-5 px-1" />
                     </div>
                     <div className="flex gap-2 items-end pb-1">
-                        <button className="bg-[#cccccc] hover:bg-gray-400 text-black font-bold h-8 px-6 border border-gray-500 shadow-sm">{st("Comments")}</button>
-                        <button onClick={handleSubmit} className="bg-[#0044cc] hover:bg-blue-800 text-white font-bold h-8 w-40 border border-[#000080] shadow-sm">{st("Ok")}</button>
-                        <button onClick={onCancel} className="bg-[#666666] hover:bg-gray-600 text-white font-bold h-8 px-8 border border-gray-800 shadow-sm">{st("Cancel")}</button>
+                        <GuardedButton className="bg-[#cccccc] hover:bg-gray-400 text-black font-bold h-8 px-6 border border-gray-500 shadow-sm">{st("Comments")}</GuardedButton>
+                        <GuardedButton onClick={handleSubmit} className="bg-[#0044cc] hover:bg-blue-800 text-white font-bold h-8 w-40 border border-[#000080] shadow-sm">{st("Ok")}</GuardedButton>
+                        <GuardedButton onClick={onCancel} className="bg-[#666666] hover:bg-gray-600 text-white font-bold h-8 px-8 border border-gray-800 shadow-sm">{st("Cancel")}</GuardedButton>
                     </div>
                 </div>
 

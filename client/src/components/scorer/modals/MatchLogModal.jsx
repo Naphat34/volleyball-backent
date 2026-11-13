@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { formatScorerEvent } from '../../../utils/scorer/scorerEventPresentation';
 import { formatScorerEventTime } from '../../../utils/scorer/scorerUiTranslations';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -22,9 +23,9 @@ const MatchLogModal = ({ isOpen, onClose, events, matchData = {} }) => {
                             </div>{st("MATCH LOG")}</h2>
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">{st("Real-time Match Events Timeline")}</div>
                     </div>
-                    <button aria-label={st('Close')} onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
+                    <GuardedButton aria-label={st('Close')} onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
                         <X size={24} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 {/* Body (List) */}
@@ -58,7 +59,7 @@ const MatchLogModal = ({ isOpen, onClose, events, matchData = {} }) => {
 
                 {/* Footer */}
                 <div className="p-6 bg-slate-50 border-t border-slate-100 text-center">
-                    <button onClick={onClose} className="px-12 py-2 rounded-md font-semibold text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all active:scale-95">{st("Close Log Console")}</button>
+                    <GuardedButton onClick={onClose} className="px-12 py-2 rounded-md font-semibold text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all active:scale-95">{st("Close Log Console")}</GuardedButton>
                 </div>
             </div>
         </div>

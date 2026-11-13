@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../../components/ui/GuardedAction';
 import { User, Lock, Trophy, MapPin, ImagePlus, X, Check as SystemCheck, Circle as SystemCircle } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState } from 'react';
@@ -111,14 +112,14 @@ export default function Register() {
     <main className="min-h-screen bg-[#122b52] px-4 py-10 font-sans">
       <div className="mx-auto max-w-4xl rounded-2xl bg-white p-6 shadow-2xl md:p-10">
         <div className="mb-8 flex justify-end gap-2">
-          {['THA', 'ENG'].map((lang) => <button key={lang} type="button" onClick={() => setLanguage(lang)} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${language === lang ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>{lang === 'THA' ? ui('TH') : ui('EN')}</button>)}
+          {['THA', 'ENG'].map((lang) => <GuardedButton key={lang} type="button" onClick={() => setLanguage(lang)} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${language === lang ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>{lang === 'THA' ? ui('TH') : ui('EN')}</GuardedButton>)}
         </div>
         <header className="mb-8 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600"><Trophy size={28} /></div>
           <h1 className="text-3xl font-extrabold text-slate-950">{t('register.title')}</h1>
           <p className="mt-2 text-sm text-gray-500">{ui("ลงทะเบียนทีมเข้าร่วมการแข่งขัน")}</p>
         </header>
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <GuardedForm onSubmit={handleSubmit} className="space-y-8">
           {section('1. ข้อมูลทีม', Trophy, <>
             {field('โรงเรียน / สังกัด', 'name', { required: true })}
             {field('รหัสทีม (Code ทีม)', 'code', { required: true, maxLength: 10, autoComplete: 'off' })}
@@ -142,7 +143,7 @@ export default function Register() {
                   </label>
                   <p className="mt-1.5 text-[11px] font-normal text-gray-500">{ui("JPG, PNG, WEBP หรือ GIF ขนาดไม่เกิน 2MB")}</p>
                 </div>
-                {formData.logo_url && <button type="button" aria-label={ui("ลบโลโก้ทีม")} onClick={() => setFormData((current) => ({ ...current, logo_url: '' }))} className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"><X size={17} /></button>}
+                {formData.logo_url && <GuardedButton type="button" aria-label={ui("ลบโลโก้ทีม")} onClick={() => setFormData((current) => ({ ...current, logo_url: '' }))} className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"><X size={17} /></GuardedButton>}
               </div>
             </div>
           </>)}
@@ -184,8 +185,8 @@ export default function Register() {
             </ul>
             {field('ยืนยันรหัสผ่าน', 'confirm_password', { type: 'password', required: true, minLength: 8, autoComplete: 'new-password' })}
           </>)}
-          <button type="submit" disabled={loading || logoUploading} className="w-full rounded-xl bg-blue-600 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-blue-700 disabled:bg-gray-400">{loading ? t('register.submitting') : t('register.registerBtn')}</button>
-        </form>
+          <GuardedButton type="submit" disabled={loading || logoUploading} className="w-full rounded-xl bg-blue-600 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-blue-700 disabled:bg-gray-400">{loading ? t('register.submitting') : t('register.registerBtn')}</GuardedButton>
+        </GuardedForm>
         <p className="mt-7 border-t border-gray-100 pt-6 text-center text-sm text-gray-500">{t('register.haveAccount')} <Link to="/login" className="font-bold text-blue-600 hover:underline">{t('register.loginHere')}</Link></p>
       </div>
       <footer className="mt-6 text-center text-xs text-white/70">© {new Date().getFullYear()}{' '}{ui("Volley Manager || สงวนลิขสิทธิ์ ชมรมกีฬาวอลเลย์บอลแห่งจังหวัดพัทลุง")}</footer>

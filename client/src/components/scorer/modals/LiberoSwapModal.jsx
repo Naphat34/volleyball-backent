@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useEffect } from 'react';
@@ -102,12 +103,12 @@ export default function LiberoSwapModal({
                 <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                     <h3 className="text-lg font-extrabold text-slate-800 uppercase">{st("Libero In —")}{teamName}
                     </h3>
-                    <button aria-label={st('Close')}
+                    <GuardedButton aria-label={st('Close')}
                         onClick={onClose}
                         className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
                     >
                         <X size={20} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 {/* Body Content */}
@@ -120,7 +121,7 @@ export default function LiberoSwapModal({
                             ) : (
                                 <div className="flex flex-col gap-2">
                                     {availableOut.map(p => (
-                                        <button
+                                        <GuardedButton
                                             key={p.id}
                                             onClick={() => setPlayerOut(p)}
                                             className={`flex items-center gap-4 w-full p-3.5 rounded-xl border-2 transition-all text-left ${
@@ -137,7 +138,7 @@ export default function LiberoSwapModal({
                                             <span className="font-bold text-slate-700">
                                                 {displayNames.personFirstName(p) || displayNames.personName(p) || ''} {displayNames.personLastName(p) || ''}
                                             </span>
-                                        </button>
+                                        </GuardedButton>
                                     ))}
                                 </div>
                             )}
@@ -162,7 +163,7 @@ export default function LiberoSwapModal({
                             ) : (
                                 <div className="flex flex-col gap-2">
                                     {filteredIn.map((lib, idx) => (
-                                        <button
+                                        <GuardedButton
                                             key={lib.id}
                                             onClick={() => setPlayerIn(lib)}
                                             className={`flex items-center gap-4 w-full p-3.5 rounded-xl border-2 transition-all text-left ${
@@ -184,7 +185,7 @@ export default function LiberoSwapModal({
                                             {idx === 0 && (
                                                 <span className="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5 uppercase tracking-wide">{st("Primary")}</span>
                                             )}
-                                        </button>
+                                        </GuardedButton>
                                     ))}
                                 </div>
                             )}
@@ -195,23 +196,23 @@ export default function LiberoSwapModal({
                 {/* Footer Controls */}
                 <div className="flex gap-3 pt-4 border-t border-slate-100 mt-2">
                     {step === 2 && (
-                        <button
+                        <GuardedButton
                             onClick={handleBack}
                             className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
-                        >{st("Back")}</button>
+                        >{st("Back")}</GuardedButton>
                     )}
                     {step === 1 ? (
-                        <button
+                        <GuardedButton
                             onClick={handleNext}
                             disabled={!playerOut}
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl font-bold text-sm transition-colors"
-                        >{st("Next")}</button>
+                        >{st("Next")}</GuardedButton>
                     ) : (
-                        <button
+                        <GuardedButton
                             onClick={handleConfirm}
                             disabled={!playerIn}
                             className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl font-bold text-sm transition-colors"
-                        >{st("Confirm")}</button>
+                        >{st("Confirm")}</GuardedButton>
                     )}
                 </div>
             </div>

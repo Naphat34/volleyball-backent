@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useState } from 'react';
@@ -25,7 +26,7 @@ export default function VisAthleteLinks({ matchId, config, links, onLinked }) {
     return <section className="space-y-3 rounded border border-slate-600 p-3">
         <h3>{ui("เชื่อมนักกีฬากับทะเบียนหลัก")}</h3>
         <p className="text-sm">{ui("ผู้ดูแลเลือกยืนยันนักกีฬาทีละคนเพื่อรวมประวัติสถิติ โดยข้อมูลรายชื่อในแมตช์จะคงเดิม")}</p>
-        <div className="flex gap-2"><input aria-label={ui("ค้นหานักกีฬาทะเบียนหลัก")} className="min-w-0 rounded bg-slate-800 p-2" value={query} onChange={event => setQuery(event.target.value)} placeholder={ui("ชื่อหรือทีม")} /><button type="button" disabled={busy} onClick={() => run(async () => setOptions((await api.getAthleteOptions(query)).data))}>{ui("ค้นหา")}</button></div>
+        <div className="flex gap-2"><input aria-label={ui("ค้นหานักกีฬาทะเบียนหลัก")} className="min-w-0 rounded bg-slate-800 p-2" value={query} onChange={event => setQuery(event.target.value)} placeholder={ui("ชื่อหรือทีม")} /><GuardedButton type="button" disabled={busy} onClick={() => run(async () => setOptions((await api.getAthleteOptions(query)).data))}>{ui("ค้นหา")}</GuardedButton></div>
         {['home', 'away'].map(side => <div key={side}><h4>{config[side].name}</h4>{config[side].players.map(player => {
             const linked = links.find(link => link.side === side && link.local_player_id === player.id)?.player_id;
             return <label key={player.id} className="my-2 flex flex-wrap items-center gap-2 text-sm">

@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useRef, useState } from 'react';
@@ -110,26 +111,26 @@ export default function VisOfflinePanel({ matches, reload }) {
         {profileMismatch && <div className="vop-notice" role="status"><p>{ui("บัญชีปัจจุบัน:")}{' '}<strong>{user?.username || user?.id}</strong>{' '}{ui("· เจ้าของ PIN เดิม:")}{' '}<strong>{profile.user}</strong><br />{ui("กรุณาเตรียมสิทธิ์สำหรับบัญชีปัจจุบัน ระบบจะตรวจงานค้างก่อนเปลี่ยนโปรไฟล์ Offline")}</p></div>}
         <div className="vop-action-row">
             <p className={`vop-state ${model.unlocked ? 'is-ready' : ''}`}>{model.unlocked ? <Check aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}{ui(model.hint)}</p>
-            {model.action === 'signin' && !model.disabled ? <Link className="vop-button vop-primary" to={loginUrl}>{ui(model.label)}</Link> : <button className="vop-button vop-primary" type="button" disabled={busy || model.disabled} onClick={primaryAction}>{busy ? ui('กำลังดำเนินการ…') : ui(model.label)}</button>}
+            {model.action === 'signin' && !model.disabled ? <Link className="vop-button vop-primary" to={loginUrl}>{ui(model.label)}</Link> : <GuardedButton className="vop-button vop-primary" type="button" disabled={busy || model.disabled} onClick={primaryAction}>{busy ? ui('กำลังดำเนินการ…') : ui(model.label)}</GuardedButton>}
         </div>
 
         <section className="vop-matches" aria-label={ui("แมตช์ในเครื่อง")} aria-busy={readState === 'loading'}>
             <div className="vop-section-title"><h3>{ui("แมตช์ในเครื่อง")}</h3><span>{countLabel}</span></div>
             {readState === 'locked' && <div className="vop-empty"><LockKeyhole aria-hidden="true" /><strong>{ui("ปลดล็อกเพื่อดูแมตช์ในเครื่อง")}</strong><span>{ui("ใช้ PIN ของบัญชีเจ้าของข้อมูล")}</span></div>}
             {readState === 'loading' && <p className="vop-empty" role="status">{ui("กำลังอ่านรายการแมตช์…")}</p>}
-            {readState === 'error' && <div className="vop-read-error" role="alert"><p>{ui("อ่านรายการแมตช์ไม่สำเร็จ:")}{' '}{readError}</p><button className="vop-button" type="button" disabled={busy} onClick={() => setRefresh(value => value + 1)}>{ui("ลองอ่านข้อมูลอีกครั้ง")}</button></div>}
+            {readState === 'error' && <div className="vop-read-error" role="alert"><p>{ui("อ่านรายการแมตช์ไม่สำเร็จ:")}{' '}{readError}</p><GuardedButton className="vop-button" type="button" disabled={busy} onClick={() => setRefresh(value => value + 1)}>{ui("ลองอ่านข้อมูลอีกครั้ง")}</GuardedButton></div>}
             {readState === 'ready' && !records.length && <div className="vop-empty"><FolderDown aria-hidden="true" /><strong>{ui("ยังไม่มีแมตช์ในเครื่อง")}</strong><span>{ui("ดาวน์โหลดแมตช์ที่ต้องการก่อนเริ่มใช้งานออฟไลน์")}</span></div>}
             {readState === 'ready' && records.map(record => <article key={record.id} className="vop-match">
                 <div className="vop-match-heading"><div><h4>{record.payload.config.home.name} — {record.payload.config.away.name}</h4><p>{record.released ? ui('คืนสิทธิ์แล้ว · อ่านอย่างเดียว') : ui(`{0} คำสั่งรอซิงค์{1}`, [record.queue.length, record.serverCreated ? '' : ' · แมตช์ใหม่ยังไม่ขึ้นเซิร์ฟเวอร์'])}</p><p>{ui("ซิงค์ล่าสุด")}{' '}{date(record.lastSyncedAt)}</p></div>{record.released ? <ShieldCheck aria-label={ui("คืนสิทธิ์แล้ว")} /> : <HardDrive aria-label={ui("ข้อมูลในเครื่อง")} />}</div>
                 <div className="vop-match-actions">
                     {!record.released && model.unlocked && <Link className="vop-button" to={`/adminvis/match/${record.id}`}>{ui("เปิดแมตช์")}</Link>}
-                    <button disabled={busy} className="vop-button" type="button" onClick={() => run(() => exportVisMatch(localView(record).match))}>{ui("สำรอง JSON")}</button>
-                    {!record.released && <><button disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => sync(record, false)}>{ui("ซิงค์")}</button><button disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => sync(record, true)}>{ui("ซิงค์และคืนสิทธิ์")}</button></>}
+                    <GuardedButton disabled={busy} className="vop-button" type="button" onClick={() => run(() => exportVisMatch(localView(record).match))}>{ui("สำรอง JSON")}</GuardedButton>
+                    {!record.released && <><GuardedButton disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => sync(record, false)}>{ui("ซิงค์")}</GuardedButton><GuardedButton disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => sync(record, true)}>{ui("ซิงค์และคืนสิทธิ์")}</GuardedButton></>}
                     {record.released && model.serverReady && <a href={`/adminvis/match/${record.serverId}`} className="vop-button" onClick={event => { try { switchAccessMode(false); } catch (error) { event.preventDefault(); setNotice(error.message); setNoticeError(true); } }}>{ui("เปิดบนเซิร์ฟเวอร์")}</a>}
                 </div>
                 {conflict === record.id && <div role="alert" className="vop-conflict"><p>{ui("ข้อมูลขัดแย้ง ระบบไม่ได้เขียนทับ เลือกเก็บเป็นสำเนาหรือสำรองก่อนใช้ข้อมูลเซิร์ฟเวอร์")}</p><div className="vop-match-actions">
-                    <button disabled={busy || !model.unlocked} className="vop-button" type="button" onClick={() => run(async () => { const latest = await getLocal(record.id); await createLocal({ creationId: crypto.randomUUID(), importBackup: { config: latest.payload.config, match: latest.payload.match, actions: latest.payload.actions } }); setNotice('สร้างสำเนาใหม่แล้ว ต้นฉบับในเครื่องยังอยู่'); setConflict(null); })}>{ui("สร้างสำเนาเป็นแมตช์ใหม่")}</button>
-                    <button disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => run(async () => {
+                    <GuardedButton disabled={busy || !model.unlocked} className="vop-button" type="button" onClick={() => run(async () => { const latest = await getLocal(record.id); await createLocal({ creationId: crypto.randomUUID(), importBackup: { config: latest.payload.config, match: latest.payload.match, actions: latest.payload.actions } }); setNotice('สร้างสำเนาใหม่แล้ว ต้นฉบับในเครื่องยังอยู่'); setConflict(null); })}>{ui("สร้างสำเนาเป็นแมตช์ใหม่")}</GuardedButton>
+                    <GuardedButton disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => run(async () => {
                         await exportVisMatch(localView(record).match);
                         if (!window.confirm(String(record.serverId).startsWith('custom-') ? 'ดาวน์โหลดสำรองแล้วหรือไม่? ข้อมูลเซิร์ฟเวอร์จะแทนที่ข้อมูลและคำสั่งรอซิงค์ของแมตช์นี้ในเครื่อง' : 'ดาวน์โหลดสำรองแล้วหรือไม่? ระบบจะคืนสิทธิ์และยุติคิวซิงค์ เก็บสำเนาในเครื่องไว้อ่านอย่างเดียว จากนั้นให้เปิดแมตช์บนเซิร์ฟเวอร์เพื่อตรวจสอบ')) return;
                         if (!String(record.serverId).startsWith('custom-')) {
@@ -141,27 +142,27 @@ export default function VisOfflinePanel({ matches, reload }) {
                         const response = await api.getCustomVis(record.serverId);
                         await api.syncOfflineVis(record.serverId, { deviceId: deviceId(), baseRevision: response.data.state.revision, operations: [], release: true });
                         await updateLocal(record.id, current => ({ ...current, payload: response.data.offlinePayload, baseRevision: response.data.state.revision, queue: [], released: true, serverCreated: true })); setConflict(null);
-                    })}>{ui("สำรองแล้วใช้ข้อมูลเซิร์ฟเวอร์")}</button>
+                    })}>{ui("สำรองแล้วใช้ข้อมูลเซิร์ฟเวอร์")}</GuardedButton>
                 </div></div>}
             </article>)}
-            <form className="vop-download" onSubmit={event => { event.preventDefault(); if (!busy && model.canDownload && selectionValid) void download(); }}>
+            <GuardedForm className="vop-download" onSubmit={event => { event.preventDefault(); if (!busy && model.canDownload && selectionValid) void download(); }}>
                 <label htmlFor="vis-offline-download">{ui("แมตช์จากเซิร์ฟเวอร์")}<select id="vis-offline-download" disabled={busy || !model.canDownload || !downloadable.length} value={selectionValid ? selectedMatch : ''} onChange={event => setSelectedMatch(event.target.value)}><option value="">{ui("เลือกแมตช์")}</option>{downloadable.map(match => <option key={match.id} value={match.id}>{match.match_number || match.id} · {displayNames.matchTeamName(match, 'home')} — {displayNames.matchTeamName(match, 'away')} · {match.is_custom_vis ? ui('VIMS') : ui('Admin')}</option>)}</select></label>
-                <button className="vop-button" disabled={busy || !model.canDownload || !selectionValid}><Download aria-hidden="true" />{ui("ดาวน์โหลด")}</button>
-            </form>
+                <GuardedButton className="vop-button" disabled={busy || !model.canDownload || !selectionValid}><Download aria-hidden="true" />{ui("ดาวน์โหลด")}</GuardedButton>
+            </GuardedForm>
             <p className="vop-download-help">{offline ? ui('กลับโหมดออนไลน์เพื่อดาวน์โหลดแมตช์เพิ่มเติม') : !online ? ui('เชื่อมต่อเครือข่ายก่อนดาวน์โหลดแมตช์') : model.unlocked && !model.serverReady ? ui('เข้าสู่ระบบออนไลน์ด้วยบัญชีเจ้าของข้อมูลก่อนดาวน์โหลด') : ui('รองรับแมตช์จาก Admin และแมตช์สร้างเองใน VIMS · จองสิทธิ์หนึ่งอุปกรณ์ต่อแมตช์')}</p>
             {readerId && !model.serverReady && online && <Link className="vop-text-link" to={loginUrl}>{ui("เข้าสู่ระบบออนไลน์เพื่อซิงค์")}</Link>}
         </section>
 
         <details className="vop-device"><summary><MonitorCog aria-hidden="true" />{ui("อุปกรณ์และสิทธิ์การใช้งาน")}<ChevronDown aria-hidden="true" /></summary><div className="vop-device-body">
             <dl><div><dt>{ui("อุปกรณ์นี้")}</dt><dd>{deviceId().slice(0, 8)}</dd></div><div><dt>{ui("บัญชี Offline")}</dt><dd>{(profile?.user) || (ui('ยังไม่เตรียม'))}</dd></div><div><dt>{ui("สิทธิ์ถึง")}</dt><dd>{profile ? date(profile.expiresAt) : '—'}</dd></div><div><dt>{ui("แอปออฟไลน์")}</dt><dd>{pwaReady ? ui('พร้อมใช้งาน') : import.meta.env.PROD ? ui('กำลังเตรียม / ตรวจการเชื่อมต่อ') : ui('ยังไม่พร้อมในโหมดพัฒนา')}</dd></div></dl>
-            <div className="vop-match-actions"><button type="button" className="vop-button" disabled={busy || !model.serverReady} onClick={() => setAuthMode('setup')}>{ui("เตรียม / ต่ออายุสิทธิ์")}</button>{profile && <button type="button" className="vop-button" disabled={busy} onClick={() => setAuthMode('unlock')}>{ui("ปลดล็อกด้วย PIN")}</button>}<Link className="vop-text-link" to={loginUrl}>{ui("เข้าสู่ระบบออนไลน์")}</Link></div>
+            <div className="vop-match-actions"><GuardedButton type="button" className="vop-button" disabled={busy || !model.serverReady} onClick={() => setAuthMode('setup')}>{ui("เตรียม / ต่ออายุสิทธิ์")}</GuardedButton>{profile && <GuardedButton type="button" className="vop-button" disabled={busy} onClick={() => setAuthMode('unlock')}>{ui("ปลดล็อกด้วย PIN")}</GuardedButton>}<Link className="vop-text-link" to={loginUrl}>{ui("เข้าสู่ระบบออนไลน์")}</Link></div>
         </div></details>
         <footer className="vop-footer"><span><ShieldCheck aria-hidden="true" />{ui("ข้อมูลเก็บในเบราว์เซอร์นี้")}</span><details><summary>{ui("การสำรองข้อมูล")}</summary><p>{ui("ใช้ปุ่ม “สำรอง JSON” ของแต่ละแมตช์ ก่อนล้างข้อมูลเว็บไซต์ ใช้โหมดไม่ระบุตัวตน หรือย้ายอุปกรณ์")}</p></details></footer>
         {readState === 'ready' && records.some(record => !record.released && (record.queue.length || !record.serverCreated)) && <p className="vop-backup-reminder">{ui("ยังมีข้อมูลที่ไม่ได้ซิงค์ ควรสำรอง JSON ก่อนย้ายอุปกรณ์หรือล้างข้อมูลเว็บไซต์")}</p>}
-        {notice && <div className={`vop-notice ${noticeError ? 'is-error' : ''}`} role={noticeError ? 'alert' : 'status'}><p>{ui(notice)}</p><button type="button" aria-label={ui("ปิดข้อความ")} onClick={() => setNotice('')}><X aria-hidden="true" /></button></div>}
+        {notice && <div className={`vop-notice ${noticeError ? 'is-error' : ''}`} role={noticeError ? 'alert' : 'status'}><p>{ui(notice)}</p><GuardedButton type="button" aria-label={ui("ปิดข้อความ")} onClick={() => setNotice('')}><X aria-hidden="true" /></GuardedButton></div>}
 
         {authMode && <dialog ref={dialog} className="vop-dialog" aria-labelledby="vis-offline-auth-title" onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); }} onCancel={event => { if (busy) event.preventDefault(); else setAuthMode(null); }} onClose={() => setAuthMode(null)}>
-            <header><h3 id="vis-offline-auth-title">{authMode === 'setup' ? ui('เตรียม / ต่ออายุสิทธิ์ออฟไลน์') : ui('ปลดล็อกข้อมูลบนอุปกรณ์นี้')}</h3><button className="vop-icon-button" type="button" disabled={busy} aria-label={ui("ปิดหน้าต่าง")} onClick={() => setAuthMode(null)}><X aria-hidden="true" /></button></header>
+            <header><h3 id="vis-offline-auth-title">{authMode === 'setup' ? ui('เตรียม / ต่ออายุสิทธิ์ออฟไลน์') : ui('ปลดล็อกข้อมูลบนอุปกรณ์นี้')}</h3><GuardedButton className="vop-icon-button" type="button" disabled={busy} aria-label={ui("ปิดหน้าต่าง")} onClick={() => setAuthMode(null)}><X aria-hidden="true" /></GuardedButton></header>
             {authMode === 'setup' ? <OfflineSetup getPermit={api.getOfflinePermit} disabled={busy || !model.serverReady} beginAttempt={beginAttempt} endAttempt={endAttempt} onPrepared={authComplete} /> : <OfflineUnlock inline preserveMode section="vis" disabled={busy} beginAttempt={beginAttempt} endAttempt={endAttempt} onUnlocked={authComplete} onPrepare={() => setAuthMode('setup')} />}
             {!model.serverReady && authMode === 'setup' && <Link className="vop-text-link" to={loginUrl}>{ui("เข้าสู่ระบบออนไลน์เพื่อต่ออายุสิทธิ์")}</Link>}
         </dialog>}

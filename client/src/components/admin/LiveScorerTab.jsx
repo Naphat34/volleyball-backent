@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { Swords, Calendar, MapPin, PlayCircle, Trophy, X, User, CheckCircle, FileText, Monitor, ChevronDown as UiChevronDown } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -311,13 +312,13 @@ export default function LiveScorerTab({ darkMode }) {
                         <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{ui("Gender")}</label>
                         <div className="flex bg-gray-50 border border-gray-200 dark:bg-gray-700 rounded-lg p-1 h-12 shadow-sm items-center">
                             {availableGenders.map(g => (
-                                <button 
+                                <GuardedButton
                                     key={g} 
                                     onClick={() => setFilterGender(g)} 
                                     className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filterGender === g ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-indigo-400 shadow-sm border border-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
                                 >
                                     {g}
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </div>
@@ -373,12 +374,12 @@ export default function LiveScorerTab({ darkMode }) {
                                         >
                                             <Monitor size={20} />
                                         </Link>
-                                        <button
+                                        <GuardedButton
                                             onClick={() => handleOpenConsoleClick(m)}
                                             className={`flex-1 md:flex-none px-6 h-10 rounded-lg font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition-all ${isCompleted ? 'bg-gray-100 text-gray-500 border border-gray-200' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                                         >
                                             <PlayCircle size={18} /> {isCompleted ? ui('View Data') : ui('Open Console')}
-                                        </button>
+                                        </GuardedButton>
                                         {isCompleted && (
                                             <Link
                                                 to={`/scoresheet/${m.id}`}
@@ -412,9 +413,9 @@ export default function LiveScorerTab({ darkMode }) {
                                     <p className="text-sm text-gray-500">{displayNames.competitionGroupName(selectedBaseName, competitions) || formData.title}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">
+                            <GuardedButton onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">
                                 <X size={20} />
-                            </button>
+                            </GuardedButton>
                         </div>
 
                         {/* Body Content */}
@@ -495,9 +496,9 @@ export default function LiveScorerTab({ darkMode }) {
 
                         {/* Footer Controls */}
                         <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 rounded-b-xl">
-                            <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all font-medium text-sm">{ui("Cancel")}</button>
-                            <button onClick={handleEnterScorer} className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all flex items-center gap-2">
-                                <CheckCircle size={18} />{ui("Launch Console")}</button>
+                            <GuardedButton onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all font-medium text-sm">{ui("Cancel")}</GuardedButton>
+                            <GuardedButton onClick={handleEnterScorer} className="px-6 py-2.5 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all flex items-center gap-2">
+                                <CheckCircle size={18} />{ui("Launch Console")}</GuardedButton>
                         </div>
                     </div>
                 </div>

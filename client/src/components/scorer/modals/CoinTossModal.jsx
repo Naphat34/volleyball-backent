@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useRef, useState } from 'react';
 import { Trophy, Flag, ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
@@ -49,7 +50,7 @@ export default function CoinTossModal({
                             {['home', 'away'].map((teamKey) => {
                                 const selected = tossWinner === teamKey;
                                 return (
-                                    <button
+                                    <GuardedButton
                                         key={teamKey}
                                         onClick={() => setTossWinner(teamKey)}
                                         style={getTeamStyle(teamKey, selected)}
@@ -61,7 +62,7 @@ export default function CoinTossModal({
                                             <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
                                                 <CheckCircle2 size={14} />{st("Selected")}</span>
                                         )}
-                                    </button>
+                                    </GuardedButton>
                                 );
                             })}
                         </div>
@@ -87,7 +88,7 @@ export default function CoinTossModal({
                             {['home', 'away'].map((teamKey) => {
                                 const selected = courtLeft === teamKey;
                                 return (
-                                    <button
+                                    <GuardedButton
                                         key={teamKey}
                                         onClick={() => setCourtLeft(teamKey)}
                                         style={getTeamStyle(teamKey, selected)}
@@ -105,7 +106,7 @@ export default function CoinTossModal({
                                             <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
                                                 <ArrowLeft size={14} />{st("Left")}</span>
                                         )}
-                                    </button>
+                                    </GuardedButton>
                                 );
                             })}
                         </div>
@@ -128,7 +129,7 @@ export default function CoinTossModal({
                             {['home', 'away'].map((teamKey) => {
                                 const selected = servingTeam === teamKey;
                                 return (
-                                    <button
+                                    <GuardedButton
                                         key={teamKey}
                                         onClick={() => setServingTeam(teamKey)}
                                         style={getTeamStyle(teamKey, selected)}
@@ -140,7 +141,7 @@ export default function CoinTossModal({
                                             <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
                                                 <CheckCircle2 size={14} />{st("Ready")}</span>
                                         )}
-                                    </button>
+                                    </GuardedButton>
                                 );
                             })}
                         </div>
@@ -209,29 +210,29 @@ export default function CoinTossModal({
                     </div>
                 )}
                 <div className="pt-6 border-t border-slate-200 mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <button
+                    <GuardedButton
                         onClick={handleBack}
                         disabled={step === 1 || isSaving}
                         className="flex-1 py-3.5 rounded-2xl border border-slate-300 text-slate-700 font-semibold transition hover:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                    >{st("Back")}</button>
+                    >{st("Back")}</GuardedButton>
 
                     {step < 3 ? (
-                        <button
+                        <GuardedButton
                             onClick={handleNext}
                             disabled={
                                 (step === 1 && !tossWinner) ||
                                 (step === 2 && !courtLeft)
                             }
                             className="flex-1 py-3.5 rounded-2xl bg-indigo-600 text-white font-semibold transition hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400"
-                        >{st("Next")}</button>
+                        >{st("Next")}</GuardedButton>
                     ) : (
-                        <button
+                        <GuardedButton
                             onClick={handleConfirm}
                             disabled={!servingTeam || isSaving}
                             className="flex-1 py-3.5 rounded-2xl bg-emerald-500 text-white font-semibold transition hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400"
                         >
                             {isSaving ? st('Saving...') : st('Confirm')}
-                        </button>
+                        </GuardedButton>
                     )}
                 </div>
             </div>

@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useRef, useState } from 'react';
 import { offlineMode, offlineProfile, offlineProfileMatchesUser, unlockOffline } from '../../offline/offlineAuth';
@@ -15,13 +16,13 @@ export default function OfflineUnlock({ onUnlocked, onPrepare, section = null, d
         <p>{ui("บัญชีปัจจุบัน:")}{' '}<strong>{currentUser.username || currentUser.id}</strong></p>
         <p>{ui("เจ้าของ PIN Offline ที่เก็บไว้:")}{' '}<strong>{(profile.user) || (ui('บัญชีเดิม'))}</strong></p>
         <p>{ui("โปรไฟล์ Offline ยังไม่ได้เตรียมสำหรับบัญชีปัจจุบัน จึงไม่เปิดให้กรอก PIN ของบัญชีเดิมจากหน้านี้")}</p>
-        {onPrepare && <button type="button" disabled={disabled || busy} onClick={onPrepare} className="rounded bg-sky-800 px-3 py-2 text-white">{ui("เตรียมสิทธิ์สำหรับบัญชีปัจจุบัน")}</button>}
+        {onPrepare && <GuardedButton type="button" disabled={disabled || busy} onClick={onPrepare} className="rounded bg-sky-800 px-3 py-2 text-white">{ui("เตรียมสิทธิ์สำหรับบัญชีปัจจุบัน")}</GuardedButton>}
         <p>{ui("หากต้องการใช้งานบัญชีเดิม ให้เข้าสู่ระบบบัญชีนั้นก่อนเพื่อซิงค์หรือสำรองงาน ก่อนเปลี่ยนโปรไฟล์ Offline")}</p>
     </div>;
     const content = <>
         <p className="my-2">{ui("บัญชี")}{' '}{profile.user}{' '}{ui("· สิทธิ์ถึง")}{' '}{new Date(profile.expiresAt).toLocaleString('th-TH')}</p>
         {expired && <p role="alert" className="my-2 text-amber-600">{ui("สิทธิ์หมดอายุ ปลดล็อกเพื่อสำรองข้อมูลได้ และต้องต่ออายุออนไลน์ก่อนบันทึกหรือซิงค์")}</p>}
-        <form className="offline-unlock-form" onSubmit={async event => {
+        <GuardedForm className="offline-unlock-form" onSubmit={async event => {
             event.preventDefault();
             if (inFlight.current || disabled || (beginAttempt && !beginAttempt())) return;
             inFlight.current = true; setBusy(true); setError('');
@@ -35,9 +36,9 @@ export default function OfflineUnlock({ onUnlocked, onPrepare, section = null, d
             finally { inFlight.current = false; setBusy(false); endAttempt?.(); }
         }}>
             <label>{ui("PIN ของบัญชีนี้")}<input autoFocus={inline} type="password" inputMode="numeric" autoComplete="off" required pattern="[0-9]{6,12}" minLength={6} maxLength={12} disabled={busy || disabled} value={pin} onChange={event => setPin(event.target.value)} className="my-2 block w-full rounded border bg-slate-100 p-2 text-slate-900" /></label>
-            <button disabled={busy || disabled} className="rounded bg-sky-800 px-3 py-2 text-white">{busy ? ui('กำลังตรวจสอบ PIN…') : expired ? ui('ปลดล็อกเพื่อสำรองข้อมูล') : ui('ปลดล็อกด้วย PIN')}</button>
+            <GuardedButton disabled={busy || disabled} className="rounded bg-sky-800 px-3 py-2 text-white">{busy ? ui('กำลังตรวจสอบ PIN…') : expired ? ui('ปลดล็อกเพื่อสำรองข้อมูล') : ui('ปลดล็อกด้วย PIN')}</GuardedButton>
             {error && <p role="alert" className="mt-2 text-red-500">{ui(error)}</p>}
-        </form>
+        </GuardedForm>
     </>;
     if (inline) return content;
     return <details className="mt-5 rounded-lg border border-slate-300 p-3 text-sm"><summary className="cursor-pointer font-semibold">{compact ? ui('ปลดล็อกด้วย PIN Offline') : ui('Offline PIN · VIMS / ScorerControl')}</summary>{content}</details>;

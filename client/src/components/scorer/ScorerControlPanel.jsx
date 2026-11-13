@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useMemo, useState } from 'react';
@@ -197,12 +198,12 @@ export default function ScorerConsole() {
                                 <div>
                                     <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{ui("First Service")}</label>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={() => setServingTeam('home')} className={`py-3 px-4 rounded-lg border transition-all font-bold ${servingTeam === 'home' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                                        <GuardedButton onClick={() => setServingTeam('home')} className={`py-3 px-4 rounded-lg border transition-all font-bold ${servingTeam === 'home' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                                             {displayNames.matchTeamName(matchSetupData, 'home')}
-                                        </button>
-                                        <button onClick={() => setServingTeam('away')} className={`py-3 px-4 rounded-lg border transition-all font-bold ${servingTeam === 'away' ? 'bg-rose-600/20 border-rose-500 text-rose-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                                        </GuardedButton>
+                                        <GuardedButton onClick={() => setServingTeam('away')} className={`py-3 px-4 rounded-lg border transition-all font-bold ${servingTeam === 'away' ? 'bg-rose-600/20 border-rose-500 text-rose-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                                             {displayNames.matchTeamName(matchSetupData, 'away')}
-                                        </button>
+                                        </GuardedButton>
                                     </div>
                                 </div>
 
@@ -214,9 +215,9 @@ export default function ScorerConsole() {
                                             <div className={`font-bold ${isHomeLeft ? 'text-indigo-400' : 'text-rose-400'}`}>{leftTeamName}</div>
                                             <div className="text-[10px] text-slate-500">{ui("Left Court")}</div>
                                         </div>
-                                        <button onClick={() => setIsHomeLeft(!isHomeLeft)} className="p-2 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 hover:text-white transition shadow-lg">
+                                        <GuardedButton onClick={() => setIsHomeLeft(!isHomeLeft)} className="p-2 bg-slate-700 rounded-full text-slate-300 hover:bg-slate-600 hover:text-white transition shadow-lg">
                                             <ArrowRightLeft size={18} />
-                                        </button>
+                                        </GuardedButton>
                                         <div className="flex-1 text-center py-2">
                                             <div className={`font-bold ${!isHomeLeft ? 'text-indigo-400' : 'text-rose-400'}`}>{rightTeamName}</div>
                                             <div className="text-[10px] text-slate-500">{ui("Right Court")}</div>
@@ -224,7 +225,7 @@ export default function ScorerConsole() {
                                     </div>
                                 </div>
 
-                                <button onClick={() => setStep('LINEUP')} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/20 transition-all mt-2">{ui("Confirm & Set Lineups")}</button>
+                                <GuardedButton onClick={() => setStep('LINEUP')} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/20 transition-all mt-2">{ui("Confirm & Set Lineups")}</GuardedButton>
                             </div>
                         </div>
                     </div>
@@ -237,8 +238,8 @@ export default function ScorerConsole() {
                         <div className="p-4 flex justify-between items-center max-w-6xl mx-auto w-full">
                             <h2 className="text-2xl font-bold flex items-center gap-3 text-white">
                                 <Users className="text-indigo-400"/>{ui("Starting Lineups")}</h2>
-                            <button onClick={handleLineupConfirm} className="px-6 py-2 bg-green-600 hover:bg-green-500 rounded-lg font-bold shadow-lg shadow-green-500/20 flex items-center gap-2 transition active:scale-95">
-                                <CheckCircle size={18} />{ui("Start Match")}</button>
+                            <GuardedButton onClick={handleLineupConfirm} className="px-6 py-2 bg-green-600 hover:bg-green-500 rounded-lg font-bold shadow-lg shadow-green-500/20 flex items-center gap-2 transition active:scale-95">
+                                <CheckCircle size={18} />{ui("Start Match")}</GuardedButton>
                         </div>
 
                         {/* Lineup Content */}
@@ -259,7 +260,7 @@ export default function ScorerConsole() {
                         <div className="bg-slate-800 rounded-2xl shadow-2xl border border-slate-600 w-full max-w-sm overflow-hidden">
                             <div className="bg-slate-900 p-3 flex justify-between items-center border-b border-slate-700">
                                 <span className="font-bold text-slate-200 flex items-center gap-2"><Grid size={16}/>{' '}{ui("Select Player")}</span>
-                                <button onClick={() => setShowPlayerModal(false)}><X size={20} className="text-slate-400 hover:text-white"/></button>
+                                <GuardedButton onClick={() => setShowPlayerModal(false)}><X size={20} className="text-slate-400 hover:text-white"/></GuardedButton>
                             </div>
                             <div className="p-5">
                                 <div className="grid grid-cols-5 gap-3">
@@ -270,12 +271,12 @@ export default function ScorerConsole() {
                                         const isSelected = currentLineup.some(p => p?.id === player.id) || currentLiberos.l1?.id === player.id || currentLiberos.l2?.id === player.id;
                                         
                                         return (
-                                            <button 
+                                            <GuardedButton
                                                 key={player.id} onClick={() => !isSelected && handleSelectPlayer(player)} disabled={isSelected}
                                                 className={`aspect-square rounded-lg font-black text-lg flex items-center justify-center transition-all ${isSelected ? 'bg-slate-700 text-slate-500 opacity-40' : 'bg-slate-600 hover:bg-indigo-500 text-white shadow-md hover:scale-105'}`}
                                             >
                                                 {player.number}
-                                            </button>
+                                            </GuardedButton>
                                         );
                                     })}
                                 </div>
@@ -315,7 +316,7 @@ const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClear
                     const player = lineup[posIndex];
                     return (
                         <div key={posIndex} className="flex flex-col items-center">
-                            <button 
+                            <GuardedButton
                                 onClick={() => player ? onClearPos(posIndex) : onSelectPos(posIndex)}
                                 className={`
                                     w-14 h-14 rounded-full flex items-center justify-center text-xl font-black border-2 transition-all shadow-lg
@@ -326,7 +327,7 @@ const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClear
                                 `}
                             >
                                 {player ? player.number : <span className="text-2xl font-light">+</span>}
-                            </button>
+                            </GuardedButton>
                             <div className="mt-1 flex flex-col items-center">
                                 <span className="text-[9px] font-bold text-slate-500 bg-slate-800 px-1.5 rounded">{ui("P")}{posIndex + 1}</span>
                             </div>
@@ -346,10 +347,10 @@ const LineupCard = ({ teamLabel, teamName, lineup, liberos, onSelectPos, onClear
                              {liberos[key] ? (
                                 <div className="flex-1 flex justify-between items-center">
                                     <span className="font-bold text-white text-lg">#{liberos[key].number}</span>
-                                    <button onClick={() => onClearPos(key)} className="text-slate-500 hover:text-rose-400"><X size={14}/></button>
+                                    <GuardedButton onClick={() => onClearPos(key)} className="text-slate-500 hover:text-rose-400"><X size={14}/></GuardedButton>
                                 </div>
                             ) : (
-                                <button onClick={() => onSelectPos(key)} className="flex-1 text-left text-xs text-slate-500 hover:text-indigo-400 font-medium">{ui("+ Add")}</button>
+                                <GuardedButton onClick={() => onSelectPos(key)} className="flex-1 text-left text-xs text-slate-500 hover:text-indigo-400 font-medium">{ui("+ Add")}</GuardedButton>
                             )}
                         </div>
                     ))}

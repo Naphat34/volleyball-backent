@@ -1,3 +1,4 @@
+import { GuardedForm, GuardedButton } from '../ui/GuardedAction';
 import { Undo2 } from 'lucide-react';
 import { Check as UiCheck, ArrowUpRight as UiArrowUpRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -78,7 +79,7 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
         } finally { busy.current = false; input.current?.focus(); }
     };
     const nextScore = score && parsed.winner && !parsed.errors.length ? { ...score, [parsed.winner]: score[parsed.winner] + 1 } : null;
-    return <form onSubmit={save} className="rounded-lg border border-slate-600/70 bg-slate-800 p-2" aria-label={vt("บันทึกทั้งแรลลี่")}>
+    return <GuardedForm onSubmit={save} className="rounded-lg border border-slate-600/70 bg-slate-800 p-2" aria-label={vt("บันทึกทั้งแรลลี่")}>
         <label htmlFor="vis-code-input" className="sr-only">{vt("คีย์ทั้งแรลลี่")}</label>
         <div id="vis-code-preview" className="mb-2 space-y-1 text-[11px] leading-4" aria-live="polite">
             {events.map((event, index) => <div key={index} className={`flex flex-wrap items-baseline gap-x-2 ${event.generated ? 'opacity-60' : ''}`}>
@@ -91,8 +92,8 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
         </div>
         {parsed.suggestions.length > 0 && !parsed.automatic && <div className="mb-2 rounded-lg border border-dashed border-sky-700 bg-slate-900/30 p-2" aria-label={vt("รหัสของอีกฝ่าย")}>
             <div className="flex flex-wrap items-center gap-1"><span className={`mr-1 text-[11px] font-semibold ${teamColor(parsed.suggestions[0].team)}`}>{vt("รหัสฝั่ง ")}{teamData(parsed.suggestions[0].team)?.name}</span>
-                {parsed.suggestions.map((event, index) => <button key={rallyCode(event)} type="button" disabled={locked} aria-pressed={!skip && choice === index} onClick={() => { setChoice(index); setSkip(false); input.current?.focus(); }} className={`${chip} ${!skip && choice === index ? '!border-sky-400 !bg-sky-400 !text-slate-950' : ''}`}><code className="font-bold">{rallyCode(event)}</code><span>{describe(event)}</span></button>)}
-                <button type="button" disabled={locked} onClick={() => setSkip(true)} className={chip}>{vt("ไม่ใส่ ")}<kbd>{ui("Esc")}</kbd></button>
+                {parsed.suggestions.map((event, index) => <GuardedButton key={rallyCode(event)} type="button" disabled={locked} aria-pressed={!skip && choice === index} onClick={() => { setChoice(index); setSkip(false); input.current?.focus(); }} className={`${chip} ${!skip && choice === index ? '!border-sky-400 !bg-sky-400 !text-slate-950' : ''}`}><code className="font-bold">{rallyCode(event)}</code><span>{describe(event)}</span></GuardedButton>)}
+                <GuardedButton type="button" disabled={locked} onClick={() => setSkip(true)} className={chip}>{vt("ไม่ใส่ ")}<kbd>{ui("Esc")}</kbd></GuardedButton>
             </div><p className="mt-1 text-right text-[10px] text-slate-500">{vt("↑↓ เลือก · Tab / Space รับ · Enter บันทึก")}</p>
         </div>}
         <div className="vis-code-editor relative rounded-md border border-sky-500 bg-slate-950/80 focus-within:ring-1 focus-within:ring-sky-400">
@@ -111,11 +112,11 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
             }} autoComplete="off" spellCheck={false} placeholder={ui("7   10#   4B#   *OP#   aT=")} aria-invalid={Boolean(parsed.errors.length)} aria-describedby="vis-code-preview"
             className="vis-code-text relative block h-10 w-full min-w-0 bg-transparent px-3 py-2 font-mono text-base leading-6 text-transparent caret-white placeholder:text-slate-600 selection:bg-sky-800/60" />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1"><button type="button" disabled={locked} onClick={auto} className={`${chip} !border-sky-700 text-sky-300`}><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /> {suggestion ? rallyCode(suggestion) : ui('AUTO')} <kbd className="text-[9px] opacity-60">{ui("Tab")}</kbd></button>
-            {Object.values(teams).map(team => <button type="button" key={team.key} disabled={locked} onClick={() => append(`${draft && !/\s$/.test(draft) ? ' ' : ''}${team.key === 'home' ? '*' : 'a'}`)} className={chip}><span className={teamColor(team.key)}>{team.key === 'home' ? '*' : ui('a')}</span><span className="max-w-24 truncate">{displayNames.teamName(team)}</span></button>)}
-            {['S', 'R', 'A', 'B', 'D', 'E', '#', '+', '!', '-', '=', '/'].map(code => <button type="button" key={code} title={vt(visSkillNames[code]) || code} disabled={locked} onClick={() => append(code)} className={`${chip} !px-1.5 font-mono`}>{code}</button>)}
-            {teamCommands.map(({ team, code }) => <button type="button" key={`${team.key}-${code}`} disabled={locked} onClick={() => append(`${draft && !/\s$/.test(draft) ? ' ' : ''}${team.key === 'home' ? '*' : 'a'}${code}`)} className={chip}><span className="max-w-20 truncate">{displayNames.teamName(team)}</span><code>{code}</code></button>)}
-            <span className="ml-auto flex gap-1"><button type="button" disabled={undoDisabled} onClick={onUndo} className={chip}><Undo2 size={16} aria-hidden="true" />{vt("↶ ย้อนกลับ").replace("↶", "").trim()}</button><button disabled={locked || !valid} className={`${chip} !border-sky-700 text-sky-200`}>{vt("บันทึก ↵")}</button></span>
+        <div className="mt-1 flex flex-wrap items-center gap-1"><GuardedButton type="button" disabled={locked} onClick={auto} className={`${chip} !border-sky-700 text-sky-300`}><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /> {suggestion ? rallyCode(suggestion) : ui('AUTO')} <kbd className="text-[9px] opacity-60">{ui("Tab")}</kbd></GuardedButton>
+            {Object.values(teams).map(team => <GuardedButton type="button" key={team.key} disabled={locked} onClick={() => append(`${draft && !/\s$/.test(draft) ? ' ' : ''}${team.key === 'home' ? '*' : 'a'}`)} className={chip}><span className={teamColor(team.key)}>{team.key === 'home' ? '*' : ui('a')}</span><span className="max-w-24 truncate">{displayNames.teamName(team)}</span></GuardedButton>)}
+            {['S', 'R', 'A', 'B', 'D', 'E', '#', '+', '!', '-', '=', '/'].map(code => <GuardedButton type="button" key={code} title={vt(visSkillNames[code]) || code} disabled={locked} onClick={() => append(code)} className={`${chip} !px-1.5 font-mono`}>{code}</GuardedButton>)}
+            {teamCommands.map(({ team, code }) => <GuardedButton type="button" key={`${team.key}-${code}`} disabled={locked} onClick={() => append(`${draft && !/\s$/.test(draft) ? ' ' : ''}${team.key === 'home' ? '*' : 'a'}${code}`)} className={chip}><span className="max-w-20 truncate">{displayNames.teamName(team)}</span><code>{code}</code></GuardedButton>)}
+            <span className="ml-auto flex gap-1"><GuardedButton type="button" disabled={undoDisabled} onClick={onUndo} className={chip}><Undo2 size={16} aria-hidden="true" />{vt("↶ ย้อนกลับ").replace("↶", "").trim()}</GuardedButton><GuardedButton disabled={locked || !valid} className={`${chip} !border-sky-700 text-sky-200`}>{vt("บันทึก ↵")}</GuardedButton></span>
         </div>
         {notice && <p className="mt-1 text-[11px] text-amber-200" role="status">{vt(notice)}</p>}
         <details className="mt-2 text-xs leading-relaxed text-slate-300">
@@ -153,5 +154,5 @@ export default function VisQuickEntry({ teams, locked, send, commandContext, ser
                 </div>
             </div>
         </details>
-    </form>;
+    </GuardedForm>;
 }

@@ -1,3 +1,4 @@
+import { GuardedForm, GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -167,7 +168,7 @@ export default function CreateTeam() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <GuardedForm onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-8">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-semibold">1</div>
@@ -263,7 +264,7 @@ export default function CreateTeam() {
                 visibleCompetitions.map((comp) => {
                   const isSelected = selectedCompIds.includes(comp.id);
                   return (
-                    <button
+                    <GuardedButton
                       key={comp.id}
                       type="button"
                       onClick={() => toggleCompetitionSelection(comp.id)}
@@ -288,7 +289,7 @@ export default function CreateTeam() {
                         </div>
                       </div>
                       {isSelected && <CheckCircle2 className="text-white shrink-0" size={24} />}
-                    </button>
+                    </GuardedButton>
                   );
                 })
               )}
@@ -298,7 +299,7 @@ export default function CreateTeam() {
               <span>{ui("Selected")}{' '}{selectedCompIds.length}{' '}{ui("category")}{selectedCompIds.length === 1 ? '' : ui('ies')}</span>
             </div>
 
-            <button
+            <GuardedButton
               type="submit"
               disabled={loading}
               className="w-full py-5 bg-blue-600 text-white font-semibold text-xl rounded-3xl shadow-2xl shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:hover:scale-100"
@@ -306,9 +307,9 @@ export default function CreateTeam() {
               {loading ? ui('Processing...') : <>
                   {ui('Complete Registration')} <ChevronRight size={24} />
                 </>}
-            </button>
+            </GuardedButton>
           </div>
-        </form>
+        </GuardedForm>
       </div>
     </div>
   );
@@ -335,14 +336,14 @@ function ImageUploadField({ label, value, onFileSelect, onClear, previewAlt }) {
               <input type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
             </label>
             {value && (
-              <button
+              <GuardedButton
                 type="button"
                 onClick={onClear}
                 className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition"
                 aria-label={ui("Remove image")}
               >
                 <X size={16} />
-              </button>
+              </GuardedButton>
             )}
           </div>
           <span className="text-xs text-gray-400">{ui("JPG, PNG, WebP up to 2MB")}</span>

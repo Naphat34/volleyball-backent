@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -100,18 +101,18 @@ export default function Referees({ darkMode = false }) {
                     <h1 className="text-2xl font-bold flex items-center gap-2 tracking-tight">
                         <User className="text-white" />{ui("Officials Management")}</h1>
                 </div>
-                <button
+                <GuardedButton
                     onClick={() => openModal()}
                     className="bg-white/95 text-blue-700 px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-50 transition-colors font-semibold shadow-sm"
                 >
                     <Plus size={20} />{' '}{ui("Add New")}{' '}{activeTab === 'linejudge' ? ui('Line Judge') : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                </button>
+                </GuardedButton>
             </div>
 
             {/* Tabs */}
             <div className="official-panel rounded-md p-2 flex gap-2 mb-6 overflow-x-auto">
                 {['referee', 'scorer', 'linejudge'].map(tab => (
-                    <button
+                    <GuardedButton
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`px-5 py-2.5 rounded-md font-bold capitalize transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab
@@ -121,7 +122,7 @@ export default function Referees({ darkMode = false }) {
                     >
                         {getTabIcon(tab)}
                         {tab === 'linejudge' ? ui('Line Judges') : tab + 's'}
-                    </button>
+                    </GuardedButton>
                 ))}
             </div>
 
@@ -175,8 +176,8 @@ export default function Referees({ darkMode = false }) {
 
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => openModal(item)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Edit2 size={18} /></button>
-                                                <button onClick={() => handleDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={18} /></button>
+                                                <GuardedButton onClick={() => openModal(item)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Edit2 size={18} /></GuardedButton>
+                                                <GuardedButton onClick={() => handleDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={18} /></GuardedButton>
                                             </div>
                                         </td>
                                     </tr>
@@ -196,7 +197,7 @@ export default function Referees({ darkMode = false }) {
                                 {editItem ? <Edit2 size={18} /> : <Plus size={18} />}
                                 {editItem ? ui('Edit') : ui('Add')} {activeTab === 'linejudge' ? ui('Line Judge') : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                             </h3>
-                            <button onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-full transition"><X size={20} /></button>
+                            <GuardedButton onClick={() => setShowModal(false)} className="hover:bg-white/20 p-1 rounded-full transition"><X size={20} /></GuardedButton>
                         </div>
 
                         <div className="p-6 space-y-4">
@@ -241,9 +242,9 @@ export default function Referees({ darkMode = false }) {
                         </div>
 
                         <div className="px-6 py-4 border-t flex justify-end gap-3 border-gray-100 bg-gray-50">
-                            <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition">{ui("Cancel")}</button>
-                            <button onClick={handleSave} className="official-primary-button px-6 py-2 rounded-md font-medium transition-colors flex items-center gap-2">
-                                <Save size={18} />{ui("Save")}</button>
+                            <GuardedButton onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg font-semibold text-gray-500 hover:bg-gray-200/50 transition">{ui("Cancel")}</GuardedButton>
+                            <GuardedButton onClick={handleSave} className="official-primary-button px-6 py-2 rounded-md font-medium transition-colors flex items-center gap-2">
+                                <Save size={18} />{ui("Save")}</GuardedButton>
                         </div>
                     </div>
                 </div>

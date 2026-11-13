@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import { useOptionalLanguage } from '../../context/LanguageContext';
 import { localizedReference } from '../../utils/i18n/competitionNames';
 import { getStoredUser } from '../../auth/authStorage';
@@ -622,18 +623,18 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                     <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Gender")}</label>
                         <div className="flex rounded-lg p-1 border border-gray-200 bg-gray-50 shadow-sm">
-                            <button
+                            <GuardedButton
                                 onClick={() => setFilterGender('All')}
                                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filterGender === 'All' ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
-                            >{ui("All")}</button>
+                            >{ui("All")}</GuardedButton>
                             {availableGenders.map(g => (
-                                <button
+                                <GuardedButton
                                     key={g}
                                     onClick={() => setFilterGender(g)}
                                     className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filterGender === g ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                                 >
                                     {g}
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </div>
@@ -655,7 +656,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
 
                 {/* Create Button */}
                 <div className="flex items-end">
-                    <button
+                    <GuardedButton
                         onClick={handleOpenCreate}
                         disabled={!selectedBaseName}
                         className={`px-5 py-2.5 text-sm font-medium rounded-lg flex items-center gap-2 transition-all shadow-sm border border-transparent ${selectedBaseName
@@ -663,7 +664,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                 : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
                             }`}
                     >
-                        <PlusCircle size={18} />{ui("Add Match")}</button>
+                        <PlusCircle size={18} />{ui("Add Match")}</GuardedButton>
                 </div>
             </div>
 
@@ -801,21 +802,21 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-end gap-1">
-                                                <button onClick={() => handleEditMatch(match)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Edit")}>
+                                                <GuardedButton onClick={() => handleEditMatch(match)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Edit")}>
                                                     <Edit2 size={16} />
-                                                </button>
-                                                {getStoredUser()?.role !== 'admin' && <button onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title={ui("Score")}>
+                                                </GuardedButton>
+                                                {getStoredUser()?.role !== 'admin' && <GuardedButton onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title={ui("Score")}>
                                                     <Trophy size={16} />
-                                                </button>}
-                                                <button onClick={() => window.open('/roster-verification/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Print Roster Verification")}>
+                                                </GuardedButton>}
+                                                <GuardedButton onClick={() => window.open('/roster-verification/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Print Roster Verification")}>
                                                     <Users size={16} />
-                                                </button>
-                                                <button onClick={() => window.open('/scoresheet/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("View & Print Scoresheet")}>
+                                                </GuardedButton>
+                                                <GuardedButton onClick={() => window.open('/scoresheet/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("View & Print Scoresheet")}>
                                                     <Printer size={16} />
-                                                </button>
-                                                <button onClick={() => handleDeleteMatch(match.id)} className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all" title={ui("Delete")}>
+                                                </GuardedButton>
+                                                <GuardedButton onClick={() => handleDeleteMatch(match.id)} className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all" title={ui("Delete")}>
                                                     <Trash2 size={16} />
-                                                </button>
+                                                </GuardedButton>
                                             </div>
                                         </td>
                                     </tr>
@@ -836,13 +837,13 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                     <h3 className="text-lg font-semibold text-gray-900">{isEditing ? ui('Edit Match') : ui('Create New Match')}</h3>
                                     <p className="mt-0.5 text-xs text-gray-500">{displayNames.competitionGroupName(selectedBaseName, competitions) || ui('Competition')} / {ui(matchForm.gender || 'Gender')} / {displayNames.referenceName(modalAgeGroups.find(ag => String(ag.id) === String(matchForm.age_group_id || matchForm.category)) || {}) || ui('Age group')}</p>
                                 </div>
-                                <button type="button" onClick={() => setShowModal(false)} className="p-2 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" aria-label={ui("Close")}>
+                                <GuardedButton type="button" onClick={() => setShowModal(false)} className="p-2 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors" aria-label={ui("Close")}>
                                     <X size={18} />
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="max-h-[calc(92vh-73px)] overflow-y-auto bg-gray-50 p-5 space-y-4">
+                        <GuardedForm onSubmit={handleSubmit} className="max-h-[calc(92vh-73px)] overflow-y-auto bg-gray-50 p-5 space-y-4">
                             {/* Row 1: Key Info */}
                             <div className={`${modalSectionClass} grid grid-cols-1 md:grid-cols-4 gap-4`}>
                                 <div className="space-y-2">
@@ -1045,21 +1046,21 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
 
                             {/* Footer Buttons */}
                             <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end gap-3 border-t border-gray-200 bg-white px-5 py-4">
-                                <button
+                                <GuardedButton
                                     type="button"
                                     onClick={() => setShowModal(false)}
                                     className="rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                                >{ui("Cancel")}</button>
-                                <button
+                                >{ui("Cancel")}</GuardedButton>
+                                <GuardedButton
                                     type="submit"
                                     disabled={loadingModalTeams || modalTeams.length < 2}
                                     className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                                 >
                                     <Save size={16} />
                                     {isEditing ? ui('Update Match') : ui('Create Match')}
-                                </button>
+                                </GuardedButton>
                             </div>
-                        </form>
+                        </GuardedForm>
                     </div>
                 </div>
             )}
@@ -1078,9 +1079,9 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                         <h3 className="text-xl font-bold text-gray-900 tracking-tight">{ui("Update Match Score")}</h3>
                                     </div>
                                 </div>
-                                <button onClick={() => setScoringMatch(null)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">
+                                <GuardedButton onClick={() => setScoringMatch(null)} className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors">
                                     <X size={20} />
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
                         <div className="p-6 space-y-6">
@@ -1118,9 +1119,9 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                             </div>
 
                             <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
-                                <button type="button" onClick={() => setScoringMatch(null)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all font-medium text-sm">{ui("Cancel")}</button>
-                                <button onClick={handleSaveScore} className="px-6 py-2.5 text-sm font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all flex items-center gap-2">
-                                    <Save size={18} />{ui("Update Score")}</button>
+                                <GuardedButton type="button" onClick={() => setScoringMatch(null)} className="px-5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all font-medium text-sm">{ui("Cancel")}</GuardedButton>
+                                <GuardedButton onClick={handleSaveScore} className="px-6 py-2.5 text-sm font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all flex items-center gap-2">
+                                    <Save size={18} />{ui("Update Score")}</GuardedButton>
                             </div>
                         </div>
                     </div>

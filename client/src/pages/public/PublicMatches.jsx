@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import { Calendar, Clock, MapPin, Trophy, Filter, Activity, Circle as UiCircle } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -131,8 +132,8 @@ export default function PublicMatches() {
                 <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col md:flex-row items-center gap-4">
                     <div className="flex items-center gap-2 text-indigo-700 font-bold whitespace-nowrap"><Trophy size={20} /> {language === 'THA' ? ui('ประเภท:') : ui('Category:')}</div>
                     <div className="flex w-full flex-wrap gap-2">
-                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('ทั้งหมด') : ui('All')}</button>
-                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</button>)}
+                        <GuardedButton type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('ทั้งหมด') : ui('All')}</GuardedButton>
+                        {categories.map((category) => <GuardedButton key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</GuardedButton>)}
                     </div>
                 </div>
             </div>

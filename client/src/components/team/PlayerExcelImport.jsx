@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { useState } from 'react';
 import { Download, Upload, X } from 'lucide-react';
 import { api } from '../../api';
@@ -120,7 +121,7 @@ export default function PlayerExcelImport({ gender, players, onImported, languag
     };
 
     return <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={downloadTemplate} disabled={busy} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm disabled:opacity-50"><Download size={16} />{label('แบบฟอร์ม Excel', 'Excel template')}</button>
+        <GuardedButton type="button" onClick={downloadTemplate} disabled={busy} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm disabled:opacity-50"><Download size={16} />{label('แบบฟอร์ม Excel', 'Excel template')}</GuardedButton>
         <label className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${busy || !gender ? 'opacity-50' : 'cursor-pointer'}`}>
             <Upload size={16} />{busy ? label('กำลังดำเนินการ…', 'Processing…') : label('นำเข้า Excel', 'Import Excel')}
             <input type="file" accept=".xlsx" className="hidden" disabled={busy || !gender} onChange={readFile} />
@@ -128,10 +129,10 @@ export default function PlayerExcelImport({ gender, players, onImported, languag
         {message && <p role="status" className="w-full text-sm">{message}</p>}
         {rows && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 text-gray-900" role="dialog" aria-modal="true" aria-label={label('ตรวจสอบรายชื่อนำเข้า', 'Review imported players')}>
             <div className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-md bg-white p-5">
-                <div className="flex justify-between gap-4"><h3 className="text-lg font-bold">{label('ตรวจสอบรายชื่อก่อนนำเข้า', 'Review players before importing')} ({rows.length})</h3><button type="button" disabled={busy} onClick={() => setRows(null)} aria-label={label('ปิด', 'Close')}><X /></button></div>
+                <div className="flex justify-between gap-4"><h3 className="text-lg font-bold">{label('ตรวจสอบรายชื่อก่อนนำเข้า', 'Review players before importing')} ({rows.length})</h3><GuardedButton type="button" disabled={busy} onClick={() => setRows(null)} aria-label={label('ปิด', 'Close')}><X /></GuardedButton></div>
                 <p className="my-3 text-sm">{label('ใช้แผ่นงานแรก วันเกิดเป็น ค.ศ. YYYY-MM-DD เพศตามประเภททีม กรุณาลบแถวตัวอย่างก่อนนำเข้า แถวที่ผิดต้องแก้ในไฟล์แล้วเลือกใหม่', 'Uses the first worksheet. Dates: YYYY-MM-DD (CE). Gender follows the team. Remove the example row. Fix invalid rows in the file and select it again.')}</p>
                 <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{['แถว / Row', 'เบอร์ / No.', 'ชื่อ / Name', 'ตำแหน่ง / Position', 'วันเกิด / Birth date', 'ผลตรวจ / Validation'].map(title => <th key={title} className="border p-2">{title}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.row}><td className="border p-2">{row.row}</td><td className="border p-2">{row.data.number}</td><td className="border p-2">{row.data.first_name} {row.data.last_name}</td><td className="border p-2">{row.data.position}</td><td className="border p-2">{row.data.birth_date}</td><td className="border p-2 text-red-700">{row.error || '✓'}</td></tr>)}</tbody></table></div>
-                <div className="mt-4 flex justify-end gap-3"><button type="button" disabled={busy} onClick={() => setRows(null)} className="rounded border px-4 py-2">{label('ปิด', 'Close')}</button><button type="button" disabled={busy || rows.some(row => row.error)} onClick={save} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{busy ? label('กำลังบันทึก…', 'Saving…') : label('ยืนยันนำเข้า', 'Confirm import')}</button></div>
+                <div className="mt-4 flex justify-end gap-3"><GuardedButton type="button" disabled={busy} onClick={() => setRows(null)} className="rounded border px-4 py-2">{label('ปิด', 'Close')}</GuardedButton><GuardedButton type="button" disabled={busy || rows.some(row => row.error)} onClick={save} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{busy ? label('กำลังบันทึก…', 'Saving…') : label('ยืนยันนำเข้า', 'Confirm import')}</GuardedButton></div>
             </div>
         </div>}
     </div>;

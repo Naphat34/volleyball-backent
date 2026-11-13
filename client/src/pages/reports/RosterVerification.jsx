@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { StatusBadge } from '../../components/ui/SystemUI';
@@ -60,14 +61,14 @@ const RosterVerification = () => {
         <div lang="en" className="min-h-screen bg-gray-100 py-6 print:p-0 print:bg-white text-black font-sans">
             {/* Action Bar for Screen Only */}
             <div className="max-w-[287mm] mx-auto mb-4 flex flex-wrap gap-3 justify-between items-center print:hidden px-4">
-                <button 
+                <GuardedButton
                     onClick={() => window.history.back()}
                     className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 shadow transition-all font-semibold"
-                >{ui("Back")}</button>
-                <button 
+                >{ui("Back")}</GuardedButton>
+                <GuardedButton
                     onClick={() => window.print()}
                     className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 shadow transition-all"
-                >{ui("Print Roster Verification")}</button>
+                >{ui("Print Roster Verification")}</GuardedButton>
             </div>
 
             <div className="mx-auto mb-4 flex max-w-[287mm] flex-wrap items-center gap-3 px-4 print:hidden"><StatusBadge tone={homePlayers.length && awayPlayers.length ? 'success' : 'warning'}>{homePlayers.length && awayPlayers.length ? ui('Rosters available') : ui('Review missing rosters')}</StatusBadge><span className="text-sm text-slate-600">{ui("Home")}{' '}{homePlayers.length}{' '}{ui("· Away")}{' '}{awayPlayers.length}</span></div>

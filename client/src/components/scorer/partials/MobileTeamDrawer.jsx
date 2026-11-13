@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { ArrowRightToLine, Video, Timer, Replace, CirclePlus } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
@@ -46,13 +47,13 @@ export default function MobileTeamDrawer({
                     >
                         {team.shortName?.trim() || getTeamCode(displayNames.teamName(team))}
                     </h3>
-                    <button
+                    <GuardedButton
                         onClick={onClose}
                         aria-label={st("Close team panel")}
                         className="min-h-11 min-w-11 p-1 rounded-full hover:bg-slate-200 text-slate-500 transition-colors"
                     >
                         <X size={20} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 {/* Drawer Body - Team Roster */}
@@ -72,7 +73,7 @@ export default function MobileTeamDrawer({
                     <div className="flex gap-2">
                         {/* Libero Button */}
                         <div className="flex flex-col gap-1 w-1/2">
-                            <button
+                            <GuardedButton
                                 onClick={() => {
                                     onOpenLiberoSwap(mobilePanelTeam);
                                     onClose();
@@ -80,14 +81,14 @@ export default function MobileTeamDrawer({
                                 disabled={isRallyOrLineup}
                                 className="border text-[11px] font-bold py-2 rounded bg-white hover:bg-slate-50 disabled:opacity-50 animate-pulse"
                                 style={{ borderColor: activeColor, color: '#000' }}
-                            ><span className="flex items-center justify-center gap-1 px-1"><ArrowRightToLine size={14} className="shrink-0" aria-hidden="true" />{st("Libero in")}</span></button>
+                            ><span className="flex items-center justify-center gap-1 px-1"><ArrowRightToLine size={14} className="shrink-0" aria-hidden="true" />{st("Libero in")}</span></GuardedButton>
                         </div>
 
                         {/* Actions */}
                         <div className="flex flex-col gap-1 w-1/2">
                             {/* Video Challenge */}
                             <div className="flex border rounded overflow-hidden bg-white" style={{ borderColor: activeColor }}>
-                                <button
+                                <GuardedButton
                                     onClick={() => {
                                         if (!challengeEnabled) return;
                                         onOpenChallenge(mobilePanelTeam);
@@ -97,7 +98,7 @@ export default function MobileTeamDrawer({
                                     className="flex-1 bg-white text-[10px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
                                     title={challengeEnabled ? st('Video challenge') : st('Challenge system is not enabled for this match')}
-                                ><span className="flex items-center justify-center gap-1 px-1"><Video size={14} className="shrink-0" aria-hidden="true" />{st("Video chall.")}</span></button>
+                                ><span className="flex items-center justify-center gap-1 px-1"><Video size={14} className="shrink-0" aria-hidden="true" />{st("Video chall.")}</span></GuardedButton>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -108,7 +109,7 @@ export default function MobileTeamDrawer({
 
                             {/* Timeout */}
                             <div className="flex border rounded overflow-hidden bg-white" style={{ borderColor: activeColor }}>
-                                <button
+                                <GuardedButton
                                     onClick={() => {
                                         onActionSelect(mobilePanelTeam, 'TIMEOUT');
                                         onClose();
@@ -116,7 +117,7 @@ export default function MobileTeamDrawer({
                                     disabled={timeouts[mobilePanelTeam] >= 2 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
-                                ><span className="flex items-center justify-center gap-1 px-1"><Timer size={14} className="shrink-0" aria-hidden="true" />{st("Timeout")}</span></button>
+                                ><span className="flex items-center justify-center gap-1 px-1"><Timer size={14} className="shrink-0" aria-hidden="true" />{st("Timeout")}</span></GuardedButton>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -127,7 +128,7 @@ export default function MobileTeamDrawer({
 
                             {/* Substitution */}
                             <div className="flex border rounded overflow-hidden bg-white" style={{ borderColor: activeColor }}>
-                                <button
+                                <GuardedButton
                                     onClick={() => {
                                         onOpenSubstitution(mobilePanelTeam);
                                         onClose();
@@ -135,7 +136,7 @@ export default function MobileTeamDrawer({
                                     disabled={isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
-                                ><span className="flex items-center justify-center gap-1 px-1"><Replace size={14} className="shrink-0" aria-hidden="true" />{st("Substitution")}</span></button>
+                                ><span className="flex items-center justify-center gap-1 px-1"><Replace size={14} className="shrink-0" aria-hidden="true" />{st("Substitution")}</span></GuardedButton>
                                 <div
                                     className="w-8 flex items-center justify-center text-[11px] font-bold"
                                     style={{ backgroundColor: activeColor, color: contrastColor }}
@@ -147,7 +148,7 @@ export default function MobileTeamDrawer({
                     </div>
 
                     {/* Point Scored */}
-                    <button
+                    <GuardedButton
                         onClick={() => {
                             onPointScored(mobilePanelTeam);
                             onClose();
@@ -155,7 +156,7 @@ export default function MobileTeamDrawer({
                         disabled={workflowStep !== 'RALLY'}
                         className="w-full font-bold py-3 rounded-md text-[13px] hover:opacity-90 disabled:opacity-50 transition-opacity"
                         style={{ backgroundColor: activeColor, color: contrastColor }}
-                    ><span className="flex items-center justify-center gap-1 px-1"><CirclePlus size={14} className="shrink-0" aria-hidden="true" />{st("Point scored")}</span></button>
+                    ><span className="flex items-center justify-center gap-1 px-1"><CirclePlus size={14} className="shrink-0" aria-hidden="true" />{st("Point scored")}</span></GuardedButton>
                 </div>
             </div>
         </div>

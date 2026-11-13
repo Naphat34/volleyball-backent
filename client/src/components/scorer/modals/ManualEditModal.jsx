@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useEffect } from 'react';
 import { X, Settings, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -40,9 +41,9 @@ const ManualEditModal = ({
                             </div>{st("MANUAL ADJUSTMENT")}</h2>
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{st("Manual Override Console")}</div>
                     </div>
-                    <button aria-label={st('Close')} onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
+                    <GuardedButton aria-label={st('Close')} onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
                         <X size={24} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 <div className="p-8 space-y-6">
@@ -53,18 +54,18 @@ const ManualEditModal = ({
                             <div className="flex-1 flex flex-col items-center gap-2">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[120px]">{teamHome}</span>
                                 <div className="flex items-center gap-3">
-                                    <button onClick={() => setLocalScore(prev => ({...prev, home: Math.max(0, prev.home - 1)}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">-</button>
+                                    <GuardedButton onClick={() => setLocalScore(prev => ({...prev, home: Math.max(0, prev.home - 1)}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">-</GuardedButton>
                                     <span className="text-3xl font-black text-slate-800 w-12 text-center">{localScore.home}</span>
-                                    <button onClick={() => setLocalScore(prev => ({...prev, home: prev.home + 1}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">+</button>
+                                    <GuardedButton onClick={() => setLocalScore(prev => ({...prev, home: prev.home + 1}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">+</GuardedButton>
                                 </div>
                             </div>
                             <div className="text-slate-200 font-bold text-xl">:</div>
                             <div className="flex-1 flex flex-col items-center gap-2">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[120px]">{teamAway}</span>
                                 <div className="flex items-center gap-3">
-                                    <button onClick={() => setLocalScore(prev => ({...prev, away: Math.max(0, prev.away - 1)}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">-</button>
+                                    <GuardedButton onClick={() => setLocalScore(prev => ({...prev, away: Math.max(0, prev.away - 1)}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">-</GuardedButton>
                                     <span className="text-3xl font-black text-slate-800 w-12 text-center">{localScore.away}</span>
-                                    <button onClick={() => setLocalScore(prev => ({...prev, away: prev.away + 1}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">+</button>
+                                    <GuardedButton onClick={() => setLocalScore(prev => ({...prev, away: prev.away + 1}))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">+</GuardedButton>
                                 </div>
                             </div>
                         </div>
@@ -74,9 +75,9 @@ const ManualEditModal = ({
                     <div className="space-y-4">
                         <label className="block text-[10px] font-semibold uppercase tracking-widest text-slate-400 px-1">{st("Set Number")}</label>
                         <div className="flex items-center justify-center gap-4">
-                            <button onClick={() => setLocalSet(prev => Math.max(1, prev - 1))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">-</button>
+                            <GuardedButton onClick={() => setLocalSet(prev => Math.max(1, prev - 1))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">-</GuardedButton>
                             <span className="text-2xl font-bold text-slate-800">{st("SET")}{' '}{localSet}</span>
-                            <button onClick={() => setLocalSet(prev => Math.min(5, prev + 1))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">+</button>
+                            <GuardedButton onClick={() => setLocalSet(prev => Math.min(5, prev + 1))} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50">+</GuardedButton>
                         </div>
                     </div>
 
@@ -95,13 +96,13 @@ const ManualEditModal = ({
                 </div>
 
                 <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-8 py-3 rounded-md font-semibold text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all">{st("Cancel")}</button>
-                    <button 
+                    <GuardedButton onClick={onClose} className="px-8 py-3 rounded-md font-semibold text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all">{st("Cancel")}</GuardedButton>
+                    <GuardedButton
                         onClick={handleConfirm}
                         disabled={!remark.trim()}
                         className="px-10 py-3 rounded-md font-semibold text-[10px] uppercase tracking-widest bg-slate-900 hover:bg-black text-white disabled:opacity-20 disabled:grayscale transition-all shadow-xl active:scale-95 flex items-center gap-3"
                     >{st("Apply Changes")}<CheckCircle size={18} />
-                    </button>
+                    </GuardedButton>
                 </div>
             </div>
         </div>

@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useLanguage } from '../../context/LanguageContext';
@@ -30,7 +31,7 @@ export default function VisStatsDialog({ match, teams, events = [], onClose, onP
     };
     return <div className="vis-stats-overlay" onKeyDown={handleKeys}>
         <section role="dialog" aria-modal="true" aria-labelledby="vis-stats-title" className="vis-stats-modal">
-            <header className="vis-stats-header"><div><h2 id="vis-stats-title">{vt("สถิติทั้งแมตช์ VIMS")}</h2><p>{teamName('home')} – {teamName('away')}</p></div><div className="vis-stats-actions"><button className="vis-stats-export" onClick={() => downloadMatchStatsCsv(match, stats)}><Download size={16} />{vt("ส่งออก CSV")}</button>{onPDF && <button onClick={onPDF}><FileText size={16} />{vt("รายงาน PDF")}</button>}<button ref={closeButton} onClick={onClose} aria-label={vt("ปิดสถิติ")}><X size={18} /></button></div></header>
+            <header className="vis-stats-header"><div><h2 id="vis-stats-title">{vt("สถิติทั้งแมตช์ VIMS")}</h2><p>{teamName('home')} – {teamName('away')}</p></div><div className="vis-stats-actions"><GuardedButton className="vis-stats-export" onClick={() => downloadMatchStatsCsv(match, stats)}><Download size={16} />{vt("ส่งออก CSV")}</GuardedButton>{onPDF && <GuardedButton onClick={onPDF}><FileText size={16} />{vt("รายงาน PDF")}</GuardedButton>}<GuardedButton ref={closeButton} onClick={onClose} aria-label={vt("ปิดสถิติ")}><X size={18} /></GuardedButton></div></header>
             <div className="vis-stats-body">
                 {stats.map(team => <section className="vis-stats-team" key={team.key}>
                     <h3><span className="vis-stats-team-name">{teamName(team.key)}<small>{match[`${team.key}_team_name_en`] || ''}</small></span><span className="vis-stats-source">{vt("แต้มจาก: ตบ ")}{team.total.attack[1]}{vt(" · บล็อก ")}{team.total.block[0]}{vt(" · เสิร์ฟ ")}{team.total.serve[1]}{vt(" · คู่แข่งเสีย ")}{team.opponentErrors}</span></h3>

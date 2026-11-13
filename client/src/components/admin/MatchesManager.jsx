@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import { Trophy, Calendar, Edit3, Save, X, PlusCircle, Shield, Settings, CalendarDays as UiCalendarDays } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -466,7 +467,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                 <h2 className="text-xl font-bold flex items-center gap-2">
                     <Trophy className="text-yellow-500" />{ui("Match Schedule")}</h2>
                 <div className="flex gap-2">
-                    <button
+                    <GuardedButton
                         onClick={() => {
                             setEditingMatchId(null);
                             setNewMatchForm({
@@ -477,12 +478,12 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                         }}
                         className="bg-blue-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition flex items-center gap-2"
                     >
-                        <PlusCircle size={16} />{ui("New Match")}</button>
+                        <PlusCircle size={16} />{ui("New Match")}</GuardedButton>
 
                     {matches.length === 0 && (
-                        <button onClick={handleGenerateMatches} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition">{ui("Generate Schedule (Round Robin)")}</button>
+                        <GuardedButton onClick={handleGenerateMatches} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition">{ui("Generate Schedule (Round Robin)")}</GuardedButton>
                     )}
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 px-3">{ui("Close")}</button>
+                    <GuardedButton onClick={onClose} className="text-gray-500 hover:text-gray-700 px-3">{ui("Close")}</GuardedButton>
                 </div>
             </div>
 
@@ -542,27 +543,27 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
 
                             {/* Action Buttons */}
                             <div className="flex flex-col gap-2">
-                                <button
+                                <GuardedButton
                                     onClick={() => handleEditMatch(match)}
                                     className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition"
                                     title={ui("Edit Details")}
                                 >
                                     <Edit3 size={18} />
-                                </button>
-                                <button
+                                </GuardedButton>
+                                <GuardedButton
                                     onClick={() => openScoreModal(match)}
                                     className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition"
                                     title={ui("Update Score")}
                                 >
                                     <Trophy size={18} />
-                                </button>
-                                <button
+                                </GuardedButton>
+                                <GuardedButton
                                     onClick={() => handleOpenSetup(match)}
                                     className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition"
                                     title={ui("Prematch Setup")}
                                 >
                                     <Settings size={18} />
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
                     ))}
@@ -586,15 +587,15 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                     <p className="text-xs text-blue-100 font-medium">{ui("Tournament:")}{' '}{cleanCompetitionTitle(displayNames.competitionName(competition))}</p>
                                 </div>
                             </div>
-                            <button 
+                            <GuardedButton
                                 onClick={() => { setIsCreating(false); setEditingMatchId(null); }}
                                 className="p-1 rounded-md hover:bg-white/10 text-white/80 hover:text-white transition-colors"
                             >
                                 <X size={20} />
-                            </button>
+                            </GuardedButton>
                         </div>
 
-                        <form onSubmit={handleCreateMatch} className="p-6 space-y-5 overflow-y-auto max-h-[85vh]">
+                        <GuardedForm onSubmit={handleCreateMatch} className="p-6 space-y-5 overflow-y-auto max-h-[85vh]">
                             {/* Section 1: Match Identification */}
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                 <div>
@@ -760,7 +761,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
 
                             {/* Modal Actions */}
                             <div className="flex gap-3 justify-end pt-3 border-t mt-4">
-                                <button
+                                <GuardedButton
                                     type="button"
                                     onClick={() => {
                                         setIsCreating(false);
@@ -777,16 +778,16 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                                         });
                                     }}
                                     className="px-5 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm active:scale-95"
-                                >{ui("Cancel")}</button>
-                                <button
+                                >{ui("Cancel")}</GuardedButton>
+                                <GuardedButton
                                     type="submit"
                                     className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold text-sm rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
                                 >
                                     {editingMatchId ? <Edit3 size={15} /> : <PlusCircle size={15} />}
                                     {editingMatchId ? ui("บันทึกการแก้ไข") : ui("สร้างแมตช์แข่งขัน")}
-                                </button>
+                                </GuardedButton>
                             </div>
-                        </form>
+                        </GuardedForm>
                     </div>
                 </div>
             )}
@@ -797,7 +798,7 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                     <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-lg">{ui("Update Score")}</h3>
-                            <button onClick={() => setEditingMatch(null)}><X size={20} /></button>
+                            <GuardedButton onClick={() => setEditingMatch(null)}><X size={20} /></GuardedButton>
                         </div>
 
                         <div className="flex justify-center items-center gap-4 mb-6">
@@ -843,11 +844,11 @@ export default function MatchesManager({ competitionId, competition, onClose }) 
                             <p className="text-xs text-gray-400 text-center">{ui("Format e.g. \"25-20\"")}</p>
                         </div>
 
-                        <button
+                        <GuardedButton
                             onClick={handleSaveScore}
                             className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
                         >
-                            <Save size={18} />{ui("Save Result")}</button>
+                            <Save size={18} />{ui("Save Result")}</GuardedButton>
                     </div>
                 </div>
             )}

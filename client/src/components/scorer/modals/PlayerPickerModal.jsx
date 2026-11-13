@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useUiTranslation from '../../../hooks/useUiTranslation';
 import useScorerTranslation from '../useScorerTranslation';
@@ -38,9 +39,9 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
                             {ui(selectionLabel)}
                         </div>
                     </div>
-                    <button onClick={onClose} className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700" aria-label={st("Close player picker")}>
+                    <GuardedButton onClick={onClose} className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700" aria-label={st("Close player picker")}>
                         <X size={22} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 <div className="flex-1 overflow-y-auto bg-slate-50/70 p-4 custom-scrollbar">
@@ -52,7 +53,7 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
                             const isDisabled = alreadyInLineup || alreadyIsLibero || isRestrictedLibero;
 
                             return (
-                                <button
+                                <GuardedButton
                                     key={getPlayerId(player)}
                                     disabled={isDisabled}
                                     onClick={() => onSelect(player)}
@@ -71,7 +72,7 @@ const PlayerPickerModal = ({ isOpen, onClose, teamName, roster, lineup, liberos,
                                             <div className="rounded-md bg-orange-500 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">{st("Libero only")}</div>
                                         </div>
                                     )}
-                                </button>
+                                </GuardedButton>
                             );
                         })}
                     </div>

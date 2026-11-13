@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback } from '../../components/ui/SystemUI';
@@ -122,8 +123,8 @@ export default function PublicStatistics() {
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
                     <span className="font-bold text-gray-700">{language === 'THA' ? ui('\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17:') : ui('Category:')}</span>
                     <div className="flex w-full flex-wrap gap-2 md:justify-end">
-                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14') : ui('All')}</button>
-                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</button>)}
+                        <GuardedButton type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14') : ui('All')}</GuardedButton>
+                        {categories.map((category) => <GuardedButton key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</GuardedButton>)}
                     </div>
                 </div>
             </div>

@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import VisThemeToggle from '../vis/VisThemeToggle';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useState } from 'react';
@@ -19,7 +20,7 @@ export default function PublicHeader() {
     }, []);
     const links = [['/', 'home'], ['/matches', 'matches'], ['/standings', 'standings'], ['/teams', 'teams'], ['/stats', 'stats']];
     const languageControls = <div className="ui-language" aria-label={language === 'THA' ? ui('ภาษา') : ui('Language')}>
-        {['THA', 'ENG'].map(value => <button key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)}>{value === 'THA' ? ui('TH') : ui('EN')}</button>)}
+        {['THA', 'ENG'].map(value => <GuardedButton key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)}>{value === 'THA' ? ui('TH') : ui('EN')}</GuardedButton>)}
     </div>;
     return <header className="public-header">
         <a className="ui-skip-link" href="#main-content">{language === 'THA' ? ui('ข้ามไปเนื้อหา') : ui('Skip to content')}</a>
@@ -32,7 +33,7 @@ export default function PublicHeader() {
                 {links.map(([to, key]) => <Link key={to} to={to} aria-current={pathname === to ? 'page' : undefined} className={`public-nav-link ${pathname === to ? 'is-active' : ''}`}>{t(`nav.${key}`)}</Link>)}
             </nav>
             <VisThemeToggle compact /><div className="public-desktop-actions">{languageControls}<Link to="/login" className="ui-button ui-button-primary"><LogIn size={16} />{t('nav.login')}</Link></div>
-            <button type="button" className="public-menu-toggle ui-button ui-button-secondary" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="public-mobile-menu" aria-label={language === 'THA' ? open ? ui('ปิดเมนู') : ui('เปิดเมนู') : open ? ui('Close menu') : ui('Open menu')}>{open ? <X size={21} /> : <Menu size={21} />}</button>
+            <GuardedButton type="button" className="public-menu-toggle ui-button ui-button-secondary" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="public-mobile-menu" aria-label={language === 'THA' ? open ? ui('ปิดเมนู') : ui('เปิดเมนู') : open ? ui('Close menu') : ui('Open menu')}>{open ? <X size={21} /> : <Menu size={21} />}</GuardedButton>
         </div>
         {open && <nav id="public-mobile-menu" className="public-mobile-nav" aria-label={language === 'THA' ? ui('เมนูมือถือ') : ui('Mobile navigation')}>
             {links.map(([to, key]) => <Link key={to} to={to} aria-current={pathname === to ? 'page' : undefined} className={`public-nav-link ${pathname === to ? 'is-active' : ''}`}>{t(`nav.${key}`)}</Link>)}

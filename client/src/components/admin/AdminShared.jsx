@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import Swal from 'sweetalert2';
 import React from 'react';
@@ -20,7 +21,7 @@ export function ActionButton({ onClick, color, icon, label }) {
         green: 'bg-green-50 hover:bg-green-100 text-green-600 border border-green-200',
         red: 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200',
     };
-    return <button onClick={onClick} className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold transition ${styles[color]}`}>{icon} {ui(label)}</button>;
+    return <GuardedButton onClick={onClick} className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold transition ${styles[color]}`}>{icon} {ui(label)}</GuardedButton>;
 }
 
 export function Input({ label, type = "text", value, onChange, required, placeholder }) {

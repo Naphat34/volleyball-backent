@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import { X as UiX, Grip as SystemGrip } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useVisTranslation from './useVisTranslation';
@@ -37,16 +38,16 @@ export default function VisMatchLayout({ children, onCloseVideo, showVideo, orie
     };
     const heading = (title, type) => <div draggable onDragStart={event => event.dataTransfer.setData('text/vis-panel', type)}
         onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const from = event.dataTransfer.getData('text/vis-panel'); if (from && from !== type) onReverse(); }}
-        className="shrink-0 cursor-grab border-b border-slate-700 bg-slate-800 px-3 py-1 text-[11px] text-slate-400" title={vt("ลากหัวแผงไปยังอีกแผงเพื่อสลับตำแหน่ง")}><SystemGrip size={14} className="inline-block" aria-hidden="true" /> {ui(title)}{type === 'video' && <button type="button" className="float-right px-1" aria-label={vt("ปิดแผงวิดีโอ")} onClick={onCloseVideo}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button>}</div>;
+        className="shrink-0 cursor-grab border-b border-slate-700 bg-slate-800 px-3 py-1 text-[11px] text-slate-400" title={vt("ลากหัวแผงไปยังอีกแผงเพื่อสลับตำแหน่ง")}><SystemGrip size={14} className="inline-block" aria-hidden="true" /> {ui(title)}{type === 'video' && <GuardedButton type="button" className="float-right px-1" aria-label={vt("ปิดแผงวิดีโอ")} onClick={onCloseVideo}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></GuardedButton>}</div>;
     const code = <div key="code" style={{ flex: showVideo ? `${ratio} 1 0%` : '1 1 0%' }} className="flex min-h-0 min-w-0 flex-col overflow-hidden">{showVideo && heading(vt('Code · คีย์และประวัติ'), 'code')}{children}</div>;
     const video = <div key="video" style={{ flex: `${100 - ratio} 1 0%` }} className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-black/30">
         {heading(vt('Video · วิดีโอ'), 'video')}
-        <form onSubmit={load} className="flex shrink-0 flex-wrap gap-1 p-2"><BrandIcon brand="youtube" className="text-red-500" /><input aria-label={vt("URL วิดีโอ")} value={source} onChange={event => setSource(event.target.value)} placeholder={vt("YouTube / URL วิดีโอ")} className="min-w-0 flex-1 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-xs" /><button className="rounded bg-sky-800 px-2 py-1 text-xs">{vt("เปิด")}</button>
+        <GuardedForm onSubmit={load} className="flex shrink-0 flex-wrap gap-1 p-2"><BrandIcon brand="youtube" className="text-red-500" /><input aria-label={vt("URL วิดีโอ")} value={source} onChange={event => setSource(event.target.value)} placeholder={vt("YouTube / URL วิดีโอ")} className="min-w-0 flex-1 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-xs" /><GuardedButton className="rounded bg-sky-800 px-2 py-1 text-xs">{vt("เปิด")}</GuardedButton>
             <label className="cursor-pointer rounded bg-slate-700 px-2 py-1 text-xs">{vt("ไฟล์")}<input className="sr-only" type="file" accept="video/*" onChange={event => {
                 const file = event.target.files?.[0]; if (!file) return;
                 if (fileUrl.current) URL.revokeObjectURL(fileUrl.current);
                 fileUrl.current = URL.createObjectURL(file); setVideoUrl(fileUrl.current); setError('');
-            }} /></label></form>
+            }} /></label></GuardedForm>
         {error && <p role="alert" className="px-2 text-xs text-amber-300">{ui(error)}</p>}
         <div className="flex min-h-0 flex-1 items-center justify-center p-2">
             {youtube ? <iframe title={vt("วิดีโอประกอบการแข่งขัน")} className="h-full w-full rounded" src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtube)}`} allow="fullscreen; picture-in-picture" allowFullScreen />

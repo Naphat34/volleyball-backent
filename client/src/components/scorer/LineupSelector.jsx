@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { Shield, CheckCircle, Check as SystemCheck } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useScorerTranslation from './useScorerTranslation';
@@ -83,7 +84,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                             </div>
                             
                             <div className="flex gap-2">
-                                <button 
+                                <GuardedButton
                                     onClick={() => toggleStarter(player)} 
                                     disabled={isLibero}
                                     className={`flex-1 text-xs py-2 rounded-lg font-medium transition-all border ${
@@ -93,8 +94,8 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     {<>{isStarter && <SystemCheck size={14} aria-hidden="true" />}{st('Starter')}</>}
-                                </button>
-                                <button 
+                                </GuardedButton>
+                                <GuardedButton
                                     onClick={() => selectLibero(player)} 
                                     disabled={isStarter}
                                     className={`flex-1 text-xs py-2 rounded-lg font-medium transition-all border ${
@@ -104,7 +105,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     {<>{isLibero && <SystemCheck size={14} aria-hidden="true" />}{st('Libero')}</>}
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
                     );
@@ -125,7 +126,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                     </span>
                 </div>
                 
-                <button 
+                <GuardedButton
                     onClick={() => onConfirm(selectedStarters, selectedLibero)} 
                     disabled={selectedStarters.length !== 6}
                     className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg 
@@ -134,7 +135,7 @@ const LineupSelector = ({ teamName, players, onConfirm }) => {
                              transition-all duration-200 flex items-center justify-center gap-2"
                 >
                     <CheckCircle size={18} />{st("Confirm")}{teamName}
-                </button>
+                </GuardedButton>
             </div>
         </div>
     );

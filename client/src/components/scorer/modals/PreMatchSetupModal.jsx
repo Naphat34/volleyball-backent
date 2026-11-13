@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../../ui/GuardedAction';
 import { X, ChevronRight, ChevronLeft, ChevronsRight, RotateCcw, AlertCircle, Info, Calendar, FileText, MapPin, User, Plus, Pencil, Save, LoaderCircle, Swords, CheckCircle, ChevronDown as UiChevronDown } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import { editablePersonNames } from '../../../utils/i18n/names';
@@ -594,32 +595,32 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 <span className="text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">{st("Step")}{' '}{step}{' '}{st("of 3")}</span>
                             </div>
                         )}
-                        <button aria-label={st('Close')}
+                        <GuardedButton aria-label={st('Close')}
                             onClick={onClose}
                             className="text-slate-400 hover:text-rose-500 transition-colors bg-slate-50 p-2 rounded-lg hover:bg-rose-50"
                         >
                             <X size={20} />
-                        </button>
+                        </GuardedButton>
                     </div>
                 </div>
 
                 <div className="flex-1 flex flex-col p-8 overflow-hidden gap-6">
                     {(singleTeamMode || step <= 2) && playerEditor && (
-                        <form onSubmit={handleSavePlayer} className="grid grid-cols-1 items-end gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 md:grid-cols-[1fr_1fr_120px_auto]">
+                        <GuardedForm onSubmit={handleSavePlayer} className="grid grid-cols-1 items-end gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 md:grid-cols-[1fr_1fr_120px_auto]">
                             <div className="md:col-span-4 flex items-center justify-between gap-3">
                                 <p className="text-sm font-bold text-indigo-900">
                                     {playerEditor.id ? st('Edit player details') : st(`Add player to {0}`, [currentTeamName])}
                                 </p>
-                                <button type="button" onClick={() => setPlayerEditor(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-800">{st("Cancel")}</button>
+                                <GuardedButton type="button" onClick={() => setPlayerEditor(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-800">{st("Cancel")}</GuardedButton>
                             </div>
                             {[['first_name_th', 'First name (Thai)'], ['last_name_th', 'Last name (Thai)'], ['first_name_en', 'First name (English)'], ['last_name_en', 'Last name (English)']].map(([field, label]) => (
                                 <InputField key={field} label={st(label)} value={playerEditor[field]} onChange={event => setPlayerEditor(previous => ({ ...previous, [field]: event.target.value }))} />
                             ))}
                             <InputField label={st("Number")} value={playerEditor.number} onChange={(event) => setPlayerEditor((prev) => ({ ...prev, number: event.target.value.replace(/\D/g, '') }))} />
-                            <button type="submit" disabled={isSavingPlayer} className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
-                                {isSavingPlayer ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}{st("Save")}</button>
+                            <GuardedButton type="submit" disabled={isSavingPlayer} className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+                                {isSavingPlayer ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}{st("Save")}</GuardedButton>
                             {playerEditorError && <p className="text-xs font-medium text-rose-600 md:col-span-4">{st(playerEditorError)}</p>}
-                        </form>
+                        </GuardedForm>
                     )}
 
                     {singleTeamMode && (
@@ -632,8 +633,8 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 <div className="flex items-center gap-3">
                                     <div className="shrink-0 rounded-md border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">{st("Selected")}{rosterPlayers.length}
                                     </div>
-                                    <button type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
-                                        <Plus size={16} />{st("Add player")}</button>
+                                    <GuardedButton type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
+                                        <Plus size={16} />{st("Add player")}</GuardedButton>
                                 </div>
                             </div>
 
@@ -685,9 +686,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                     </select>
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
-                                                    <button type="button" onClick={() => openPlayerEditor(player)} className="rounded-md p-2 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700" aria-label={`Edit ${displayNames.personFirstName(player) || displayNames.personFirstName(player) || ''} ${displayNames.personLastName(player) || displayNames.personLastName(player) || ''}`.trim()}>
+                                                    <GuardedButton type="button" onClick={() => openPlayerEditor(player)} className="rounded-md p-2 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-700" aria-label={`Edit ${displayNames.personFirstName(player) || displayNames.personFirstName(player) || ''} ${displayNames.personLastName(player) || displayNames.personLastName(player) || ''}`.trim()}>
                                                         <Pencil size={16} />
-                                                    </button>
+                                                    </GuardedButton>
                                                 </td>
                                             </tr>
                                         ))}
@@ -707,8 +708,8 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
 
                                 {/* Summary Stats */}
                                 <div className="flex items-center gap-4">
-                                    <button type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700">
-                                        <Plus size={16} />{st("Add player")}</button>
+                                    <GuardedButton type="button" onClick={() => openPlayerEditor()} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700">
+                                        <Plus size={16} />{st("Add player")}</GuardedButton>
                                     <div className="flex items-center gap-4 bg-indigo-50/50 px-5 py-3 rounded-2xl border border-indigo-100">
                                     <div className="flex flex-col items-center px-1">
                                         <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">{st("Total")}</span>
@@ -777,31 +778,31 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                 </div>
 
                                 <div className="w-[60px] flex flex-col items-center justify-center gap-4">
-                                    <button
+                                    <GuardedButton
                                         onClick={handleAdd}
                                         className="w-12 h-12 bg-white hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-2xl shadow-sm hover:shadow-indigo-200 border border-slate-100 transition-all duration-200 flex items-center justify-center group"
                                     >
                                         <ChevronRight size={24} className="group-hover:translate-x-0.5 transition-transform" />
-                                    </button>
-                                    <button
+                                    </GuardedButton>
+                                    <GuardedButton
                                         onClick={handleAddAll}
                                         className="w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-200 transition-all duration-200 flex items-center justify-center"
                                     >
                                         <ChevronsRight size={24} />
-                                    </button>
+                                    </GuardedButton>
                                     <div className="w-6 h-px bg-slate-100 my-2"></div>
-                                    <button
+                                    <GuardedButton
                                         onClick={handleRemove}
                                         className="w-12 h-12 bg-white hover:bg-rose-500 text-slate-400 hover:text-white rounded-2xl shadow-sm border border-slate-100 transition-all duration-200 flex items-center justify-center group"
                                     >
                                         <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform" />
-                                    </button>
-                                    <button
+                                    </GuardedButton>
+                                    <GuardedButton
                                         onClick={handleReset}
                                         className="w-12 h-12 bg-slate-50 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-2xl transition-all duration-200 flex items-center justify-center"
                                     >
                                         <RotateCcw size={20} />
-                                    </button>
+                                    </GuardedButton>
                                 </div>
 
                                 <div className="flex-1 flex flex-col gap-3">
@@ -855,9 +856,9 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                                                                 </select>
                                                             </td>
                                                             <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
-                                                                <button type="button" onClick={() => openPlayerEditor(p)} className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700" aria-label={`Edit ${displayNames.personFirstName(p) || displayNames.personFirstName(p) || ''} ${displayNames.personLastName(p) || displayNames.personLastName(p) || ''}`.trim()}>
+                                                                <GuardedButton type="button" onClick={() => openPlayerEditor(p)} className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700" aria-label={`Edit ${displayNames.personFirstName(p) || displayNames.personFirstName(p) || ''} ${displayNames.personLastName(p) || displayNames.personLastName(p) || ''}`.trim()}>
                                                                     <Pencil size={15} />
-                                                                </button>
+                                                                </GuardedButton>
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -1051,14 +1052,14 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                 {/* Footer Controls */}
                 {singleTeamMode ? (
                     <div className="px-8 py-5 bg-white border-t border-slate-200 flex justify-end items-center gap-3 shrink-0">
-                        <button
+                        <GuardedButton
                             onClick={onClose}
                             className="px-6 py-2.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors font-semibold text-sm"
-                        >{st("Cancel")}</button>
-                        <button
+                        >{st("Cancel")}</GuardedButton>
+                        <GuardedButton
                             onClick={handleNext}
                             className="px-6 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors font-semibold text-sm"
-                        >{st("Confirm")}</button>
+                        >{st("Confirm")}</GuardedButton>
                     </div>
                 ) : (
                 <div className="px-6 py-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center shrink-0">
@@ -1074,31 +1075,31 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <button
+                        <GuardedButton
                             onClick={onClose}
                             className="px-5 py-2.5 rounded-lg text-slate-500 hover:text-slate-900 border border-transparent hover:bg-white hover:border-slate-200 transition-all duration-200 font-semibold text-sm"
-                        >{st("Cancel")}</button>
+                        >{st("Cancel")}</GuardedButton>
 
                         <div className={`${step === 3 ? 'bg-transparent border-transparent shadow-none p-0' : 'bg-white p-1 rounded-2xl border border-slate-200 shadow-sm'} flex gap-2`}>
                             {!isSettingsOnly && !singleTeamMode && (
-                                <button
+                                <GuardedButton
                                     onClick={handlePrev}
                                     disabled={step === 1}
                                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${step === 1 ? 'text-slate-200 pointer-events-none' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                                 >
                                     <ChevronLeft size={18} />
                                     <span>{st("Back")}</span>
-                                </button>
+                                </GuardedButton>
                             )}
 
-                            <button
+                            <GuardedButton
                                 onClick={handleNext}
                                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-all duration-200 active:scale-95"
                             >
                                 {step === 3 && <CheckCircle size={18} />}
                                 <span>{isSettingsOnly ? st('Confirm Setup') : singleTeamMode ? st('Confirm Roster') : step === 1 ? st('Go to Away Roster') : step === 2 ? st('Go to Officials') : st('Confirm Setup')}</span>
                                 {!isSettingsOnly && !singleTeamMode && <ChevronRight size={18} />}
-                            </button>
+                            </GuardedButton>
                         </div>
                     </div>
                 </div>

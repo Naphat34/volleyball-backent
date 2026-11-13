@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback, Panel, StatusBadge } from '../ui/SystemUI';
@@ -291,20 +292,20 @@ export default function HomeTab() {
                         <div>
                             <label className="mb-1.5 block text-xs font-semibold text-blue-100">{language === 'THA' ? ui('ประเภทการแข่งขัน') : ui('Category')}</label>
                             <div className="flex rounded-md border border-white/20 bg-white/10 p-1 backdrop-blur">
-                                <button
+                                <GuardedButton
                                     onClick={() => setFilterGender('All')}
                                     className={`rounded px-3 py-1.5 text-xs font-semibold transition ${filterGender === 'All' ? 'bg-white text-blue-800 shadow-sm' : 'text-blue-50 hover:bg-white/10'}`}
                                 >
                                     {language === 'THA' ? ui('ทั้งหมด') : ui('All')}
-                                </button>
+                                </GuardedButton>
                                 {availableGenders.map(g => (
-                                    <button
+                                    <GuardedButton
                                         key={g}
                                         onClick={() => setFilterGender(g)}
                                         className={`rounded px-3 py-1.5 text-xs font-semibold transition ${filterGender === g ? 'bg-white text-blue-800 shadow-sm' : 'text-blue-50 hover:bg-white/10'}`}
                                     >
                                         {g === 'Male' ? language === 'THA' ? ui('ชาย') : ui('Men') : g === 'Female' ? language === 'THA' ? ui('หญิง') : ui('Women') : g}
-                                    </button>
+                                    </GuardedButton>
                                 ))}
                             </div>
                         </div>
@@ -314,18 +315,18 @@ export default function HomeTab() {
 
                 {/* Sub tabs navigation */}
                 <div className="flex gap-2 px-5 py-4">
-                    <button
+                    <GuardedButton
                         onClick={() => setCurrentSubTab('overview')}
                         className={`${tabClass} ${currentSubTab === 'overview' ? activeTabClass : inactiveTabClass}`}
                     >
                         {language === 'THA' ? ui('ภาพรวมระบบ') : ui('Overview')}
-                    </button>
-                    <button
+                    </GuardedButton>
+                    <GuardedButton
                         onClick={() => setCurrentSubTab('schedule')}
                         className={`${tabClass} ${currentSubTab === 'schedule' ? activeTabClass : inactiveTabClass}`}
                     >
                         {language === 'THA' ? ui('ตารางแข่งทั้งหมด') : ui('Full Schedule')}
-                    </button>
+                    </GuardedButton>
                 </div>
             </div>
 
@@ -489,24 +490,24 @@ export default function HomeTab() {
                                         <ListFilter size={16} className="text-gray-400" />
                                         <span>{language === 'THA' ? ui('ตัวกรองสถานะ:') : ui('Status Filter:')}</span>
                                     </div>
-                                    <button
+                                    <GuardedButton
                                         onClick={() => setFilterStatus('all')}
                                         className={`${tabClass} ${filterStatus === 'all' ? activeTabClass : inactiveTabClass}`}
                                     >
                                         {language === 'THA' ? ui(`แมตช์ทั้งหมด ({0})`, [matches.length]) : ui(`All Matches ({0})`, [matches.length])}
-                                    </button>
-                                    <button
+                                    </GuardedButton>
+                                    <GuardedButton
                                         onClick={() => setFilterStatus('completed')}
                                         className={`${tabClass} ${filterStatus === 'completed' ? activeTabClass : inactiveTabClass}`}
                                     >
                                         {language === 'THA' ? ui(`จบการแข่งขัน ({0})`, [completedCount]) : ui(`Completed ({0})`, [completedCount])}
-                                    </button>
-                                    <button
+                                    </GuardedButton>
+                                    <GuardedButton
                                         onClick={() => setFilterStatus('scheduled')}
                                         className={`${tabClass} ${filterStatus === 'scheduled' ? activeTabClass : inactiveTabClass}`}
                                     >
                                         {language === 'THA' ? ui(`รอดำเนินการ ({0})`, [scheduledCount]) : ui(`Scheduled ({0})`, [scheduledCount])}
-                                    </button>
+                                    </GuardedButton>
                                 </div>
 
                                 <div className="space-y-4">

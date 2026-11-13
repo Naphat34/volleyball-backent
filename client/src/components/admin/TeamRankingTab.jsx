@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -411,9 +412,9 @@ export default function TeamRankingTab() {
                         <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">{ui("Gender")}</label>
                         <div className="flex min-h-[42px] items-center rounded-md border border-gray-200 bg-slate-50 p-1 shadow-sm">
                                 {availableGenders.map(g => (
-                                <button key={g} onClick={() => setGenderFilter(g)} className={`w-full rounded-md px-4 py-1.5 text-sm font-medium transition-all ${genderFilter === g ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-700'}`}>
+                                <GuardedButton key={g} onClick={() => setGenderFilter(g)} className={`w-full rounded-md px-4 py-1.5 text-sm font-medium transition-all ${genderFilter === g ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-700'}`}>
                                         {g}
-                                    </button>
+                                    </GuardedButton>
                                 ))}
                             </div>
                         </div>
@@ -448,14 +449,14 @@ export default function TeamRankingTab() {
                     )}
 
                     <div className="flex items-end">
-                    <button
+                    <GuardedButton
                         type="button"
                         onClick={handleExportExcel}
                         disabled={loading || exporting || standings.length === 0}
                             className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-md border border-blue-200 bg-white px-3 text-sm font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
                         title={ui("Export rankings as Excel")}
                     >
-                        <Download size={16} />{exporting ? ui("กำลังส่งออก…") : ui("Export Excel")}</button>
+                        <Download size={16} />{exporting ? ui("กำลังส่งออก…") : ui("Export Excel")}</GuardedButton>
                     </div>
                 </div>
             </div>
@@ -570,7 +571,7 @@ export default function TeamRankingTab() {
                                 <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight text-gray-900"><Calendar size={18} className="text-blue-600" />{' '}{ui("Match History")}</h3>
                                 <p className="mt-1 text-sm font-medium text-gray-500">{displayNames.teamName(viewingHistoryTeam)}</p>
                             </div>
-                            <button onClick={() => setViewingHistoryTeam(null)} className="rounded-md p-2 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700"><X size={20} /></button>
+                            <GuardedButton onClick={() => setViewingHistoryTeam(null)} className="rounded-md p-2 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-700"><X size={20} /></GuardedButton>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-0">
@@ -637,7 +638,7 @@ export default function TeamRankingTab() {
                             })()}
                         </div>
                         <div className="flex justify-end border-t border-gray-100 bg-gray-50 p-6">
-                            <button onClick={() => setViewingHistoryTeam(null)} className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-600 transition-all hover:bg-gray-50 hover:text-gray-900">{ui("Close")}</button>
+                            <GuardedButton onClick={() => setViewingHistoryTeam(null)} className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-600 transition-all hover:bg-gray-50 hover:text-gray-900">{ui("Close")}</GuardedButton>
                         </div>
                     </div>
                 </div>

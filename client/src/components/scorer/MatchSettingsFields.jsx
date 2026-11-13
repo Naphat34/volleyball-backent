@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { X as UiX } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -54,7 +55,7 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
                 return <div key={key}>
                     <label className="smm-field">{ui(label)}<span className="smm-shirt-color"><input type="color" aria-label={`${label} ${draft[side].name}`} value={selected} disabled={teamsDisabled} onChange={event => teamChange(side, { [key]: event.target.value })}/><span>{selected.toUpperCase()}</span></span></label>
                     <div className="smm-shirt-palette" role="group" aria-label={`${label} ${draft[side].name}`}>
-                        {shirtColors.map(color => <button type="button" key={color} aria-label={`${label} ${color}`} aria-pressed={selected.toLowerCase() === color} disabled={teamsDisabled} style={{ backgroundColor: color }} onClick={() => teamChange(side, { [key]: color })}/>)}
+                        {shirtColors.map(color => <GuardedButton type="button" key={color} aria-label={`${label} ${color}`} aria-pressed={selected.toLowerCase() === color} disabled={teamsDisabled} style={{ backgroundColor: color }} onClick={() => teamChange(side, { [key]: color })}/>)}
                     </div>
                 </div>;
             })}</div>
@@ -64,7 +65,7 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
                 <td><select aria-label={`${t('ตำแหน่ง', 'Position')} ${p.number}`} disabled={teamsDisabled || p.role.startsWith('L')} value={p.role.startsWith('L') ? 'L' : p.position || ''} onChange={event => updateRow(side, 'players', index, 'position', event.target.value)}>{['', 'S', 'OH', 'MB', 'OPP', 'L'].map(position => <option key={position} value={position} disabled={position === 'L'}>{position || '–'}</option>)}</select></td>
                 <td><input type="checkbox" aria-label={`${t('ลิเบอโร', 'Libero')} ${p.number}`} disabled={teamsDisabled} checked={p.role.startsWith('L')} onChange={event => updateRole(side, index, event.target.checked, p.role.includes('C'))}/></td>
                 <td><input type="checkbox" aria-label={`${t('กัปตัน', 'Captain')} ${p.number}`} disabled={teamsDisabled} checked={p.role.includes('C')} onChange={event => updateRole(side, index, p.role.startsWith('L'), event.target.checked)}/></td>
-                <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p)}`} onClick={() => teamChange(side, { players: draft[side].players.filter((_, i) => i !== index) })}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></td>
+                <td><GuardedButton type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p)}`} onClick={() => teamChange(side, { players: draft[side].players.filter((_, i) => i !== index) })}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></GuardedButton></td>
             </tr>)}</tbody></table></div>
             <label className="smm-field">{t('เพิ่มนักกีฬาจากรายชื่อทีม', 'Add a registered player')}<select value="" disabled={teamsDisabled} onChange={event => {
                 const p = settings.available[side].find(player => String(player.id) === event.target.value);
@@ -80,10 +81,10 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
                         {staffRoles.map(([value, label]) => <option key={value} value={value}>{t(label, value)}</option>)}
                     </select></td>
                     {['first_name', 'last_name'].map((key, i) => <td key={key}><input type="text" aria-label={`${draft[side].name} ${[t('ชื่อ', 'First name'), t('นามสกุล', 'Last name')][i]} ${index + 1}`} disabled={teamsDisabled} value={p[key]} onChange={event => updateRow(side, 'staff', index, key, event.target.value)}/></td>)}
-                    <td><button type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p) || index + 1}`} onClick={() => teamChange(side, { staff: draft[side].staff.filter((_, i) => i !== index) })}>{t('นำออก', 'Remove')}</button></td>
+                    <td><GuardedButton type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p) || index + 1}`} onClick={() => teamChange(side, { staff: draft[side].staff.filter((_, i) => i !== index) })}>{t('นำออก', 'Remove')}</GuardedButton></td>
                 </tr>) : <tr><td colSpan={4}>{t('ยังไม่มีเจ้าหน้าที่ทีม', 'No team staff added.')}</td></tr>}</tbody>
             </table></div>
-            <button type="button" disabled={teamsDisabled} onClick={() => teamChange(side, { staff: [...draft[side].staff, { role: '', first_name: '', last_name: '' }] })}>+ {t('เพิ่มเจ้าหน้าที่ทีม', 'Add team staff')}</button>
+            <GuardedButton type="button" disabled={teamsDisabled} onClick={() => teamChange(side, { staff: [...draft[side].staff, { role: '', first_name: '', last_name: '' }] })}>+ {t('เพิ่มเจ้าหน้าที่ทีม', 'Add team staff')}</GuardedButton>
         </>}
     </section>)}</div></>;
     if (tab === 'officials') return <div className="smm-form-grid">{[

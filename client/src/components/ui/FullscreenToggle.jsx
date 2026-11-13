@@ -1,3 +1,4 @@
+import { GuardedButton } from './GuardedAction';
 import { useEffect, useState } from 'react';
 import { Maximize, Minimize } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
@@ -27,10 +28,10 @@ export default function FullscreenToggle({ className = '', size = 18 }) {
     };
     const Icon = fullscreen ? Minimize : Maximize;
     return <>
-        <button type="button" className={className} onClick={toggle} disabled={!supported}
+        <GuardedButton type="button" className={className} onClick={toggle} disabled={!supported}
             aria-label={label} aria-pressed={fullscreen} title={label}>
             <Icon size={size} aria-hidden="true" />
-        </button>
+        </GuardedButton>
         {error && <span role="status" className="text-xs">{error}</span>}
     </>;
 }

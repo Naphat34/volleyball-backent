@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -462,7 +463,7 @@ export default function ScoreViewReferee() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <button 
+                    <GuardedButton
                         onClick={() => {
                             const newVertical = !isVertical;
                             setIsVertical(newVertical);
@@ -476,17 +477,17 @@ export default function ScoreViewReferee() {
                     >
                         {isVertical ? <Smartphone size={16} /> : <Monitor size={16} />}
                         {isVertical ? ui("Vertical Layout") : ui("Landscape Layout")}
-                    </button>
-                    <button 
+                    </GuardedButton>
+                    <GuardedButton
                         onClick={() => setLocalFlip(!localFlip)}
                         className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
                     >
-                        <ArrowRightLeft size={16} />{ui("Swap Sides")}</button>
-                    <button 
+                        <ArrowRightLeft size={16} />{ui("Swap Sides")}</GuardedButton>
+                    <GuardedButton
                         onClick={refreshData}
                         className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition-colors border border-slate-300 shadow-sm"
                     >
-                        <RefreshCw size={16} />{ui("Refresh")}</button>
+                        <RefreshCw size={16} />{ui("Refresh")}</GuardedButton>
                 </div>
             </div>
         </div>

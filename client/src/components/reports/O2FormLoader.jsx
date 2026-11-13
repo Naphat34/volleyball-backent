@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -266,7 +267,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
             <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">{ui('อายุคำนวณจากปีอ้างอิง ลบปีเกิด ช่องภาษาอังกฤษใช้ชื่อที่ลงทะเบียนไว้')}</p>
             {rosterError && <div role="alert" className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
                 {ui('โหลดรายชื่อนักกีฬาหรือเจ้าหน้าที่ไม่สำเร็จ กรุณาลองใหม่ก่อนสร้างเอกสาร')}
-                <button type="button" className="ml-3 underline font-semibold" onClick={() => setRetryCount(count => count + 1)}>{ui('ลองใหม่')}</button>
+                <GuardedButton type="button" className="ml-3 underline font-semibold" onClick={() => setRetryCount(count => count + 1)}>{ui('ลองใหม่')}</GuardedButton>
             </div>}
             {rosterLoading && (
                 <div className="mb-4 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
@@ -311,7 +312,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                             )
                                         )}
                                     </PDFDownloadLink>
-                                    <button
+                                    <GuardedButton
                                         onClick={() => setPreviewForm(form)}
                                         disabled={!form.rosterReady}
                                         className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition font-bold shadow-md dark:shadow-none ${form.rosterReady
@@ -319,7 +320,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                             : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
                                             }`}
                                     >
-                                        <Eye size={18} />{ui("Preview")}</button>
+                                        <Eye size={18} />{ui("Preview")}</GuardedButton>
                                 </div>
                             </div>
                         );
@@ -340,7 +341,7 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                     document={<O2FormDocument teamInfo={previewForm.teamInfo} players={previewForm.players} staff={previewForm.staff} />}
                                 >
                                     {({ url, loading }) => (
-                                        <button
+                                        <GuardedButton
                                             onClick={() => {
                                                 if (url) {
                                                     const printWindow = window.open(url, '_blank');
@@ -350,15 +351,15 @@ const O2FormLoader = ({ teamInfo, players = [], staff = [], myCompetitions = [] 
                                             disabled={loading}
                                             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-bold text-sm shadow-md disabled:opacity-50"
                                         >
-                                            {loading ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}{ui("Print Team composition")}</button>
+                                            {loading ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />}{ui("Print Team composition")}</GuardedButton>
                                     )}
                                 </BlobProvider>
-                                <button
+                                <GuardedButton
                                     onClick={() => setPreviewForm(null)}
                                     className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
                                 >
                                     <X size={24} className="text-gray-500 dark:text-gray-400" />
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
                         <div className="flex-1">

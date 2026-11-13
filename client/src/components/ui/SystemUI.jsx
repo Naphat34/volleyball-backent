@@ -1,9 +1,10 @@
+import { GuardedButton } from './GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useId } from 'react';
 import { AlertCircle, Inbox, RefreshCw } from 'lucide-react';
 
 export function Button({ children, variant = 'primary', className = '', type = 'button', ...props }) {
-    return <button type={type} className={`ui-button ui-button-${variant} ${className}`} {...props}>{children}</button>;
+    return <GuardedButton type={type} className={`ui-button ui-button-${variant} ${className}`} {...props}>{children}</GuardedButton>;
 }
 
 export function Panel({ children, title, description, action, className = '' }) {

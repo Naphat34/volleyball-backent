@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -321,27 +322,27 @@ export default function ClubsTab({ initialSearch = '' }) {
         <td className="px-6 py-4 text-right">
           {isEntry && (
             <div className="mb-2 flex items-center justify-end gap-2">
-              <button
+              <GuardedButton
                 type="button"
                 onClick={() => handleUpdateRegistrationStatus(team, 'approved')}
                 disabled={team.registration_status === 'approved'}
                 className="rounded-md border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
-              >{ui("Approve")}</button>
-              <button
+              >{ui("Approve")}</GuardedButton>
+              <GuardedButton
                 type="button"
                 onClick={() => handleUpdateRegistrationStatus(team, 'rejected')}
                 disabled={team.registration_status === 'rejected'}
                 className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
-              >{ui("Reject")}</button>
+              >{ui("Reject")}</GuardedButton>
             </div>
           )}
-          <button
+          <GuardedButton
             onClick={() => handleDeleteTeam(teamId)}
             className="p-2.5 text-gray-300 hover:text-red-500 rounded-md transition-all opacity-0 group-hover:opacity-100"
             title={ui("ลบทีม")}
           >
             <Trash2 size={18} />
-          </button>
+          </GuardedButton>
         </td>
       </tr>
     );
@@ -354,11 +355,11 @@ export default function ClubsTab({ initialSearch = '' }) {
           <h2 className="text-xl font-semibold text-gray-900">{ui("ทีมแข่งขันตามรุ่นและประเภท")}</h2>
           <p className="text-sm text-gray-500 mt-1">{ui("ตรวจสอบทีมที่สมัครในแต่ละรายการแข่งขัน รุ่นอายุ และประเภทชาย/หญิง")}</p>
         </div>
-        <button
+        <GuardedButton
           onClick={openCreateModal}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600"
         >
-          <Plus size={18} />{ui("Create Team Account")}</button>
+          <Plus size={18} />{ui("Create Team Account")}</GuardedButton>
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-4 top-3.5 text-gray-300" size={18} />
           <input
@@ -470,16 +471,16 @@ export default function ClubsTab({ initialSearch = '' }) {
                 <h3 className="text-lg font-semibold text-gray-900">{ui("Create Team Account")}</h3>
                 <p className="text-sm text-gray-500">{ui("Create a team and login account for team staff.")}</p>
               </div>
-              <button
+              <GuardedButton
                 type="button"
                 onClick={closeCreateModal}
                 className="rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
               >
                 <X size={20} />
-              </button>
+              </GuardedButton>
             </div>
 
-            <form onSubmit={handleCreateTeam} className="max-h-[calc(92vh-73px)] overflow-y-auto p-6">
+            <GuardedForm onSubmit={handleCreateTeam} className="max-h-[calc(92vh-73px)] overflow-y-auto p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">{ui("Team Name")}</label>
@@ -631,20 +632,20 @@ export default function ClubsTab({ initialSearch = '' }) {
               </div>
 
               <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
-                <button
+                <GuardedButton
                   type="button"
                   onClick={closeCreateModal}
                   disabled={isCreating}
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-                >{ui("Cancel")}</button>
-                <button
+                >{ui("Cancel")}</GuardedButton>
+                <GuardedButton
                   type="submit"
                   disabled={isCreating}
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:bg-gray-300"
                 >
-                  {isCreating ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}{ui("Create")}</button>
+                  {isCreating ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}{ui("Create")}</GuardedButton>
               </div>
-            </form>
+            </GuardedForm>
           </div>
         </div>
       )}

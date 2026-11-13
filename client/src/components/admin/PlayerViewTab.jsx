@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -238,18 +239,18 @@ export default function PlayerViewTab() {
                     <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{ui("Gender")}</label>
                         <div className="flex bg-slate-50 border border-gray-200 shadow-sm rounded-md p-1 min-h-[42px] items-center">
-                            <button
+                            <GuardedButton
                                 onClick={() => setFilterGender('All')}
                                 className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === 'All' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'}`}
-                            >{ui("All")}</button>
+                            >{ui("All")}</GuardedButton>
                             {availableGenders.map(g => (
-                                <button
+                                <GuardedButton
                                     key={g}
                                     onClick={() => setFilterGender(g)}
                                     className={`px-4 py-1 text-sm font-medium rounded-md transition-all w-full ${filterGender === g ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'}`}
                                 >
                                     {g}
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </div>
@@ -329,9 +330,9 @@ export default function PlayerViewTab() {
                                         <td className="px-6 py-4"><span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium border border-blue-100">{p.position}</span></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => setViewingPlayer(p)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-50 rounded-lg transition" title={ui("View Details")}>
+                                                <GuardedButton onClick={() => setViewingPlayer(p)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-50 rounded-lg transition" title={ui("View Details")}>
                                                     <Eye size={16} />
-                                                </button>
+                                                </GuardedButton>
                                                 {/* <button onClick={() => handleEditPlayer(p)} className="p-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg transition" title="Edit">
                                                     <Edit2 size={16} />
                                                 </button>
@@ -388,12 +389,12 @@ export default function PlayerViewTab() {
 
                         {/* Header Background with Profile Image */}
                         <div className="relative h-32 official-header">
-                            <button
+                            <GuardedButton
                                 onClick={() => setViewingPlayer(null)}
                                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 hover:bg-gray-200 p-2 rounded-full transition z-10"
                             >
                                 <X size={20} />
-                            </button>
+                            </GuardedButton>
                             <div className="absolute -bottom-16 left-1/2 -translate-x-1/2">
                                 <div className="w-32 h-32 rounded-full border-4 shadow-xl overflow-hidden flex items-center justify-center border-white bg-gray-50">
                                     {viewingPlayer.photo ? (

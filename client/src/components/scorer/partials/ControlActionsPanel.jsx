@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { PenTool, Trophy, Flag, Clock, Users, RotateCcw, AlertTriangle, X as UiX, Cross as SystemCross, ShieldAlert as SystemShieldAlert } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
@@ -11,7 +12,7 @@ const CompactSanctionIcon = () => <SystemShieldAlert size={40} className="text-o
 
 const OfficialActionPill = ({ label, icon, disabled, onClick, accentClass = '' }) => {
     const st = useScorerTranslation();
-    return (<button
+    return (<GuardedButton
         type="button"
         onClick={onClick}
         disabled={disabled}
@@ -19,7 +20,7 @@ const OfficialActionPill = ({ label, icon, disabled, onClick, accentClass = '' }
     >
         <span className="relative z-10 flex min-w-0 flex-1 items-center text-[14px] font-semibold leading-[1.12] text-slate-950 drop-shadow-[0_1px_0_rgba(255,255,255,0.65)]">{st(label)}</span>
         <span className="relative z-10 flex shrink-0 items-center justify-center">{React.createElement(icon)}</span>
-    </button>
+    </GuardedButton>
 );
 };
 
@@ -36,17 +37,17 @@ const TeamChoiceModal = ({ isOpen, title, subtitle, leftTeam, rightTeam, onCance
                         <h3 className="text-lg font-bold text-slate-950">{st(title)}</h3>
                         <p className="mt-1 text-sm font-medium text-slate-500">{st(subtitle)}</p>
                     </div>
-                    <button
+                    <GuardedButton
                         type="button"
                         onClick={onCancel}
                         className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
                     >
                         <XIcon />
-                    </button>
+                    </GuardedButton>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     {[leftTeam, rightTeam].map((team) => (
-                        <button
+                        <GuardedButton
                             key={team.code}
                             type="button"
                             onClick={() => onSelect(team.code)}
@@ -58,7 +59,7 @@ const TeamChoiceModal = ({ isOpen, title, subtitle, leftTeam, rightTeam, onCance
                             <span className="mt-1 block truncate text-base font-bold text-slate-950">
                                 {displayNames.teamName(team)}
                             </span>
-                        </button>
+                        </GuardedButton>
                     ))}
                 </div>
             </div>
@@ -107,36 +108,36 @@ const ControlActionsPanel = ({
             {workflowStep === 'SET_ENDING'  ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <span className="font-semibold text-rose-600 uppercase tracking-widest text-lg mb-2 animate-pulse">{st("SET POINT REACHED")}</span>
-                    <button
+                    <GuardedButton
                         onClick={onConfirmSetEnd}
                         disabled={isEndingSet}
                         className="px-16 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xl shadow-lg rounded-xl transition-all active:scale-95"
                     >
                         {isEndingSet ? st('ENDING...') : st('END SET')}
-                    </button>
+                    </GuardedButton>
                 </div>
             ) : workflowStep === 'SET_FINISHED' ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <span className="font-semibold text-slate-800 uppercase tracking-tight text-lg mb-2">{st("Set")}{' '}{matchData.currentSet}{' '}{st("Concluded")}</span>
-                    <button
+                    <GuardedButton
                         onClick={startNextSet}
                         disabled={isStartingNextSet}
                         className="px-12 py-3 bg-[#3b82f6] hover:bg-blue-600 text-white font-bold shadow-md transition disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                     >
                         {isStartingNextSet ? st('STARTING...') : st('START NEXT SET')}
-                    </button>
+                    </GuardedButton>
                 </div>
             ) : workflowStep === 'MATCH_FINISHED' ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <span className="font-semibold text-slate-800 uppercase tracking-tight text-lg mb-4">{st("End off match")}</span>
-                    <button onClick={handleFinishMatch} className="px-16 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xl shadow-xl rounded-xl transition-all active:scale-95 flex items-center gap-3">
-                        <PenTool size={24} />{st("SIGNATURES")}</button>
+                    <GuardedButton onClick={handleFinishMatch} className="px-16 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xl shadow-xl rounded-xl transition-all active:scale-95 flex items-center gap-3">
+                        <PenTool size={24} />{st("SIGNATURES")}</GuardedButton>
                 </div>
             ) : workflowStep === 'COIN_TOSS' ? (
                 <div className="flex-1 flex flex-col items-center justify-center">
                     <span className="font-semibold text-slate-800 uppercase tracking-tight text-lg mb-2">{st("coin toss")}{' '}</span>
-                    <button onClick={runCoinTossFlow} className="px-12 py-3 bg-[#eab308] hover:bg-yellow-600 text-white font-bold shadow-md rounded-xl transition-all active:scale-95 flex items-center gap-2">
-                        <Trophy size={20} />{st("Coin Toss")}</button>
+                    <GuardedButton onClick={runCoinTossFlow} className="px-12 py-3 bg-[#eab308] hover:bg-yellow-600 text-white font-bold shadow-md rounded-xl transition-all active:scale-95 flex items-center gap-2">
+                        <Trophy size={20} />{st("Coin Toss")}</GuardedButton>
                 </div>
             ) : workflowStep === 'RALLY' || workflowStep === 'SERVING' || workflowStep === 'SERVER_SELECT' || workflowStep === 'READY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW' ? (
                 <>
@@ -198,12 +199,12 @@ const ControlActionsPanel = ({
                                         ) : (
                                             <>
                                                 <span className="text-[11px] font-black text-blue-700">{st(currentChallengeReview.reason)}</span>
-                                                <button
+                                                <GuardedButton
                                                     onClick={() => setIsEditingChallengeReason(true)}
                                                     className="p-0.5 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-600 transition-colors"
                                                 >
                                                     <PenTool size={10} />
-                                                </button>
+                                                </GuardedButton>
                                             </>
                                         )}
                                     </div>
@@ -213,47 +214,47 @@ const ControlActionsPanel = ({
                                 </div>
 
                                 {/* Fault Admission (Double click) */}
-                                <button
+                                <GuardedButton
                                     onDoubleClick={handleFaultAdmission}
                                     className="w-full mb-2 py-1 bg-orange-50 border border-dashed border-orange-300 hover:bg-orange-100/50 text-orange-800 rounded-lg flex flex-col items-center justify-center transition-all select-none group"
                                 >
                                     <span className="text-[10px] font-bold uppercase">{st("Fault Admission")}</span>
                                     <span className="text-[7px] text-orange-500 mt-0.5 opacity-80">{st("Double-click if player admits fault")}</span>
-                                </button>
+                                </GuardedButton>
 
                                 {/* Outcome Selection */}
                                 <div className="w-full">
                                     <div className="grid grid-cols-3 gap-1">
-                                        <button
+                                        <GuardedButton
                                             onClick={() => handleChallengeOutcome('SUCCESSFUL')}
                                             className="py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded text-[9px] shadow-sm transition-all"
-                                        >{st("Successful")}</button>
-                                        <button
+                                        >{st("Successful")}</GuardedButton>
+                                        <GuardedButton
                                             onClick={() => handleChallengeOutcome('UNSUCCESSFUL')}
                                             className="py-1 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded text-[9px] shadow-sm transition-all"
-                                        >{st("Unsuccessful")}</button>
-                                        <button
+                                        >{st("Unsuccessful")}</GuardedButton>
+                                        <GuardedButton
                                             onClick={() => handleChallengeOutcome('INCONCLUSIVE')}
                                             className="py-1 bg-slate-500 hover:bg-slate-600 text-white font-bold rounded text-[9px] shadow-sm transition-all"
-                                        >{st("Inconclusive")}</button>
+                                        >{st("Inconclusive")}</GuardedButton>
                                     </div>
                                 </div>
                             </div>
                         ) : workflowStep === 'READY' ? (
-                            <button onClick={handleStartMatch} className="scorer-start-match bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xl py-3 px-10 shadow-md w-full max-w-xs transition-colors mt-4">{st("START MATCH")}</button>
+                            <GuardedButton onClick={handleStartMatch} className="scorer-start-match bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xl py-3 px-10 shadow-md w-full max-w-xs transition-colors mt-4">{st("START MATCH")}</GuardedButton>
                         ) : workflowStep === 'SERVING' ? (
                             <div className="flex flex-col items-center w-full max-w-sm mt-2">
                                 <div className="text-indigo-700 font-bold text-sm flex items-center gap-2 mb-1.5 uppercase">
                                     <Clock size={18} className="serve-wait-clock" />
                                     <span>{st("After referee whistle")}</span>
                                 </div>
-                                <button
+                                <GuardedButton
                                     onClick={() => setWorkflowStep('RALLY')}
                                     type="button"
                                     className="serve-wait-button bg-indigo-700 hover:bg-indigo-800 text-white font-black text-3xl py-3 w-full shadow-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 active:scale-[0.98]"
                                 >
                                     <span className="relative z-10">{st("Serve")}</span>
-                                </button>
+                                </GuardedButton>
                             </div>
                         ) : workflowStep === 'RALLY' ? (
                             <div className="flex flex-col items-center justify-center mt-4 text-center">
@@ -261,13 +262,13 @@ const ControlActionsPanel = ({
                                 <span className="text-slate-500 text-xs font-semibold mt-1">{st("Use team controls to score or manage actions")}</span>
                             </div>
                         ) : workflowStep === 'LINEUP' ? (
-                            <button
+                            <GuardedButton
                                 onClick={() => setShowLineupModal(true)}
                                 className="scorer-start-lineup flex flex-col items-center justify-center gap-1 bg-white border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-black text-2xl py-3 px-12 shadow-md w-full max-w-xs transition-all duration-200 active:scale-95 group rounded-2xl"
                             >
                                 <Users size={24} className="group-hover:scale-110 transition-transform" />
                                 <span>{st("Start Line Up")}</span>
-                            </button>
+                            </GuardedButton>
                         ) : (
                             <div className="text-slate-500 font-bold uppercase tracking-widest mt-4">{st("Complete Lineup")}</div>
                         )}
@@ -276,11 +277,11 @@ const ControlActionsPanel = ({
                         {['SERVING', 'RALLY', 'READY'].includes(workflowStep) && (
                             <div className="mt-2 flex items-center gap-6">
                                 {workflowStep === 'RALLY' && (
-                                    <button
+                                    <GuardedButton
                                         onClick={handleReplayRally}
                                         className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold uppercase tracking-widest text-xs transition-colors"
                                     >
-                                        <RotateCcw size={14} />{st("Replay rally")}</button>
+                                        <RotateCcw size={14} />{st("Replay rally")}</GuardedButton>
                                 )}
                             </div>
                         )}

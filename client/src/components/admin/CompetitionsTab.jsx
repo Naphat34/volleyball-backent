@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from 'react';
@@ -302,7 +303,7 @@ export default function CompetitionsTab() {
                         <h2 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight">
                             <Trophy size={24} />{ui("Competitions Management")}</h2>
                     </div>
-                    <button
+                    <GuardedButton
                         onClick={() => {
                             setCompForm(DEFAULT_COMP_FORM);
                             setEditingCompId(null);
@@ -310,7 +311,7 @@ export default function CompetitionsTab() {
                         }}
                         className="inline-flex items-center justify-center gap-2 rounded-md border border-white/20 bg-white px-5 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition-colors hover:bg-blue-50"
                     >
-                        <PlusCircle size={18} />{ui("New Competition")}</button>
+                        <PlusCircle size={18} />{ui("New Competition")}</GuardedButton>
                 </div>
             </div>
 
@@ -375,7 +376,7 @@ export default function CompetitionsTab() {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <button
+                                                        <GuardedButton
                                                             type="button"
                                                             onClick={() => handleToggleStatus(c)}
                                                             disabled={isUpdatingStatus}
@@ -384,7 +385,7 @@ export default function CompetitionsTab() {
                                                             <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${c.status === 'open' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
                                                                 {isUpdatingStatus ? ui('Saving...') : c.status === 'open' ? ui('Open') : ui('Closed')}
                                                             </span>
-                                                        </button>
+                                                        </GuardedButton>
                                                     </td>
 
                                                     <td className="px-4 py-3 text-gray-600">
@@ -406,10 +407,10 @@ export default function CompetitionsTab() {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center justify-end gap-2">
-                                                            <button onClick={() => setManagingMatchesComp(c)} className="whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">{ui("Matches")}</button>
-                                                            <button onClick={() => handleViewTeams(competitionWithLogoFallback)} className="whitespace-nowrap rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">{ui("Teams")}</button>
-                                                            <button onClick={() => handleEditComp(competitionWithLogoFallback)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600" aria-label={ui("Edit competition")}><Edit2 size={16} /></button>
-                                                            <button onClick={() => handleDeleteComp(c.id)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600" aria-label={ui("Delete competition")}><Trash2 size={16} /></button>
+                                                            <GuardedButton onClick={() => setManagingMatchesComp(c)} className="whitespace-nowrap rounded-md border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">{ui("Matches")}</GuardedButton>
+                                                            <GuardedButton onClick={() => handleViewTeams(competitionWithLogoFallback)} className="whitespace-nowrap rounded-md border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">{ui("Teams")}</GuardedButton>
+                                                            <GuardedButton onClick={() => handleEditComp(competitionWithLogoFallback)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600" aria-label={ui("Edit competition")}><Edit2 size={16} /></GuardedButton>
+                                                            <GuardedButton onClick={() => handleDeleteComp(c.id)} className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600" aria-label={ui("Delete competition")}><Trash2 size={16} /></GuardedButton>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -440,11 +441,11 @@ export default function CompetitionsTab() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
-                                <button onClick={handleExportTeamsCSV} className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 shadow-sm">
-                                    <Download size={16} />{ui("Export")}</button>
-                                <button onClick={() => setViewingTeamsComp(null)} className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 rounded-md transition-colors">
+                                <GuardedButton onClick={handleExportTeamsCSV} className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 shadow-sm">
+                                    <Download size={16} />{ui("Export")}</GuardedButton>
+                                <GuardedButton onClick={() => setViewingTeamsComp(null)} className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 rounded-md transition-colors">
                                     <X size={20} />
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
 
@@ -465,7 +466,7 @@ export default function CompetitionsTab() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
+                                                <GuardedButton
                                                     onClick={async () => {
                                                         const result = await Swal.fire({ uiTextLocalized: true,
                                                             title: ui('Remove from Competition?'),
@@ -490,8 +491,8 @@ export default function CompetitionsTab() {
                                                     title={ui("Remove from Competition")}
                                                 >
                                                     <X size={16} />
-                                                </button>
-                                                <button
+                                                </GuardedButton>
+                                                <GuardedButton
                                                     onClick={async () => {
                                                         const result = await Swal.fire({ uiTextLocalized: true,
                                                             title: ui('ลบทีมสโมสร?'),
@@ -516,7 +517,7 @@ export default function CompetitionsTab() {
                                                     title={ui("Delete Team Globally")}
                                                 >
                                                     <Trash2 size={16} />
-                                                </button>
+                                                </GuardedButton>
                                             </div>
                                         </div>
                                     ))}

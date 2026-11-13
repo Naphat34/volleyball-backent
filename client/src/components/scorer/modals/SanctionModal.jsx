@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -121,9 +122,9 @@ const SanctionModal = ({
                             </div>{st("Issue Sanction")}</h2>
                         <p className="text-xs text-slate-500 font-semibold mt-2">{st("Select receiver, team, sanction type, then submit.")}</p>
                     </div>
-                    <button aria-label={st('Close')} onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
+                    <GuardedButton aria-label={st('Close')} onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-800 transition-colors">
                         <X size={24} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 <div className="p-6 space-y-6 bg-white">
@@ -131,7 +132,7 @@ const SanctionModal = ({
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">{st("Receiver of sanction")}</label>
                         <div className="grid grid-cols-3 gap-3">
                             {RECEIVERS.map(option => (
-                                <button
+                                <GuardedButton
                                     key={option.value}
                                     type="button"
                                     onClick={() => setReceiver(option.value)}
@@ -142,7 +143,7 @@ const SanctionModal = ({
                                         {st(option.label)}
                                     </div>
                                     <div className="mt-1 text-[10px] font-semibold text-slate-400">{st(option.hint)}</div>
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </section>
@@ -151,7 +152,7 @@ const SanctionModal = ({
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">{st("Team")}</label>
                         <div className="grid grid-cols-2 gap-3">
                             {['home', 'away'].map(code => (
-                                <button
+                                <GuardedButton
                                     key={code}
                                     type="button"
                                     onClick={() => setTeamCode(code)}
@@ -159,7 +160,7 @@ const SanctionModal = ({
                                 >
                                     <span className="block text-[10px] uppercase tracking-widest text-slate-400">{code}</span>
                                     <span className="block truncate text-sm">{normalizedTeams[code]?.name || code}</span>
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </section>
@@ -200,7 +201,7 @@ const SanctionModal = ({
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">{st("Sanction type")}</label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {sanctionOptions.map(option => (
-                                <button
+                                <GuardedButton
                                     key={option.value}
                                     type="button"
                                     onClick={() => setSanctionType(option.value)}
@@ -213,20 +214,20 @@ const SanctionModal = ({
                                             <div className={`text-[10px] font-semibold ${sanctionType === option.value ? 'text-slate-300' : 'text-slate-400'}`}>{st(option.hint)}</div>
                                         </div>
                                     </div>
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </section>
                 </div>
 
                 <div className="p-6 bg-slate-50/70 border-t border-slate-100 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all">{st("Cancel")}</button>
-                    <button
+                    <GuardedButton onClick={onClose} className="px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-all">{st("Cancel")}</GuardedButton>
+                    <GuardedButton
                         onClick={handleConfirmClick}
                         disabled={!canSubmit}
                         className="px-8 py-3 rounded-xl font-bold text-xs uppercase tracking-widest bg-slate-900 hover:bg-black text-white disabled:opacity-25 disabled:grayscale transition-all shadow-xl active:scale-95 flex items-center gap-3"
                     >{st("Submit Sanction")}<CheckCircle size={18} />
-                    </button>
+                    </GuardedButton>
                 </div>
             </div>
         </div>

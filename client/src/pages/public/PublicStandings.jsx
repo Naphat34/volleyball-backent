@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { calculateStandings as buildStandings } from '../../utils/scorer/standings';
@@ -113,8 +114,8 @@ export default function PublicStandings() {
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
                     <label className="font-bold text-gray-700 flex items-center gap-2"><Filter size={18} className="text-blue-600"/> {language === 'THA' ? ui('\u0e1b\u0e23\u0e30\u0e40\u0e20\u0e17:') : ui('Category:')}</label>
                     <div className="flex w-full flex-wrap gap-2 md:justify-end">
-                        <button type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14') : ui('All')}</button>
-                        {categories.map((category) => <button key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</button>)}
+                        <GuardedButton type="button" onClick={() => setSelectedCategory('all')} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === 'all' ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{language === 'THA' ? ui('\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14') : ui('All')}</GuardedButton>
+                        {categories.map((category) => <GuardedButton key={category.key} type="button" onClick={() => setSelectedCategory(category.key)} className={`rounded-full border px-3 py-2 text-sm font-bold ${selectedCategory === category.key ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-blue-700'}`}>{ui(category.label)}</GuardedButton>)}
                     </div>
                 </div>
             </div>
@@ -139,9 +140,9 @@ export default function PublicStandings() {
                                     <p className="text-xs text-gray-500">{ui("Match History")}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedTeam(null)} className="p-2 hover:bg-gray-200 rounded-full transition text-gray-500">
+                            <GuardedButton onClick={() => setSelectedTeam(null)} className="p-2 hover:bg-gray-200 rounded-full transition text-gray-500">
                                 <X size={20} />
-                            </button>
+                            </GuardedButton>
                         </div>
 
                         {/* Modal Body */}

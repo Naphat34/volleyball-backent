@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { X, PenTool, Lock, Check as UiCheck } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
@@ -123,23 +124,23 @@ const LineupModal = ({
 
     const renderLineupSlot = (side, posIndex, player) => (
         <div key={posIndex} className="relative">
-            <button type="button" onClick={() => onSlotClick(side, posIndex)}
+            <GuardedButton type="button" onClick={() => onSlotClick(side, posIndex)}
                 aria-label={st(`{0} position {1}{2}`, [side, posIndex + 1, player ? ' player ' + player.number : ' empty'])}
                 className="aspect-square w-full bg-white rounded-md border border-slate-200 flex items-center justify-center text-base font-bold text-slate-800 transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer">
                 {player ? player.number : <span className="text-slate-300 text-sm font-normal">+</span>}
-            </button>
-            {player && <button type="button" onClick={() => onClearSlot(side, posIndex)}
+            </GuardedButton>
+            {player && <GuardedButton type="button" onClick={() => onClearSlot(side, posIndex)}
                 aria-label={st(`Remove player {0} from {1} position {2}`, [player.number, side, posIndex + 1])}
                 className="absolute right-0 top-0 z-20 flex h-5 w-5 items-center justify-center bg-transparent text-slate-500 hover:text-rose-600"
                 style={{ backgroundColor: 'transparent' }}>
                 <X size={10}/>
-            </button>}
+            </GuardedButton>}
         </div>
     );
 
     const renderShirtColorPicker = (side, currentColor) => (
         <div className="relative flex-1">
-            <button
+            <GuardedButton
                 type="button"
                 disabled={isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked')}
                 onClick={() => setActiveColorPicker((active) => active === side ? null : side)}
@@ -147,13 +148,13 @@ const LineupModal = ({
                 aria-expanded={activeColorPicker === side && !isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked')}
             >
                 <span className="w-4 h-4 rounded-full border border-slate-300 shadow-inner" style={{ backgroundColor: currentColor }} />{st("Shirt color")}{isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked') && <Lock size={12} aria-label={st("Locked")} />}
-            </button>
+            </GuardedButton>
             {activeColorPicker === side && !isLineupSetupLocked(currentSet, lineupSetup, side, 'colorLocked') && (
                 <div className={`absolute bottom-full z-30 mb-2 w-full min-w-[184px] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ${side === 'away' ? 'right-0' : 'left-0'}`}>
                     <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">{st("Select shirt color")}</div>
                     <div className="grid grid-cols-7 gap-2">
                         {SHIRT_COLOR_OPTIONS.map((color) => (
-                            <button
+                            <GuardedButton
                                 key={color}
                                 type="button"
                                 onClick={() => selectShirtColor(side, color)}
@@ -183,9 +184,9 @@ const LineupModal = ({
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
                     <h2 className="text-xl font-bold text-slate-800 tracking-tight">{st("Starting lineup")}</h2>
-                    <button aria-label={st('Close')} onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                    <GuardedButton aria-label={st('Close')} onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
                         <X size={20} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 {/* Three Columns Container */}
@@ -203,7 +204,7 @@ const LineupModal = ({
                         <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                             {safeHomeRoster.length > 0 ? (
                                 safeHomeRoster.map((player, index) => (
-                                    <button type="button"
+                                    <GuardedButton type="button"
                                         onClick={() => onSelectRosterPlayer('home', player)}
                                         disabled={isPlayerLibero(player) || homeLineup.every(Boolean) || homeLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
                                         aria-pressed={homeLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
@@ -219,7 +220,7 @@ const LineupModal = ({
                                         <div>
                                             {getPlayerBadge(player)}
                                         </div>
-                                    </button>
+                                    </GuardedButton>
                                 ))
                             ) : (
                                 <div className="text-center py-10 text-slate-400 text-xs italic">{st("No roster data")}</div>
@@ -229,34 +230,34 @@ const LineupModal = ({
                         {/* Column footer buttons */}
                         <div className="shrink-0 pt-4">
                             <div className="flex gap-2">
-                                <button 
+                                <GuardedButton
                                     onClick={() => onSetRoster('home')} 
                                     disabled={isLineupSetupLocked(currentSet, lineupSetup, 'home', 'rosterLocked')}
                                     className={`flex-1 py-2 text-xs font-bold ${getContrastClass(homeColor)} rounded transition-colors shadow-sm enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60`}
                                     style={{ backgroundColor: homeColor, color: getContrastColorHex(homeColor) }}
                                 >{st("Set roster")}{isLineupSetupLocked(currentSet, lineupSetup, 'home', 'rosterLocked') && <Lock size={12} className="ml-1 inline" aria-label={st("Locked")} />}
-                                </button>
+                                </GuardedButton>
                                 {renderShirtColorPicker('home', homeColor)}
                             </div>
 
                             <div className="text-[11px] font-bold text-slate-500 mt-4 mb-2 uppercase tracking-wide">{st("Approvals - Roster")}</div>
                             <div className="flex gap-2">
-                                <button
+                                <GuardedButton
                                     onClick={() => handleButtonClick('homeCaptain')}
                                     disabled={Boolean(signatures.homeCaptain)}
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(homeColor, signatures.homeCaptain)}
                                 >{st("Captain")}{homeCode}
                                     {signatures.homeCaptain && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
-                                </button>
-                                <button
+                                </GuardedButton>
+                                <GuardedButton
                                     onClick={() => handleButtonClick('homeCoach')}
                                     disabled={Boolean(signatures.homeCoach)}
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(homeColor, signatures.homeCoach)}
                                 >{st("Coach")}{homeCode}
                                     {signatures.homeCoach && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
                     </div>
@@ -293,10 +294,10 @@ const LineupModal = ({
                                     </div>
                                 </div>
                             </div>
-                            <button 
+                            <GuardedButton
                                 onClick={() => onClearTeamLineup('home')}
                                 className="py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors border-t border-slate-100 cursor-pointer text-center"
-                            >{st("Clear Lineup")}</button>
+                            >{st("Clear Lineup")}</GuardedButton>
                         </div>
 
                         {/* Away Court */}
@@ -329,10 +330,10 @@ const LineupModal = ({
                                     </div>
                                 </div>
                             </div>
-                            <button 
+                            <GuardedButton
                                 onClick={() => onClearTeamLineup('away')}
                                 className="py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors border-t border-slate-100 cursor-pointer text-center"
-                            >{st("Clear Lineup")}</button>
+                            >{st("Clear Lineup")}</GuardedButton>
                         </div>
                     </div>
 
@@ -348,7 +349,7 @@ const LineupModal = ({
                         <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                             {safeAwayRoster.length > 0 ? (
                                 safeAwayRoster.map((player, index) => (
-                                    <button type="button"
+                                    <GuardedButton type="button"
                                         onClick={() => onSelectRosterPlayer('away', player)}
                                         disabled={isPlayerLibero(player) || awayLineup.every(Boolean) || awayLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
                                         aria-pressed={awayLineup.some(selected => selected && String(selected.id || selected.player_id) === String(player.id || player.player_id))}
@@ -364,7 +365,7 @@ const LineupModal = ({
                                         <div>
                                             {getPlayerBadge(player)}
                                         </div>
-                                    </button>
+                                    </GuardedButton>
                                 ))
                             ) : (
                                 <div className="text-center py-10 text-slate-400 text-xs italic">{st("No roster data")}</div>
@@ -374,34 +375,34 @@ const LineupModal = ({
                         {/* Column footer buttons */}
                         <div className="shrink-0 pt-4">
                             <div className="flex gap-2">
-                                <button 
+                                <GuardedButton
                                     onClick={() => onSetRoster('away')} 
                                     disabled={isLineupSetupLocked(currentSet, lineupSetup, 'away', 'rosterLocked')}
                                     className={`flex-1 py-2 text-xs font-bold ${getContrastClass(awayColor)} rounded transition-colors shadow-sm enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60`}
                                     style={{ backgroundColor: awayColor, color: getContrastColorHex(awayColor) }}
                                 >{st("Set roster")}{isLineupSetupLocked(currentSet, lineupSetup, 'away', 'rosterLocked') && <Lock size={12} className="ml-1 inline" aria-label={st("Locked")} />}
-                                </button>
+                                </GuardedButton>
                                 {renderShirtColorPicker('away', awayColor)}
                             </div>
 
                             <div className="text-[11px] font-bold text-slate-500 mt-4 mb-2 uppercase tracking-wide">{st("Approvals - Roster")}</div>
                             <div className="flex gap-2">
-                                <button
+                                <GuardedButton
                                     onClick={() => handleButtonClick('awayCaptain')}
                                     disabled={Boolean(signatures.awayCaptain)}
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(awayColor, signatures.awayCaptain)}
                                 >{st("Captain")}{awayCode}
                                     {signatures.awayCaptain && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
-                                </button>
-                                <button
+                                </GuardedButton>
+                                <GuardedButton
                                     onClick={() => handleButtonClick('awayCoach')}
                                     disabled={Boolean(signatures.awayCoach)}
                                     className="flex-1 rounded border py-2.5 text-center text-xs font-bold transition-all enabled:hover:brightness-110 disabled:cursor-not-allowed"
                                     style={getApprovalButtonStyle(awayColor, signatures.awayCoach)}
                                 >{st("Coach")}{awayCode}
                                     {signatures.awayCoach && <span className="block mt-1 text-[10px]"><><UiCheck size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("✓ Signed · Locked").replace(/✓\uFE0F?/gu, '').trim()}</></span>}
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
                     </div>
@@ -409,14 +410,14 @@ const LineupModal = ({
 
                 {/* Modal Footer (Action Buttons) */}
                 <div className="p-4 border-t border-slate-100 bg-white flex justify-center gap-3 shrink-0">
-                    <button 
+                    <GuardedButton
                         onClick={onClose} 
                         className="px-8 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-md text-sm transition-colors shadow-sm cursor-pointer"
-                    >{st("Cancel")}</button>
-                    <button 
+                    >{st("Cancel")}</GuardedButton>
+                    <GuardedButton
                         onClick={onConfirm} 
                         className="px-8 py-2 bg-[#3b82f6] hover:bg-blue-600 text-white font-bold rounded-md text-sm transition-colors shadow-sm cursor-pointer"
-                    >{st("Save")}</button>
+                    >{st("Save")}</GuardedButton>
                 </div>
             </div>
 
@@ -428,7 +429,7 @@ const LineupModal = ({
                             <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
                                 <PenTool className="text-indigo-600" size={22} />{st("Signature —")}{getFieldTitle(activeField)}
                             </h3>
-                            <button aria-label={st('Close')}
+                            <GuardedButton aria-label={st('Close')}
                                 type="button"
                                 onClick={() => {
                                     setActiveField(null);
@@ -437,7 +438,7 @@ const LineupModal = ({
                                 className="text-slate-400 hover:text-slate-600 transition-colors active:scale-90"
                             >
                                 <X size={24} />
-                            </button>
+                            </GuardedButton>
                         </div>
 
                         {/* Large Responsive Drawing Pad */}
@@ -454,15 +455,15 @@ const LineupModal = ({
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 pt-2">
-                            <button
+                            <GuardedButton
                                 type="button"
                                 onClick={() => {
                                     setActiveField(null);
                                     tempSignatureRef.current = null;
                                 }}
                                 className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl uppercase tracking-wider text-sm transition-all active:scale-95 cursor-pointer text-center"
-                            >{st("Cancel")}</button>
-                            <button
+                            >{st("Cancel")}</GuardedButton>
+                            <GuardedButton
                                 type="button"
                                 disabled={!hasPendingSignature}
                                 onClick={() => {
@@ -472,7 +473,7 @@ const LineupModal = ({
                                     tempSignatureRef.current = null;
                                 }}
                                 className="py-3.5 bg-indigo-600 enabled:hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl uppercase tracking-wider text-sm transition-all shadow-md shadow-indigo-200 enabled:active:scale-95 text-center"
-                            >{st("Save")}</button>
+                            >{st("Save")}</GuardedButton>
                         </div>
                     </div>
                 </div>

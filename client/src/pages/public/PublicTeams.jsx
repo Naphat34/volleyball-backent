@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { Feedback } from '../../components/ui/SystemUI';
@@ -225,7 +226,7 @@ export default function PublicTeams() {
                                         {selectedVariantKeys.length > 1 && (
                                             <div className="mt-3 flex flex-wrap gap-2">
                                                 {selectedVariantKeys.map((variantKey) => (
-                                                    <button
+                                                    <GuardedButton
                                                         key={variantKey}
                                                         type="button"
                                                         onClick={() => {
@@ -239,7 +240,7 @@ export default function PublicTeams() {
                                                         }`}
                                                     >
                                                         {selectedVariants[variantKey]?.label || variantKey}
-                                                    </button>
+                                                    </GuardedButton>
                                                 ))}
                                             </div>
                                         )}
@@ -262,7 +263,7 @@ export default function PublicTeams() {
                                                 else if (gender === 'Mixed') label = language === 'THA' ? 'ผสม' : 'Mixed';
 
                                                 return (
-                                                    <button
+                                                    <GuardedButton
                                                         key={gender}
                                                         onClick={() => !isDisabled && setSelectedGender(gender)}
                                                         disabled={isDisabled}
@@ -276,7 +277,7 @@ export default function PublicTeams() {
                                                         `}
                                                     >
                                                         {ui(label)}
-                                                    </button>
+                                                    </GuardedButton>
                                                 );
                                             })}
                                         </div>
@@ -304,7 +305,7 @@ export default function PublicTeams() {
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in-up">
                                 {teams.filter(team => String(displayNames.teamName(team) || '').toLocaleLowerCase().includes(teamSearch.toLocaleLowerCase())).map((team) => (
-                                    <button 
+                                    <GuardedButton
                                         key={team.team_entry_id || `${team.id}-${team.competition_id}`} 
                                         onClick={() => setSelectedTeam(team)}
                                         className="bg-white/95 rounded-2xl shadow-sm hover:shadow-2xl hover:-translate-y-1 cursor-pointer transition-all duration-300 border border-white overflow-hidden group flex flex-col h-full text-left"
@@ -329,7 +330,7 @@ export default function PublicTeams() {
                                         <div className="py-3 bg-gray-50 border-t border-gray-100 text-center text-sm font-bold text-blue-600 group-hover:bg-blue-50 transition-colors">
                                             {t('guestTeams.viewPlayers')}
                                         </div>
-                                    </button>
+                                    </GuardedButton>
                                 ))}
                             </div>
                         )}
@@ -338,12 +339,12 @@ export default function PublicTeams() {
             ) : (
                 /* --- ส่วนแสดงรายละเอียดทีม & นักกีฬา (เมื่อกดเลือกทีมแล้ว) --- */
                 <div className="w-full max-w-[1400px] mx-auto px-4 mt-8 animate-fade-in-up">
-                    <button 
+                    <GuardedButton
                         onClick={() => setSelectedTeam(null)}
                         className="mb-6 flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm text-blue-600 font-bold hover:bg-blue-50 hover:pr-6 transition-all"
                     >
                         <ArrowLeft size={20} /> {t('guestTeams.backToTeams')}
-                    </button>
+                    </GuardedButton>
 
                     {/* Team Header */}
                     <div className="bg-white/95 rounded-3xl shadow-xl border border-white p-8 mb-8 relative overflow-hidden">
@@ -477,9 +478,9 @@ export default function PublicTeams() {
                                     <p className="text-xs text-indigo-100 opacity-90">#{viewingPlayer.number} • {viewingPlayer.position}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setViewingPlayer(null)} className="text-white/80 hover:text-white hover:bg-white/20 p-1.5 rounded-full transition">
+                            <GuardedButton onClick={() => setViewingPlayer(null)} className="text-white/80 hover:text-white hover:bg-white/20 p-1.5 rounded-full transition">
                                 <X size={20}/>
-                            </button>
+                            </GuardedButton>
                         </div>
 
                         <div className="p-6 overflow-y-auto">

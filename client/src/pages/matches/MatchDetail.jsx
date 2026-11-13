@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from "react";
@@ -162,22 +163,22 @@ const MatchDetail = () => {
                       </div>
                       <span className="text-sm">{username}</span>
                     </div>
-                    <button
+                    <GuardedButton
                       onClick={handleLogout}
                       className="flex items-center gap-2 px-3 py-2 rounded-md text-blue-700 hover:bg-blue-50 font-semibold text-sm transition-colors"
                     >
-                      <LogOut size={17} />{ui("Logout")}</button>
+                      <LogOut size={17} />{ui("Logout")}</GuardedButton>
                   </div>
       
                   {/* Mobile Toggle */}
                   <div className="md:hidden flex items-center">
-                    <button
+                    <GuardedButton
                       onClick={() => setIsOpen(!isOpen)}
                       className="p-2 rounded-md text-blue-700 hover:bg-blue-50 transition-colors"
                       aria-label={isOpen ? ui('Close menu') : ui('Open menu')}
                     >
                       {isOpen ? <X size={20} /> : <Menu size={20} />}
-                    </button>
+                    </GuardedButton>
                   </div>
                 </div>
               </div>
@@ -194,11 +195,11 @@ const MatchDetail = () => {
                        <span className="text-xs text-slate-500 mt-1 font-medium">{ui("Match Scorer")}</span>
                     </div>
                   </div>
-                  <button 
+                  <GuardedButton
                     onClick={handleLogout} 
                     className="w-full flex items-center justify-center gap-2 py-2.5 text-blue-700 font-semibold bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
                   >
-                    <LogOut size={20} />{ui("Logout")}</button>
+                    <LogOut size={20} />{ui("Logout")}</GuardedButton>
                 </div>
               )}
             </nav>  
@@ -280,10 +281,10 @@ const MatchDetail = () => {
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                    <Edit3 size={48} className="text-blue-600" />
                 </div>
-                <button
+                <GuardedButton
                   onClick={goToScorerConsole}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-md transition-colors text-sm"
-                >{ui("Go to Scorer Console")}</button>
+                >{ui("Go to Scorer Console")}</GuardedButton>
               </div>
             </div>
 
@@ -296,10 +297,10 @@ const MatchDetail = () => {
                 <div>
                   <Volleyball size={80} aria-hidden="true" />
                 </div>
-                <button
+                <GuardedButton
                   onClick={() => window.open(`/match/${matchId}/referee`, '_blank')}
                   className="bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-semibold py-2.5 px-6 rounded-md transition-colors text-sm"
-                >{ui("Open in a browser tab")}</button>
+                >{ui("Open in a browser tab")}</GuardedButton>
               </div>
             </div>
           </div>

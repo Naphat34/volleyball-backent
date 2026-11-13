@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import useVisTranslation from '../../components/vis/useVisTranslation';
 import VisResizablePanel from '../../components/vis/VisResizablePanel';
@@ -142,8 +143,8 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly: requestedR
     if (loading || loadError) return (
         <div className="vis-scorer-loading fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-gray-900 text-white">
             <p>{(loadError) || (ui('Loading saved VIMS match...'))}</p>
-            <button onClick={onClose} className="rounded bg-gray-700 px-6 py-2">{ui("Close")}</button>
-            {loadError && <button onClick={() => window.location.reload()} className="rounded bg-blue-700 px-6 py-2">{ui("Reload")}</button>}
+            <GuardedButton onClick={onClose} className="rounded bg-gray-700 px-6 py-2">{ui("Close")}</GuardedButton>
+            {loadError && <GuardedButton onClick={() => window.location.reload()} className="rounded bg-blue-700 px-6 py-2">{ui("Reload")}</GuardedButton>}
         </div>
     );
 
@@ -174,10 +175,10 @@ export default function LiveMatchScorer({ match, onClose, isReadOnly: requestedR
     return <div className="vis-workspace" style={teamPalette}>
         <header className="vis-app-header">
             <strong>{ui("VIMS")}</strong><div className="vis-match-heading"><b>{names.home}{' '}{ui("vs")}{' '}{names.away}</b>{matchData.competition_name && <span> · {matchData.competition_name.replace(/\s*\(Male\)/gi, '').trim()}</span>}</div>
-            <div className="vis-app-actions"><button onClick={() => { setShowCourt(true); setShowVideo(false); }}><Tablet size={14} />{ui("Tablet")}</button>
+            <div className="vis-app-actions"><GuardedButton onClick={() => { setShowCourt(true); setShowVideo(false); }}><Tablet size={14} />{ui("Tablet")}</GuardedButton>
                 <FullscreenToggle size={16} />
-                <button title={vt("ตั้งค่า")} aria-label={vt("ตั้งค่า")} onClick={() => setDialog('settings')}><Settings size={17} /></button>
-                <div className="vis-language"><button aria-pressed={language === 'THA'} onClick={() => setLanguage('THA')}>{ui("ไทย")}</button><button aria-pressed={language === 'ENG'} onClick={() => setLanguage('ENG')}>{ui("EN")}</button></div>
+                <GuardedButton title={vt("ตั้งค่า")} aria-label={vt("ตั้งค่า")} onClick={() => setDialog('settings')}><Settings size={17} /></GuardedButton>
+                <div className="vis-language"><GuardedButton aria-pressed={language === 'THA'} onClick={() => setLanguage('THA')}>{ui("ไทย")}</GuardedButton><GuardedButton aria-pressed={language === 'ENG'} onClick={() => setLanguage('ENG')}>{ui("EN")}</GuardedButton></div>
                 <span className={`vis-sync-status ${syncError || pending ? 'vis-sync-warning' : ''}`}><Wifi size={13} />{isSaving ? vt('กำลังบันทึก') : pending ? vt('รอส่ง') : syncError ? vt('ซิงค์ขัดข้อง') : vt('Sync พร้อม')}</span>
             </div>
         </header>

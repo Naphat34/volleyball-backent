@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import JerseyToken from '../../components/scorer/JerseyToken';
 import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X, ArrowRight as UiArrowRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -1112,7 +1113,7 @@ export default function TeamStaffConsole() {
         <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none text-slate-900">
             <header className="bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 md:px-6 shadow-sm flex items-center justify-between sticky top-0 z-50">
                 <div className="flex items-center gap-3 min-w-0">
-                    <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center active:scale-95 transition" aria-label={ui("Back")}><ChevronLeft /></button>
+                    <GuardedButton onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center active:scale-95 transition" aria-label={ui("Back")}><ChevronLeft /></GuardedButton>
                     <div>
                         <h1 className="font-semibold text-base md:text-lg leading-tight truncate max-w-[220px] md:max-w-[360px] text-slate-950">{displayNames.teamName(teamInfo)}</h1>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -1129,7 +1130,7 @@ export default function TeamStaffConsole() {
             </header>
             {rosterError && <div role="alert" className="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 {ui('Could not load the match roster. Please retry.')}
-                <button type="button" onClick={fetchData} className="ml-3 underline font-semibold">{ui('Retry')}</button>
+                <GuardedButton type="button" onClick={fetchData} className="ml-3 underline font-semibold">{ui('Retry')}</GuardedButton>
             </div>}
 
             <main className={mainClassName}>
@@ -1138,8 +1139,8 @@ export default function TeamStaffConsole() {
                 <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-5 flex flex-col relative overflow-hidden justify-center min-h-[560px] md:min-h-0">
                     <div className="flex items-center justify-between mb-6 z-10">
                         {isSettingLineup && (
-                            <button onClick={handleRotate} className="flex items-center gap-2 px-4 py-2 bg-white/80 hover:bg-white text-slate-700 rounded-xl text-sm font-bold transition-colors shadow-sm active:scale-95 backdrop-blur-md">
-                                <RefreshCcw size={16} />{ui("Rotate")}</button>
+                            <GuardedButton onClick={handleRotate} className="flex items-center gap-2 px-4 py-2 bg-white/80 hover:bg-white text-slate-700 rounded-xl text-sm font-bold transition-colors shadow-sm active:scale-95 backdrop-blur-md">
+                                <RefreshCcw size={16} />{ui("Rotate")}</GuardedButton>
                         )}
                     </div>
                     
@@ -1151,14 +1152,14 @@ export default function TeamStaffConsole() {
                                     
                                     {!hasPendingLineup && lineup.length === 0 ? (
                                         <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/10 backdrop-blur-[2px]">
-                                            <button onClick={handleStartLineup} className="bg-[#4ade80] hover:bg-[#22c55e] text-white font-bold py-4 px-10 rounded-xl shadow-xl border-[3px] border-white transition-all hover:scale-105 active:scale-95 flex items-center gap-3 text-xl">{ui("Set lineup")}</button>
+                                            <GuardedButton onClick={handleStartLineup} className="bg-[#4ade80] hover:bg-[#22c55e] text-white font-bold py-4 px-10 rounded-xl shadow-xl border-[3px] border-white transition-all hover:scale-105 active:scale-95 flex items-center gap-3 text-xl">{ui("Set lineup")}</GuardedButton>
                                         </div>
                                     ) : hasPendingLineup ? (
                                         <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/10 backdrop-blur-[2px]">
                                             <div className="bg-white/95 backdrop-blur-sm text-slate-800 font-bold py-4 px-8 rounded-xl shadow-xl border-2 border-amber-400 flex flex-col items-center gap-3 text-lg">
                                                 <div className="flex items-center gap-3">
                                                     <Loader2 size={24} className="animate-spin text-amber-500" />{ui("Waiting for Scorer...")}</div>
-                                                <button onClick={handleClearConfirmedLineup} className="mt-2 text-xs bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-colors">{ui("Cancel & Clear Lineup")}</button>
+                                                <GuardedButton onClick={handleClearConfirmedLineup} className="mt-2 text-xs bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm transition-colors">{ui("Cancel & Clear Lineup")}</GuardedButton>
                                             </div>
                                         </div>
                                     ) : null}
@@ -1303,8 +1304,8 @@ export default function TeamStaffConsole() {
                             
                             {lineup.length > 0 && !hasPendingLineup && workflowStep === 'LINEUP' && (
                                 <div className="flex gap-4 mt-6">
-                                    <button onClick={handleStartLineup} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">{ui("Edit Lineup")}</button>
-                                    <button onClick={handleClearConfirmedLineup} className="px-6 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 shadow-sm transition-colors text-sm">{ui("Clear Lineup")}</button>
+                                    <GuardedButton onClick={handleStartLineup} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">{ui("Edit Lineup")}</GuardedButton>
+                                    <GuardedButton onClick={handleClearConfirmedLineup} className="px-6 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 shadow-sm transition-colors text-sm">{ui("Clear Lineup")}</GuardedButton>
                                 </div>
                             )}
                         </div>
@@ -1325,7 +1326,7 @@ export default function TeamStaffConsole() {
                                                 const isCaptain = player && (player.is_captain || player.isCaptain || player.role === 'C');
                                                 
                                                 return (
-                                                    <button
+                                                    <GuardedButton
                                                         key={player.id}
                                                         onClick={() => handlePlayerSelect(player)}
                                                         disabled={isPlaced && !isSelected}
@@ -1339,7 +1340,7 @@ export default function TeamStaffConsole() {
                                                         {isCaptain && (
                                                             <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-bold border border-white">{ui("C")}</span>
                                                         )}
-                                                    </button>
+                                                    </GuardedButton>
                                                 );
                                             })
                                         )}
@@ -1454,22 +1455,22 @@ export default function TeamStaffConsole() {
                             </div>
                             
                             <div className="flex gap-4 mt-auto">
-                                <button 
+                                <GuardedButton
                                     onClick={() => { setIsSettingLineup(false); setSelectedPlayerForLineup(null); }} 
                                     className="flex-1 py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-2xl transition-colors active:scale-95 shadow-sm text-lg"
-                                >{ui("Cancel")}</button>
-                                <button 
+                                >{ui("Cancel")}</GuardedButton>
+                                <GuardedButton
                                     onClick={handleClearLineup} 
                                     className="flex-1 py-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-2xl transition-colors active:scale-95 shadow-sm text-lg border border-rose-200"
-                                >{ui("Clear")}</button>
-                                <button 
+                                >{ui("Clear")}</GuardedButton>
+                                <GuardedButton
                                     onClick={handleConfirmLineup} 
                                     disabled={!isLineupComplete || isSubmittingLineup}
                                     className={`flex-[2] py-4 flex items-center justify-center gap-3 font-bold rounded-2xl transition-all shadow-md active:scale-95 text-lg
                                         ${isLineupComplete && !isSubmittingLineup ? 'bg-[#22c55e] hover:bg-[#16a34a] text-white shadow-[#22c55e]/30' : 'bg-white/50 text-slate-400 cursor-not-allowed border border-slate-200'}
                                     `}
                                 >
-                                    {isSubmittingLineup ? <Loader2 size={24} className="animate-spin" /> : <Check size={24} strokeWidth={3} />}{ui("Confirm Lineup")}</button>
+                                    {isSubmittingLineup ? <Loader2 size={24} className="animate-spin" /> : <Check size={24} strokeWidth={3} />}{ui("Confirm Lineup")}</GuardedButton>
                             </div>
                         </div>
                     )}
@@ -1486,10 +1487,10 @@ export default function TeamStaffConsole() {
                                     <h2 className="text-2xl md:text-3xl font-semibold text-slate-950">{ui("Waiting for scorer")}</h2>
                                     <p className="mt-2 text-sm md:text-base text-slate-600">{ui("LineUp has been sent. The action cards will appear after the scorer accepts it.")}</p>
                                 </div>
-                                <button onClick={handleClearConfirmedLineup} className="mt-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 active:scale-95 transition">{ui("Cancel & Clear LineUp")}</button>
+                                <GuardedButton onClick={handleClearConfirmedLineup} className="mt-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 active:scale-95 transition">{ui("Cancel & Clear LineUp")}</GuardedButton>
                             </div>
                         ) : shouldShowLineupCard ? (
-                            <button onClick={handleStartLineup} className="w-full min-h-48 rounded-xl flex overflow-hidden border border-emerald-200 bg-white shadow-sm active:scale-[0.99] transition-all hover:shadow-md hover:-translate-y-0.5 group">
+                            <GuardedButton onClick={handleStartLineup} className="w-full min-h-48 rounded-xl flex overflow-hidden border border-emerald-200 bg-white shadow-sm active:scale-[0.99] transition-all hover:shadow-md hover:-translate-y-0.5 group">
                                 <div className="flex-1 p-6 flex flex-col justify-center gap-2 border-l-4 border-emerald-500">
                                     <span className="text-slate-950 text-3xl md:text-4xl font-semibold tracking-tight">{ui("Set LineUp")}</span>
                                     <span className="text-slate-500 text-sm md:text-base">{ui("Prepare starting six for Set")}{' '}{lineupTargetSet}</span>
@@ -1497,7 +1498,7 @@ export default function TeamStaffConsole() {
                                 <div className="w-24 bg-emerald-50 p-6 flex items-center justify-center border-l border-emerald-100">
                                     <Users size={44} className="text-emerald-700" />
                                 </div>
-                            </button>
+                            </GuardedButton>
                         ) : !shouldShowActionCards ? (
                             <div className="w-full min-h-48 rounded-xl border border-slate-200 bg-slate-50 p-6 flex flex-col items-center justify-center text-center gap-3">
                                 <Flag size={38} className="text-slate-400" />
@@ -1522,7 +1523,7 @@ export default function TeamStaffConsole() {
                                                 const disabled = isPendingOut || !subStatus.eligible;
 
                                                 return (
-                                                    <button
+                                                    <GuardedButton
                                                         key={`court-${posIndex}-${getPlayerId(activePlayer) || posIndex}`}
                                                         onClick={() => handleSlotSubClick(posIndex)}
                                                         disabled={disabled}
@@ -1535,7 +1536,7 @@ export default function TeamStaffConsole() {
                                                     >
                                                         {activeNumber}
                                                         <span className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-[8px] px-1 rounded font-bold border border-white">{ui("OUT")}</span>
-                                                    </button>
+                                                    </GuardedButton>
                                                 );
                                             })}
                                             {lineup.filter(Boolean).length === 0 && (
@@ -1557,7 +1558,7 @@ export default function TeamStaffConsole() {
                                                     const disabled = isSelected || !selectedOutPlayer;
 
                                                     return (
-                                                            <button
+                                                            <GuardedButton
                                                                 key={getPlayerId(player) || getPlayerNumber(player)}
                                                                 onClick={() => handleBenchSubClick(player)}
                                                                 disabled={disabled}
@@ -1571,7 +1572,7 @@ export default function TeamStaffConsole() {
                                                                 {(player.is_captain || player.isCaptain || player.role === 'C') && (
                                                                     <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-bold border border-white">{ui("C")}</span>
                                                                 )}
-                                                            </button>
+                                                            </GuardedButton>
                                                         );
                                                 })
                                             )}
@@ -1616,22 +1617,22 @@ export default function TeamStaffConsole() {
                                 )}
                                 
                                 <div className="flex gap-4 mt-auto pt-4">
-                                    <button 
+                                    <GuardedButton
                                         onClick={() => { setIsSubstitutionMode(false); setPendingSubstitutions([]); setSelectedOutPlayer(null); }} 
                                         className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl transition-colors active:scale-95 shadow-sm text-xl"
-                                    >{ui("Cancel")}</button>
-                                    <button 
+                                    >{ui("Cancel")}</GuardedButton>
+                                    <GuardedButton
                                         onClick={handleConfirmSubMode} 
                                         disabled={pendingSubstitutions.length === 0 || isSubmittingLineup}
                                         className={`flex-1 py-4 font-bold rounded-2xl transition-colors active:scale-95 shadow-sm text-xl flex items-center justify-center gap-2
                                             ${pendingSubstitutions.length > 0 && !isSubmittingLineup ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}
                                         `}
                                     >
-                                        {isSubmittingLineup ? <Loader2 size={24} className="animate-spin" /> : null}{ui("Confirm")}</button>
+                                        {isSubmittingLineup ? <Loader2 size={24} className="animate-spin" /> : null}{ui("Confirm")}</GuardedButton>
                                 </div>
                             </div>
                         ) : hasPendingSubstitution ? (
-                            <button onClick={handleCancelSubstitutionRequest} className="w-full min-h-32 rounded-xl flex overflow-hidden border border-rose-200 bg-white shadow-sm active:scale-[0.99] transition-all group">
+                            <GuardedButton onClick={handleCancelSubstitutionRequest} className="w-full min-h-32 rounded-xl flex overflow-hidden border border-rose-200 bg-white shadow-sm active:scale-[0.99] transition-all group">
                                 <div className="flex-1 p-6 flex flex-col justify-center gap-2 relative">
                                     <div className="flex gap-2 z-10 overflow-x-auto custom-scrollbar pb-1">
                                         {pendingSubstitutions.map((sub, i) => (
@@ -1650,10 +1651,10 @@ export default function TeamStaffConsole() {
                                 <div className="w-24 bg-rose-600 hover:bg-rose-700 p-6 flex items-center justify-center transition-colors">
                                     <X size={48} className="text-white" />
                                 </div>
-                            </button>
+                            </GuardedButton>
                         ) : (
                             <>
-                                <button onClick={() => setIsSubstitutionMode(true)} disabled={stats.substitutions >= 8 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-amber-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.substitutions >= 8 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                <GuardedButton onClick={() => setIsSubstitutionMode(true)} disabled={stats.substitutions >= 8 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-amber-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.substitutions >= 8 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
                                     <div className="flex-1 p-6 flex items-center border-l-4 border-amber-500">
                                         <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight">{ui("Substitution")}</span>
                                     </div>
@@ -1661,9 +1662,9 @@ export default function TeamStaffConsole() {
                                         <span className="text-amber-700 text-4xl md:text-5xl font-black leading-none">{8 - (stats.substitutions || 0)}</span>
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mt-1">{ui("left")}</span>
                                     </div>
-                                </button>
+                                </GuardedButton>
                                 
-                                <button onClick={() => handleRequest('TIMEOUT')} disabled={stats.timeouts >= 2 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-violet-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.timeouts >= 2 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                <GuardedButton onClick={() => handleRequest('TIMEOUT')} disabled={stats.timeouts >= 2 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-violet-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.timeouts >= 2 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
                                     <div className="flex-1 p-6 flex items-center border-l-4 border-violet-500">
                                         <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight">{ui("Timeout")}</span>
                                     </div>
@@ -1671,11 +1672,11 @@ export default function TeamStaffConsole() {
                                         <span className="text-violet-700 text-4xl md:text-5xl font-black leading-none">{2 - (stats.timeouts || 0)}</span>
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 mt-1">{ui("left")}</span>
                                     </div>
-                                </button>
+                                </GuardedButton>
                                 
                                 {hasChallengeSystem && (
                                     hasPendingChallenge ? (
-                                        <button onClick={handleCancelChallengeRequest} className="w-full min-h-32 rounded-xl flex overflow-hidden border border-rose-200 bg-white shadow-sm active:scale-[0.99] transition-all group">
+                                        <GuardedButton onClick={handleCancelChallengeRequest} className="w-full min-h-32 rounded-xl flex overflow-hidden border border-rose-200 bg-white shadow-sm active:scale-[0.99] transition-all group">
                                             <div className="flex-1 p-6 flex flex-col justify-center gap-2 relative">
                                                 <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight z-10">{ui("Challenge Requesting")}</span>
                                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-30">
@@ -1685,9 +1686,9 @@ export default function TeamStaffConsole() {
                                             <div className="w-24 bg-rose-600 hover:bg-rose-700 p-6 flex items-center justify-center transition-colors">
                                                 <X size={48} className="text-white" />
                                             </div>
-                                        </button>
+                                        </GuardedButton>
                                     ) : (
-                                        <button onClick={handleVideoChallengeClick} disabled={stats.challenges <= 0 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-blue-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.challenges <= 0 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                        <GuardedButton onClick={handleVideoChallengeClick} disabled={stats.challenges <= 0 || workflowStep === 'RALLY'} className={`w-full min-h-32 rounded-xl flex overflow-hidden border border-blue-200 bg-white shadow-sm active:scale-[0.99] transition-all group ${stats.challenges <= 0 || workflowStep === 'RALLY' ? 'opacity-50 grayscale' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
                                             <div className="flex-1 p-6 flex items-center border-l-4 border-blue-500">
                                                 <span className="text-slate-950 text-2xl md:text-3xl font-semibold tracking-tight">{ui("Video challenge")}</span>
                                             </div>
@@ -1695,7 +1696,7 @@ export default function TeamStaffConsole() {
                                                 <span className="text-blue-700 text-4xl md:text-5xl font-black leading-none">{stats.challenges || 0}</span>
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mt-1">{ui("left")}</span>
                                             </div>
-                                        </button>
+                                        </GuardedButton>
                                     )
                                 )}
                             </>
@@ -1772,22 +1773,22 @@ export default function TeamStaffConsole() {
                         <div className="text-center mb-8">
                             <p className="text-xl font-bold text-slate-700 mb-4">{ui("Are you challenging the last action?")}</p>
                             <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                                <button
+                                <GuardedButton
                                     onClick={() => handleLastActionChoice(false)}
                                     className={`py-4 px-6 rounded-2xl text-lg font-black transition-all shadow-md active:scale-95 border-2 ${
                                         isLastActionChallenge === false
                                             ? 'bg-[#7ecd76] text-white border-[#6bb864] ring-4 ring-[#7ecd76]/30'
                                             : 'bg-white text-slate-700 border-slate-200 hover:border-[#7ecd76]/50'
                                     }`}
-                                >{ui("No")}</button>
-                                <button
+                                >{ui("No")}</GuardedButton>
+                                <GuardedButton
                                     onClick={() => handleLastActionChoice(true)}
                                     className={`py-4 px-6 rounded-2xl text-lg font-black transition-all shadow-md active:scale-95 border-2 ${
                                         isLastActionChallenge === true
                                             ? 'bg-[#f3b562] text-white border-[#e0a24e] ring-4 ring-[#f3b562]/30'
                                             : 'bg-white text-slate-700 border-slate-200 hover:border-[#f3b562]/50'
                                     }`}
-                                >{ui("Yes")}</button>
+                                >{ui("Yes")}</GuardedButton>
                             </div>
                         </div>
 
@@ -1810,7 +1811,7 @@ export default function TeamStaffConsole() {
                                     const isDisabled = isLastActionChallenge === null;
                                     
                                     return (
-                                        <button
+                                        <GuardedButton
                                             key={reason.id}
                                             disabled={isDisabled}
                                             onClick={() => handleChallengeReasonSelect(reason.id)}
@@ -1823,7 +1824,7 @@ export default function TeamStaffConsole() {
                                             }`}
                                         >
                                             {ui(reason.label)}
-                                        </button>
+                                        </GuardedButton>
                                     );
                                 })}
                             </div>

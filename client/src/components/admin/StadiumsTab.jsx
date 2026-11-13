@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import { useOptionalLanguage } from '../../context/LanguageContext';
 import { localizedReference } from '../../utils/i18n/competitionNames';
 import { MapPin, Edit2, Trash2, Plus, X, Building, Users } from 'lucide-react';
@@ -87,11 +88,11 @@ export default function StadiumsTab() {
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">{ui("Venue Operations")}</p>
                     <h2 className="text-2xl font-bold tracking-tight">{ui("Stadiums Management")}</h2>
                 </div>
-                <button
+                <GuardedButton
                     onClick={() => openModal()}
                     className="flex items-center gap-2 px-4 py-2 bg-white/95 text-blue-700 hover:bg-blue-50 rounded-md transition-colors font-semibold shadow-sm"
                 >
-                    <Plus size={18} />{ui("Add Stadium")}</button>
+                    <Plus size={18} />{ui("Add Stadium")}</GuardedButton>
             </div>
 
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`}>
@@ -118,12 +119,12 @@ export default function StadiumsTab() {
                             </div>
 
                             <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
-                                <button onClick={() => openModal(stadium)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition">
+                                <GuardedButton onClick={() => openModal(stadium)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition">
                                     <Edit2 size={18} />
-                                </button>
-                                <button onClick={() => handleDelete(stadium.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-full transition">
+                                </GuardedButton>
+                                <GuardedButton onClick={() => handleDelete(stadium.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-full transition">
                                     <Trash2 size={18} />
-                                </button>
+                                </GuardedButton>
                             </div>
                         </div>
                     </div>
@@ -136,9 +137,9 @@ export default function StadiumsTab() {
                     <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg shadow-2xl bg-white text-gray-900">
                         <div className="official-panel-header px-6 py-4 flex justify-between items-center">
                             <h3 className="text-lg font-bold">{isEditing ? ui('Edit Stadium') : ui('Add New Stadium')}</h3>
-                            <button onClick={() => setIsModalOpen(false)}><X size={20} /></button>
+                            <GuardedButton onClick={() => setIsModalOpen(false)}><X size={20} /></GuardedButton>
                         </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <GuardedForm onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 {['th', 'en'].map(locale => (
                                     <label key={locale} className="text-xs font-bold block">
@@ -192,10 +193,10 @@ export default function StadiumsTab() {
                             </div>
 
                             <div className="pt-4 flex justify-end gap-2">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300">{ui("Cancel")}</button>
-                                <button type="submit" className="official-primary-button px-4 py-2 rounded-md transition-colors">{ui("Save Stadium")}</button>
+                                <GuardedButton type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300">{ui("Cancel")}</GuardedButton>
+                                <GuardedButton type="submit" className="official-primary-button px-4 py-2 rounded-md transition-colors">{ui("Save Stadium")}</GuardedButton>
                             </div>
-                        </form>
+                        </GuardedForm>
                     </div>
                 </div>
             )}

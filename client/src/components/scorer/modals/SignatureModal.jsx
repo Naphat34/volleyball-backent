@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { PenTool, XCircle, CheckCircle, AlertTriangle as UiAlertTriangle } from 'lucide-react';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useRef, useState, useEffect } from 'react';
@@ -9,7 +10,7 @@ const SignatureBox = ({ title, value, onClick }) => {
     return (
         <div className="flex flex-col gap-2 w-full">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{st(title)}</span>
-            <button
+            <GuardedButton
                 type="button"
                 onClick={onClick}
                 className="w-full h-[130px] rounded-3xl border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white hover:bg-indigo-50/20 shadow-sm flex flex-col items-center justify-center gap-2 transition-all group overflow-hidden relative"
@@ -28,7 +29,7 @@ const SignatureBox = ({ title, value, onClick }) => {
                         <span className="text-[11px] font-black text-slate-400 group-hover:text-indigo-500 transition-colors uppercase tracking-wider">{st("คลิกเพื่อลงชื่อ")}</span>
                     </>
                 )}
-            </button>
+            </GuardedButton>
         </div>
     );
 };
@@ -216,26 +217,26 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                 <div className="pt-2 w-full max-w-md mx-auto">
                     {isPostMatch ? (
                         allSigned ? (
-                            <button 
+                            <GuardedButton
                                 onClick={handleSaveSignatures} 
                                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold uppercase tracking-[0.2em] text-sm transition-all shadow-xl shadow-emerald-200 active:scale-95 flex justify-center items-center gap-2"
                             >{st("กลับหน้าหลัก")}<CheckCircle size={18} />
-                            </button>
+                            </GuardedButton>
                         ) : (
                             <div className="w-full py-4 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl font-bold text-xs text-center px-4 animate-pulse"><><UiAlertTriangle size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{st("⚠️ กรุณาลงนามกัปตันทั้งสองทีม และผู้ตัดสินที่ 1-2 ให้ครบเพื่อเปิดปุ่มกลับหน้าหลัก").replace(/⚠\uFE0F?/gu, '').trim()}</></div>
                         )
                     ) : (
                         <div className="grid grid-cols-2 gap-4">
-                            <button aria-label={st('Close')}
+                            <GuardedButton aria-label={st('Close')}
                                 onClick={() => onConfirm(signatures)} 
                                 className="w-full py-4 bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-lg font-semibold uppercase tracking-[0.2em] text-sm transition-all active:scale-95 flex justify-center items-center gap-2"
                             >
-                                <XCircle size={18} />{st("SKIP / NEXT")}</button>
-                            <button 
+                                <XCircle size={18} />{st("SKIP / NEXT")}</GuardedButton>
+                            <GuardedButton
                                 onClick={handleSaveSignatures} 
                                 className="w-full py-4 bg-blue-600 hover:bg-indigo-700 text-white rounded-lg font-semibold uppercase tracking-[0.2em] text-sm transition-all shadow-xl shadow-indigo-200 active:scale-95 flex justify-center items-center gap-2"
                             >{st("SAVE & CONTINUE")}<CheckCircle size={18} />
-                            </button>
+                            </GuardedButton>
                         </div>
                     )}
                 </div>
@@ -249,7 +250,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                             <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
                                 <PenTool className="text-indigo-600" size={22} />{st("ลงลายมือชื่อ —")}{getFieldTitle(activeField)}
                             </h3>
-                            <button aria-label={st('Close')}
+                            <GuardedButton aria-label={st('Close')}
                                 type="button"
                                 onClick={() => {
                                     setActiveField(null);
@@ -258,7 +259,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                 className="text-slate-400 hover:text-slate-600 transition-colors active:scale-90"
                             >
                                 <XCircle size={24} />
-                            </button>
+                            </GuardedButton>
                         </div>
 
                         {/* Large Responsive Drawing Pad */}
@@ -274,15 +275,15 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 pt-2">
-                            <button
+                            <GuardedButton
                                 type="button"
                                 onClick={() => {
                                     setActiveField(null);
                                     tempSignatureRef.current = null;
                                 }}
                                 className="py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl uppercase tracking-wider text-sm transition-all active:scale-95"
-                            >{st("ยกเลิก")}</button>
-                            <button
+                            >{st("ยกเลิก")}</GuardedButton>
+                            <GuardedButton
                                 type="button"
                                 onClick={() => {
                                     setSignatures(prev => ({ ...prev, [activeField]: tempSignatureRef.current }));
@@ -290,7 +291,7 @@ export default function SignatureModal({ isOpen, teamHome, teamAway, onConfirm, 
                                     tempSignatureRef.current = null;
                                 }}
                                 className="py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl uppercase tracking-wider text-sm transition-all shadow-md shadow-indigo-200 active:scale-95"
-                            >{st("บันทึก (Save)")}</button>
+                            >{st("บันทึก (Save)")}</GuardedButton>
                         </div>
                     </div>
                 </div>

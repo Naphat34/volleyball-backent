@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useVisTheme } from '../../components/vis/visThemeContext';
@@ -218,13 +219,13 @@ export default function AdminDashboard() {
                             {t('admin.title')}
                         </h1>
                     )}
-                    <button
+                    <GuardedButton
                         onClick={() => setIsSidebarOpen(false)}
                         className="lg:hidden p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                         aria-label={ui("Close sidebar")}
                     >
                         <X size={20} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 <nav className="flex-1 overflow-y-auto px-3 py-5">
@@ -249,7 +250,7 @@ export default function AdminDashboard() {
                 </nav>
 
                 <div className="border-t border-slate-200/80 bg-white/75 p-4">
-                    <button
+                    <GuardedButton
                         onClick={handleLogout}
                         title={isCollapsed ? t('nav.logout') : undefined}
                         className={`w-full flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:border-rose-300 hover:bg-rose-50 cursor-pointer ${isCollapsed ? 'px-0' : ''}`}
@@ -258,14 +259,14 @@ export default function AdminDashboard() {
                         <span className={`transition-all duration-200 ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
                             {t('nav.logout')}
                         </span>
-                    </button>
+                    </GuardedButton>
                 </div>
             </aside>
 
             <div className="flex-1 flex flex-col min-w-0 bg-transparent">
                 <header className="sticky top-0 z-30 flex h-[76px] items-center justify-between border-b border-slate-200/80 bg-white px-4 lg:px-7">
                     <div className="flex items-center gap-3 min-w-0">
-                        <button
+                        <GuardedButton
                             onClick={toggleSidebar}
                             className="rounded-xl border border-blue-100 bg-white p-2 text-slate-500 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
                             aria-label={ui("Toggle sidebar")}
@@ -274,7 +275,7 @@ export default function AdminDashboard() {
                             <span className="hidden lg:block">
                                 {isCollapsed ? <PanelLeftOpen size={21} /> : <PanelLeftClose size={21} />}
                             </span>
-                        </button>
+                        </GuardedButton>
                         <div className="min-w-0">
                             <p className="hidden text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:block">
                                 {currentSection?.label || t('admin.dashboard')}
@@ -291,30 +292,30 @@ export default function AdminDashboard() {
                             <Shield size={15} className="text-blue-500" />{ui("Admin Panel")}</div>
 
                         <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-inner">
-                            <button
+                            <GuardedButton
                                 onClick={() => setLanguage('THA')}
                                 className={`rounded px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                                     language === 'THA'
                                         ? 'bg-white text-slate-950 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-900'
                                 }`}
-                            >{ui("TH")}</button>
-                            <button
+                            >{ui("TH")}</GuardedButton>
+                            <GuardedButton
                                 onClick={() => setLanguage('ENG')}
                                 className={`rounded px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                                     language === 'ENG'
                                         ? 'bg-white text-slate-950 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-900'
                                 }`}
-                            >{ui("EN")}</button>
+                            >{ui("EN")}</GuardedButton>
                         </div>
 
-                        <button onClick={() => changeTab('pending_users')} className="relative rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-blue-100 hover:bg-blue-50 hover:text-blue-700" aria-label={language === 'THA' ? ui('ดูรายการรออนุมัติ') : ui('View pending approvals')}>
+                        <GuardedButton onClick={() => changeTab('pending_users')} className="relative rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-blue-100 hover:bg-blue-50 hover:text-blue-700" aria-label={language === 'THA' ? ui('ดูรายการรออนุมัติ') : ui('View pending approvals')}>
                             <Bell size={20} />
                             {pendingUsersCount > 0 && (
                                 <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-rose-500"></span>
                             )}
-                        </button>
+                        </GuardedButton>
 
                         <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
@@ -336,7 +337,7 @@ export default function AdminDashboard() {
 
                 <main id="main-content" className="dashboard-content flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-transparent">
                     <div className="mx-auto w-full max-w-[1600px]">
-                        <div className="admin-breadcrumb"><button onClick={() => changeTab('home')}>{tr('ศูนย์บริหารการแข่งขัน', 'Control center')}</button><span>/</span><span>{ui(currentSection?.label)}</span><span>/</span><strong>{ui(currentPage?.label)}</strong></div>
+                        <div className="admin-breadcrumb"><GuardedButton onClick={() => changeTab('home')}>{tr('ศูนย์บริหารการแข่งขัน', 'Control center')}</GuardedButton><span>/</span><span>{ui(currentSection?.label)}</span><span>/</span><strong>{ui(currentPage?.label)}</strong></div>
                         {activeTab === 'home' && <AdminControlCenter key="home" theme={adminTheme} onNavigate={changeTab} />}
                         {activeTab === 'action_center' && <AdminControlCenter key="actions" theme={adminTheme} onNavigate={changeTab} actionsOnly />}
                         {activeTab === 'competition_overview' && <HomeTab />}
@@ -378,7 +379,7 @@ function SectionHeader({ label, isCollapsed }) {
 function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
     const ui = useUiTranslation();
     return (
-        <button
+        <GuardedButton
             onClick={onClick}
             title={isCollapsed ? ui(label) : undefined}
             aria-label={ui(label)}
@@ -416,6 +417,6 @@ function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
                     </span>
                 </>
             )}
-        </button>
+        </GuardedButton>
     );
 }

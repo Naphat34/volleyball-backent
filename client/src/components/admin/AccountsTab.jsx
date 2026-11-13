@@ -1,3 +1,4 @@
+import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -218,11 +219,11 @@ const AccountsTab = () => {
                         <User className="text-blue-600" />{ui("Accounts Management")}</h2>
                     <p className="text-sm text-gray-500">{ui("Manage user accounts, roles, and permissions.")}</p>
                 </div>
-                <button
+                <GuardedButton
                     onClick={() => handleOpenModal('create')}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
                 >
-                    <Plus size={18} />{ui("Add New User")}</button>
+                    <Plus size={18} />{ui("Add New User")}</GuardedButton>
             </div>
 
             {/* Search Bar */}
@@ -297,12 +298,12 @@ const AccountsTab = () => {
                                     </td>
                                     <td className="p-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button onClick={() => handleOpenModal('edit', user)} className="p-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-600">
+                                            <GuardedButton onClick={() => handleOpenModal('edit', user)} className="p-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-600">
                                                 <Edit2 size={18} />
-                                            </button>
-                                            <button onClick={() => handleDelete(user.id)} className="p-2 rounded-lg transition-colors hover:bg-red-50 text-red-600">
+                                            </GuardedButton>
+                                            <GuardedButton onClick={() => handleDelete(user.id)} className="p-2 rounded-lg transition-colors hover:bg-red-50 text-red-600">
                                                 <Trash2 size={18} />
-                                            </button>
+                                            </GuardedButton>
                                         </div>
                                     </td>
                                 </tr>
@@ -318,9 +319,9 @@ const AccountsTab = () => {
                     <div className="w-full max-w-md rounded-md shadow-2xl transform transition-all bg-white text-gray-900">
                         <div className="flex justify-between items-center p-6 border-b border-gray-200">
                             <h3 className="text-xl font-bold">{modalMode === 'create' ? ui('Add New User') : ui('Edit User')}</h3>
-                            <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
+                            <GuardedButton onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700"><X size={24} /></GuardedButton>
                         </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                        <GuardedForm onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                             <div><label className="block text-sm font-medium mb-1">{ui("Username")}</label><div className="relative"><User className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="text" name="username" required value={formData.username} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder={ui("johndoe")} /></div></div>
                             <div><label className="block text-sm font-medium mb-1">{ui("Password")}{' '}{modalMode === 'edit' && <span className="text-xs font-normal text-gray-500">{ui("(Leave blank to keep)")}</span>}</label><div className="relative"><Key className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="password" name="password" required={modalMode === 'create'} value={formData.password} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="••••••••" /></div></div>
                             {['score', 'scorer', 'statistician', 'referee'].includes(formData.role) && (
@@ -345,10 +346,10 @@ const AccountsTab = () => {
                                 <div><label className="block text-sm font-medium mb-1">{ui("Status")}</label><select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300"><option value="active">{ui("Active")}</option><option value="inactive">{ui("Inactive")}</option><option value="banned">{ui("Banned")}</option></select></div>
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
-                                <button type="button" onClick={handleCloseModal} className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700">{ui("Cancel")}</button>
-                                <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"><Save size={18} /> {modalMode === 'create' ? ui('Create User') : ui('Save Changes')}</button>
+                                <GuardedButton type="button" onClick={handleCloseModal} className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700">{ui("Cancel")}</GuardedButton>
+                                <GuardedButton type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"><Save size={18} /> {modalMode === 'create' ? ui('Create User') : ui('Save Changes')}</GuardedButton>
                             </div>
-                        </form>
+                        </GuardedForm>
                     </div>
                 </div>
             )}

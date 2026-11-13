@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import React from 'react';
@@ -18,12 +19,12 @@ const PlayerJersey = ({ number, tone = 'blue' }) => {
 };
 
 const ActionButton = ({ children, className = '', onClick }) => (
-    <button
+    <GuardedButton
         onClick={onClick}
         className={`px-4 py-2 rounded text-[11px] font-semibold transition-colors ${className}`}
     >
         {children}
-    </button>
+    </GuardedButton>
 );
 
 export default function StaffRequestModal({
@@ -66,13 +67,13 @@ export default function StaffRequestModal({
             <div className="w-[430px] max-w-[calc(100vw-24px)] bg-white border border-slate-300 shadow-xl rounded-sm overflow-hidden">
                 <div className="h-10 px-3 border-b border-slate-200 flex items-center justify-between">
                     <h2 className="text-sm font-bold text-slate-800">{st(title)}</h2>
-                    <button
+                    <GuardedButton
                         onClick={handlePostpone}
                         className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
                         title={st("Postpone")}
                     >
                         <X size={18} />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 <div className="px-8 pt-7 pb-5 text-center">

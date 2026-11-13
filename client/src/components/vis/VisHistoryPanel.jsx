@@ -1,3 +1,4 @@
+import { GuardedButton } from '../ui/GuardedAction';
 import { ChevronUp as WinnerIcon } from 'lucide-react';
 import { X as UiX, ChevronLeft as UiChevronLeft, ChevronRight as UiChevronRight, AlertTriangle as UiAlertTriangle, ArrowRight as UiArrowRight, Grip as SystemGrip, Circle as SystemCircle } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -65,17 +66,17 @@ export default function VisHistoryPanel({ onClosePanel, matchData, actionLog, pl
                 <strong><span className="vis-history-grip"><SystemGrip size={14} className="inline-block" aria-hidden="true" /></span>{vt(" โค้ดและประวัติ")}</strong>
                 <span className="vis-history-count">{actionLog.length}{vt(" รายการ")}</span>
                 <div className="vis-history-modes" aria-label={vt("รูปแบบประวัติ")}>
-                    <button type="button" aria-pressed={!descriptions} onClick={() => setDescriptions(false)}>{ui("CODE")}</button>
-                    <button type="button" aria-pressed={descriptions} onClick={() => setDescriptions(true)}>{vt("+ คำอธิบาย")}</button>
+                    <GuardedButton type="button" aria-pressed={!descriptions} onClick={() => setDescriptions(false)}>{ui("CODE")}</GuardedButton>
+                    <GuardedButton type="button" aria-pressed={descriptions} onClick={() => setDescriptions(true)}>{vt("+ คำอธิบาย")}</GuardedButton>
                 </div>
-                <div className="vis-zoom"><button onClick={() => setZoom(value => Math.max(80, value - 10))} aria-label={vt("ย่อประวัติ")}>{ui("A−")}</button><span>{zoom}%</span><button onClick={() => setZoom(value => Math.min(140, value + 10))} aria-label={vt("ขยายประวัติ")}>{ui("A+")}</button></div><label><input type="checkbox" checked={grouped} onChange={event => { setGrouped(event.target.checked); setSelected(null); }} />{vt(" รวมตามแรลลี่")}</label>
-                {onClosePanel && <button type="button" className="vis-panel-close" aria-label={vt("ปิดแผงโค้ดและประวัติ")} title={vt("ปิดแผง")} onClick={onClosePanel}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button>}
+                <div className="vis-zoom"><GuardedButton onClick={() => setZoom(value => Math.max(80, value - 10))} aria-label={vt("ย่อประวัติ")}>{ui("A−")}</GuardedButton><span>{zoom}%</span><GuardedButton onClick={() => setZoom(value => Math.min(140, value + 10))} aria-label={vt("ขยายประวัติ")}>{ui("A+")}</GuardedButton></div><label><input type="checkbox" checked={grouped} onChange={event => { setGrouped(event.target.checked); setSelected(null); }} />{vt(" รวมตามแรลลี่")}</label>
+                {onClosePanel && <GuardedButton type="button" className="vis-panel-close" aria-label={vt("ปิดแผงโค้ดและประวัติ")} title={vt("ปิดแผง")} onClick={onClosePanel}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></GuardedButton>}
             </header>
             <div className="vis-history-body">
                 <nav className="vis-history-rail" aria-label={vt("คะแนนแต่ละแรลลี่")}>
-                    <div className="vis-history-set"><button type="button" aria-label={vt("เซตก่อนหน้า")} disabled={sets.indexOf(activeSet) <= 0} onClick={() => changeSet(-1)}><UiChevronLeft size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button><b>{ui("Set")}{' '}{activeSet}</b><button type="button" aria-label={vt("เซตถัดไป")} disabled={sets.indexOf(activeSet) >= sets.length - 1} onClick={() => changeSet(1)}><UiChevronRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></button></div>
+                    <div className="vis-history-set"><GuardedButton type="button" aria-label={vt("เซตก่อนหน้า")} disabled={sets.indexOf(activeSet) <= 0} onClick={() => changeSet(-1)}><UiChevronLeft size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></GuardedButton><b>{ui("Set")}{' '}{activeSet}</b><GuardedButton type="button" aria-label={vt("เซตถัดไป")} disabled={sets.indexOf(activeSet) >= sets.length - 1} onClick={() => changeSet(1)}><UiChevronRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></GuardedButton></div>
                     <div className="vis-history-teamheads"><span title={displayNames.matchTeamName(matchData, 'home')}>{names.home}</span><span title={displayNames.matchTeamName(matchData, 'away')}>{names.away}</span></div>
-                    {visible.map((group, index) => <button type="button" key={group.key} className={`vis-history-scorelink ${group.winner || 'neutral'} ${activeKey === group.key ? 'selected' : ''}`} onClick={() => choose(group.key)} aria-label={`${vt("รายการ ")}${index + 1}${vt(" คะแนน ")}${group.score.home ?? '—'}${vt(" ต่อ ")}${group.score.away ?? '—'}`} aria-current={activeKey === group.key ? 'true' : undefined}><span>{group.score.home ?? '—'}</span><span>{group.score.away ?? '—'}</span></button>)}
+                    {visible.map((group, index) => <GuardedButton type="button" key={group.key} className={`vis-history-scorelink ${group.winner || 'neutral'} ${activeKey === group.key ? 'selected' : ''}`} onClick={() => choose(group.key)} aria-label={`${vt("รายการ ")}${index + 1}${vt(" คะแนน ")}${group.score.home ?? '—'}${vt(" ต่อ ")}${group.score.away ?? '—'}`} aria-current={activeKey === group.key ? 'true' : undefined}><span>{group.score.home ?? '—'}</span><span>{group.score.away ?? '—'}</span></GuardedButton>)}
                 </nav>
                 <div className="vis-history-scroll" ref={scroll} style={{ fontSize: `${12 * zoom / 100}px` }}>
                     {savedLineup && <section className="vis-history-lineup" aria-label={`${th ? vt('ไลน์อัปเซต') : 'Set lineup'} ${activeSet}`}>

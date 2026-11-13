@@ -1,3 +1,4 @@
+import { GuardedForm, GuardedButton } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useRef, useState } from 'react';
 import { getAccessSession, getStoredUser } from '../../auth/authStorage';
@@ -9,7 +10,7 @@ export default function OfflineSetup({ getPermit, onPrepared, disabled = false, 
     const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
     const lock = useRef(false), profile = offlineProfile(), user = getStoredUser();
     const different = profile && (profile.userId ? String(profile.userId) !== String(user?.id) : profile.user !== user?.username);
-    return <form className="my-3 space-y-3 rounded-lg border border-slate-400 p-3" aria-busy={busy} onSubmit={async event => {
+    return <GuardedForm className="my-3 space-y-3 rounded-lg border border-slate-400 p-3" aria-busy={busy} onSubmit={async event => {
         event.preventDefault(); if (lock.current || disabled) return;
         if (pin !== confirm) { setMessage('PIN ทั้งสองช่องไม่ตรงกัน'); return; }
         if (beginAttempt && !beginAttempt()) return;
@@ -32,7 +33,7 @@ export default function OfflineSetup({ getPermit, onPrepared, disabled = false, 
         <label className="block">{ui("ยืนยัน PIN")}<input className="ml-2 rounded border bg-white p-2 text-slate-950" type="password" inputMode="numeric" pattern="[0-9]{6,12}" required autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} disabled={busy || disabled} /></label>
         {different && <label className="block"><input type="checkbox" checked={replace} onChange={e => setReplace(e.target.checked)} disabled={busy || disabled} required />{' '}{ui("ยืนยันเปลี่ยนบัญชี Offline ของเบราว์เซอร์นี้ หลังสำรองข้อมูลแล้ว (ระบบจะตรวจและปฏิเสธหากมีงานรอซิงค์)")}</label>}
         <p>{ui("หนึ่งบัญชี Offline ต่อโปรไฟล์เบราว์เซอร์ · เปลี่ยน PIN บัญชีเดิมไม่ลบข้อมูล · การเตรียมครั้งนี้ยังไม่เปลี่ยนไปทำงาน Offline")}</p>
-        <button className="rounded bg-sky-800 px-3 py-2 text-white" disabled={busy || disabled}>{busy ? ui('กำลังตรวจสิทธิ์และข้อมูลในเครื่อง…') : ui('เตรียม / ต่ออายุสิทธิ์ Offline')}</button>
+        <GuardedButton className="rounded bg-sky-800 px-3 py-2 text-white" disabled={busy || disabled}>{busy ? ui('กำลังตรวจสิทธิ์และข้อมูลในเครื่อง…') : ui('เตรียม / ต่ออายุสิทธิ์ Offline')}</GuardedButton>
         {message && <p role="status">{ui(message)}</p>}
-    </form>;
+    </GuardedForm>;
 }

@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../components/ui/GuardedAction';
 import ScoresheetRoster from '../../components/reports/ScoresheetRoster';
 import { scoresheetRoster } from '../../utils/reports/scoresheetRoster';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -811,7 +812,7 @@ export default function ScoreSheet({ matchId }) {
         <div lang="en" className="min-h-screen bg-slate-100 p-4 font-sans ">
             {/* Action Bar (Hidden when printing) */}
             <div className="sticky top-0 mb-4 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 z-50 print:hidden">
-                <button
+                <GuardedButton
                     onClick={() => {
                         if (window.history.state && window.history.state.idx > 0) {
                             navigate(-1);
@@ -821,19 +822,19 @@ export default function ScoreSheet({ matchId }) {
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-white text-gray-800 rounded-xl shadow-xl font-bold hover:bg-gray-100 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                 >
-                    <ArrowLeft size={20} />{ui("Back / Close")}</button>
-                <button
+                    <ArrowLeft size={20} />{ui("Back / Close")}</GuardedButton>
+                <GuardedButton
                     onClick={() => setShowO4(!showO4)}
                     className="flex items-center gap-2 px-4 py-2 bg-white text-gray-800 rounded-xl shadow-xl font-bold hover:bg-gray-100 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                     {showO4 ? ui("Show Score Sheet") : ui("Show O-4 Report")}
-                </button>
-                <button
+                </GuardedButton>
+                <GuardedButton
                     onClick={() => window.print()}
                     className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl shadow-xl font-bold hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                 >
                     <Printer size={20} />{ui("Print")}{showO4 ? ui("O-4 Report") : ui("Score Sheet")}
-                </button>
+                </GuardedButton>
             </div>
 
             {showO4 ? (

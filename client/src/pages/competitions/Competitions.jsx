@@ -1,3 +1,4 @@
+import { GuardedForm, GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from 'react';
@@ -129,7 +130,7 @@ export default function Competitions() {
                         {isEditing ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
                         {isEditing ? ui('Edit Competition') : ui('Create Competition')}
                     </h3>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <GuardedForm onSubmit={handleSubmit} className="space-y-4">
                         <Input label={ui("Tournament Name")} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
                         
                         <Input label={ui("Gender")} value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })} />
@@ -153,14 +154,14 @@ export default function Competitions() {
                             </select>
                         </div>
                         
-                        <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 mt-4">
+                        <GuardedButton type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 mt-4">
                             {isEditing ? ui('Update Competition') : ui('Create Competition')}
-                        </button>
+                        </GuardedButton>
 
                         {isEditing && (
-                            <button type="button" onClick={() => { setIsEditing(null); setForm({ name: '', details: '', sport: 'Volleyball', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' }); }} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2 rounded-lg text-sm transition">{ui("Cancel")}</button>
+                            <GuardedButton type="button" onClick={() => { setIsEditing(null); setForm({ name: '', details: '', sport: 'Volleyball', gender: 'Mix', start_date: '', end_date: '', location: '', status: 'closed' }); }} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2 rounded-lg text-sm transition">{ui("Cancel")}</GuardedButton>
                         )}
-                    </form>
+                    </GuardedForm>
                 </div>
             </div>
 
@@ -209,12 +210,12 @@ export default function Competitions() {
                                     <div className="h-10 w-px bg-gray-100 mx-2"></div>
 
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleEdit(c)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition border border-transparent hover:border-indigo-100" title={ui("Edit")}>
+                                        <GuardedButton onClick={() => handleEdit(c)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition border border-transparent hover:border-indigo-100" title={ui("Edit")}>
                                             <Edit2 size={18} />
-                                        </button>
-                                        <button onClick={() => handleDelete(c.id)} className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition border border-transparent hover:border-red-100" title={ui("Delete")}>
+                                        </GuardedButton>
+                                        <GuardedButton onClick={() => handleDelete(c.id)} className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition border border-transparent hover:border-red-100" title={ui("Delete")}>
                                             <Trash2 size={18} />
-                                        </button>
+                                        </GuardedButton>
                                     </div>
                                 </div>
                             </div>

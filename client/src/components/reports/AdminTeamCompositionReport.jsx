@@ -1,3 +1,4 @@
+import { GuardedForm, GuardedButton } from '../ui/GuardedAction';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { Download, Eye, Loader2, X } from 'lucide-react';
@@ -88,7 +89,7 @@ export default function AdminTeamCompositionReport() {
         <p className="text-sm text-gray-500">{t('ใช้รายชื่อนักกีฬา เบอร์เสื้อ บทบาท และเจ้าหน้าที่ที่ลงทะเบียนในประเภทแข่งขันนั้น รวมรายการที่ปิดรับสมัครแล้ว', 'Uses players, shirt numbers, roles and officials registered for the selected category, including closed competitions.')}</p>
         {loading ? <p role="status" className="flex items-center gap-2"><Loader2 className="animate-spin" size={16} />{t('กำลังโหลดทีมที่ลงทะเบียน…', 'Loading registered teams…')}</p> : <>
             {!entries.length && !error && <p>{t('ยังไม่มีทีมลงทะเบียนแข่งขัน', 'No registered teams found.')}</p>}
-            <form ref={form} onSubmit={event => { event.preventDefault(); generate(false); }}>
+            <GuardedForm ref={form} onSubmit={event => { event.preventDefault(); generate(false); }}>
                 <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
                     <div className="grid gap-4 md:grid-cols-3">
                         <label className="text-sm font-medium">{t('รายการแข่งขัน', 'Competition')}<select required className={selectClass} value={competition} onChange={event => { setCompetition(event.target.value); setCategory(''); setEntryId(''); clearOutput(); }}><option value="">{t('เลือกรายการแข่งขัน', 'Select competition')}</option>{groups.map(group => <option key={group.key} value={group.items[0].id}>{group.title}</option>)}</select></label>
@@ -100,13 +101,13 @@ export default function AdminTeamCompositionReport() {
                         <label className="text-sm">{t('ฉบับแก้ไข', 'Revision')}<input required type="number" min="1" max="999" value={revision} onChange={event => { setRevision(event.target.value); clearOutput(); }} className={selectClass} /></label>
                         <label className="text-sm">{t('วันที่อ้างอิง', 'Reference date')}<input required type="date" value={referenceDate} onChange={event => { setReferenceDate(event.target.value); clearOutput(); }} className={selectClass} /></label>
                     </div>
-                    <div className="ac-row-actions"><button type="submit" disabled={!entryId || busy}><Download size={15} />{busy ? t('กำลังสร้าง PDF…', 'Generating PDF…') : t('ดาวน์โหลด PDF', 'Download PDF')}</button><button type="button" disabled={!entryId || busy} onClick={() => generate(true)}><Eye size={15} />{t('ดูตัวอย่าง PDF', 'Preview PDF')}</button></div>
+                    <div className="ac-row-actions"><GuardedButton type="submit" disabled={!entryId || busy}><Download size={15} />{busy ? t('กำลังสร้าง PDF…', 'Generating PDF…') : t('ดาวน์โหลด PDF', 'Download PDF')}</GuardedButton><GuardedButton type="button" disabled={!entryId || busy} onClick={() => generate(true)}><Eye size={15} />{t('ดูตัวอย่าง PDF', 'Preview PDF')}</GuardedButton></div>
                 </fieldset>
-            </form>
+            </GuardedForm>
         </>}
-        {error && <div role="alert" className="ac-alert">{t('ไม่สามารถโหลดหรือสร้างรายงานได้', 'Could not load or generate report')}: {error}{!entries.length && <button type="button" className="ml-3 underline" onClick={() => setRetry(previous => previous + 1)}>{t('ลองใหม่', 'Retry')}</button>}</div>}
+        {error && <div role="alert" className="ac-alert">{t('ไม่สามารถโหลดหรือสร้างรายงานได้', 'Could not load or generate report')}: {error}{!entries.length && <GuardedButton type="button" className="ml-3 underline" onClick={() => setRetry(previous => previous + 1)}>{t('ลองใหม่', 'Retry')}</GuardedButton>}</div>}
         {result && <p role="status" className="text-sm text-gray-500">{t(`นักกีฬา ${result.players} คน · เจ้าหน้าที่ ${result.staff} คน`, `${result.players} players · ${result.staff} officials`)}</p>}
         {result?.staffSource === 'team' && result.staff > 0 && <p className="text-sm text-gray-500 dark:text-gray-400">{t('ใช้รายชื่อเจ้าหน้าที่จากทะเบียนทีมที่บันทึกไว้ใน Team dashboard', 'Using officials from the team roster saved in Team dashboard.')}</p>}
-        {preview && <section aria-label="Team composition PDF" className="overflow-hidden rounded-lg border"><div className="flex items-center justify-between p-2"><span className="text-sm font-semibold">Team composition</span><button type="button" onClick={() => setPreview('')} aria-label={t('ปิดตัวอย่าง', 'Close preview')} className="p-2"><X size={18} /></button></div><iframe title="Team composition PDF" src={preview} className="h-[70vh] w-full border-0" /></section>}
+        {preview && <section aria-label="Team composition PDF" className="overflow-hidden rounded-lg border"><div className="flex items-center justify-between p-2"><span className="text-sm font-semibold">Team composition</span><GuardedButton type="button" onClick={() => setPreview('')} aria-label={t('ปิดตัวอย่าง', 'Close preview')} className="p-2"><X size={18} /></GuardedButton></div><iframe title="Team composition PDF" src={preview} className="h-[70vh] w-full border-0" /></section>}
     </div>;
 }

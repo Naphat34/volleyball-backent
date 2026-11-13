@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import { ArrowDown as UiArrowDown, ArrowLeftRight as UiArrowLeftRight, ArrowUp as UiArrowUp, Check as UiCheck, X as UiX, CircleAlert as UiCircleAlert, Frown as UiFrown, CircleHelp as UiCircleHelp, ArrowRight as UiArrowRight } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
@@ -183,15 +184,15 @@ export default function SubstitutionModal({
 
                         {/* ACTION BUTTONS */}
                         <div className="flex gap-3 mt-10 w-full">
-                            <button 
+                            <GuardedButton
                                 onClick={finalizeSubstitution} 
                                 className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
-                                <UiCheck width="20" height="20" />{st("Confirm")}</button>
-                            <button 
+                                <UiCheck width="20" height="20" />{st("Confirm")}</GuardedButton>
+                            <GuardedButton
                                 onClick={() => setIsConfirmStep(false)} 
                                 className="px-8 h-14 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95"
-                            >{st("Back")}</button>
+                            >{st("Back")}</GuardedButton>
                         </div>
                     </div>
                 </div>
@@ -218,12 +219,12 @@ export default function SubstitutionModal({
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{teamName || st('Select Team')}</p>
                         </div>
                     </div>
-                    <button 
+                    <GuardedButton
                         onClick={onClose}
                         className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-all flex items-center justify-center"
                     >
                         <UiX width="20" height="20" />
-                    </button>
+                    </GuardedButton>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden p-6 gap-6">
@@ -246,7 +247,7 @@ export default function SubstitutionModal({
                                 const isSelected = idx === localPosIndex;
                                 
                                 return (
-                                    <button 
+                                    <GuardedButton
                                         key={idx}
                                         onClick={() => {
                                             setLocalPosIndex(idx);
@@ -274,7 +275,7 @@ export default function SubstitutionModal({
                                                 isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-amber-50 border-amber-200 text-amber-600'
                                             }`}>{st("C")}</div>
                                         )}
-                                    </button>
+                                    </GuardedButton>
                                 );
                             })}
                         </div>
@@ -328,7 +329,7 @@ export default function SubstitutionModal({
                                         const isSelected = selectedPlayerIn?.id === (p.id || p.player_id);
 
                                         return (
-                                            <button
+                                            <GuardedButton
                                                 key={p.id || p.number}
                                                 onClick={() => setSelectedPlayerIn(p)}
                                                 className={`group relative flex items-center p-3 rounded-2xl border-2 transition-all duration-200 text-left ${
@@ -354,7 +355,7 @@ export default function SubstitutionModal({
                                                         isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-indigo-50 border-indigo-200 text-indigo-600'
                                                     }`}>{st("L")}</div>
                                                 )}
-                                            </button>
+                                            </GuardedButton>
                                         );
                                     })}
                                     {eligibleBenchPlayers.length === 0 && (
@@ -382,11 +383,11 @@ export default function SubstitutionModal({
                     </div>
                     
                     <div className="flex items-center gap-3">
-                        <button 
+                        <GuardedButton
                             onClick={onClose}
                             className="px-8 h-14 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-2xl border border-slate-200 transition-all active:scale-95"
-                        >{st("Cancel")}</button>
-                        <button 
+                        >{st("Cancel")}</GuardedButton>
+                        <GuardedButton
                             onClick={handleRunSubstitution}
                             disabled={!selectedPlayerIn}
                             className={`px-10 h-14 font-black rounded-2xl shadow-lg transition-all active:scale-95 flex items-center gap-2 ${
@@ -395,7 +396,7 @@ export default function SubstitutionModal({
                                 : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                             }`}
                         >{st("Proceed to Preview")}<UiArrowRight width="18" height="18" />
-                        </button>
+                        </GuardedButton>
                     </div>
                 </div>
 

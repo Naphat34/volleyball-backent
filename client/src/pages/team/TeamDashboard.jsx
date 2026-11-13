@@ -1,3 +1,4 @@
+import { GuardedForm, GuardedButton } from '../../components/ui/GuardedAction';
 import TeamStaffAssignments from '../../components/team/TeamStaffAssignments';
 import PlayerExcelImport from '../../components/team/PlayerExcelImport';
 import { competitionName } from '../../utils/i18n/competitionNames';
@@ -1095,7 +1096,7 @@ export default function TeamDashboard() {
                         <p className="text-gray-500 mt-2">{t('team.createSubtitle')}</p>
                     </div>
 
-                    <form onSubmit={handleCreateTeam} className="space-y-5"><div className="grid grid-cols-2 gap-3"><Input label={ui("ชื่อทีม (ไทย)")} value={teamForm.name_th || ''} onChange={e => setTeamForm({...teamForm,name_th:e.target.value})} /><Input label={ui("Team name (English)")} value={teamForm.name_en || ''} onChange={e => setTeamForm({...teamForm,name_en:e.target.value})} /></div>
+                    <GuardedForm onSubmit={handleCreateTeam} className="space-y-5"><div className="grid grid-cols-2 gap-3"><Input label={ui("ชื่อทีม (ไทย)")} value={teamForm.name_th || ''} onChange={e => setTeamForm({...teamForm,name_th:e.target.value})} /><Input label={ui("Team name (English)")} value={teamForm.name_en || ''} onChange={e => setTeamForm({...teamForm,name_en:e.target.value})} /></div>
                         <Input
                             label={t('team.name')} placeholder={ui("e.g. Bangkok Volley Club")}
                             value={teamForm.name} required={!teamForm.name_th && !teamForm.name_en} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })}
@@ -1150,11 +1151,11 @@ export default function TeamDashboard() {
 
                         <div className="pt-4 flex flex-col gap-3">
                             <Button type="submit" label={t('team.createBtn')} icon={<Shield size={18} />} full />
-                            <button type="button" onClick={handleLogout} className="text-sm text-gray-500 hover:text-red-500 transition flex items-center justify-center gap-1 cursor-pointer">
+                            <GuardedButton type="button" onClick={handleLogout} className="text-sm text-gray-500 hover:text-red-500 transition flex items-center justify-center gap-1 cursor-pointer">
                                 <LogOut size={16} /> {t('team.signOut')}
-                            </button>
+                            </GuardedButton>
                         </div>
-                    </form>
+                    </GuardedForm>
                 </div>
             </div>
         );
@@ -1188,26 +1189,26 @@ export default function TeamDashboard() {
 
                         {/* Language Selector */}
                         <div className="flex items-center gap-1 bg-white/12 border border-white/25 p-1 rounded-md">
-                            <button
+                            <GuardedButton
                                 onClick={() => setLanguage('THA')}
                                 className={`px-2 py-1 rounded text-xs font-medium transition cursor-pointer ${
                                     language === 'THA'
                                         ? 'bg-white text-blue-700 shadow-sm'
                                         : 'text-blue-100 hover:text-white'
                                 }`}
-                            >{ui("TH")}</button>
-                            <button
+                            >{ui("TH")}</GuardedButton>
+                            <GuardedButton
                                 onClick={() => setLanguage('ENG')}
                                 className={`px-2 py-1 rounded text-xs font-medium transition cursor-pointer ${
                                     language === 'ENG'
                                         ? 'bg-white text-blue-700 shadow-sm'
                                         : 'text-blue-100 hover:text-white'
                                 }`}
-                            >{ui("EN")}</button>
+                            >{ui("EN")}</GuardedButton>
                         </div>
-                        <button onClick={handleLogout} className="text-sm font-medium text-blue-100 hover:text-white transition cursor-pointer">
+                        <GuardedButton onClick={handleLogout} className="text-sm font-medium text-blue-100 hover:text-white transition cursor-pointer">
                             {t('team.signOut')}
-                        </button>
+                        </GuardedButton>
                     </div>
                 </div>
             </header>
@@ -1228,10 +1229,10 @@ export default function TeamDashboard() {
                             <TabButton active={activeTab === 'print'} onClick={() => setActiveTab('print')} icon={<Printer size={18} className="mr-2" />} label={t('team.tabPrint')} />
                         </nav>
                         <div className="mt-auto pt-4 border-t border-gray-200 hidden md:block">
-                            <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition group cursor-pointer">
+                            <GuardedButton onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition group cursor-pointer">
                                 <LogOut size={18} className="mr-3 text-gray-400 group-hover:text-gray-600 transition-colors" />
                                 {t('team.signOut')}
-                            </button>
+                            </GuardedButton>
                         </div>
                     </div>
                 </aside>
@@ -1242,7 +1243,7 @@ export default function TeamDashboard() {
                     {activeTab === 'overview' && <>
                     <Panel className="mb-6" title={language === 'THA' ? ui('ภาพรวมทีม') : ui('Team Overview')} description={language === 'THA' ? 'สรุปข้อมูลทีมและทางลัดไปยังเมนูที่ใช้งานบ่อย' : 'A quick summary of your team and shortcuts to common tasks.'}>
                         <nav aria-label={language === 'THA' ? ui('ขั้นตอนเตรียมทีม') : ui('Team preparation')} className="grid grid-cols-2 gap-2 p-4 lg:grid-cols-4">
-                            {[['roster', language === 'THA' ? 'รายชื่อนักกีฬา' : 'Roster'], ['competitions', language === 'THA' ? 'สมัครการแข่งขัน' : 'Competition entries'], ['schedule', language === 'THA' ? 'ตารางแข่งขัน' : 'Schedule'], ['print', language === 'THA' ? 'ตรวจและพิมพ์เอกสาร' : 'Review documents']].map(([key, label], index) => <button type="button" key={key} onClick={() => setActiveTab(key)} aria-current={activeTab === key ? 'step' : undefined} className={`flex min-h-14 items-center gap-3 rounded-xl border p-3 text-left text-sm font-semibold transition ${activeTab === key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white border border-slate-200 text-xs">{index + 1}</span>{ui(label)}</button>)}
+                            {[['roster', language === 'THA' ? 'รายชื่อนักกีฬา' : 'Roster'], ['competitions', language === 'THA' ? 'สมัครการแข่งขัน' : 'Competition entries'], ['schedule', language === 'THA' ? 'ตารางแข่งขัน' : 'Schedule'], ['print', language === 'THA' ? 'ตรวจและพิมพ์เอกสาร' : 'Review documents']].map(([key, label], index) => <GuardedButton type="button" key={key} onClick={() => setActiveTab(key)} aria-current={activeTab === key ? 'step' : undefined} className={`flex min-h-14 items-center gap-3 rounded-xl border p-3 text-left text-sm font-semibold transition ${activeTab === key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white border border-slate-200 text-xs">{index + 1}</span>{ui(label)}</GuardedButton>)}
                         </nav>
                     </Panel>
                     <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1263,7 +1264,7 @@ export default function TeamDashboard() {
                                 <h2 className="text-lg font-semibold text-slate-900">{language === 'THA' ? ui('ข้อมูลทีม') : ui('Team Information')}</h2>
                                 <p className="mt-1 text-sm text-slate-500">{language === 'THA' ? ui('ข้อมูลตามที่ลงทะเบียนไว้ในระบบ') : ui('Team details as registered in the system.')}</p>
                             </div>
-                            <button type="button" onClick={handleEditTeamClick} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"><Edit2 size={16} />{t('team.editTeam')}</button>
+                            <GuardedButton type="button" onClick={handleEditTeamClick} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"><Edit2 size={16} />{t('team.editTeam')}</GuardedButton>
                         </div>
                         <div className="space-y-6 p-5 sm:p-6">
                             {[
@@ -1317,15 +1318,15 @@ export default function TeamDashboard() {
                                                 {editingPlayerId ? t('team.editPlayer') : t('team.addPlayer')}
                                             </h2>
                                         </div>
-                                        <button onClick={() => { setIsPlayerModalOpen(false); setEditingPlayerId(null); }} className="text-xs text-gray-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 transition cursor-pointer">
+                                        <GuardedButton onClick={() => { setIsPlayerModalOpen(false); setEditingPlayerId(null); }} className="text-xs text-gray-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 transition cursor-pointer">
                                                 <X size={14} /> {t('common.cancel')}
-                                        </button>
+                                        </GuardedButton>
                                     </div>
                                     <div className="p-5">
                                         <div className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
                                             {language === 'THA' ? ui('หน้านี้เป็นคลังรายชื่อนักกีฬาของทีม เลขเสื้อสามารถซ้ำข้ามรุ่นได้ แต่ห้ามซ้ำภายในรายชื่อแข่งขันของรุ่นเดียวกัน') : ui('This form adds players to the team roster pool. Jersey numbers may be reused across categories, but cannot duplicate within the same competition roster.')}
                                         </div>
-                                        <form onSubmit={handlePlayerSubmit} className="space-y-4">
+                                        <GuardedForm onSubmit={handlePlayerSubmit} className="space-y-4">
                                             <div className="grid grid-cols-2 gap-3">
                                                 <Input label={t('team.number')} type="number" value={playerForm.number} required onChange={e => setPlayerForm({ ...playerForm, number: e.target.value })} />
                                                 <div>
@@ -1431,7 +1432,7 @@ export default function TeamDashboard() {
                                             )}
 
                                             <Button type="submit" label={editingPlayerId ? t('team.updatePlayerBtn') : t('team.addPlayerBtn')} icon={editingPlayerId ? <Edit2 size={18} /> : <UserPlus size={18} />} full />
-                                        </form>
+                                        </GuardedForm>
                                     </div>
                                 </div>
                             </div>
@@ -1444,12 +1445,12 @@ export default function TeamDashboard() {
                                             {language === 'THA' ? ui('จัดการนักกีฬา') : ui('Players Management')}
                                         </h2>
                                     </div>
-                                    <button type="button" disabled={!getTeamGender(teamInfo?.gender || teamInfo?.category)}
+                                    <GuardedButton type="button" disabled={!getTeamGender(teamInfo?.gender || teamInfo?.category)}
                                         onClick={() => { setEditingPlayerId(null); setPlayerForm(prev => ({ ...prev, gender: getTeamGender(teamInfo?.gender || teamInfo?.category) || 'Male' }));
                                         setPlayerDocuments({ identity_document_url: '', student_certificate_url: '', guardian_consent_url: '' }); setIsPlayerModalOpen(true); }}
                                         title={!getTeamGender(teamInfo?.gender || teamInfo?.category) ? language === 'THA' ? ui('กรุณากำหนดประเภททีมก่อนเพิ่มนักกีฬา') : ui('Set team type before adding players') : undefined}
                                         className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-blue-800 shadow-sm transition hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#142b50] disabled:cursor-not-allowed disabled:opacity-55">
-                                        <Plus size={18} strokeWidth={2.25} />{ui("Add Player")}</button>
+                                        <Plus size={18} strokeWidth={2.25} />{ui("Add Player")}</GuardedButton>
                                 </div>
                                 <div className="mb-4">
                                     <PlayerExcelImport gender={getTeamGender(teamInfo?.gender || teamInfo?.category)} players={players} onImported={fetchData} language={language} />
@@ -1476,7 +1477,7 @@ export default function TeamDashboard() {
                                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                                 <input type="text" placeholder={t('team.searchPlayers')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-100 focus:border-gray-500 bg-white text-gray-900" />
                                             </div>
-                                            <button onClick={handleExportCSV} className="bg-white border border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-md transition cursor-pointer" title={t('team.exportCsv')}><Download size={18} /></button>
+                                            <GuardedButton onClick={handleExportCSV} className="bg-white border border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-md transition cursor-pointer" title={t('team.exportCsv')}><Download size={18} /></GuardedButton>
                                         </div>
                                     </div>
 
@@ -1544,9 +1545,9 @@ export default function TeamDashboard() {
                                                                 <td className="px-4 py-4 text-center"><span className="text-sm text-gray-600 font-medium whitespace-nowrap">{[p.hometown, p.nationality].filter(value => String(value || '').trim()).join(' / ') || '-'}</span></td>
                                                                 <td className="px-4 py-4 text-right">
                                                                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-2 group-hover:translate-x-0">
-                                                                        <button onClick={() => handleViewStats(p)} className="text-gray-400 hover:text-blue-600 transition p-2 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 cursor-pointer" title={t('team.tabStats')}><BarChart2 size={16} /></button>
-                                                                        <button onClick={() => handleEditPlayer(p)} className="text-gray-400 hover:text-blue-600 transition p-2 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 cursor-pointer" title={t('common.edit')}><Edit2 size={16} /></button>
-                                                                        <button onClick={() => handleDeletePlayer(p.id)} className="text-gray-400 hover:text-red-600 transition p-2 rounded-md hover:bg-red-50 border border-transparent hover:border-red-100 cursor-pointer" title={t('common.delete')}><Trash2 size={16} /></button>
+                                                                        <GuardedButton onClick={() => handleViewStats(p)} className="text-gray-400 hover:text-blue-600 transition p-2 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 cursor-pointer" title={t('team.tabStats')}><BarChart2 size={16} /></GuardedButton>
+                                                                        <GuardedButton onClick={() => handleEditPlayer(p)} className="text-gray-400 hover:text-blue-600 transition p-2 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 cursor-pointer" title={t('common.edit')}><Edit2 size={16} /></GuardedButton>
+                                                                        <GuardedButton onClick={() => handleDeletePlayer(p.id)} className="text-gray-400 hover:text-red-600 transition p-2 rounded-md hover:bg-red-50 border border-transparent hover:border-red-100 cursor-pointer" title={t('common.delete')}><Trash2 size={16} /></GuardedButton>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1585,11 +1586,11 @@ export default function TeamDashboard() {
                                             </h2>
                                         </div>
                                         {editingStaffId && (
-                                            <button onClick={resetStaffForm} className="text-xs text-gray-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 transition cursor-pointer"><X size={14} /> {t('common.cancel')}</button>
+                                            <GuardedButton onClick={resetStaffForm} className="text-xs text-gray-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 transition cursor-pointer"><X size={14} /> {t('common.cancel')}</GuardedButton>
                                         )}
                                     </div>
                                     <div className="p-6">
-                                        <form onSubmit={handleStaffSubmit} className="space-y-4">
+                                        <GuardedForm onSubmit={handleStaffSubmit} className="space-y-4">
                                             <Input label={t('team.firstName')} value={staffForm.first_name} required onChange={e => setStaffForm({ ...staffForm, first_name: e.target.value })} />
                                             <Input label={t('team.lastName')} value={staffForm.last_name} required onChange={e => setStaffForm({ ...staffForm, last_name: e.target.value })} />
                                             <div>
@@ -1611,7 +1612,7 @@ export default function TeamDashboard() {
                                                 </select>
                                             </div>
                                             <Button type="submit" label={editingStaffId ? t('team.updateStaffBtn') : t('team.addStaffBtn')} icon={editingStaffId ? <Edit2 size={18} /> : <UserPlus size={18} />} full />
-                                        </form>
+                                        </GuardedForm>
                                     </div>
                                 </div>
                             </div>
@@ -1640,8 +1641,8 @@ export default function TeamDashboard() {
                                                             <td className="px-6 py-4 text-sm text-gray-500">{s.gender ? s.gender === 'Male' ? language === 'THA' ? ui('ชาย') : ui('Male') : language === 'THA' ? ui('หญิง') : ui('Female') : '-'}</td>
                                                             <td className="px-6 py-4 text-right">
                                                                 <div className="flex justify-end gap-2 opacity-100 transition-all duration-200">
-                                                                    <button onClick={() => handleEditStaff(s)} className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-md transition" title={t('common.edit')}><Edit2 size={16} /></button>
-                                                                    <button onClick={() => handleDeleteStaff(s.id)} className="text-gray-400 hover:text-red-500 p-2 rounded-lg transition" title={t('common.delete')}><Trash2 size={16} /></button>
+                                                                    <GuardedButton onClick={() => handleEditStaff(s)} className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-md transition" title={t('common.edit')}><Edit2 size={16} /></GuardedButton>
+                                                                    <GuardedButton onClick={() => handleDeleteStaff(s.id)} className="text-gray-400 hover:text-red-500 p-2 rounded-lg transition" title={t('common.delete')}><Trash2 size={16} /></GuardedButton>
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1805,23 +1806,23 @@ export default function TeamDashboard() {
                                                                 {c.roster_sync_error && <p className="mt-1 max-w-lg text-xs text-red-600">{c.roster_sync_error}</p>}
                                                             </div>
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <button
+                                                                <GuardedButton
                                                                     onClick={() => openEntryRosterModal(c)}
                                                                     disabled={entryRosterLoading}
                                                                     className="px-4 py-2 bg-blue-600 border border-blue-600 text-white font-medium rounded-md text-sm hover:bg-blue-700 transition cursor-pointer flex items-center gap-2"
                                                                 >
-                                                                    <Users size={16} />{language === 'THA' ? 'ดูรายชื่อนักกีฬา' : 'View players'}</button>
-                                                                <button
+                                                                    <Users size={16} />{language === 'THA' ? 'ดูรายชื่อนักกีฬา' : 'View players'}</GuardedButton>
+                                                                <GuardedButton
                                                                     onClick={() => {
                                                                         setActiveTab('schedule');
                                                                     }}
                                                                     className="px-4 py-2 bg-white border border-blue-200 text-blue-700 font-medium rounded-md text-sm hover:bg-blue-50 transition cursor-pointer"
-                                                                >{ui("View Schedule")}</button>
-                                                                <button
+                                                                >{ui("View Schedule")}</GuardedButton>
+                                                                <GuardedButton
                                                                     onClick={() => handleLeaveCompetition(c.id)}
                                                                     className="px-4 py-2 bg-white border border-red-200 text-red-600 font-medium rounded-md text-sm hover:bg-red-50 transition flex items-center gap-2 cursor-pointer"
                                                                 >
-                                                                    <LogOut size={16} />{ui("Leave")}</button>
+                                                                    <LogOut size={16} />{ui("Leave")}</GuardedButton>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -1872,7 +1873,7 @@ export default function TeamDashboard() {
                                                                     }).map((gender) => {
                                                                         const isSelected = selectedGenders.includes(gender);
                                                                         return (
-                                                                            <button
+                                                                            <GuardedButton
                                                                                 key={gender}
                                                                                 type="button"
                                                                                 onClick={() => {
@@ -1902,7 +1903,7 @@ export default function TeamDashboard() {
                                                                                 }`}
                                                                             >
                                                                                 {gender}
-                                                                            </button>
+                                                                            </GuardedButton>
                                                                         );
                                                                     })}
                                                                 </div>
@@ -1987,13 +1988,13 @@ export default function TeamDashboard() {
                                                         <div className="mt-4 flex items-center justify-between gap-3">
                                                             <div className="text-xs text-gray-500">{ui("Selected")}{selectedCategoryIds.length}{' '}{ui("category")}{selectedCategoryIds.length === 1 ? '' : ui('ies')}
                                                             </div>
-                                                            <button
+                                                            <GuardedButton
                                                                 onClick={() => handleJoinCompetition(selectedCategoryIds)}
                                                                 disabled={selectedCategoryIds.length === 0}
                                                                 className="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-200 disabled:cursor-not-allowed text-white font-medium rounded-md transition flex items-center justify-center gap-2 cursor-pointer"
                                                             >
                                                                 {t('team.joinCompBtn')}
-                                                            </button>
+                                                            </GuardedButton>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2078,13 +2079,13 @@ export default function TeamDashboard() {
                                                             </div>
                                                         ) : (
                                                             /* ปุ่มสำหรับเข้า Staff Console เฉพาะเมื่อแมตช์ยังไม่จบ */
-                                                            <button
+                                                            <GuardedButton
                                                                 onClick={() => navigate(`/staff/${m.id}`)}
                                                                 className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                                                             >
                                                                 <PlayCircle size={18} />
                                                                 {language === 'THA' ? ui('บอร์ดควบคุมทีม') : ui('Staff Bench')}
-                                                            </button>
+                                                            </GuardedButton>
                                                         )}
                                                     </div>
                                                 </div>
@@ -2123,10 +2124,10 @@ export default function TeamDashboard() {
                     <div className="bg-white rounded-md border border-gray-200 w-full max-w-4xl max-h-[90vh] overflow-hidden animate-fade-in-up flex flex-col">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-gray-800">{t('team.editTeam')}</h3>
-                            <button onClick={() => setIsEditingTeam(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                            <GuardedButton onClick={() => setIsEditingTeam(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></GuardedButton>
                         </div>
                         <div className="p-6 overflow-y-auto">
-                            <form onSubmit={handleUpdateTeam} className="space-y-6">
+                            <GuardedForm onSubmit={handleUpdateTeam} className="space-y-6">
                                 <section className="space-y-3">
                                     <h4 className="border-b border-gray-100 pb-2 text-sm font-semibold text-gray-800">{language === 'THA' ? ui('1. ข้อมูลทีม') : ui('1. Team information')}</h4>
                                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2180,11 +2181,11 @@ export default function TeamDashboard() {
                                 <Button type="submit" label={t('common.save')} full />
                                 <div className="border-t border-gray-100 pt-5">
                                     <p className="mb-2 text-xs font-bold uppercase text-red-500">{language === 'THA' ? ui('พื้นที่อันตราย (Danger Zone)') : ui('Danger Zone')}</p>
-                                    <button type="button" onClick={handleDeleteTeam} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-50">
+                                    <GuardedButton type="button" onClick={handleDeleteTeam} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-50">
                                         <Trash2 size={16} /> {language === 'THA' ? ui('ลบทีมแข่งขัน') : ui('Delete Team')}
-                                    </button>
+                                    </GuardedButton>
                                 </div>
-                            </form>
+                            </GuardedForm>
                         </div>
                     </div>
                 </div>
@@ -2202,7 +2203,7 @@ export default function TeamDashboard() {
                                     <p className="text-xs text-gray-500">#{viewingStatsPlayer.number} • {viewingStatsPlayer.position}</p>
                                 </div>
                             </div>
-                            <button onClick={() => { setViewingStatsPlayer(null); setStatsData(null); }} className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-md transition"><X size={20} /></button>
+                            <GuardedButton onClick={() => { setViewingStatsPlayer(null); setStatsData(null); }} className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-md transition"><X size={20} /></GuardedButton>
                         </div>
 
                         <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -2251,7 +2252,7 @@ export default function TeamDashboard() {
                                 <p>{normalizeCompetitionTitle(entryRosterModal.competition)} · {entryRosterModal.entry.age_group_name} / {entryRosterModal.entry.competition_gender}</p>
                                 <p className="mt-2 text-sm">{entryRosterModal.entry.roster_locked_at ? (language === 'THA' ? 'ล็อกรายชื่อแล้ว' : 'Roster locked') : (language === 'THA' ? 'ซิงก์จากทะเบียนทีมอัตโนมัติ' : 'Automatically synced from team register')}</p>
                             </div>
-                            <button type="button" onClick={() => setEntryRosterModal(null)} aria-label={language === 'THA' ? 'ปิด' : 'Close'}><X size={20} /></button>
+                            <GuardedButton type="button" onClick={() => setEntryRosterModal(null)} aria-label={language === 'THA' ? 'ปิด' : 'Close'}><X size={20} /></GuardedButton>
                         </div>
                         <div className="overflow-auto p-5">
                             {entryRosterModal.entry.roster_sync_error && <p role="alert" className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">{entryRosterModal.entry.roster_sync_error}</p>}
@@ -2262,8 +2263,8 @@ export default function TeamDashboard() {
                             {!entryRosterModal.entry.roster_locked_at && <p className="mt-4 text-sm text-gray-600">{language === 'THA' ? 'นักกีฬาที่ไม่ผ่านเพศ/อายุ หรือถูกจัดลงรุ่นอายุน้อยกว่าในรายการเดียวกัน จะไม่อยู่ในรายชื่อนี้ รุ่น U ใช้อายุไม่เกินรุ่นในวันเริ่มแข่งขัน' : 'Players outside gender/age criteria or assigned to a younger eligible category are excluded. U categories use age at most the category limit on the competition start date.'}</p>}
                         </div>
                         <div className="flex justify-end gap-3 border-t p-4">
-                            <button type="button" onClick={() => { setEntryRosterModal(null); setActiveTab('roster'); }} className="rounded border px-4 py-2">{language === 'THA' ? 'ไปจัดการนักกีฬา' : 'Manage team players'}</button>
-                            <button type="button" onClick={() => setEntryRosterModal(null)} className="rounded bg-blue-600 px-4 py-2 text-white">{language === 'THA' ? 'ปิด' : 'Close'}</button>
+                            <GuardedButton type="button" onClick={() => { setEntryRosterModal(null); setActiveTab('roster'); }} className="rounded border px-4 py-2">{language === 'THA' ? 'ไปจัดการนักกีฬา' : 'Manage team players'}</GuardedButton>
+                            <GuardedButton type="button" onClick={() => setEntryRosterModal(null)} className="rounded bg-blue-600 px-4 py-2 text-white">{language === 'THA' ? 'ปิด' : 'Close'}</GuardedButton>
                         </div>
                     </div>
                 </div>
@@ -2315,16 +2316,16 @@ function UniformTab({ language, teamForm, setTeamForm, onSubmit }) {
                             </p>
                         </div>
                     </div>
-                    <button
+                    <GuardedButton
                         type="button"
                         onClick={resetColors}
                         className="px-3 py-2 rounded-md border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                     >
                         {language === 'THA' ? ui('รีเซ็ตสี') : ui('Reset colors')}
-                    </button>
+                    </GuardedButton>
                 </div>
 
-                <form onSubmit={onSubmit} className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+                <GuardedForm onSubmit={onSubmit} className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
                     <div className="space-y-5">
                         <UniformColorSection
                             title={language === 'THA' ? ui('1. ชุดนักกีฬา') : ui('1. Uniform')}
@@ -2361,7 +2362,7 @@ function UniformTab({ language, teamForm, setTeamForm, onSubmit }) {
                         />
                         <Button type="submit" label={language === 'THA' ? ui('บันทึกชุดการแข่งขัน') : ui('Save Uniform Colors')} full />
                     </div>
-                </form>
+                </GuardedForm>
             </div>
         </div>
     );
@@ -2442,7 +2443,7 @@ function UniformPreview({ title, number, mainColor, secondColor, thirdColor }) {
 function FilterButton({ active, onClick, label }) {
     const ui = useUiTranslation();
     return (
-        <button
+        <GuardedButton
             onClick={onClick}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${active
                 ? 'bg-blue-600 text-white shadow-sm'
@@ -2450,7 +2451,7 @@ function FilterButton({ active, onClick, label }) {
                 }`}
         >
             {ui(label)}
-        </button>
+        </GuardedButton>
     );
 }
 
@@ -2486,14 +2487,14 @@ function ImageUploadField({ label, value, onFileSelect, onClear, previewAlt }) {
                         <input type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
                     </label>
                     {value && (
-                        <button
+                        <GuardedButton
                             type="button"
                             onClick={onClear}
                             className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition"
                             aria-label={ui("Remove image")}
                         >
                             <X size={16} />
-                        </button>
+                        </GuardedButton>
                     )}
                     <span className="text-xs text-gray-400 truncate">{ui("JPG, PNG, WebP up to 2MB")}</span>
                 </div>
@@ -2535,16 +2536,16 @@ function TopPlayerCard({ title, icon, player, value, label }) {
 function Button({ type, label, icon, full, className }) {
     const ui = useUiTranslation();
     return (
-        <button type={type} className={`${className || "official-primary-button"} text-white font-medium py-2.5 px-4 rounded-md transition flex items-center justify-center gap-2 ${full ? 'w-full' : ''}`}>
+        <GuardedButton type={type} className={`${className || "official-primary-button"} text-white font-medium py-2.5 px-4 rounded-md transition flex items-center justify-center gap-2 ${full ? 'w-full' : ''}`}>
             {icon} {ui(label)}
-        </button>
+        </GuardedButton>
     );
 }
 
 function TabButton({ active, onClick, icon, label }) {
     const ui = useUiTranslation();
     return (
-        <button
+        <GuardedButton
             onClick={onClick}
             className={`
                 group inline-flex items-center py-2.5 px-3 md:px-4 rounded-md font-medium text-sm transition whitespace-nowrap
@@ -2555,7 +2556,7 @@ function TabButton({ active, onClick, icon, label }) {
         >
             <span className={`flex-shrink-0 transition-colors ${active ? 'text-white' : 'text-gray-400 group-hover:text-blue-500'}`}>{icon}</span>
             <span>{ui(label)}</span>
-        </button>
+        </GuardedButton>
     );
 }
 

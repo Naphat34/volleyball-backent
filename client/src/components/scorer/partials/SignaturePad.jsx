@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState, useRef, useEffect } from 'react';
 import { RotateCcw } from 'lucide-react';
@@ -101,14 +102,14 @@ const SignaturePad = ({ width = 500, height = 220, onSave, defaultValue }) => {
                     <div className="absolute inset-0 z-0 flex items-center justify-center font-bold text-slate-350 pointer-events-none select-none uppercase tracking-widest text-sm text-slate-300">{st("ลงลายมือชื่อที่นี่ (Sign Here)")}</div>
                 )}
                 {hasDrawn && (
-                    <button
+                    <GuardedButton
                         type="button"
                         onClick={clearCanvas}
                         className="absolute top-3 right-3 z-20 bg-white/90 p-2 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-md active:scale-95"
                         title={st("Clear Signature")}
                     >
                         <RotateCcw size={18} />
-                    </button>
+                    </GuardedButton>
                 )}
             </div>
         </div>

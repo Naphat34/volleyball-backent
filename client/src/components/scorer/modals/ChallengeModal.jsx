@@ -1,3 +1,4 @@
+import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import React, { useState } from 'react';
 import { Flag, CheckCircle, X } from 'lucide-react';
@@ -36,13 +37,13 @@ const ChallengeModal = ({ isOpen, onClose, teamName, remaining, onConfirm }) => 
                         <label className="text-[10px] font-semibold text-slate-400 uppercase mb-4 block tracking-[.2em] text-center">{st("Challenge Reason")}</label>
                         <div className="grid grid-cols-2 gap-3">
                             {reasons.map(r => (
-                                <button
+                                <GuardedButton
                                     key={r.id}
                                     onClick={() => setSelectedReason(r.id)}
                                     className={`p-3 rounded-lg text-[10px] font-semibold uppercase tracking-widest border transition-all ${selectedReason === r.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl translate-y-[-2px]' : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-white hover:border-slate-300 hover:text-slate-600'}`}
                                 >
                                     {st(r.label)}
-                                </button>
+                                </GuardedButton>
                             ))}
                         </div>
                     </div>
@@ -50,7 +51,7 @@ const ChallengeModal = ({ isOpen, onClose, teamName, remaining, onConfirm }) => 
                     <div>
                         <label className="text-[10px] font-semibold text-slate-400 uppercase mb-4 block tracking-[.2em] text-center">{st("Final Decision")}</label>
                         <div className="grid grid-cols-2 gap-4">
-                            <button
+                            <GuardedButton
                                 onClick={() => onConfirm('SUCCESSFUL', selectedReason)}
                                 className="group bg-white border border-slate-100 hover:border-emerald-500 p-6 rounded-3xl flex flex-col items-center gap-2 transition-all hover:shadow-2xl hover:shadow-emerald-50 hover:scale-[1.05]"
                             >
@@ -59,8 +60,8 @@ const ChallengeModal = ({ isOpen, onClose, teamName, remaining, onConfirm }) => 
                                 </div>
                                 <span className="text-[10px] font-semibold text-slate-800 uppercase tracking-widest">{st("Successful")}</span>
                                 <span className="text-[8px] font-bold text-slate-400 uppercase">{st("Keep Quota")}</span>
-                            </button>
-                            <button
+                            </GuardedButton>
+                            <GuardedButton
                                 onClick={() => onConfirm('UNSUCCESSFUL', selectedReason)}
                                 className="group bg-white border border-slate-100 hover:border-rose-500 p-6 rounded-3xl flex flex-col items-center gap-2 transition-all hover:shadow-2xl hover:shadow-rose-50 hover:scale-[1.05]"
                             >
@@ -69,13 +70,13 @@ const ChallengeModal = ({ isOpen, onClose, teamName, remaining, onConfirm }) => 
                                 </div>
                                 <span className="text-[10px] font-semibold text-slate-800 uppercase tracking-widest">{st("Unsuccessful")}</span>
                                 <span className="text-[8px] font-bold text-slate-400 uppercase font-semibold">{st("Lose 1 Quota")}</span>
-                            </button>
+                            </GuardedButton>
                         </div>
                     </div>
                 </div>
 
                 <div className="p-6 bg-slate-50/50 border-t border-slate-100 text-center">
-                    <button onClick={onClose} className="px-8 py-2 rounded-md text-slate-400 hover:text-slate-800 text-[10px] font-semibold uppercase tracking-widest transition-all">{st("Cancel Request")}</button>
+                    <GuardedButton onClick={onClose} className="px-8 py-2 rounded-md text-slate-400 hover:text-slate-800 text-[10px] font-semibold uppercase tracking-widest transition-all">{st("Cancel Request")}</GuardedButton>
                 </div>
             </div>
         </div>
