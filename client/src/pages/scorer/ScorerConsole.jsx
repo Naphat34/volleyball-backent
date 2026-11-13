@@ -3088,8 +3088,8 @@ export default function ScorerConsole() {
                 // แปลง ID กลับเป็น Object ผู้เล่นที่สมบูรณ์เพื่อให้ CourtView ใช้งานได้
                 const fullLineup = savedLineup.map(p => {
                     if (!p) return null;
-                    const pid = typeof p === 'object' ? p.id : p;
-                    return roster.find(r => r.id === pid || r.player_id === pid) || null;
+                    const pid = typeof p === 'object' ? (p.id ?? p.player_id) : p;
+                    return roster.find(r => String(r.id ?? r.player_id) === String(pid)) || null;
                 });
 
                 // เติม null ให้ครบ 6 ตำแหน่งกันเหนียว
@@ -3187,7 +3187,18 @@ export default function ScorerConsole() {
             }
         } catch (error) {
             console.error("Failed to approve request:", error);
-            Swal.fire({uiTextLocalized:true,title:st('Error'),text:st('ไม่สามารถอนุมัติคำขอได้'),icon:'error'});
+            const response = error.response?.data;
+            const reason = [response?.error, response?.details]
+                .filter(value => typeof value === 'string' && value.trim())
+                .join(' — ') || error.message;
+            const status = error.response?.status;
+            Swal.fire({
+                uiTextLocalized: true,
+                title: st('Error'),
+                text: [st('ไม่สามารถอนุมัติคำขอได้'), status ? `HTTP ${status}` : '', reason]
+                    .filter(Boolean).join('\n'),
+                icon: 'error'
+            });
         }
     };
 

@@ -3,9 +3,18 @@ export function createStaffLiveStateGate() {
     let request = 0;
     let revision = 0;
     let updatedAt = 0;
+    let poll = null;
     const current = token => token.request === request && token.revision === revision;
     return {
         begin: () => ({ request: ++request, revision }),
+        beginPoll() {
+            if (poll) return null;
+            poll = { request: ++request, revision };
+            return poll;
+        },
+        finishPoll(token) {
+            if (poll === token) poll = null;
+        },
         current,
         currentRequest: token => token.request === request,
         accept(snapshot, token) {

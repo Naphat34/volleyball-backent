@@ -188,7 +188,11 @@ export default function TeamStaffConsole() {
 
     const fetchData = useCallback(async () => {
         const source = liveStateGateRef.current;
-        const token = source.gate.begin();
+        // Slow roster queries can exceed the five-second polling interval.
+        // Do not invalidate an in-flight request by starting another poll.
+        if (!source) return;
+        const token = source.gate.beginPoll();
+        if (!token) return;
         const isCurrent = () => liveStateGateRef.current === source && source.gate.current(token);
         try {
             // 1. Fetch both Match and Live state in parallel to avoid multiple renders & stale data flash
@@ -198,9 +202,10 @@ export default function TeamStaffConsole() {
             ]);
             const m = matchRes.data;
             const live = liveRes.data;
-            if (!isCurrent() || !source.gate.accept(live, token)) return;
+            if (liveStateGateRef.current !== source || !source.gate.currentRequest(token)) return;
+            const acceptLive = isCurrent() && source.gate.accept(live, token);
             // Apply the workflow with the match snapshot, before slower roster requests.
-            setWorkflowStep(live?.workflowStep || (m.first_serve_team_id ? 'LINEUP' : 'COIN_TOSS'));
+            if (acceptLive) setWorkflowStep(live?.workflowStep || (m.first_serve_team_id ? 'LINEUP' : 'COIN_TOSS'));
 
             const user = getStoredUser();
             const isHome = String(m.home_team_id) === String(user?.team_id);
@@ -227,7 +232,7 @@ export default function TeamStaffConsole() {
                 score_away: live?.score ? live.score.away : (live?.matchData?.score_away !== undefined ? live.matchData.score_away : m.score_away),
                 status: live?.matchData?.status || m.status
             };
-            setMatchData(mergedMatchData);
+            setMatchData(previous => !acceptLive && previous ? previous : mergedMatchData);
 
             setTeamInfo({
                 id: user.team_id,
@@ -260,7 +265,7 @@ export default function TeamStaffConsole() {
                 ? normalizePlayerForDisplay(player, currentRoster) : null;
             setTempLineup(previous => previous.map(refreshDraftPlayer));
             setSelectedPlayerForLineup(refreshDraftPlayer);
-            if (!isCurrent()) return;
+            if (!acceptLive || !isCurrent()) return;
 
             const side = isHome ? 'home' : 'away';
 
@@ -362,7 +367,8 @@ export default function TeamStaffConsole() {
         } catch (err) {
             console.error("Error fetching staff data:", err);
         } finally {
-            setIsLoading(false);
+            source.gate.finishPoll(token);
+            if (liveStateGateRef.current === source) setIsLoading(false);
         }
     }, [matchId, navigate, checkAndPromptLineup, ui]);
 

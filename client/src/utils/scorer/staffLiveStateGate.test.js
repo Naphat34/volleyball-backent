@@ -2,6 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStaffLiveStateGate } from './staffLiveStateGate.js';
 
+test('slow roster polls survive subsequent intervals and socket updates', () => {
+    const gate = createStaffLiveStateGate();
+    const pending = gate.beginPoll();
+    assert.ok(pending);
+    // Multiple timer ticks occur while the original roster request is pending.
+    assert.equal(gate.beginPoll(), null);
+    gate.accept({ workflowStep: 'LINEUP', updatedAt: 200 });
+    assert.equal(gate.beginPoll(), null);
+    assert.equal(gate.current(pending), false);
+    assert.equal(gate.currentRequest(pending), true, 'roster response can still be displayed');
+    assert.equal(gate.accept({ updatedAt: 100 }, pending), false, 'old workflow remains rejected');
+    gate.finishPoll(pending);
+    const next = gate.beginPoll();
+    assert.ok(next);
+    gate.finishPoll(pending);
+    assert.equal(gate.beginPoll(), null, 'late cleanup must not release another poll');
+    gate.finishPoll(next);
+    assert.ok(gate.beginPoll());
+});
+
 test('delayed coin toss poll cannot replace a socket lineup update', () => {
     const gate = createStaffLiveStateGate();
     const pending = gate.begin();
