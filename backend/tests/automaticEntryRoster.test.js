@@ -40,8 +40,8 @@ test('sync copies active eligible athletes and snapshots, then skips unchanged m
     await syncTeamEntries(h,1);
     assert.equal(h.writes.length,count,'reads must not overwrite match selections when the master is unchanged');
 });
-test('closed and explicitly locked entries never rewrite their snapshots, even after reopening', async () => {
-    for (const patch of [{competition_status:'closed'},{roster_locked_at:'2026-11-01'}]) {
+test('Live and completed rosters retain their snapshots', async () => {
+    for (const patch of [{has_live_match:1},{roster_locked_at:'2026-11-01',has_completed_match:1}]) {
         const e = entry(1,patch), h = store([e],[player(1,{number:99})]);
         await syncTeamEntries(h,1);
         e.competition_status='open'; e.start_date='2027-01-01'; e.has_history=0;
@@ -57,7 +57,7 @@ test('multiple categories choose the youngest eligible category and retain exist
     assert.equal(h.saved.has(1),false);
     assert.equal(h.saved.get(2)[0][1],1);
     assert.equal(h.saved.get(3)[0][1],1);
-    const locked = store([entry(1,{roster_locked_at:'2026-01-01'}),entry(2,{age_group_name:'U16'})],[player(1)],[{player_id:1,team_entry_id:1}]);
+    const locked = store([entry(1,{roster_locked_at:'2026-01-01',has_completed_match:1}),entry(2,{age_group_name:'U16'})],[player(1)],[{player_id:1,team_entry_id:1}]);
     await syncTeamEntries(locked,1);
     assert.equal(locked.saved.size,0);
 });
@@ -93,4 +93,12 @@ test('start date and match usage alone do not lock the competition roster', asyn
     await syncTeamEntries(h, 1);
     assert.equal(Boolean(e.roster_locked_at), false);
     assert.equal(h.saved.get(1).length, 1);
+});
+
+test('legacy locks clear before Live even when registration is closed', async () => {
+    const e=entry(1,{competition_status:'closed',roster_locked_at:'2026-11-01',start_date:'2026-11-01'});
+    const h=store([e],[player(1)]);
+    await syncTeamEntries(h,1);
+    assert.equal(e.roster_locked_at,null);
+    assert.equal(h.saved.get(1).length,1);
 });

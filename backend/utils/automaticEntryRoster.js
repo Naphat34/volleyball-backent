@@ -53,9 +53,17 @@ function restoreSnapshot(player) {
 
 // The caller holds a transaction; lock entry rows consistently for reads and repairs.
 async function loadTeamRosterEntries(connection, teamId) {
+    const usedMatch = status => `EXISTS (SELECT 1 FROM matches lm WHERE lm.competition_id=te.competition_id
+        AND (lm.home_team_id=te.team_id OR lm.away_team_id=te.team_id)
+        AND (COALESCE(lm.age_group_id,c.age_group_id)=COALESCE(te.age_group_id,c.age_group_id)
+            OR (COALESCE(lm.age_group_id,c.age_group_id) IS NULL AND COALESCE(te.age_group_id,c.age_group_id) IS NULL))
+        AND lm.status='${status}')`;
+    const liveColumns = `${usedMatch('live')} AS has_live_match, ${usedMatch('completed')} AS has_completed_match,`;
+
     const result = await connection.query(sqlDialect(`SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
         c.start_date,c.status AS competition_status,c.max_players,ag.name AS age_group_name,
         DATE_FORMAT(CURRENT_DATE,'%Y-%m-%d') AS today,
+        ${liveColumns}
         EXISTS (SELECT 1 FROM matches m WHERE m.competition_id=te.competition_id
             AND (m.home_team_id=te.team_id OR m.away_team_id=te.team_id)
             AND (COALESCE(m.age_group_id,c.age_group_id)=COALESCE(te.age_group_id,c.age_group_id)
@@ -68,6 +76,7 @@ async function loadTeamRosterEntries(connection, teamId) {
         WHERE te.team_id=? ORDER BY te.id FOR UPDATE`, `SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
         c.start_date,c.status AS competition_status,c.max_players,ag.name AS age_group_name,
         to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today,
+        ${liveColumns}
         EXISTS (SELECT 1 FROM matches m WHERE m.competition_id=te.competition_id
             AND (m.home_team_id=te.team_id OR m.away_team_id=te.team_id)
             AND (COALESCE(m.age_group_id,c.age_group_id)=COALESCE(te.age_group_id,c.age_group_id)
@@ -91,7 +100,14 @@ async function syncTeamEntries(connection, teamId) {
     const assigned = (await connection.query(`SELECT ep.player_id,ep.team_entry_id FROM team_entry_players ep
         JOIN team_entries te ON te.id=ep.team_entry_id WHERE te.team_id=?`, [teamId])).rows;
     for (const entry of entries) {
-        if (!entry.roster_locked_at && entry.competition_status !== 'open') {
+        const live = Number(entry.has_live_match) === 1;
+        const completed = Number(entry.has_completed_match) === 1;
+        if (entry.roster_locked_at && !live && !completed) {
+            await connection.query('UPDATE team_entries SET roster_locked_at=NULL,roster_source_hash=NULL WHERE id=?', [entry.id]);
+            entry.roster_locked_at = null;
+            entry.roster_source_hash = null;
+        }
+        if (!entry.roster_locked_at && live) {
             await connection.query('UPDATE team_entries SET roster_locked_at=CURRENT_TIMESTAMP WHERE id=?', [entry.id]);
             entry.roster_locked_at = true;
         }
@@ -131,11 +147,7 @@ async function confirmEntryRoster(connection, teamId, entryId) {
     const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
     if (!entry) fail('Team entry not found', 404);
     if (entry.roster_locked_at) return entry;
-    if (entry.roster_sync_error) fail(entry.roster_sync_error);
-    const count = (await connection.query('SELECT COUNT(*) AS count FROM team_entry_players WHERE team_entry_id=?', [entry.id])).rows[0];
-    if (Number(count.count) < 6) fail('กรุณาลงทะเบียนนักกีฬาอย่างน้อย 6 คนก่อนยืนยันรายชื่อ / Register at least six players before confirming');
-    await connection.query('UPDATE team_entries SET roster_locked_at=CURRENT_TIMESTAMP WHERE id=?', [entry.id]);
-    return (await connection.query('SELECT * FROM team_entries WHERE id=?', [entry.id])).rows[0];
+    fail('รายชื่อจะล็อกได้เมื่อแมตช์เป็น Live เท่านั้น / Roster locks only when a match is Live', 409);
 }
 async function refreshTeamEntries(database, teamId) {
     const connection = await database.connect();

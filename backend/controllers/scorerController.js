@@ -1326,12 +1326,17 @@ module.exports = {
             const currentSetParams = hasCurrentSetColumn
                 ? [normalizedSetNumber, matchId]
                 : [matchId];
+            const rosterTeams = (await db.query('SELECT home_team_id,away_team_id FROM matches WHERE id=?', [matchId])).rows[0];
+            const rosterTeamIds = [...new Set([rosterTeams?.home_team_id, rosterTeams?.away_team_id].filter(Boolean))].sort((a,b) => Number(a)-Number(b));
+            // Capture the latest eligible roster before switching to Live, then freeze it.
+            for (const teamId of rosterTeamIds) await refreshTeamEntries(db, teamId);
             await db.query(
                 `UPDATE matches
                  SET status = 'live'${currentSetSql}
                  WHERE id = ? AND (status IS NULL OR status IN ('scheduled', 'live'))`,
                 currentSetParams
             );
+            for (const teamId of rosterTeamIds) await refreshTeamEntries(db, teamId);
 
             const io = req.app.get('io');
             if (io) {

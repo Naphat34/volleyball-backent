@@ -1,16 +1,19 @@
 # Team-specific roster locks
 
-Team registers remain editable. Competition rosters sync until registration closes
-(`competitions.status` leaves `open`) or the team explicitly confirms its roster.
-Match setup, match history, lineup acceptance, and the competition start date do
-not automatically freeze the competition roster.
+Team registers remain editable. A competition entry freezes only when a match for
+that team and age category has database status `live`. Registration closure,
+the competition start date, match setup, lineup approval and explicit roster
+confirmation do not freeze entries before Live.
 
-The team dashboard roster dialog provides **Confirm competition roster**. Its
-`POST /api/my-team/entries/:entryId/confirm-roster` endpoint verifies ownership,
-syncs the latest eligible athletes, rejects validation errors or fewer than six
-players, and freezes the entry atomically. Repeated confirmation is idempotent.
-Existing locks remain frozen when registration reopens and are not cleared by
-this policy change; legacy locks need a separate reviewed repair.
+The start-set handler syncs both teams before changing the match to Live, then
+freezes their applicable entries. Existing frozen entries remain frozen after
+that match completes. A legacy lock with no Live or completed match is cleared
+and re-synced during the next team-entry refresh. A deleted/reset match therefore
+no longer leaves an unused roster permanently frozen.
+
+The former confirmation button has been removed. The compatibility endpoint
+`POST /api/my-team/entries/:entryId/confirm-roster` cannot create a pre-Live lock;
+it returns HTTP 409 explaining the Live requirement, or the already locked entry.
 
 Lineup saves keep names and jersey numbers in `match_lineups.player_positions`
 using a versioned snapshot. Lineup reads prefer that snapshot so later team-register
