@@ -24,8 +24,10 @@ function applyMatchSetup(match) {
     }
     return match;
 }
-function setupPlayers(match, side, fallback, { fillEmpty = false } = {}) {
+function setupPlayers(match, side, fallback, { fillEmpty = false, syncBeforeLive = false } = {}) {
     const saved = parseSetup(match.match_setup)?.[side]?.players;
+    // Official pre-match rosters follow registration, including additions and removals.
+    if (syncBeforeLive && match.status === 'scheduled' && match.competition_id && !match.manual_owner_id) return fallback;
     // The roster editor may populate a side that was empty when the other team saved setup.
     if (fillEmpty && match.status === 'scheduled' && Array.isArray(saved) && !saved.length) return fallback;
     return saved ?? fallback;

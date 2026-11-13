@@ -83,6 +83,7 @@ test('starting a set syncs the latest team athletes before the Live lock', async
         await db.query('INSERT INTO team_entries(team_id,competition_id) VALUES(1,?),(2,?)',[comp.insertId,comp.insertId]);
         await db.query("INSERT INTO players(team_id,number,first_name,gender) VALUES(1,1,'Home','Male'),(2,2,'Away','Male')");
         const match = await db.query("INSERT INTO matches(competition_id,home_team_id,away_team_id,status) VALUES(?,1,2,'scheduled') RETURNING id",[comp.insertId]);
+        await db.query('UPDATE matches SET match_setup=? WHERE id=?',[JSON.stringify({home:{name:'Home',players:[{id:999,number:99}]},away:{name:'Away',players:[]}}),match.insertId]);
         const controllerPath = require.resolve('../controllers/scorerController');
         delete require.cache[controllerPath];
         const controller = require(controllerPath);
@@ -93,6 +94,11 @@ test('starting a set syncs the latest team athletes before the Live lock', async
         assert.equal(entries.length,2);
         assert.ok(entries.every(row => row.roster_locked_at));
         assert.equal((await db.query('SELECT COUNT(*) AS count FROM team_entry_players')).rows[0].count,2);
+        const frozenSetup = (await db.query('SELECT match_setup FROM matches WHERE id=?',[match.insertId])).rows[0].match_setup;
+        const setup = typeof frozenSetup === 'string' ? JSON.parse(frozenSetup) : frozenSetup;
+        assert.equal(setup.home.players.length,1);
+        assert.equal(setup.away.players.length,1);
+        assert.equal(setup.home.players[0].number,1);
         delete require.cache[controllerPath];
     } finally { await h.close(); }
 });

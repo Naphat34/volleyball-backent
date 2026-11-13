@@ -7,6 +7,15 @@ const { normalizeTeam, applyMatchSetup, setupPlayers, setupStaff } = require('..
 const player = { id: 1, number: 7, first_name: 'Player', last_name: '', role: 'C', position: 'S' };
 const team = { name: 'Home', code: 'H', players: [player], staff: [] };
 
+test('official scheduled rosters use all current registrations instead of a stale saved subset', () => {
+    const saved = [1,2,3,4].map(id => ({id,number:id}));
+    const current = Array.from({length:10},(_,index)=>({id:index+10,number:index+1}));
+    const match = { status:'scheduled',competition_id:1,match_setup:{home:{players:saved}} };
+    assert.deepEqual(setupPlayers(match,'home',current,{syncBeforeLive:true}),current);
+    assert.deepEqual(setupPlayers({...match,status:'live'},'home',current,{syncBeforeLive:true}),saved);
+    assert.deepEqual(setupPlayers({...match,competition_id:null,manual_owner_id:3},'home',current,{syncBeforeLive:true}),saved);
+});
+
 test('roster validation rejects foreign players, duplicate numbers and invalid roles', () => {
     assert.throws(() => normalizeTeam(team, new Set([2])), /นักกีฬา/);
     assert.throws(() => normalizeTeam({ ...team, players: [player, { ...player, id: 2 }] }, new Set([1,2])), /ซ้ำ/);

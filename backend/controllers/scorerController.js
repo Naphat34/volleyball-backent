@@ -1326,10 +1326,30 @@ module.exports = {
             const currentSetParams = hasCurrentSetColumn
                 ? [normalizedSetNumber, matchId]
                 : [matchId];
-            const rosterTeams = (await db.query('SELECT home_team_id,away_team_id FROM matches WHERE id=?', [matchId])).rows[0];
+            const rosterTeams = (await db.query('SELECT home_team_id,away_team_id,competition_id,age_group_id,status,match_setup,manual_owner_id FROM matches WHERE id=?', [matchId])).rows[0];
             const rosterTeamIds = [...new Set([rosterTeams?.home_team_id, rosterTeams?.away_team_id].filter(Boolean))].sort((a,b) => Number(a)-Number(b));
             // Capture the latest eligible roster before switching to Live, then freeze it.
             for (const teamId of rosterTeamIds) await refreshTeamEntries(db, teamId);
+            if (rosterTeams?.status === 'scheduled' && rosterTeams.competition_id && !rosterTeams.manual_owner_id && rosterTeams.match_setup) {
+                const setup = parseSetup(rosterTeams.match_setup);
+                for (const side of ['home','away']) {
+                    const result = await db.query(`SELECT p.*,ep.number AS number,ep.role AS role,
+                        ep.is_captain AS is_captain,ep.is_libero1 AS is_libero1,ep.is_libero2 AS is_libero2,
+                        ep.is_playing AS is_playing,ep.athlete_snapshot
+                        FROM team_entry_players ep JOIN team_entries te ON te.id=ep.team_entry_id
+                        JOIN competitions c ON c.id=te.competition_id JOIN players p ON p.id=ep.player_id
+                        WHERE te.competition_id=? AND te.team_id=?
+                        AND (COALESCE(te.age_group_id,c.age_group_id)=COALESCE(?,c.age_group_id)
+                            OR (COALESCE(te.age_group_id,c.age_group_id) IS NULL AND COALESCE(?,c.age_group_id) IS NULL))
+                        ORDER BY ep.number,p.id`,[rosterTeams.competition_id,rosterTeams[`${side}_team_id`],rosterTeams.age_group_id,rosterTeams.age_group_id]);
+                    const players = result.rows.map(restoreSnapshot).map(player => ({
+                        ...Object.fromEntries(['id','number','role','first_name','last_name',...playerNameFields,'position','is_captain','is_libero1','is_libero2','is_playing'].map(field => [field,player[field] ?? null])),
+                        is_libero: Number(player.is_libero1) === 1 || Number(player.is_libero2) === 1 || ['L','L1','L2','L1+C','L2+C'].includes(player.role) ? 1 : 0,
+                    }));
+                    setup[side] = { ...setup[side], players };
+                }
+                await db.query('UPDATE matches SET match_setup=? WHERE id=?',[JSON.stringify(setup),matchId]);
+            }
             await db.query(
                 `UPDATE matches
                  SET status = 'live'${currentSetSql}
@@ -1693,12 +1713,12 @@ module.exports = {
             res.json({
                 match,
                 home: {
-                    players: setupPlayers(match, 'home', homePlayers.rows, { fillEmpty: true }),
+                    players: setupPlayers(match, 'home', homePlayers.rows, { fillEmpty: true, syncBeforeLive: true }),
                     availablePlayers: homePlayers.rows,
                     staff: setupStaff(match, 'home', homeStaff.rows)
                 },
                 away: {
-                    players: setupPlayers(match, 'away', awayPlayers.rows, { fillEmpty: true }),
+                    players: setupPlayers(match, 'away', awayPlayers.rows, { fillEmpty: true, syncBeforeLive: true }),
                     availablePlayers: awayPlayers.rows,
                     staff: setupStaff(match, 'away', awayStaff.rows)
                 }
