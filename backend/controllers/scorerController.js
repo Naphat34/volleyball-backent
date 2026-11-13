@@ -1662,12 +1662,12 @@ module.exports = {
             res.json({
                 match,
                 home: {
-                    players: setupPlayers(match, 'home', homePlayers.rows),
+                    players: setupPlayers(match, 'home', homePlayers.rows, { fillEmpty: true }),
                     availablePlayers: homePlayers.rows,
                     staff: setupStaff(match, 'home', homeStaff.rows)
                 },
                 away: {
-                    players: setupPlayers(match, 'away', awayPlayers.rows),
+                    players: setupPlayers(match, 'away', awayPlayers.rows, { fillEmpty: true }),
                     availablePlayers: awayPlayers.rows,
                     staff: setupStaff(match, 'away', awayStaff.rows)
                 }

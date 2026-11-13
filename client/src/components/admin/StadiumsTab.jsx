@@ -1,3 +1,5 @@
+import { useOptionalLanguage } from '../../context/LanguageContext';
+import { localizedReference } from '../../utils/i18n/competitionNames';
 import { MapPin, Edit2, Trash2, Plus, X, Building, Users } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -7,13 +9,14 @@ import BrandIcon from '../ui/BrandIcon';
 import Swal from 'sweetalert2';
 
 export default function StadiumsTab() {
+    const { language } = useOptionalLanguage();
     const ui = useUiTranslation();
     const [stadiums, setStadiums] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
     const initialForm = {
-        name: '', code: '', address: '', google_map_url: '',
+        name: '', name_th: '', name_en: '', code: '', address: '', google_map_url: '',
         capacity: 0, number_of_courts: 1, status: 'active'
     };
     const [formData, setFormData] = useState(initialForm);
@@ -68,7 +71,7 @@ export default function StadiumsTab() {
 
     const openModal = (stadium = null) => {
         if (stadium) {
-            setFormData(stadium);
+            setFormData({ ...initialForm, ...stadium, name_th: stadium.name_th || (!stadium.name_en && /[ก-๙]/.test(stadium.name || '') ? stadium.name : ''), name_en: stadium.name_en || (!stadium.name_th && !/[ก-๙]/.test(stadium.name || '') ? stadium.name || '' : '') });
             setIsEditing(true);
         } else {
             setFormData(initialForm);
@@ -97,7 +100,7 @@ export default function StadiumsTab() {
                         <div className={`h-2 ${stadium.status === 'active' ? 'official-accent-bar' : 'bg-gradient-to-r from-slate-400 to-slate-600'}`} />
                         <div className="p-5">
                             <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-lg text-gray-800">{stadium.name}</h3>
+                                <h3 className="font-bold text-lg text-gray-800">{localizedReference(stadium, language)}</h3>
                                 <span className="text-xs font-mono px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100">
                                     {(stadium.code) || (ui('N/A'))}
                                 </span>
@@ -130,18 +133,22 @@ export default function StadiumsTab() {
             {/* MODAL */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-lg rounded-lg shadow-2xl overflow-hidden bg-white text-gray-900">
+                    <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg shadow-2xl bg-white text-gray-900">
                         <div className="official-panel-header px-6 py-4 flex justify-between items-center">
                             <h3 className="text-lg font-bold">{isEditing ? ui('Edit Stadium') : ui('Add New Stadium')}</h3>
                             <button onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold uppercase mb-1 block">{ui("Name")}</label>
-                                    <input required className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
-                                        value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                </div>
+                                {['th', 'en'].map(locale => (
+                                    <label key={locale} className="text-xs font-bold block">
+                                        {ui(locale === 'th' ? 'Stadium name (Thai)' : 'Stadium name (English)')}
+                                        <input maxLength={255} required={!formData[locale === 'th' ? 'name_en' : 'name_th']?.trim()}
+                                            className="mt-1 w-full p-2 rounded border border-gray-300 bg-white"
+                                            value={formData['name_' + locale] || ''}
+                                            onChange={e => setFormData({ ...formData, ['name_' + locale]: e.target.value })} />
+                                    </label>
+                                ))}
                                 <div>
                                     <label className="text-xs font-bold uppercase mb-1 block">{ui("Code")}</label>
                                     <input className="w-full p-2 rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"

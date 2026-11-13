@@ -1,5 +1,8 @@
 // Shared copy consolidated from existing bilingual screens and alerts.
 export const additionalCopy = [
+  ["โหลดรายชื่อนักกีฬาของแมตช์ไม่สำเร็จ กรุณาลองใหม่", "Could not load the match roster. Please retry."],
+  ["ชื่อสนาม (ไทย)", "Stadium name (Thai)"],
+  ["ชื่อสนาม (อังกฤษ)", "Stadium name (English)"],
   [
     "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่",
     "Could not load the overview. Please retry."

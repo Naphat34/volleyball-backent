@@ -46,8 +46,23 @@ function getJwtSecret() {
  * Allowed CORS Origins
  */
 function getAllowedOrigins() {
-  const configuredOrigins =
-    parseCsv(process.env.CORS_ORIGINS);
+  // Use the same trusted frontend list for CORS and mutation protection.
+  // URL.origin also removes trailing slashes/paths copied from deployment URLs.
+  const configuredOrigins = [...new Set([
+    ...parseCsv(process.env.CORS_ORIGINS),
+    ...parseCsv(process.env.FRONTEND_URL),
+  ].map((value) => {
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error('CORS_ORIGINS and FRONTEND_URL must contain valid HTTP(S) URLs');
+    }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+      throw new Error('CORS_ORIGINS and FRONTEND_URL must contain valid HTTP(S) URLs');
+    }
+    return url.origin;
+  }))];
 
   if (configuredOrigins.length > 0) {
     return configuredOrigins;
@@ -57,7 +72,7 @@ function getAllowedOrigins() {
     process.env.NODE_ENV === 'production'
   ) {
     throw new Error(
-      'CORS_ORIGINS must be configured in production'
+      'CORS_ORIGINS or FRONTEND_URL must be configured in production'
     );
   }
 

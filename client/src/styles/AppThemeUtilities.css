@@ -128,6 +128,7 @@ html[data-app-theme="dark"] :where(.bg-yellow-50):not([data-theme-paper], [data-
 html[data-app-theme="dark"] :where(.bg-yellow-50\/50):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { background-color:color-mix(in srgb, var(--app-warning-bg) 50%, transparent); }
 html[data-app-theme="dark"] :where(.border-amber-100):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { border-color:var(--app-warning-text); }
 html[data-app-theme="dark"] :where(.border-amber-200):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { border-color:var(--app-warning-text); }
+html[data-app-theme="dark"] :where(.border-amber-300):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { border-color:var(--app-warning-text); }
 html[data-app-theme="dark"] :where(.border-blue-100):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { border-color:var(--app-info-text); }
 html[data-app-theme="dark"] :where(.border-blue-100\/70):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { border-color:color-mix(in srgb, var(--app-info-text) 70%, transparent); }
 html[data-app-theme="dark"] :where(.border-blue-100\/80):not([data-theme-paper], [data-theme-paper] *, [data-theme-fixed], [data-theme-fixed] *) { border-color:color-mix(in srgb, var(--app-info-text) 80%, transparent); }

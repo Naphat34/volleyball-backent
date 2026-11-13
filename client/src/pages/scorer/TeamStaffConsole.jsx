@@ -9,6 +9,8 @@ import client, { api, getSocketServerUrl } from '../../api';
 import Swal from 'sweetalert2';
 import { isPlayerLibero, filterActivePlayers, getPlayerId, getPlayerNumber as readPlayerNumber } from '../../utils/scorer/playerFilters';
 import { getAuthToken, getStoredUser } from '../../auth/authStorage';
+import { hydrateStaffPlayer } from '../../utils/scorer/staffRoster';
+import { createStaffLiveStateGate } from '../../utils/scorer/staffLiveStateGate';
 
 // Normalize and compare gender values for roster filtering
 const normalizeGender = (g) => String(g || '').trim().toLowerCase();
@@ -47,19 +49,7 @@ const samePlayer = (a, b) => {
     return aId !== null && bId !== null && String(aId) === String(bId);
 };
 
-const normalizePlayerForDisplay = (player, rosterList = []) => {
-    const playerId = getPlayerId(player);
-    if (playerId === null) return player;
-    const basePlayer = rosterList.find((candidate) => String(getPlayerId(candidate)) === String(playerId));
-    const rawPlayer = typeof player === 'object' ? player : { id: playerId };
-    return {
-        ...(basePlayer || {}),
-        ...rawPlayer,
-        id: rawPlayer.id ?? rawPlayer.player_id ?? basePlayer?.id ?? playerId,
-        player_id: rawPlayer.player_id ?? rawPlayer.id ?? basePlayer?.player_id ?? basePlayer?.id ?? playerId,
-        number: getPlayerNumber(rawPlayer) || getPlayerNumber(basePlayer) || ''
-    };
-};
+const normalizePlayerForDisplay = hydrateStaffPlayer;
 
 const hydrateLineupPlayers = (lineupList = [], rosterList = []) => (
     Array.isArray(lineupList)
@@ -92,6 +82,7 @@ export default function TeamStaffConsole() {
 
     // Lineup edit states
     const [roster, setRoster] = useState([]);
+    const [rosterError, setRosterError] = useState(false);
     const [isSettingLineup, setIsSettingLineup] = useState(false);
     const [tempLineup, setTempLineup] = useState(Array(6).fill(null));
     const [selectedPlayerForLineup, setSelectedPlayerForLineup] = useState(null);
@@ -103,7 +94,12 @@ export default function TeamStaffConsole() {
     const [pendingSubstitutions, setPendingSubstitutions] = useState([]);
     const [selectedOutPlayer, setSelectedOutPlayer] = useState(null);
     const [hasPendingSubstitution, setHasPendingSubstitution] = useState(false);
-    const [workflowStep, setWorkflowStep] = useState('LINEUP');
+    const [workflowStep, setWorkflowStep] = useState(null);
+    const liveStateGateRef = useRef(null);
+    useEffect(() => {
+        liveStateGateRef.current = { matchId, gate: createStaffLiveStateGate() };
+        return () => { liveStateGateRef.current = null; };
+    }, [matchId]);
     const [subTracker, setSubTracker] = useState({ count: 0, positions: {}, usedPlayers: [] });
     const [isConnected, setIsConnected] = useState(false);
     const [isScorerConnected, setIsScorerConnected] = useState(false);
@@ -191,6 +187,9 @@ export default function TeamStaffConsole() {
     }, [isSubstitutionMode, pendingSubstitutions.length]);
 
     const fetchData = useCallback(async () => {
+        const source = liveStateGateRef.current;
+        const token = source.gate.begin();
+        const isCurrent = () => liveStateGateRef.current === source && source.gate.current(token);
         try {
             // 1. Fetch both Match and Live state in parallel to avoid multiple renders & stale data flash
             const [matchRes, liveRes] = await Promise.all([
@@ -199,6 +198,9 @@ export default function TeamStaffConsole() {
             ]);
             const m = matchRes.data;
             const live = liveRes.data;
+            if (!isCurrent() || !source.gate.accept(live, token)) return;
+            // Apply the workflow with the match snapshot, before slower roster requests.
+            setWorkflowStep(live?.workflowStep || (m.first_serve_team_id ? 'LINEUP' : 'COIN_TOSS'));
 
             const user = getStoredUser();
             const isHome = String(m.home_team_id) === String(user?.team_id);
@@ -235,27 +237,32 @@ export default function TeamStaffConsole() {
                 side: isHome ? 'home' : 'away'
             });
 
-            let currentRoster = [];
-            try {
-                const rosterRes = await api.getMatchRosterData(matchId);
-                if (rosterRes.data) {
-                    const r = isHome ? (rosterRes.data.home?.players || rosterRes.data.homeRoster) : (rosterRes.data.away?.players || rosterRes.data.awayRoster);
-                    currentRoster = filterByMatchGender(filterActivePlayers(r || []), mergedMatchData?.gender || m?.gender);
-                } else {
-                    const teamPlayers = await api.getPlayersByTeam(user.team_id);
-                    currentRoster = filterByMatchGender(filterActivePlayers(teamPlayers.data || []), mergedMatchData?.gender || m?.gender);
-                }
-            } catch {
-                const teamPlayers = await api.getPlayersByTeam(user.team_id);
-                currentRoster = filterByMatchGender(filterActivePlayers(teamPlayers.data || []), mergedMatchData?.gender || m?.gender);
+            // Only the match registration defines eligible players; never fall back to all team athletes.
+            const rosterRes = await api.getMatchRosterData(matchId).catch(error => {
+                if (liveStateGateRef.current === source && source.gate.currentRequest(token)) setRosterError(true);
+                throw error;
+            });
+            const rosterData = rosterRes.data;
+            const registered = isHome ? (rosterData?.home?.players ?? rosterData?.homeRoster) : (rosterData?.away?.players ?? rosterData?.awayRoster);
+            if (!Array.isArray(registered)) {
+                if (liveStateGateRef.current === source && source.gate.currentRequest(token)) setRosterError(true);
+                throw new Error('Invalid match roster response');
             }
+            const currentRoster = filterByMatchGender(filterActivePlayers(registered), rosterData.match?.competition_gender || mergedMatchData?.gender || m?.gender);
+            if (liveStateGateRef.current !== source || !source.gate.currentRequest(token)) return;
+            // Roster data remains valid when a socket event supersedes the live snapshot.
+            rosterRef.current = currentRoster;
+            setRosterError(false);
             setRoster(currentRoster);
+            setLineup(previous => hydrateLineupPlayers(previous, currentRoster));
+            setLiberoSwaps(previous => hydratePlayerMap(previous, currentRoster));
+            const refreshDraftPlayer = player => player && currentRoster.some(row => samePlayer(row, player))
+                ? normalizePlayerForDisplay(player, currentRoster) : null;
+            setTempLineup(previous => previous.map(refreshDraftPlayer));
+            setSelectedPlayerForLineup(refreshDraftPlayer);
+            if (!isCurrent()) return;
 
             const side = isHome ? 'home' : 'away';
-
-            if (live && live.workflowStep) {
-                setWorkflowStep(live.workflowStep);
-            }
 
             if (live) {
                 const mySwaps = side === 'home' ? live.homeLiberoSwaps : live.awayLiberoSwaps;
@@ -270,6 +277,7 @@ export default function TeamStaffConsole() {
             } else {
                 try {
                     const lineupRes = await client.get(`/scorer/match/${matchId}/lineup`);
+                    if (!isCurrent()) return;
                     const allLineups = lineupRes.data || [];
                     const teamLineupObj = allLineups.find(l => String(l.team_id) === String(user.team_id));
                     setLineup(teamLineupObj ? hydrateLineupPlayers(teamLineupObj.lineup, currentRoster) : []);
@@ -280,6 +288,7 @@ export default function TeamStaffConsole() {
 
             try {
                 const reqRes = await client.get(`/match/${matchId}/requests/pending`);
+                if (!isCurrent()) return;
                 const myPendingLineup = reqRes.data.find(r => String(r.team_id) === String(user.team_id) && r.request_type === 'LINEUP');
                 setHasPendingLineup(!!myPendingLineup);
                 if (myPendingLineup) {
@@ -336,6 +345,7 @@ export default function TeamStaffConsole() {
                 // ignore
             }
 
+            if (!isCurrent()) return;
             if (live) {
                 setStats({
                     timeouts: live.timeouts ? live.timeouts[side] : 0,
@@ -359,6 +369,7 @@ export default function TeamStaffConsole() {
     // --- EFFECT: SOCKET.IO FOR REAL-TIME UPDATES ---
     useEffect(() => {
         if (!teamId || !teamSide) return;
+        const source = liveStateGateRef.current;
 
         const socketUrl = getSocketServerUrl(`${window.location.protocol}//${window.location.hostname}:3000`);
         const socket = io(socketUrl, {
@@ -431,6 +442,7 @@ export default function TeamStaffConsole() {
 
         socket.on('live_state_updated', (live) => {
             if (live) {
+                if (liveStateGateRef.current !== source || !source.gate.accept(live)) return;
                 if (live.matchData) {
                     setMatchData(prev => prev ? ({
                         ...prev,
@@ -945,11 +957,16 @@ export default function TeamStaffConsole() {
     };
 
     const handlePlayerSelect = (player) => {
-        if (selectedPlayerForLineup && selectedPlayerForLineup.id === player.id) {
-            setSelectedPlayerForLineup(null);
-        } else {
-            setSelectedPlayerForLineup(player);
-        }
+        if (!isSettingLineup || isPlayerLibero(player)) return;
+        setTempLineup(previous => {
+            if (previous.some(placed => samePlayer(placed, player))) return previous;
+            const nextSlot = previous.findIndex(placed => !placed);
+            if (nextSlot === -1) return previous;
+            const next = [...previous];
+            next[nextSlot] = player;
+            return next;
+        });
+        setSelectedPlayerForLineup(null);
     };
 
     const handleStartLineup = () => {
@@ -1103,6 +1120,10 @@ export default function TeamStaffConsole() {
                     </div>
                 </div>
             </header>
+            {rosterError && <div role="alert" className="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                {ui('Could not load the match roster. Please retry.')}
+                <button type="button" onClick={fetchData} className="ml-3 underline font-semibold">{ui('Retry')}</button>
+            </div>}
 
             <main className={mainClassName}>
                 {/* LEFT SIDE: Court & Lineup */}

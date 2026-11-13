@@ -1,3 +1,5 @@
+import { useOptionalLanguage } from '../../context/LanguageContext';
+import { localizedReference } from '../../utils/i18n/competitionNames';
 import { getStoredUser } from '../../auth/authStorage';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -19,6 +21,7 @@ const normalizeRoundName = (value) => {
 };
 
 export default function MatchManagementTab({ initialCompetitionId, initialMatchId }) {
+    const { language } = useOptionalLanguage();
     const displayNames = useDisplayNames();
     const ui = useUiTranslation();
     // --- State Management ---
@@ -902,7 +905,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                     >
                                         <option value="">{ui("-- Select Stadium --")}</option>
                                         {stadiums.map(s => (
-                                            <option key={s.id} value={s.name}>{s.name}</option>
+                                            <option key={s.id} value={s.name}>{localizedReference(s, language)}</option>
                                         ))}
                                     </select>
                                 </div>

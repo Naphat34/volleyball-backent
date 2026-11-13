@@ -24,8 +24,11 @@ function applyMatchSetup(match) {
     }
     return match;
 }
-function setupPlayers(match, side, fallback) {
-    return parseSetup(match.match_setup)?.[side]?.players ?? fallback;
+function setupPlayers(match, side, fallback, { fillEmpty = false } = {}) {
+    const saved = parseSetup(match.match_setup)?.[side]?.players;
+    // The roster editor may populate a side that was empty when the other team saved setup.
+    if (fillEmpty && match.status === 'scheduled' && Array.isArray(saved) && !saved.length) return fallback;
+    return saved ?? fallback;
 }
 function setupStaff(match, side, fallback) {
     return parseSetup(match.match_setup)?.[side]?.staff ?? fallback;

@@ -53,6 +53,17 @@ VITE_API_URL=http://localhost:3000
 
 Production ต้องตั้ง `JWT_SECRET` เป็นค่าที่แข็งแรง และตั้ง `CORS_ORIGINS` เป็น domain จริงเท่านั้น
 
+สำหรับ frontend บน Vercel และ API บน Render ให้ตั้ง Environment ของบริการ API แล้ว redeploy:
+
+```env
+CORS_ORIGINS=https://volleyball-backent.vercel.app
+FRONTEND_URL=https://volleyball-backent.vercel.app
+AUTH_COOKIE_SAMESITE=none
+AUTH_COOKIE_SECURE=true
+```
+
+Backend รวมโดเมนจาก `CORS_ORIGINS` และ `FRONTEND_URL` เป็นรายการที่อนุญาตสำหรับทั้ง CORS และ POST/PUT/PATCH/DELETE หากมีหลายโดเมนให้คั่นด้วย comma ตรวจสอบว่า OPTIONS `/api/auth/login` ตอบ 204 พร้อม `Access-Control-Allow-Origin` ตรงกับ frontend หาก API ไม่ทำงานหรือแพลตฟอร์มตอบ error ต้องแก้ deployment ของ API ก่อน
+
 ## Install
 
 ```bash

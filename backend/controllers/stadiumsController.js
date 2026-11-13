@@ -1,3 +1,4 @@
+const { stadiumNames } = require('../utils/stadiumNames');
 const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 
@@ -17,14 +18,15 @@ module.exports = {
   async createStadium(req, res) {
     const client = await db.pool.connect();
     try {
-      const { name, code, address, google_map_url, capacity, number_of_courts, status } = req.body;
+      const { code, address, google_map_url, capacity, number_of_courts, status } = req.body;
 
+      const { name, name_th, name_en } = stadiumNames(req.body);
       await client.query('BEGIN');
       const result = await client.query(
-        sqlDialect(`INSERT INTO stadiums (name, code, address, google_map_url, capacity, number_of_courts, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`, `INSERT INTO stadiums (name, code, address, google_map_url, capacity, number_of_courts, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`),
-        [name, code, address, google_map_url, capacity || 0, number_of_courts || 1, status || 'active']
+        sqlDialect(`INSERT INTO stadiums (name, name_th, name_en, code, address, google_map_url, capacity, number_of_courts, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, `INSERT INTO stadiums (name, name_th, name_en, code, address, google_map_url, capacity, number_of_courts, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
+        [name, name_th, name_en, code, address, google_map_url, capacity || 0, number_of_courts || 1, status || 'active']
       );
       const insertedId = result.insertId;
       const created = await client.query('SELECT * FROM stadiums WHERE id = ?', [insertedId]);
@@ -33,7 +35,7 @@ module.exports = {
     } catch (err) {
       await client.query('ROLLBACK');
       console.error(err);
-      res.status(500).json({ error: err.message });
+      res.status(err.status || 500).json({ error: err.message });
     } finally {
       client.release();
     }
@@ -44,17 +46,20 @@ module.exports = {
     const client = await db.pool.connect();
     try {
       const { id } = req.params;
-      const { name, code, address, google_map_url, capacity, number_of_courts, status } = req.body;
+      const { code, address, google_map_url, capacity, number_of_courts, status } = req.body;
 
+      const current = await client.query('SELECT * FROM stadiums WHERE id = ?', [id]);
+      if (!current.rows[0]) return res.status(404).json({ error: 'Stadium not found' });
+      const { name, name_th, name_en } = stadiumNames(req.body, current.rows[0]);
       const cleanCapacity = (capacity === '' || capacity === null || capacity === undefined) ? 0 : parseInt(capacity, 10);
       const cleanCourts = (number_of_courts === '' || number_of_courts === null || number_of_courts === undefined) ? 1 : parseInt(number_of_courts, 10);
 
       await client.query('BEGIN');
       await client.query(
         `UPDATE stadiums SET
-         name=?, code=?, address=?, google_map_url=?, capacity=?, number_of_courts=?, status=?, updated_at=NOW()
+         name=?, name_th=?, name_en=?, code=?, address=?, google_map_url=?, capacity=?, number_of_courts=?, status=?, updated_at=NOW()
          WHERE id=?`,
-        [name, code, address, google_map_url, cleanCapacity, cleanCourts, status, id]
+        [name, name_th, name_en, code, address, google_map_url, cleanCapacity, cleanCourts, status, id]
       );
       const result = await client.query('SELECT * FROM stadiums WHERE id = ?', [id]);
       await client.query('COMMIT');
@@ -62,7 +67,7 @@ module.exports = {
     } catch (err) {
       await client.query('ROLLBACK');
       console.error(err);
-      res.status(500).json({ error: err.message });
+      res.status(err.status || 500).json({ error: err.message });
     } finally {
       client.release();
     }

@@ -50,7 +50,7 @@
 .vd-table-scroll { overflow-x:auto; }
 .vd-table { width:100%; min-width:1200px; border-collapse:collapse; text-align:left; }
 .vd-table thead { background:var(--vis-d263348, #263348); color:var(--vis-d93a3b9, #93a3b9); }
-.vd-table th { padding:7px 12px; font-size:13px; font-weight:600; white-space:nowrap; }
+.vd-table th { padding:7px 12px; font-size:16px; font-weight:600; white-space:nowrap; }
 .vd-table th button { font-size:inherit; font-weight:inherit; }
 .vd-table th button span { color:var(--vis-d647892, #647892); }
 .vd-table th button span.vd-sort-active { color:#38bdf8; }
@@ -119,7 +119,7 @@
 .vd-results-summary {padding:0 12px 10px;font-size:12px;color:var(--vis-d9ba9be, #9ba9be);}
 .vd-competition-group {margin:0 10px 14px;border:1px solid var(--vis-d304057, #304057);border-radius:9px;}
 .vd-group-heading {display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:12px 14px;border-radius:8px 8px 0 0;background:var(--vis-d121e31, #121e31);}
-.vd-group-heading h2 {margin:0;font-size:14px;font-weight:700;line-height:1.5;overflow-wrap:anywhere;}
+.vd-group-heading h2 {margin:0;font-size:16px;font-weight:700;line-height:1.5;overflow-wrap:anywhere;}
 .vd-group-count {font-size:12px;color:var(--vis-d9ba9be, #9ba9be);white-space:nowrap;}
 .vd-competition-group .vd-table {table-layout:fixed;min-width:1280px;}
 .vd-col-number {width:4%;}.vd-col-date {width:7%;}.vd-col-time {width:5%;}.vd-col-match {width:24%;}.vd-col-venue {width:16%;}.vd-col-score {width:9%;}.vd-col-status {width:12%;}.vd-col-updated {width:9%;}.vd-col-actions {width:14%;}
@@ -150,6 +150,8 @@
 .vd-competition-group .vd-actions-heading {text-align:right;}
 .vd-table-scroll:focus-visible {outline:2px solid #0284c7;outline-offset:-2px;}
 .vd-table-panel > .vd-empty {padding:40px 16px;text-align:center;}
+.vd-competition-group .vd-table,
+.vd-competition-group .vd-table :is(th, td, div, span, small, strong, i, button, a, summary) {font-size:14px;}
 html[data-vis-theme="light"] .vd-competition-group {background:#fff;border-color:#cbd5e1;}
 html[data-vis-theme="light"] .vd-group-heading {background:#fff;color:#1f2937;}
 html[data-vis-theme="light"] .vd-competition-group .vd-table thead {background:#f1f5f9;color:#475569;border-block:1px solid #cbd5e1;}

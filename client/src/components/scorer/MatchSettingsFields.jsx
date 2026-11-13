@@ -41,7 +41,7 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
         {field('decidingSetPoints', t('คะแนนเซตตัดสิน', 'Deciding set points'), 'number', !isManual || !settings.editableTeams)}
         <label className="smm-ack"><input type="checkbox" disabled={teamsDisabled} checked={draft.has_challenge} onChange={event => onChange({ ...draft, has_challenge: event.target.checked })}/>{t('ใช้ Challenge', 'Enable Challenge')}</label>
     </div></section>;
-    if (tab === 'roster' || tab === 'staff') return <><p className="smm-hint">{t('การเปลี่ยนแปลงมีผลเฉพาะแมตซ์นี้', 'Changes apply only to this match.')}{!settings.editableTeams && ` · ${t('เริ่มแข่งขันแล้ว รายชื่อถูกล็อก', 'Match started; rosters are locked.')}`}</p><div className="smm-teams">{['home', 'away'].map(side => <section key={side}>
+    if (tab === 'roster' || tab === 'staff') return <><p className="smm-hint">{t('การเปลี่ยนแปลงมีผลเฉพาะแมตซ์นี้', 'Changes apply only to this match.')}{!settings.editableTeams && ` · ${t('เริ่มแข่งขันแล้ว รายชื่อถูกล็อก', 'Match started; rosters are locked.')}`}</p><div className="smm-teams">{['home', 'away'].map(side => <section key={side} style={{ borderTop: `3px solid ${draft[side].color || (side === 'home' ? '#6366f1' : '#f43f5e')}` }}>
         <h3>{side === 'home' ? t('ทีมเจ้าบ้าน (*)', 'Home team (*)') : t('ทีมเยือน (a)', 'Away team (a)')}{draft[side].name && ` · ${draft[side].name}`}</h3>
         {tab === 'roster' ? <>
             <label className="smm-field">{t('ชื่อทีมที่แสดง', 'Team display name')}<input disabled={teamsDisabled} value={draft[side].name} onChange={event => teamChange(side, { name: event.target.value })}/></label>

@@ -51,18 +51,18 @@ function restoreSnapshot(player) {
     return { ...rest, ...Object.fromEntries(snapshotFields.filter(key => Object.hasOwn(saved, key)).map(key => [key, saved[key]])) };
 }
 
-// Caller owns the transaction. Lock the team before editing master players or entries.
-async function syncTeamEntries(connection, teamId) {
-    if (!teamId) return;
-    await connection.query('SELECT id FROM teams WHERE id=? FOR UPDATE', [teamId]);
+// The caller holds a transaction; lock entry rows consistently for reads and repairs.
+async function loadTeamRosterEntries(connection, teamId) {
     const result = await connection.query(sqlDialect(`SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
         c.start_date,c.status AS competition_status,c.max_players,ag.name AS age_group_name,
         DATE_FORMAT(CURRENT_DATE,'%Y-%m-%d') AS today,
         EXISTS (SELECT 1 FROM matches m WHERE m.competition_id=te.competition_id
             AND (m.home_team_id=te.team_id OR m.away_team_id=te.team_id)
-            AND (m.status <> 'scheduled' OR m.match_setup IS NOT NULL OR EXISTS (SELECT 1 FROM match_actions a WHERE a.match_id=m.id)
-                OR EXISTS (SELECT 1 FROM match_events e WHERE e.match_id=m.id)
-                OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id=m.id))) AS has_history
+            AND (COALESCE(m.age_group_id,c.age_group_id)=COALESCE(te.age_group_id,c.age_group_id)
+                OR (COALESCE(m.age_group_id,c.age_group_id) IS NULL AND COALESCE(te.age_group_id,c.age_group_id) IS NULL))
+            AND (m.status <> 'scheduled' OR COALESCE(JSON_LENGTH(JSON_EXTRACT(m.match_setup, CASE WHEN m.home_team_id=te.team_id THEN '$.home.players' ELSE '$.away.players' END)),0)>0 OR EXISTS (SELECT 1 FROM match_actions a WHERE a.match_id=m.id AND a.team_id=te.team_id)
+                OR EXISTS (SELECT 1 FROM match_events e WHERE e.match_id=m.id AND e.team_id=te.team_id)
+                OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id=m.id AND l.team_id=te.team_id))) AS has_history
         FROM team_entries te JOIN competitions c ON c.id=te.competition_id
         LEFT JOIN age_groups ag ON ag.id=COALESCE(te.age_group_id,c.age_group_id)
         WHERE te.team_id=? ORDER BY te.id FOR UPDATE`, `SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
@@ -70,13 +70,22 @@ async function syncTeamEntries(connection, teamId) {
         to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today,
         EXISTS (SELECT 1 FROM matches m WHERE m.competition_id=te.competition_id
             AND (m.home_team_id=te.team_id OR m.away_team_id=te.team_id)
-            AND (m.status <> 'scheduled' OR m.match_setup IS NOT NULL OR EXISTS (SELECT 1 FROM match_actions a WHERE a.match_id=m.id)
-                OR EXISTS (SELECT 1 FROM match_events e WHERE e.match_id=m.id)
-                OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id=m.id))) AS has_history
+            AND (COALESCE(m.age_group_id,c.age_group_id)=COALESCE(te.age_group_id,c.age_group_id)
+                OR (COALESCE(m.age_group_id,c.age_group_id) IS NULL AND COALESCE(te.age_group_id,c.age_group_id) IS NULL))
+            AND (m.status <> 'scheduled' OR jsonb_array_length(COALESCE(m.match_setup::jsonb #> ARRAY[CASE WHEN m.home_team_id=te.team_id THEN 'home' ELSE 'away' END,'players'],'[]'::jsonb))>0 OR EXISTS (SELECT 1 FROM match_actions a WHERE a.match_id=m.id AND a.team_id=te.team_id)
+                OR EXISTS (SELECT 1 FROM match_events e WHERE e.match_id=m.id AND e.team_id=te.team_id)
+                OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id=m.id AND l.team_id=te.team_id))) AS has_history
         FROM team_entries te JOIN competitions c ON c.id=te.competition_id
         LEFT JOIN age_groups ag ON ag.id=COALESCE(te.age_group_id,c.age_group_id)
         WHERE te.team_id=? ORDER BY te.id FOR UPDATE OF te`), [teamId]);
-    const entries = result.rows;
+    return result.rows;
+}
+
+// Caller owns the transaction. Lock the team before editing master players or entries.
+async function syncTeamEntries(connection, teamId) {
+    if (!teamId) return;
+    await connection.query('SELECT id FROM teams WHERE id=? FOR UPDATE', [teamId]);
+    const entries = await loadTeamRosterEntries(connection, teamId);
     if (!entries.length) return;
     const players = (await connection.query('SELECT * FROM players WHERE team_id=? ORDER BY id', [teamId])).rows;
     const assigned = (await connection.query(`SELECT ep.player_id,ep.team_entry_id FROM team_entry_players ep
@@ -129,4 +138,4 @@ async function refreshCompetitionEntries(database, competitionId) {
     const teams = await database.query('SELECT DISTINCT team_id FROM team_entries WHERE competition_id=? ORDER BY team_id', [competitionId]);
     for (const { team_id } of teams.rows) await refreshTeamEntries(database, team_id);
 }
-module.exports = { eligibility, ageLimit, rosterError, snapshot, restoreSnapshot, syncTeamEntries, refreshTeamEntries, refreshCompetitionEntries };
+module.exports = { loadTeamRosterEntries, eligibility, ageLimit, rosterError, snapshot, restoreSnapshot, syncTeamEntries, refreshTeamEntries, refreshCompetitionEntries };

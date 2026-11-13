@@ -153,7 +153,7 @@ export default function VisMatchSettings({ match, teams, onClose, onLineup, canE
                 <div className="vis-settings-teams">{teams.map(team => {
                     const key = team.key, draft = form[key];
                     const coaches=coachingStaff(draft.staff,match[key+'_coach_name']||match[key+'_coach']||'');
-                    return <section key={key} className="vis-settings-card vis-settings-team" style={{ '--settings-team-color': teamColors[key] }}>
+                    return <section key={key} className="vis-settings-card vis-settings-team" style={{ '--settings-team-color': teamColors[key], borderTopColor: teamColors[key] }}>
                         <h3>{key === 'home' ? vt('ทีมเจ้าบ้าน (*)') : vt('ทีมเยือน (a)')}</h3>
                         <div className="vis-settings-card-body">
                             <div className="vis-settings-team-fields"><label>{vt("ชื่อทีม")}<input value={draft.name} readOnly={!metadataEditable} onChange={event => updateTeam(key, { name: event.target.value })} /></label><label>{vt("ชื่อย่อ")}<input value={draft.code} readOnly={!metadataEditable || custom} onChange={event => updateTeam(key, { code: event.target.value })} /></label></div>
