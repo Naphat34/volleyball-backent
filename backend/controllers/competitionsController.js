@@ -651,6 +651,21 @@ module.exports = {
     }
   },
 
+  async confirmMyTeamEntryRoster(req, res) {
+    const connection = await db.connect();
+    try {
+      await connection.beginTransaction();
+      const teamId = await getUserActiveTeamId(connection, req.user.id);
+      if (!teamId) throw Object.assign(new Error('Team not found'), { status: 403 });
+      const entry = await require('../utils/automaticEntryRoster').confirmEntryRoster(connection, teamId, req.params.entryId);
+      await connection.commit();
+      res.json({ entry });
+    } catch (error) {
+      await connection.rollback();
+      res.status(error.status || 500).json({ error: error.status ? error.message : 'Could not confirm roster' });
+    } finally { connection.release(); }
+  },
+
   async getMyTeamEntryPlayers(req, res) {
     try {
       const userId = req.user.id;

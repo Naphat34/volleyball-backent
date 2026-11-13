@@ -40,8 +40,8 @@ test('sync copies active eligible athletes and snapshots, then skips unchanged m
     await syncTeamEntries(h,1);
     assert.equal(h.writes.length,count,'reads must not overwrite match selections when the master is unchanged');
 });
-test('closed, started, used and previously locked entries never rewrite their snapshots, even after reopening', async () => {
-    for (const patch of [{competition_status:'closed'},{start_date:'2026-11-11'},{has_history:1},{roster_locked_at:'2026-11-01'}]) {
+test('closed and explicitly locked entries never rewrite their snapshots, even after reopening', async () => {
+    for (const patch of [{competition_status:'closed'},{roster_locked_at:'2026-11-01'}]) {
         const e = entry(1,patch), h = store([e],[player(1,{number:99})]);
         await syncTeamEntries(h,1);
         e.competition_status='open'; e.start_date='2027-01-01'; e.has_history=0;
@@ -85,4 +85,12 @@ test('refresh commits atomically and rolls back on SQL failures', async () => {
         if(fail)await assert.rejects(action,/SQL failed/);else await action();
         assert.deepEqual(calls,['begin',fail?'rollback':'commit','release']);
     }
+});
+
+test('start date and match usage alone do not lock the competition roster', async () => {
+    const e = entry(1, {start_date:'2026-11-11', has_history:1});
+    const h = store([e], [player(1)]);
+    await syncTeamEntries(h, 1);
+    assert.equal(Boolean(e.roster_locked_at), false);
+    assert.equal(h.saved.get(1).length, 1);
 });

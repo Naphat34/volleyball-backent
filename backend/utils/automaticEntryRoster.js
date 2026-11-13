@@ -91,8 +91,7 @@ async function syncTeamEntries(connection, teamId) {
     const assigned = (await connection.query(`SELECT ep.player_id,ep.team_entry_id FROM team_entry_players ep
         JOIN team_entries te ON te.id=ep.team_entry_id WHERE te.team_id=?`, [teamId])).rows;
     for (const entry of entries) {
-        if (!entry.roster_locked_at && (entry.competition_status !== 'open' || Number(entry.has_history)
-            || (dateText(entry.start_date) && dateText(entry.start_date) <= entry.today))) {
+        if (!entry.roster_locked_at && entry.competition_status !== 'open') {
             await connection.query('UPDATE team_entries SET roster_locked_at=CURRENT_TIMESTAMP WHERE id=?', [entry.id]);
             entry.roster_locked_at = true;
         }
@@ -125,6 +124,19 @@ async function syncTeamEntries(connection, teamId) {
         }
     }
 }
+async function confirmEntryRoster(connection, teamId, entryId) {
+    await connection.query('SELECT id FROM teams WHERE id=? FOR UPDATE', [teamId]);
+    await syncTeamEntries(connection, teamId);
+    const entry = (await loadTeamRosterEntries(connection, teamId)).find(row => String(row.id) === String(entryId));
+    const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
+    if (!entry) fail('Team entry not found', 404);
+    if (entry.roster_locked_at) return entry;
+    if (entry.roster_sync_error) fail(entry.roster_sync_error);
+    const count = (await connection.query('SELECT COUNT(*) AS count FROM team_entry_players WHERE team_entry_id=?', [entry.id])).rows[0];
+    if (Number(count.count) < 6) fail('กรุณาลงทะเบียนนักกีฬาอย่างน้อย 6 คนก่อนยืนยันรายชื่อ / Register at least six players before confirming');
+    await connection.query('UPDATE team_entries SET roster_locked_at=CURRENT_TIMESTAMP WHERE id=?', [entry.id]);
+    return (await connection.query('SELECT * FROM team_entries WHERE id=?', [entry.id])).rows[0];
+}
 async function refreshTeamEntries(database, teamId) {
     const connection = await database.connect();
     try {
@@ -138,4 +150,4 @@ async function refreshCompetitionEntries(database, competitionId) {
     const teams = await database.query('SELECT DISTINCT team_id FROM team_entries WHERE competition_id=? ORDER BY team_id', [competitionId]);
     for (const { team_id } of teams.rows) await refreshTeamEntries(database, team_id);
 }
-module.exports = { loadTeamRosterEntries, eligibility, ageLimit, rosterError, snapshot, restoreSnapshot, syncTeamEntries, refreshTeamEntries, refreshCompetitionEntries };
+module.exports = { confirmEntryRoster, loadTeamRosterEntries, eligibility, ageLimit, rosterError, snapshot, restoreSnapshot, syncTeamEntries, refreshTeamEntries, refreshCompetitionEntries };

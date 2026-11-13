@@ -192,6 +192,7 @@ router.delete('/my-team/staff/:id', authMiddleware.canManageOwnTeam, teamControl
 router.get('/my-team/competitions', competitionsController.getMyCompetitions);
 router.get('/my-team/entries', competitionsController.getMyTeamEntries);
 router.get('/my-team/entries/:entryId/players', competitionsController.getMyTeamEntryPlayers);
+router.post('/my-team/entries/:entryId/confirm-roster', authMiddleware.canManageOwnTeam, competitionsController.confirmMyTeamEntryRoster);
 router.put('/my-team/entries/:entryId/players', authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryPlayers);
 router.get('/my-team/entries/:entryId/staff', authMiddleware.canManageOwnTeam, competitionsController.getMyTeamEntryStaff);
 router.put('/my-team/entries/:entryId/staff', authMiddleware.hasAnyRole(['team_staff']), authMiddleware.canManageOwnTeam, competitionsController.updateMyTeamEntryStaff);

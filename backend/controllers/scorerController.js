@@ -666,7 +666,7 @@ module.exports = {
                 SELECT match_id, team_id, set_number,
                     player_id_p1, player_id_p2, player_id_p3,
                     player_id_p4, player_id_p5, player_id_p6,
-                    libero_id
+                    libero_id, player_positions
                 FROM match_lineups
                 WHERE match_id = ?
                 ORDER BY team_id, set_number DESC
@@ -721,7 +721,11 @@ module.exports = {
 
             // จัด Format ส่งกลับ Frontend ให้เป็น Array [p1, p2, ..., p6]
             const formattedLineups = lineupResult.rows.map(row => {
-                const getP = (id) => playersMap[id] || { id: id, number: '?', name: 'Unknown' };
+                let saved = row.player_positions;
+                try { if (typeof saved === 'string') saved = JSON.parse(saved); } catch { saved = null; }
+                const snapshots = saved?.version === 1 && Array.isArray(saved.players) ? saved.players : [];
+                const getP = (id) => id == null ? null : snapshots.find(p => p && String(p.id) === String(id))
+                    || playersMap[id] || { id: id, number: '?', name: 'Unknown' };
                 return {
                     team_id: row.team_id,
                     lineup: [
@@ -903,6 +907,27 @@ module.exports = {
                 try {
                     await client.query('BEGIN');
 
+                    const ids = [...new Set(pIds.filter(Boolean))];
+                    let lineupSnapshot = [];
+                    if (ids.length) {
+                        const registered = await client.query(`SELECT p.id,p.team_id,p.first_name,p.last_name,
+                            p.first_name_th,p.last_name_th,p.first_name_en,p.last_name_en,
+                            COALESCE(ep.number,p.number) AS number,COALESCE(ep.role,p.position) AS role,
+                            COALESCE(ep.role,p.position) AS position,ep.athlete_snapshot
+                            FROM players p JOIN matches m ON m.id=?
+                            LEFT JOIN team_entries te ON te.competition_id=m.competition_id AND te.team_id=p.team_id
+                            LEFT JOIN team_entry_players ep ON ep.team_entry_id=te.id AND ep.player_id=p.id
+                            WHERE p.id IN (${ids.map(() => '?').join(',')})`, [matchId,...ids]);
+                        const match = (await client.query('SELECT match_setup FROM matches WHERE id=?', [matchId])).rows[0];
+                        const setup = parseSetup(match?.match_setup);
+                        const players = registered.rows.map(restoreSnapshot).map(player => {
+                            const override = [...(setup?.home?.players || []),...(setup?.away?.players || [])]
+                                .find(p => String(p.id) === String(player.id));
+                            return { ...player, ...override };
+                        });
+                        lineupSnapshot = pIds.map(id => players.find(p => String(p.id) === String(id)) || null);
+                    }
+
                     await client.query(`
                         DELETE FROM match_lineups
                         WHERE match_id = ? AND team_id = ? AND set_number = ?
@@ -910,12 +935,12 @@ module.exports = {
 
                     await client.query(sqlDialect(`
                         INSERT INTO match_lineups
-                        (match_id, team_id, set_number, player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6, libero_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (match_id, team_id, set_number, player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6, libero_id, player_positions)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `, `
                         INSERT INTO match_lineups
-                        (match_id, team_id, set_number, player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6, libero_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`), [
+                        (match_id, team_id, set_number, player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6, libero_id, player_positions)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`), [
                         matchId,
                         team_id,
                         set_number,
@@ -925,7 +950,8 @@ module.exports = {
                         pIds[3] || null,
                         pIds[4] || null,
                         pIds[5] || null,
-                        libero_id
+                        libero_id,
+                        JSON.stringify({ version: 1, players: lineupSnapshot })
                     ]);
 
                     await client.query('COMMIT');
