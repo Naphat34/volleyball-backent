@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 
 // --- Referees ---
@@ -19,7 +20,7 @@ exports.createReferee = async (req, res) => {
     try {
         const { firstname, lastname, country, code } = req.body;
         const result = await db.query(
-            'INSERT INTO referees (firstname, lastname, country, code) VALUES (?, ?, ?, ?)',
+            sqlDialect('INSERT INTO referees (firstname, lastname, country, code) VALUES (?, ?, ?, ?)', "INSERT INTO referees (firstname, lastname, country, code) VALUES (?, ?, ?, ?) RETURNING id"),
             [firstname, lastname, country, code]
         );
         const inserted = await db.query('SELECT * FROM referees WHERE id = ?', [result.insertId]);
@@ -77,7 +78,7 @@ exports.createScorer = async (req, res) => {
     try {
         const { firstname, lastname, country } = req.body;
         const result = await db.query(
-            'INSERT INTO scorers (firstname, lastname, country) VALUES (?, ?, ?)',
+            sqlDialect('INSERT INTO scorers (firstname, lastname, country) VALUES (?, ?, ?)', "INSERT INTO scorers (firstname, lastname, country) VALUES (?, ?, ?) RETURNING id"),
             [firstname, lastname, country]
         );
         const inserted = await db.query('SELECT * FROM scorers WHERE id = ?', [result.insertId]);
@@ -130,7 +131,7 @@ exports.createLineJudge = async (req, res) => {
     try {
         const { firstname, lastname, country } = req.body;
         const result = await db.query(
-            'INSERT INTO line_judges (firstname, lastname, country) VALUES (?, ?, ?)',
+            sqlDialect('INSERT INTO line_judges (firstname, lastname, country) VALUES (?, ?, ?)', "INSERT INTO line_judges (firstname, lastname, country) VALUES (?, ?, ?) RETURNING id"),
             [firstname, lastname, country]
         );
         const inserted = await db.query('SELECT * FROM line_judges WHERE id = ?', [result.insertId]);

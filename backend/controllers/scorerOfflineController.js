@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -12,7 +13,9 @@ const handlers = { 'POST event': 'saveMatchEvent', 'POST toss': 'saveCoinToss', 
     'POST start-set': 'startSet', 'POST end-set': 'endSet', 'PUT state': 'updateLiveState', 'PUT officials': 'updateMatchOfficials', 'PUT roster': 'updateMatchRoster' };
 function scopedController(connection) {
     const query = (sql, args) => /^(BEGIN|COMMIT|ROLLBACK)\b/i.test(sql.trim()) ? Promise.resolve({ rows: [] }) : connection.query(sql, args);
-    const proxy = { query, release() {} };
+    // The caller owns the real transaction. Nested roster/athlete helpers need
+    // the connection interface, but must not commit, roll back or release it.
+    const proxy = { query, beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {} };
     const database = { query, pool: { connect: async () => proxy }, connect: async () => proxy };
     const localRequire = createRequire(controllerFile);
     const scope = { module: { exports: {} }, exports: {}, console, require: name => name === '../config/db' ? database : localRequire(name) };
@@ -23,7 +26,7 @@ function scopedController(connection) {
 async function call(controller, method, req, body) {
     if (method === 'saveMatchEvent' && body.event_type === 'SUBSTITUTION_BATCH') {
         const planned = require('../utils/substitutionBatch').substitutionBatchEvents(body);
-        const existing = await controller.batchConnection.query("SELECT * FROM match_events WHERE match_id=? AND (JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchLocalEventId'))=? OR JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchCancelledId'))=?) ORDER BY id", [req.params.matchId, body.local_event_id, body.local_event_id]);
+        const existing = await controller.batchConnection.query(sqlDialect("SELECT * FROM match_events WHERE match_id=? AND (JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchLocalEventId'))=? OR JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchCancelledId'))=?) ORDER BY id", "SELECT * FROM match_events WHERE match_id=? AND (json_unquote(json_extract(CASE WHEN valid_json(details) THEN details ELSE '{}' END,'$.batchLocalEventId'))=? OR json_unquote(json_extract(CASE WHEN valid_json(details) THEN details ELSE '{}' END,'$.batchCancelledId'))=?) ORDER BY id"), [req.params.matchId, body.local_event_id, body.local_event_id]);
         if (existing.rows.length) return { success: true, event: existing.rows[0], events: existing.rows };
         const events = [];
         for (const item of planned) {
@@ -105,8 +108,9 @@ exports.checkout = endpoint(async (req, res, connection) => {
     if (leaseCreated) {
         const sets = (await connection.query('SELECT * FROM match_sets WHERE match_id=?', [req.params.matchId])).rows;
         const checkpoint = { ...initialCheckpoint(match, sets), checkoutToken: randomUUID() };
-        await connection.query(`INSERT INTO scorer_offline_sessions (match_id,owner_id,device_id,expires_at,fingerprint,receipts,checkpoint,released)
-        VALUES (?,?,?,?,?,'[]',?,0) ON DUPLICATE KEY UPDATE owner_id=VALUES(owner_id), device_id=VALUES(device_id), expires_at=VALUES(expires_at), fingerprint=VALUES(fingerprint),checkpoint=VALUES(checkpoint),receipts=JSON_ARRAY(), released=0`,
+        await connection.query(sqlDialect(`INSERT INTO scorer_offline_sessions (match_id,owner_id,device_id,expires_at,fingerprint,receipts,checkpoint,released)
+        VALUES (?,?,?,?,?,'[]',?,0) ON DUPLICATE KEY UPDATE owner_id=VALUES(owner_id), device_id=VALUES(device_id), expires_at=VALUES(expires_at), fingerprint=VALUES(fingerprint),checkpoint=VALUES(checkpoint),receipts=JSON_ARRAY(), released=0`, `INSERT INTO scorer_offline_sessions (match_id,owner_id,device_id,expires_at,fingerprint,receipts,checkpoint,released)
+        VALUES (?,?,?,?,?,'[]',?,0) ON CONFLICT (match_id) DO UPDATE SET owner_id=EXCLUDED.owner_id, device_id=EXCLUDED.device_id, expires_at=EXCLUDED.expires_at, fingerprint=EXCLUDED.fingerprint,checkpoint=EXCLUDED.checkpoint,receipts='[]'::jsonb, released=0`),
     [req.params.matchId, req.user.id, req.body.deviceId, Date.now() + 7 * 86400000, hash, JSON.stringify(checkpoint)]);
     }
     const prefix = `/scorer/match/${req.params.matchId}`;
@@ -165,7 +169,7 @@ exports.sync = endpoint(async (req, res, connection) => {
             if (!state?.score || !Array.isArray(op.body.keepLocalIds)) fail('ข้อมูลย้อนรายการไม่ครบ');
             const keep = new Set(op.body.keepLocalIds);
             for (const item of receipts.filter(item => item.localEventId && !keep.has(item.localEventId))) {
-                await connection.query("DELETE FROM match_events WHERE match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(details) THEN details ELSE '{}' END,'$.local_event_id'))=? OR match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(details) THEN details ELSE '{}' END,'$.batchLocalEventId'))=?", [req.params.matchId, item.localEventId, req.params.matchId, item.localEventId]);
+                await connection.query(sqlDialect("DELETE FROM match_events WHERE match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(details) THEN details ELSE '{}' END,'$.local_event_id'))=? OR match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(details) THEN details ELSE '{}' END,'$.batchLocalEventId'))=?", "DELETE FROM match_events WHERE match_id=? AND json_unquote(json_extract(CASE WHEN valid_json(details) THEN details ELSE '{}' END,'$.local_event_id'))=? OR match_id=? AND json_unquote(json_extract(CASE WHEN valid_json(details) THEN details ELSE '{}' END,'$.batchLocalEventId'))=?"), [req.params.matchId, item.localEventId, req.params.matchId, item.localEventId]);
             }
             await connection.query('DELETE FROM match_sets WHERE match_id=? AND set_number>?', [req.params.matchId, state.completedSets?.length || 0]);
             await connection.query("UPDATE matches SET status='live',winner_team_id=NULL,team_a_score=?,team_b_score=?,home_set_score=?,away_set_score=? WHERE id=?", [state.score.home,state.score.away,state.setsWon?.home || 0,state.setsWon?.away || 0,req.params.matchId]);
@@ -241,7 +245,7 @@ exports.online = method => endpoint(async (req,res,connection) => {
         if (typeof batchId !== 'string' || batchId.length > 100 || !state?.score || !state?.matchData?.currentSet) fail('Invalid batch undo', 400);
         const match = (await connection.query('SELECT status FROM matches WHERE id=?', [req.params.matchId])).rows[0];
         if (!match || ['completed', 'cancelled'].includes(match.status)) fail('Match is locked', 409);
-        await connection.query("DELETE FROM match_events WHERE match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchLocalEventId'))=?", [req.params.matchId, batchId]);
+        await connection.query(sqlDialect("DELETE FROM match_events WHERE match_id=? AND JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details),details,'{}'),'$.batchLocalEventId'))=?", "DELETE FROM match_events WHERE match_id=? AND json_unquote(json_extract(CASE WHEN valid_json(details) THEN details ELSE '{}' END,'$.batchLocalEventId'))=?"), [req.params.matchId, batchId]);
         const controller = scopedController(connection);
         await call(controller, 'saveMatchEvent', req, { event_type: 'SUBSTITUTION_BATCH_UNDO', local_event_id: `undo:${batchId}`, set_number: state.matchData.currentSet, score_home: state.score.home, score_away: state.score.away, details: { batchCancelledId: batchId } });
         await call(controller, 'updateLiveState', req, { state });

@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 
 module.exports = {
@@ -17,11 +18,12 @@ module.exports = {
     const client = await db.pool.connect();
     try {
       const { name, code, address, google_map_url, capacity, number_of_courts, status } = req.body;
-      
+
       await client.query('BEGIN');
       const result = await client.query(
-        `INSERT INTO stadiums (name, code, address, google_map_url, capacity, number_of_courts, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        sqlDialect(`INSERT INTO stadiums (name, code, address, google_map_url, capacity, number_of_courts, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`, `INSERT INTO stadiums (name, code, address, google_map_url, capacity, number_of_courts, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`),
         [name, code, address, google_map_url, capacity || 0, number_of_courts || 1, status || 'active']
       );
       const insertedId = result.insertId;
@@ -49,7 +51,7 @@ module.exports = {
 
       await client.query('BEGIN');
       await client.query(
-        `UPDATE stadiums SET 
+        `UPDATE stadiums SET
          name=?, code=?, address=?, google_map_url=?, capacity=?, number_of_courts=?, status=?, updated_at=NOW()
          WHERE id=?`,
         [name, code, address, google_map_url, cleanCapacity, cleanCourts, status, id]

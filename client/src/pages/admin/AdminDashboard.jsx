@@ -7,8 +7,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../../api';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, MapPin, Flag,
-    UserCheck, LogOut, Users, Trophy, Swords, Shield,
+    LayoutDashboard, MapPin, Flag, Swords,
+    UserCheck, LogOut, Users, Trophy, Shield,
     Star, BarChart2, Menu, X, User, Bell,
     PanelLeftClose, PanelLeftOpen, ListChecks, FileText
 } from 'lucide-react';
@@ -164,7 +164,6 @@ export default function AdminDashboard() {
             { key: 'officials', icon: <Flag size={19} />, label: t('admin.officials') }
         ]},
         { label: tr('การบันทึก', 'Match operations'), items: [
-            { key: 'scoring', href: '/adminscorer', icon: <Swords size={19} />, label: 'ScorerControl' },
             { key: 'escore', icon: <Star size={19} />, label: tr('ศูนย์ข้อมูล VIMS', 'VIMS statistics') }
         ]},
         { label: tr('รายงาน', 'Reports'), items: [

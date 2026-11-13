@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+if (process.env.DB_PROVIDER && process.env.DB_PROVIDER !== 'mysql') {
+  throw new Error('These migrations are MySQL-only. See SUPABASE_MIGRATION.md before migrating PostgreSQL.');
+}
 
 const migrationsDir = path.join(__dirname, '..', 'migrations');
 

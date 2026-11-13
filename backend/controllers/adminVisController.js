@@ -12,7 +12,7 @@ exports.overview = async (req, res) => {
             FROM matches m LEFT JOIN competitions c ON c.id=m.competition_id
             LEFT JOIN age_groups ag ON ag.id=COALESCE(m.age_group_id,c.age_group_id)
             LEFT JOIN teams ht ON ht.id=m.home_team_id LEFT JOIN teams at ON at.id=m.away_team_id
-            LEFT JOIN (SELECT match_id, SUM(home_score>away_score) AS home_sets, SUM(away_score>home_score) AS away_sets
+            LEFT JOIN (SELECT match_id, SUM(CASE WHEN home_score>away_score THEN 1 ELSE 0 END) AS home_sets, SUM(CASE WHEN away_score>home_score THEN 1 ELSE 0 END) AS away_sets
                 FROM match_sets WHERE end_time IS NOT NULL GROUP BY match_id) ms ON ms.match_id=m.id
             WHERE m.manual_owner_id IS NULL ORDER BY m.id DESC`);
         const actions = await connection.query(`SELECT a.*, CONCAT_WS(' ',p.first_name,p.last_name) AS player_name, p.number AS player_number

@@ -31,8 +31,9 @@ async function validateTeamPlayerNumber(connection, teamId, rawNumber, playerId 
     if (!/^[0-9]+$/.test(String(rawNumber).trim()) || !Number.isInteger(number) || number < 1 || number > 999) {
         fail('หมายเลขเสื้อต้องเป็นจำนวนเต็ม 1–999 / Jersey number must be an integer from 1 to 999');
     }
-    const duplicate = await connection.query(`SELECT id FROM players
-        WHERE team_id=? AND number=? AND COALESCE(is_active,1)=1 AND (? IS NULL OR id<>?) LIMIT 1`,
+    const duplicate = await connection.query(require('./sqlDialect').sqlDialect(`SELECT id FROM players
+        WHERE team_id=? AND number=? AND COALESCE(is_active,1)=1 AND (? IS NULL OR id<>?) LIMIT 1`, `SELECT id FROM players
+        WHERE team_id=? AND number=? AND COALESCE(is_active,1)=1 AND (CAST(? AS integer) IS NULL OR id<>?) LIMIT 1`),
     [teamId,number,playerId,playerId]);
     if (duplicate.rows.length) throw Object.assign(new Error('หมายเลขเสื้อนี้มีนักกีฬาในทีมใช้งานแล้ว กรุณาเลือกหมายเลขอื่น / Jersey number is already used by this team'), { status: 409 });
 }

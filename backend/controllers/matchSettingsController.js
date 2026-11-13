@@ -41,16 +41,28 @@ async function snapshot(connection, req) {
         available: { home: data.home.availablePlayers, away: data.away.availablePlayers } };
 }
 exports.read = async (req, res) => {
+    let connection;
     try {
         if (!roleHasPermission(req.user?.role, 'match.score') && req.user?.role !== 'referee') fail('ไม่มีสิทธิ์ดูการตั้งค่าแมตซ์', 403);
-        const match = (await db.query('SELECT * FROM matches WHERE id=?', [req.params.matchId])).rows[0];
+        connection = await db.connect();
+        await connection.beginTransaction();
+        const match = (await connection.query('SELECT * FROM matches WHERE id=?', [req.params.matchId])).rows[0];
         if (!match || match.manual_owner_id && !canManage(req.user, match) && !canReadStatistics(req.user, match)) fail('ไม่พบแมตซ์', 404);
-        const data = await snapshot(db, req);
-        const [referees, scorers, lineJudges] = await Promise.all(['referees', 'scorers', 'line_judges'].map(table => db.query(`SELECT id, firstname, lastname FROM ${table} ORDER BY firstname, lastname`)));
-        const ageGroups = (await db.query('SELECT id, name FROM age_groups ORDER BY name')).rows;
+        const data = await snapshot(connection, req);
+        const officials = [];
+        for (const table of ['referees', 'scorers', 'line_judges']) {
+            officials.push(await connection.query(`SELECT id, firstname, lastname FROM ${table} ORDER BY firstname, lastname`));
+        }
+        const [referees, scorers, lineJudges] = officials;
+        const ageGroups = (await connection.query('SELECT id, name FROM age_groups ORDER BY name')).rows;
+        await connection.commit();
         res.set('Cache-Control', 'no-store'); res.json({ ...data, ageGroups, officials: { referees: referees.rows, scorers: scorers.rows, lineJudges: lineJudges.rows } });
     }
-    catch (error) { res.status(error.status || 500).json({ error: error.status ? error.message : 'อ่านการตั้งค่าแมตซ์ไม่สำเร็จ' }); }
+    catch (error) {
+        if (connection) await connection.rollback();
+        res.status(error.status || 500).json({ error: error.status ? error.message : 'อ่านการตั้งค่าแมตซ์ไม่สำเร็จ' });
+    }
+    finally { connection?.release(); }
 };
 exports.save = async (req, res) => {
     let connection;

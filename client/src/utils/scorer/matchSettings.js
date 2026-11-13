@@ -1,3 +1,9 @@
+export function matchCategoryLabel(draft, ageGroups = [], fallback = '') {
+    const categoryId = draft.age_group_id ?? draft.category;
+    if (categoryId === '' || categoryId == null) return fallback;
+    return ageGroups.find(group => String(group.id) === String(categoryId))?.name || fallback;
+}
+
 export function validateMatchSettings(draft, th = true) {
     const errors = [];
     const add = (tab, thai, english) => errors.push({ tab, message: th ? thai : english });

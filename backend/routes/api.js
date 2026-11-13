@@ -7,6 +7,7 @@ const path = require('path');
 // --- Imports Middleware ---
 const authMiddleware = require('../middleware/authMiddleware');
 const rateLimit = require('../middleware/rateLimiter');
+const { resolvePublicId } = require('../middleware/publicId');
 const validateRequest = require('../middleware/validateRequest');
 
 // --- Imports Controllers ---
@@ -110,12 +111,12 @@ router.get('/public/competitions', publicController.getCompetitions);
 router.get('/public/teams', publicController.getAllTeams);
 
 // -- Specific Data --
-router.get('/public/competitions/:competitionId/teams', publicController.getCompetitionTeams);
-router.get('/public/teams/:teamId/players', publicController.getTeamPlayers);
-router.get('/public/players/:id/stats', playerController.getPlayerStats);
-router.get('/public/matches', publicController.getMatches);
-router.get('/public/teams/:teamId/staff', publicController.getTeamStaff);
-router.get('/public/statistics/:competitionId', publicController.getStatistics);
+router.get('/public/competitions/:competitionId/teams', resolvePublicId('competitions','competitionId'), publicController.getCompetitionTeams);
+router.get('/public/teams/:teamId/players', resolvePublicId('teams','teamId'), resolvePublicId('competitions','competitionId',{query:true}), publicController.getTeamPlayers);
+router.get('/public/players/:id/stats', resolvePublicId('players','id'), playerController.getPlayerStats);
+router.get('/public/matches', resolvePublicId('competitions','competitionId',{query:true}), publicController.getMatches);
+router.get('/public/teams/:teamId/staff', resolvePublicId('teams','teamId'), publicController.getTeamStaff);
+router.get('/public/statistics/:competitionId', resolvePublicId('competitions','competitionId'), publicController.getStatistics);
 
 // ==================================================================
 // 🚧 MIDDLEWARE BARRIER (หลังจากบรรทัดนี้ ต้อง Login เท่านั้น)

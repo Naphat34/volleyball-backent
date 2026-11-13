@@ -36,6 +36,7 @@ test('public best scorers exclude perfect reception and setting while preserving
             INSERT INTO match_actions VALUES (1, 1, 10, 1, 'A', '#'), (2, 1, 10, 1, 'R', '#'),
                 (3, 1, 10, 1, 'E', '#'), (4, 1, 10, 1, 'D', '+'), (5, 1, 10, 1, 'S', '=');`);
         const context = { module: { exports: {} }, console, require: name => {
+        if (name === '../utils/sqlDialect') return require('../utils/sqlDialect');
             if (name === '../config/db') return { query: async (sql, params) => [db.prepare(sqliteSql(sql)).all(...params)] };
             if (name === '../utils/visStatistics') return { visStatisticsSource };
             throw new Error(`Unexpected dependency: ${name}`);

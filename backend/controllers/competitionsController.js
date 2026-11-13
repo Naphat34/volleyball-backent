@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const { teamCompositionStaff } = require('../utils/teamCompositionStaff');
 const { syncTeamEntries, refreshTeamEntries, refreshCompetitionEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { competitionInput } = require('../utils/competitionInput');
@@ -80,12 +81,17 @@ const applyCompetitionLogoFallbacks = (competitions = []) => {
 };
 
 const hasTable = async (client, tableName) => {
-  const result = await client.query(`
+  const result = await client.query(sqlDialect(`
     SELECT COUNT(*) AS count
     FROM information_schema.TABLES
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = ?
-  `, [tableName]);
+  `, `
+    SELECT COUNT(*) AS count
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = current_schema()
+      AND TABLE_NAME = ?
+  `), [tableName]);
   return Number(result.rows?.[0]?.count || 0) > 0;
 };
 
@@ -144,13 +150,18 @@ const cloneTeamForCompetition = async (client, baseTeam, competition, userId) =>
   const code = await buildTeamCode(client, baseTeam.code, competition.id);
   const teamName = truncate(`${baseTeam.name} - ${competition.title || competition.id}`, 100);
 
-  const inserted = await client.query(`
+  const inserted = await client.query(sqlDialect(`
     INSERT INTO teams
       (name, code, coach, logo_url, user_id, home_color, away_color, manager_name, phone, email,
        province, address, verification_doc_url, category, status, main_color, second_color, third_color,
        libero_main_color, libero_second_color, libero_third_color)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
+  `, `
+    INSERT INTO teams
+      (name, code, coach, logo_url, user_id, home_color, away_color, manager_name, phone, email,
+       province, address, verification_doc_url, category, status, main_color, second_color, third_color,
+       libero_main_color, libero_second_color, libero_third_color)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`), [
     teamName,
     code,
     baseTeam.coach,
@@ -176,7 +187,7 @@ const cloneTeamForCompetition = async (client, baseTeam, competition, userId) =>
 
   const newTeamId = inserted.insertId;
 
-  await client.query(`
+  await client.query(sqlDialect(`
     INSERT INTO players
       (team_id, number, first_name, last_name, nickname, position, height_cm, is_active, is_captain,
        is_libero1, is_libero2, weight, birth_date, nationality, photo, gender, is_playing)
@@ -184,14 +195,25 @@ const cloneTeamForCompetition = async (client, baseTeam, competition, userId) =>
        is_libero1, is_libero2, weight, birth_date, nationality, photo, gender, is_playing
     FROM players
     WHERE team_id = ?
-  `, [newTeamId, baseTeam.id]);
+  `, `
+    INSERT INTO players
+      (team_id, number, first_name, last_name, nickname, position, height_cm, is_active, is_captain,
+       is_libero1, is_libero2, weight, birth_date, nationality, photo, gender, is_playing)
+    SELECT ?, number, first_name, last_name, nickname, position, height_cm, is_active, is_captain,
+       is_libero1, is_libero2, weight, birth_date, nationality, photo, gender, is_playing
+    FROM players
+    WHERE team_id = ? RETURNING id`), [newTeamId, baseTeam.id]);
 
-  await client.query(`
+  await client.query(sqlDialect(`
     INSERT INTO team_staff (team_id, first_name, last_name, role, gender)
     SELECT ?, first_name, last_name, role, gender
     FROM team_staff
     WHERE team_id = ?
-  `, [newTeamId, baseTeam.id]);
+  `, `
+    INSERT INTO team_staff (team_id, first_name, last_name, role, gender)
+    SELECT ?, first_name, last_name, role, gender
+    FROM team_staff
+    WHERE team_id = ? RETURNING id`), [newTeamId, baseTeam.id]);
 
   const newTeam = await client.query('SELECT * FROM teams WHERE id = ?', [newTeamId]);
   return newTeam.rows[0];
@@ -243,14 +265,21 @@ module.exports = {
   // ดึงรายการแข่งขันทั้งหมด
   async getAllCompetitions(req, res) {
     try {
-      const result = await db.query(`
+      const result = await db.query(sqlDialect(`
         SELECT c.*, DATE_FORMAT(c.start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(c.end_date, '%Y-%m-%d') as end_date, ag.name as age_group_name, s.name as stadium_name,
         (SELECT COUNT(*) FROM team_entries te WHERE te.competition_id = c.id) as team_count
         FROM competitions c
         LEFT JOIN age_groups ag ON c.age_group_id = ag.id
         LEFT JOIN stadiums s ON c.stadium_id = s.id
         ORDER BY c.start_date DESC, c.id DESC
-      `);
+      `, `
+        SELECT c.*, to_char(c.start_date, 'YYYY-MM-DD') as start_date, to_char(c.end_date, 'YYYY-MM-DD') as end_date, ag.name as age_group_name, s.name as stadium_name,
+        (SELECT COUNT(*) FROM team_entries te WHERE te.competition_id = c.id) as team_count
+        FROM competitions c
+        LEFT JOIN age_groups ag ON c.age_group_id = ag.id
+        LEFT JOIN stadiums s ON c.stadium_id = s.id
+        ORDER BY c.start_date DESC, c.id DESC
+      `));
       res.json(applyCompetitionLogoFallbacks(result.rows));
     } catch (err) {
       console.error("Get All Competitions Error:", err);
@@ -317,9 +346,11 @@ module.exports = {
                 const finalTitle = baseTitle;
 
                 await client.query(
-                    `INSERT INTO competitions
+                    sqlDialect(`INSERT INTO competitions
                     (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, scoring_config, stadium_id, logo_url, title_th, title_en, short_title_th, short_title_en, details_th, details_en)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, `INSERT INTO competitions
+                    (title, details, sport, gender, age_group_id, start_date, end_date, location, status, max_sets, max_players, scoring_config, stadium_id, logo_url, title_th, title_en, short_title_th, short_title_en, details_th, details_en)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
                     [
                         finalTitle,
                         details,
@@ -408,7 +439,7 @@ module.exports = {
       await refreshCompetitionEntries(db, id);
 
       await db.query(
-        `UPDATE competitions 
+        `UPDATE competitions
          SET title=?, details=?, sport=?, gender=?, age_group_id=?, start_date=?, end_date=?, location=?, status=?, max_sets=?, max_players=?, scoring_config=?, stadium_id=?, logo_url=?, title_th=?, title_en=?, short_title_th=?, short_title_en=?, details_th=?, details_en=?
          WHERE id=?`,
         [
@@ -456,14 +487,15 @@ module.exports = {
 
       // ลบข้อมูลที่เกี่ยวข้องก่อน
       await client.query('DELETE FROM matches WHERE competition_id = ?', [id]);
-      await client.query(`
+      await client.query(sqlDialect(`
         DELETE tep FROM team_entry_players tep
         JOIN team_entries te ON te.id = tep.team_entry_id
         WHERE te.competition_id = ?
-      `, [id]);
+      `, `DELETE FROM team_entry_players tep USING team_entries te
+        WHERE te.id=tep.team_entry_id AND te.competition_id=?`), [id]);
       await client.query('DELETE FROM team_entries WHERE competition_id = ?', [id]);
       await client.query('DELETE FROM team_competitions WHERE competition_id = ?', [id]);
-      
+
       const result = await client.query('DELETE FROM competitions WHERE id = ?', [id]);
 
       if (result.affectedRows === 0) {
@@ -531,7 +563,7 @@ module.exports = {
   async getOpenCompetitions(req, res) {
     try {
       const result = await db.query(`
-        SELECT c.*, ag.name as age_group_name 
+        SELECT c.*, ag.name as age_group_name
         FROM competitions c
         LEFT JOIN age_groups ag ON c.age_group_id = ag.id
         WHERE c.status = 'open'
@@ -794,7 +826,7 @@ module.exports = {
 
       for (const staffId of uniqueStaffIds) {
         await client.query(
-          'INSERT INTO team_entry_staff (team_entry_id, staff_id) VALUES (?, ?)',
+          sqlDialect('INSERT INTO team_entry_staff (team_entry_id, staff_id) VALUES (?, ?)', "INSERT INTO team_entry_staff (team_entry_id, staff_id) VALUES (?, ?) RETURNING id"),
           [entryId, staffId]
         );
       }
@@ -902,21 +934,29 @@ module.exports = {
       // 3. บันทึกการสมัครแบบ team entry โดยไม่ clone โรงเรียน/สโมสร
       const displayName = truncate(`${team.name} - ${competition.title}`, 150);
       await client.query(
-        `INSERT INTO team_entries
+        sqlDialect(`INSERT INTO team_entries
           (team_id, competition_id, display_name, gender, age_group_id, status, registered_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', NOW())`,
+         VALUES (?, ?, ?, ?, ?, 'pending', NOW())`, `INSERT INTO team_entries
+          (team_id, competition_id, display_name, gender, age_group_id, status, registered_at)
+         VALUES (?, ?, ?, ?, ?, 'pending', NOW()) RETURNING id`),
         [teamId, compId, displayName, competition.gender, competition.age_group_id]
       );
 
       // Mirror ไว้ให้ fixture/match และหน้าจอเดิมที่ยังอ่าน team_competitions ทำงานต่อ
       await client.query(
-        `INSERT INTO team_competitions
+        sqlDialect(`INSERT INTO team_competitions
           (team_id, competition_id, gender, age_group_id, registered_at, status)
          VALUES (?, ?, ?, ?, NOW(), 'pending')
          ON DUPLICATE KEY UPDATE
           gender = VALUES(gender),
           age_group_id = VALUES(age_group_id),
-          status = VALUES(status)`,
+          status = VALUES(status)`, `INSERT INTO team_competitions
+          (team_id, competition_id, gender, age_group_id, registered_at, status)
+         VALUES (?, ?, ?, ?, NOW(), 'pending')
+         ON CONFLICT (competition_id, team_id) DO UPDATE SET
+          gender = EXCLUDED.gender,
+          age_group_id = EXCLUDED.age_group_id,
+          status = EXCLUDED.status`),
         [teamId, compId, competition.gender, competition.age_group_id]
       );
 
@@ -1148,4 +1188,4 @@ module.exports = {
       res.status(500).json({ error: 'Database error' });
     }
   },
-}; 
+};

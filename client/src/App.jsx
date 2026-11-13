@@ -55,14 +55,14 @@ function App() {
       <PageBoundary>
       <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title={ui("กำลังเปิดหน้า / Loading page…")} /></div>}>
       <Routes>
-        <Route path="/scorer-offline" element={<PrivateRoute roleRequired={['admin','score','scorer','statistician']}><ScorerOfflineHome /></PrivateRoute>} />
-        <Route path="/adminvis" element={<PrivateRoute roleRequired={['admin', 'statistician']}><AdminVis /></PrivateRoute>} />
-        <Route path="/adminvis/match/:matchId" element={<PrivateRoute roleRequired={['admin', 'statistician']}><AdminVis /></PrivateRoute>} />
+        <Route path="/scorer-offline" element={<PrivateRoute roleRequired={['score','scorer','statistician']}><ScorerOfflineHome /></PrivateRoute>} />
+        <Route path="/adminvis" element={<PrivateRoute roleRequired={['statistician']}><AdminVis /></PrivateRoute>} />
+        <Route path="/adminvis/match/:matchId" element={<PrivateRoute roleRequired={['statistician']}><AdminVis /></PrivateRoute>} />
         {/* หน้า AdminScorer สำหรับ role score */}
         <Route
           path="/adminscorer"
           element={
-            <PrivateRoute roleRequired={['admin', 'score', 'scorer', 'statistician', 'referee']}>
+            <PrivateRoute roleRequired={['score', 'scorer', 'statistician', 'referee']}>
               <AdminScorer />
             </PrivateRoute>
           }
@@ -117,7 +117,7 @@ function App() {
         <Route
           path="/scorer/:matchId"
           element={
-            <PrivateRoute roleRequired={['admin', 'score', 'scorer', 'statistician']}>
+            <PrivateRoute roleRequired={['score', 'scorer', 'statistician']}>
               <ScorerConsole />
             </PrivateRoute>
           }

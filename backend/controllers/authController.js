@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -35,12 +36,12 @@ const cleanOfficialProfile = (body = {}) => ({
 const insertOfficialProfile = async (client, kind, userId, profile) => {
   if (kind === 'referee') {
     return client.query(
-      'INSERT INTO referees (firstname, lastname, country, code, user_id) VALUES (?, ?, ?, ?, ?)',
+      sqlDialect('INSERT INTO referees (firstname, lastname, country, code, user_id) VALUES (?, ?, ?, ?, ?)', "INSERT INTO referees (firstname, lastname, country, code, user_id) VALUES (?, ?, ?, ?, ?) RETURNING id"),
       [profile.firstname, profile.lastname, profile.country, profile.code, userId]
     );
   }
   return client.query(
-    'INSERT INTO scorers (firstname, lastname, country, user_id) VALUES (?, ?, ?, ?)',
+    sqlDialect('INSERT INTO scorers (firstname, lastname, country, user_id) VALUES (?, ?, ?, ?)', "INSERT INTO scorers (firstname, lastname, country, user_id) VALUES (?, ?, ?, ?) RETURNING id"),
     [profile.firstname, profile.lastname, profile.country, userId]
   );
 };
@@ -56,7 +57,7 @@ const getOfficialProfile = async (client, kind, userId) => {
 
 const getUsersColumns = async (client = db) => {
   const result = await client.query(
-    "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()"
+    sqlDialect("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()", "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = current_schema()")
   );
   return new Set(result.rows.map((row) => row.column_name));
 };
@@ -65,6 +66,7 @@ const buildSafeUserSelect = (columns) => {
   const optionalFields = [];
   if (columns.has('email')) optionalFields.push('email');
   if (columns.has('phone')) optionalFields.push('phone');
+  if (columns.has('public_id')) optionalFields.push('public_id');
   return ['id', 'username', 'role', 'status', 'team_id', ...optionalFields].join(', ');
 };
 
@@ -125,7 +127,7 @@ exports.updateMe = async (req, res) => {
       if (!username) return res.status(400).json({ error: 'Username is required' });
 
       const existing = await db.query(
-        'SELECT id FROM users WHERE username = ? AND id <> ?',
+        sqlDialect('SELECT id FROM users WHERE username = ? AND id <> ?', "SELECT id FROM users WHERE lower(username) = lower(?) AND id <> ?"),
         [username, userId]
       );
       if (existing.rows.length > 0) {
@@ -235,7 +237,7 @@ exports.register = async (req, res) => {
     }
 
     // ตรวจสอบว่ามี Username นี้ในระบบหรือยัง
-    const userCheck = await client.query('SELECT id FROM users WHERE username = ?', [username]);
+    const userCheck = await client.query(sqlDialect('SELECT id FROM users WHERE username = ?', "SELECT id FROM users WHERE lower(username) = lower(?)"), [username]);
     if (userCheck.rows.length > 0) {
       return res.status(400).json({ error: 'Username already exists' });
     }
@@ -253,13 +255,13 @@ exports.register = async (req, res) => {
 
     // ตรวจสอบว่ามีคอลัมน์ email / phone ในตาราง users หรือไม่
     const usersColsRes = await client.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()"
+      sqlDialect("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()", "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = current_schema()")
     );
     const usersCols = new Set(usersColsRes.rows.map(getColumnName).filter(Boolean));
 
     let userFields = ['username', 'password_hash', 'role', 'status'];
     let userParams = [username, hashedPassword, role, initialStatus];
-    
+
     if (usersCols.has('email')) {
       userFields.push('email');
       userParams.push(req.body.email.trim());
@@ -271,8 +273,8 @@ exports.register = async (req, res) => {
     }
 
     const userPlaceholders = userParams.map(() => '?').join(', ');
-    const userInsertQuery = `INSERT INTO users (${userFields.join(', ')}) VALUES (${userPlaceholders})`;
-    
+    const userInsertQuery = sqlDialect(`INSERT INTO users (${userFields.join(', ')}) VALUES (${userPlaceholders})`, `INSERT INTO users (${userFields.join(', ')}) VALUES (${userPlaceholders}) RETURNING id`);
+
     const userResult = await client.query(userInsertQuery, userParams);
     const userRow = await client.query('SELECT id, username, role, status FROM users WHERE id = ?', [userResult.insertId]);
     const user = userRow.rows[0];
@@ -280,7 +282,7 @@ exports.register = async (req, res) => {
     // ถ้าเป็น team_staff และมีชื่อทีมและรหัสทีมส่งเข้ามา ให้ทำการสร้างทีมและเชื่อมโยงทันที
     if (role === 'team_staff' && name && code) {
       const teamsColsRes = await client.query(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()"
+        sqlDialect("SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()", "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = current_schema()")
       );
       const teamsCols = new Set(teamsColsRes.rows.map(getColumnName).filter(Boolean));
 
@@ -327,8 +329,8 @@ exports.register = async (req, res) => {
       }
 
       const teamPlaceholders = teamParams.map(() => '?').join(', ');
-      const teamInsertQuery = `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${teamPlaceholders})`;
-      
+      const teamInsertQuery = sqlDialect(`INSERT INTO teams (${teamFields.join(', ')}) VALUES (${teamPlaceholders})`, `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${teamPlaceholders}) RETURNING id`);
+
       const teamResult = await client.query(teamInsertQuery, teamParams);
       const teamRow = await client.query('SELECT id FROM teams WHERE id = ?', [teamResult.insertId]);
       const team = teamRow.rows[0];
@@ -372,7 +374,7 @@ exports.login = async (req, res) => {
 
     // ดึงข้อมูล User รวมถึงสถานะและ Team ID
     const result = await db.query(
-      'SELECT * FROM users WHERE username = ?', 
+      sqlDialect('SELECT * FROM users WHERE username = ?', "SELECT * FROM users WHERE lower(username) = lower(?)"),
       [username]
     );
 
@@ -402,6 +404,7 @@ exports.login = async (req, res) => {
       token: token,
       user: {
         id: user.id,
+        public_id: user.public_id,
         username: user.username,
         role: user.role,
         status: user.status,
@@ -472,7 +475,7 @@ exports.getPendingUsers = async (req, res) => {
   try {
     // เช็คว่ามีคอลัมน์ email ในตาราง users หรือไม่
     const usersColsRes = await db.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()"
+      sqlDialect("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = DATABASE()", "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND table_schema = current_schema()")
     );
     const usersCols = usersColsRes.rows.map(r => r.column_name);
 
@@ -489,7 +492,7 @@ exports.getPendingUsers = async (req, res) => {
       WHERE u.status = 'pending' AND u.role != 'admin'
       ORDER BY u.created_at DESC
     `;
-    
+
     const result = await db.query(query);
     res.json(result.rows);
   } catch (err) {
@@ -540,7 +543,7 @@ exports.createUser = async (req, res) => {
     if (officialKind && (!officialProfile.firstname || !officialProfile.lastname)) {
       return res.status(400).json({ error: 'First and last name are required for official accounts' });
     }
-    
+
     // เช็คว่ามี username ซ้ำไหม
     client = await db.pool.connect();
     await client.query('BEGIN');
@@ -560,7 +563,7 @@ exports.createUser = async (req, res) => {
       }
     }
 
-    const check = await client.query('SELECT id FROM users WHERE username = ?', [username]);
+    const check = await client.query(sqlDialect('SELECT id FROM users WHERE username = ?', "SELECT id FROM users WHERE lower(username) = lower(?)"), [username]);
     if (check.rows.length > 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Username already exists' });
@@ -568,7 +571,7 @@ exports.createUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 8);
     const result = await client.query(
-      'INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)',
+      sqlDialect('INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)', "INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?) RETURNING id"),
       [username, hashedPassword, role, status]
     );
     let officialRecordId = null;
@@ -622,7 +625,7 @@ exports.deleteUser = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const { id } = req.params;
-    
+
     await client.query('BEGIN');
 
     const userBeforeResult = await client.query(

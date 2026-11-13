@@ -25,3 +25,8 @@ test('team staff can manage own team and request match changes only', () => {
   assert.equal(roleHasPermission('team_staff', 'match.score'), false);
   assert.equal(roleHasPermission('team_staff', 'team.manage'), false);
 });
+
+test('admin retains management and reports but cannot record', () => {
+ assert.equal(roleHasPermission('admin', 'match.score'), false);
+ for (const permission of ['admin.manage', 'competition.manage', 'team.manage', 'match.manage', 'report.export', 'socket.monitor']) assert.equal(roleHasPermission('admin', permission), true);
+});

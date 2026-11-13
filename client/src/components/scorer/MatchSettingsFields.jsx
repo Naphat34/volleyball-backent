@@ -1,6 +1,7 @@
 import { X as UiX } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
+import { matchCategoryLabel } from '../../utils/scorer/matchSettings';
 
 
 const shirtColors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f8fafc', '#1e293b'];
@@ -29,8 +30,8 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
     if (tab === 'overview') return <section className="smm-competition-card"><h3>{t('ข้อมูลการแข่งขัน', 'Competition information')}</h3><div className="smm-form-grid">
         {field('title', t('ชื่อรายการแข่งขัน', 'Competition name'))}
         <label className="smm-field">{t('ประเภทการแข่งขัน', 'Gender')}<select value={draft.gender} disabled={disabled} onChange={event => onChange({ ...draft, gender: event.target.value })}><option value="">{t('ยังไม่ระบุ', 'Not specified')}</option><option value="Male">{t('ชาย', 'Men')}</option><option value="Female">{t('หญิง', 'Women')}</option><option value="Mixed">{t('ผสม', 'Mixed')}</option></select></label>
-        <label className="smm-field">{t('รุ่นอายุ', 'Age group')}<select disabled={disabled} value={draft.age_group_id} onChange={event => onChange({ ...draft, age_group_id: event.target.value })}><option value="">{t('ยังไม่ระบุ', 'Not specified')}</option>{settings.ageGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
-        {field('category', t('รายละเอียดประเภท', 'Category description'))}
+        <label className="smm-field">{t('รุ่นอายุ', 'Age group')}<select disabled={disabled} value={draft.age_group_id} onChange={event => onChange({ ...draft, age_group_id: event.target.value, category: event.target.value })}><option value="">{t('ยังไม่ระบุ', 'Not specified')}</option>{settings.ageGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
+        <label className="smm-field">{t('รายละเอียดประเภท', 'Category description')}<input value={matchCategoryLabel(draft, settings.ageGroups, t('ยังไม่ระบุ', 'Not specified'))} readOnly disabled={disabled}/></label>
         {field('match_number', t('หมายเลขแมตซ์', 'Match number'), 'number')}
         {field('round_name', t('รอบการแข่งขัน', 'Round'))}{field('pool_name', t('กลุ่ม / สาย', 'Pool'))}
         {field('match_date', t('วันที่แข่งขัน', 'Match date'), 'date')}{field('start_time', t('เวลาแข่งขัน', 'Start time'), 'time')}

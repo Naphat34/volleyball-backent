@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 const { canReadStatistics, assertStatisticsWriter } = require('../utils/manualVisAccess');
 const { projectOfficialState, resolveContext, applyCommand, applyRally, configureVisSettings, normalizeVisTiming, isLiberoPlayer, validateLiberoReplacement, substitutionPairs, fail } = require('../utils/visWorkflow');
@@ -14,7 +15,7 @@ async function getMatch(connection, id, lock = false) {
         COALESCE(m.age_group_id, c.age_group_id) AS effective_age_group_id,
         COALESCE(m.gender, c.gender) AS effective_gender
         FROM matches m LEFT JOIN competitions c ON c.id = m.competition_id
-        WHERE m.id = ?${lock ? ' FOR UPDATE' : ''}`, [id]);
+        WHERE m.id = ?${lock ? sqlDialect(' FOR UPDATE', ' FOR UPDATE OF m') : ''}`, [id]);
     if (!result.rows[0]) fail('Match not found', 404);
     return result.rows[0];
 }
@@ -101,9 +102,11 @@ exports.command = async (req, res) => {
                     rallyPoint: index === command.events.length - 1, statisticalRallyWinner: result.winner,
                     jersey_number: number == null ? null : Number(number), event_code: code, rawGrade: event.grade, generated: Boolean(event.generated),
                     visContext: { ...context, scoreBefore: context.score, scoreAfter: result.state.score } };
-                const inserted = await connection.query(`INSERT INTO match_actions
+                const inserted = await connection.query(sqlDialect(`INSERT INTO match_actions
                     (match_id, set_number, action_type, team_id, player_id, skill, grade, score_home, score_away, description, details, operation_id, created_at)
-                    VALUES (?, ?, 'VIS_STAT', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                    VALUES (?, ?, 'VIS_STAT', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`, `INSERT INTO match_actions
+                    (match_id, set_number, action_type, team_id, player_id, skill, grade, score_home, score_away, description, details, operation_id, created_at)
+                    VALUES (?, ?, 'VIS_STAT', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id`),
                 [match.id, context.setNumber, teamId(match, event.team), event.player, event.skill, event.grade || '!',
                     result.state.score.home, result.state.score.away, code, JSON.stringify(details), operationId]);
                 if (!inserted.insertId) throw new Error('Rally insert failed');
@@ -255,9 +258,11 @@ exports.command = async (req, res) => {
             if (!code) fail('Player jersey number is missing or invalid. Update the roster before recording.');
             const details = { visTiming: normalizeVisTiming(req.body.timing, officialContext.setNumber), ...event.details, vis: true, scoringSource: 'vis-statistics', operationId,
                 event_type: event.skill, jersey_number: Number(number), event_code: code };
-            const result = await connection.query(`INSERT INTO match_actions
+            const result = await connection.query(sqlDialect(`INSERT INTO match_actions
                 (match_id, set_number, action_type, team_id, player_id, skill, grade, score_home, score_away, description, details, operation_id, created_at)
-                VALUES (?, ?, 'VIS_STAT', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`, [match.id, officialContext.setNumber,
+                VALUES (?, ?, 'VIS_STAT', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`, `INSERT INTO match_actions
+                (match_id, set_number, action_type, team_id, player_id, skill, grade, score_home, score_away, description, details, operation_id, created_at)
+                VALUES (?, ?, 'VIS_STAT', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id`), [match.id, officialContext.setNumber,
                 teamId(match, event.team), event.player, event.skill, event.grade, officialContext.score.home,
                 officialContext.score.away, code, JSON.stringify(details), operationId]);
             if (!result.insertId) throw new Error('VIMS event insert did not return an ID');

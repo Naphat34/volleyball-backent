@@ -1,7 +1,7 @@
 export function canEnterSection(user, section, offline = false) {
     const role = user?.role;
-    if (section === 'vis') return ['admin', 'statistician'].includes(role);
-    if (section === 'scorer') return ['admin', 'statistician', 'score', 'scorer'].includes(role) || (!offline && role === 'referee');
+    if (section === 'vis') return ['statistician'].includes(role);
+    if (section === 'scorer') return ['statistician', 'score', 'scorer'].includes(role) || (!offline && role === 'referee');
     return false;
 }
 
@@ -19,7 +19,7 @@ export function sectionHome(section, offline) {
 }
 
 export function roleHome(user, offline = false) {
-    if (user.role === 'admin') return offline ? '/adminvis' : '/admin';
+    if (user.role === 'admin') return '/admin';
     if (user.role === 'statistician') return '/adminvis';
     if (['score', 'scorer', 'referee'].includes(user.role)) return sectionHome('scorer', offline);
     return user.team_id ? '/team-dashboard' : '/create-team';

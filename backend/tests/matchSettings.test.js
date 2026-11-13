@@ -55,8 +55,12 @@ function fixture(overrides = {}) {
     return { controller: scope.exports, req, response, state, data };
 }
 async function prepare(f) {
+    const previousCommits = f.state.commits;
     const res = f.response(); await f.controller.read(f.req, res);
     assert.equal(res.code, 200);
+    assert.equal(f.state.commits, previousCommits + 1, 'the read snapshot owns and commits its transaction');
+    f.state.commits = 0;
+    f.state.rollbacks = 0;
     f.req.body = { revision: res.data.revision, fingerprint: res.data.fingerprint, draft: res.data.draft };
     return res.data;
 }

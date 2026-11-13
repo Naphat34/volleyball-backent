@@ -38,6 +38,7 @@ test('MySQL: VIS save, retry and Undo preserve eScore scores and a newer officia
         await connection.query(`INSERT INTO matches (id,home_team_id,away_team_id,current_set,team_a_score,team_b_score,home_set_score,away_set_score,status,live_state)
             VALUES (1,?,?,1,8,4,0,0,'live',?)`, [player.team_id, player.team_id + 1, JSON.stringify(live)]);
         const context = { exports: {}, console, require: name => {
+        if (name === '../utils/sqlDialect') return require('../utils/sqlDialect');
             if (name === '../config/db') return { connect: async () => transaction };
             if (name === '../utils/manualVisAccess') return require('../utils/manualVisAccess');
         if (name === '../utils/visWorkflow') return require('../utils/visWorkflow');

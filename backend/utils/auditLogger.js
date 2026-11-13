@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 
 const MAX_ACTION_LENGTH = 100;
@@ -13,9 +14,11 @@ const getRequestIp = (req) => {
 async function writeAuditLog(req, action, entityType, entityId, details = {}, client = db) {
   try {
     await client.query(
-      `INSERT INTO audit_logs
+      sqlDialect(`INSERT INTO audit_logs
         (user_id, username, role, action, entity_type, entity_id, details, ip_address, user_agent, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`, `INSERT INTO audit_logs
+        (user_id, username, role, action, entity_type, entity_id, details, ip_address, user_agent, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id`),
       [
         req.user?.id || null,
         req.user?.username || null,

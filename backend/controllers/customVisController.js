@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const { randomUUID, randomBytes } = require('node:crypto');
 const db = require('../config/db');
 const { linkAthlete, retainUnchangedLinks } = require('../utils/customAthleteLinks');
@@ -35,7 +36,7 @@ exports.create = endpoint(async (req, res, connection) => {
     const id = `custom-${req.body.creationId || randomUUID()}`, token = randomBytes(24).toString('hex');
     const payload = req.body.importBackup ? importCustomVis(req.body.importBackup, id) : createPayload(req.body, id);
     audit(payload, req, 'CREATE');
-    await connection.query('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?)', [id, req.user.id, token, JSON.stringify(payload)]);
+    await connection.query(sqlDialect('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?)', "INSERT INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING RETURNING id"), [id, req.user.id, token, JSON.stringify(payload)]);
     const saved = await connection.query('SELECT * FROM custom_vis_matches WHERE id = ?', [id]);
     allowed(saved.rows[0], req);
     res.status(201).json({ match: decorate(saved.rows[0]), config: parse(saved.rows[0].payload).config });
@@ -138,7 +139,7 @@ exports.offlineSync = endpoint(async (req, res, connection) => {
     // INSERT IGNORE + row lock serialize first syncs as well as existing matches.
     if (req.body.config) {
         const initial = req.body.importBackup ? importCustomVis(req.body.importBackup, req.params.id) : createPayload(req.body.config, req.params.id);
-        await connection.query('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?)',
+        await connection.query(sqlDialect('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?)', "INSERT INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING RETURNING id"),
             [req.params.id, req.user.id, randomBytes(24).toString('hex'), JSON.stringify(initial)]);
     }
     const result = await connection.query('SELECT * FROM custom_vis_matches WHERE id = ? FOR UPDATE', [req.params.id]);
@@ -156,9 +157,11 @@ exports.offlineSync = endpoint(async (req, res, connection) => {
 exports.athleteOptions = endpoint(async (req,res,connection) => {
     if (!admin(req)) fail('เฉพาะผู้ดูแลระบบ',403);
     const q = '%' + String(req.query.q || '').trim().slice(0,100) + '%';
-    const players = await connection.query(`SELECT p.id,p.number,p.first_name,p.last_name,t.name AS team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
+    const players = await connection.query(sqlDialect(`SELECT p.id,p.number,p.first_name,p.last_name,t.name AS team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
         FROM players p LEFT JOIN teams t ON t.id=p.team_id WHERE COALESCE(p.is_active,1)=1
-        AND (CONCAT_WS(' ',p.first_name,p.last_name) LIKE ? OR t.name LIKE ?) ORDER BY p.id LIMIT 200`,[q,q]);
+        AND (CONCAT_WS(' ',p.first_name,p.last_name) LIKE ? OR t.name LIKE ?) ORDER BY p.id LIMIT 200`, `SELECT p.id,p.number,p.first_name,p.last_name,t.name AS team_name, t.name_th AS team_name_th, t.name_en AS team_name_en
+        FROM players p LEFT JOIN teams t ON t.id=p.team_id WHERE COALESCE(p.is_active,1)=1
+        AND (CONCAT_WS(' ',p.first_name,p.last_name) ILIKE ? OR t.name ILIKE ?) ORDER BY p.id LIMIT 200`),[q,q]);
     res.json(players.rows);
 });
 exports.linkAthlete = endpoint(async (req,res,connection) => {

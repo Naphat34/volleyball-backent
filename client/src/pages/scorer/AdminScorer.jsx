@@ -1,5 +1,4 @@
-import { competitionName } from '../../utils/i18n/competitionNames';
-import { readLanguage } from '../../utils/i18n/language';
+import { adminScorerCompetitionTitle, adminScorerMatchTitle } from '../../utils/scorer/adminScorerCompetitionNames';
 import { matchSchedule, matchScheduleDate, matchScheduleSortKey } from '../../utils/scorer/matchSchedule';
 import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import FullscreenToggle from '../../components/ui/FullscreenToggle';
@@ -28,13 +27,13 @@ import { visStatusLabel } from '../../utils/vis/dashboardStatus';
 import '../../components/vis/VisDashboard.css';
 
 const statuses = { scheduled: ['ยังไม่เริ่ม', 'Scheduled'], live: ['กำลังแข่งขัน', 'Live'], completed: ['จบการแข่งขัน', 'Completed'], cancelled: ['ยกเลิก', 'Cancelled'] };
-const titleOf = competition => String(competitionName(competition, readLanguage())).replace(/\s*\(?(Men|Women|Male|Female|ชาย|หญิง)\)?$/i, '').trim();
 const normalizeStatus = value => ['finished','match_finished'].includes(String(value).toLowerCase()) ? 'completed' : String(value || 'scheduled').toLowerCase();
 
 export default function AdminScorer() {
     const displayNames = useDisplayNames();
     const ui = useUiTranslation();
     const { language, setLanguage } = useLanguage(), th = language === 'THA';
+    const titleOf = useCallback(competition => adminScorerCompetitionTitle(competition, language), [language]);
     const user = getStoredUser(), role = String(user?.role || '').trim().toLowerCase(), isReferee = role === 'referee';
     const navigate = useNavigate(), [params, setParams] = useSearchParams();
     const competition = params.get('compId') || '';
@@ -155,7 +154,7 @@ export default function AdminScorer() {
         };
         const updates = dashboardRefresh(load);
         void updates.refresh(false); return () => { active = false; updates.stop(); };
-    }, [cacheReady, reloadKey, isReferee, gate, th, userId, role, sameSession, ui]);
+    }, [cacheReady, reloadKey, isReferee, gate, th, userId, role, sameSession, ui, titleOf]);
 
     const reload = (fromServer = false) => {
         if (!cacheReady || !navigator.onLine || loading || busy || (!fromServer && reloadKey === 0)) return;
@@ -171,7 +170,7 @@ export default function AdminScorer() {
         : competition ? titleOf(matches.find(match => String(match.competition_id) === competition) || {})
         : th ? 'ทุกรายการแข่งขัน' : 'All competitions';
     const teamNames = [...new Set(matches.flatMap(match => [match.home_team,match.away_team]).filter(Boolean))].sort((a,b) => a.localeCompare(b,'th'));
-    const label = match => [match.competition_name,match.age_group_name || match.category,getPublicGenderLabel(match.gender,language)].filter(Boolean).join(' · ');
+    const label = match => [adminScorerMatchTitle(match, competitions, language),match.age_group_name || match.category,getPublicGenderLabel(match.gender,language)].filter(Boolean).join(' · ');
     const query = search.trim().toLocaleLowerCase();
     const filtered = matches.filter(match => (!competition || (competition.startsWith('manual:') ? match.is_manual_scorer && match.competition_name === competition.slice(7) : selectedCompetition ? titleOf(competitions.find(item => String(item.id) === String(match.competition_id)) || {}) === titleOf(selectedCompetition) : String(match.competition_id) === competition))
         && (!status || match.status === status) && (!team || [match.home_team,match.away_team].includes(team))

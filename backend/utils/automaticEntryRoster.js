@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const { normalizeTeamGender } = require('./teamGender');
 const { flag } = require('./athleteIntegrity');
 const { createHash } = require('node:crypto');
@@ -54,7 +55,7 @@ function restoreSnapshot(player) {
 async function syncTeamEntries(connection, teamId) {
     if (!teamId) return;
     await connection.query('SELECT id FROM teams WHERE id=? FOR UPDATE', [teamId]);
-    const result = await connection.query(`SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
+    const result = await connection.query(sqlDialect(`SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
         c.start_date,c.status AS competition_status,c.max_players,ag.name AS age_group_name,
         DATE_FORMAT(CURRENT_DATE,'%Y-%m-%d') AS today,
         EXISTS (SELECT 1 FROM matches m WHERE m.competition_id=te.competition_id
@@ -64,7 +65,17 @@ async function syncTeamEntries(connection, teamId) {
                 OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id=m.id))) AS has_history
         FROM team_entries te JOIN competitions c ON c.id=te.competition_id
         LEFT JOIN age_groups ag ON ag.id=COALESCE(te.age_group_id,c.age_group_id)
-        WHERE te.team_id=? ORDER BY te.id FOR UPDATE`, [teamId]);
+        WHERE te.team_id=? ORDER BY te.id FOR UPDATE`, `SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
+        c.start_date,c.status AS competition_status,c.max_players,ag.name AS age_group_name,
+        to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today,
+        EXISTS (SELECT 1 FROM matches m WHERE m.competition_id=te.competition_id
+            AND (m.home_team_id=te.team_id OR m.away_team_id=te.team_id)
+            AND (m.status <> 'scheduled' OR m.match_setup IS NOT NULL OR EXISTS (SELECT 1 FROM match_actions a WHERE a.match_id=m.id)
+                OR EXISTS (SELECT 1 FROM match_events e WHERE e.match_id=m.id)
+                OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id=m.id))) AS has_history
+        FROM team_entries te JOIN competitions c ON c.id=te.competition_id
+        LEFT JOIN age_groups ag ON ag.id=COALESCE(te.age_group_id,c.age_group_id)
+        WHERE te.team_id=? ORDER BY te.id FOR UPDATE OF te`), [teamId]);
     const entries = result.rows;
     if (!entries.length) return;
     const players = (await connection.query('SELECT * FROM players WHERE team_id=? ORDER BY id', [teamId])).rows;
@@ -96,9 +107,11 @@ async function syncTeamEntries(connection, teamId) {
         await connection.query('DELETE FROM team_entry_players WHERE team_entry_id=?', [entry.id]);
         if (error) continue;
         for (const player of selected) {
-            await connection.query(`INSERT INTO team_entry_players
+            await connection.query(sqlDialect(`INSERT INTO team_entry_players
                 (team_entry_id,player_id,number,role,is_captain,is_libero1,is_libero2,is_playing,athlete_snapshot)
-                VALUES (?,?,?,?,?,?,?,?,?)`, [entry.id,player.id,player.number,player.position,
+                VALUES (?,?,?,?,?,?,?,?,?)`, `INSERT INTO team_entry_players
+                (team_entry_id,player_id,number,role,is_captain,is_libero1,is_libero2,is_playing,athlete_snapshot)
+                VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`), [entry.id,player.id,player.number,player.position,
                 flag(player.is_captain)?1:0,flag(player.is_libero1)?1:0,flag(player.is_libero2)?1:0,1,snapshot(player)]);
         }
     }

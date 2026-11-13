@@ -1,25 +1,37 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 const { refreshTeamEntries, refreshCompetitionEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { visStatisticsSource } = require('../utils/visStatistics');
 
 const hasTableColumn = async (tableName, columnName) => {
-    const result = await db.query(`
+    const result = await db.query(sqlDialect(`
         SELECT COUNT(*) AS count
         FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = ?
           AND COLUMN_NAME = ?
-    `, [tableName, columnName]);
+    `, `
+        SELECT COUNT(*) AS count
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = current_schema()
+          AND TABLE_NAME = ?
+          AND COLUMN_NAME = ?
+    `), [tableName, columnName]);
     return Number(result.rows?.[0]?.count || 0) > 0;
 };
 
 const hasTable = async (tableName) => {
-    const result = await db.query(`
+    const result = await db.query(sqlDialect(`
         SELECT COUNT(*) AS count
         FROM information_schema.TABLES
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = ?
-    `, [tableName]);
+    `, `
+        SELECT COUNT(*) AS count
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = current_schema()
+          AND TABLE_NAME = ?
+    `), [tableName]);
     return Number(result.rows?.[0]?.count || 0) > 0;
 };
 
@@ -45,7 +57,7 @@ module.exports = {
             const orderDate = hasMatchDate ? 'COALESCE(c.match_date, c.start_date)' : 'c.start_date';
 
             const [rows] = await db.query(`
-                SELECT c.id, c.title, c.title_th, c.title_en, c.short_title_th, c.short_title_en, c.details_th, c.details_en, c.gender, ${scoringConfigSelect}, ${logoSelect}, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
+                SELECT c.id${sqlDialect('', ', c.public_id')}, c.title, c.title_th, c.title_en, c.short_title_th, c.short_title_en, c.details_th, c.details_en, c.gender, ${scoringConfigSelect}, ${logoSelect}, c.start_date, ${endDateSelect}, c.status, ${dateSelect},
                        ${maxSetsSelect}, ${ageGroupSelect}
                 FROM competitions c
                 ${ageGroupJoin}
@@ -68,11 +80,11 @@ module.exports = {
                        te.id as team_entry_id,
                        te.display_name as entry_display_name,
                        te.competition_id,
-                       t.id, t.name, t.code, t.logo_url, t.coach, te.status,
+                       t.id${sqlDialect('', ', t.public_id, te.public_id AS team_entry_public_id')}, t.name, t.code, t.logo_url, t.coach, te.status,
                        (SELECT COUNT(*)
                         FROM team_entry_players tep
                         WHERE tep.team_entry_id = te.id
-                          AND (tep.is_playing = 1 OR tep.is_playing = true OR tep.is_playing IS NULL)) as player_count
+                          AND (tep.is_playing = 1 OR tep.is_playing = 1 OR tep.is_playing IS NULL)) as player_count
                 FROM teams t
                 JOIN team_entries te ON t.id = te.team_id
                 WHERE te.competition_id = ?
@@ -95,7 +107,7 @@ module.exports = {
             if (competitionId) {
                 await refreshTeamEntries(db, teamId);
                 const [entryRows] = await db.query(`
-                    SELECT p.id, tep.athlete_snapshot,
+                    SELECT p.id${sqlDialect('', ', p.public_id')}, tep.athlete_snapshot,
                         p.first_name,
                         p.last_name,
                         COALESCE(tep.role, p.position) as position,
@@ -114,7 +126,7 @@ module.exports = {
                     JOIN competitions c ON c.id = te.competition_id
                     JOIN players p ON p.id = tep.player_id                    WHERE te.team_id = ?
                       AND te.competition_id = ?
-                      AND (tep.is_playing = 1 OR tep.is_playing = true OR tep.is_playing IS NULL)
+                      AND (tep.is_playing = 1 OR tep.is_playing = 1 OR tep.is_playing IS NULL)
                     ORDER BY COALESCE(tep.number, p.number) ASC, p.id ASC
                 `, [teamId, competitionId]);
                 rows = entryRows.map(restoreSnapshot);
@@ -122,7 +134,7 @@ module.exports = {
 
             if (!rows.length && !competitionId) {
                 const [fallbackRows] = await db.query(`
-                    SELECT id,
+                    SELECT id${sqlDialect('', ', p.public_id')},
                         first_name,
                         last_name,
                         position,
@@ -138,7 +150,7 @@ module.exports = {
                         is_libero2
                     FROM players p
                     WHERE p.team_id = ?
-                      AND (p.is_playing = 1 OR p.is_playing = true OR p.is_playing IS NULL)
+                      AND (p.is_playing = 1 OR p.is_playing = 1 OR p.is_playing IS NULL)
                     ORDER BY p.number ASC
                 `, [teamId]);
                 rows = fallbackRows;
@@ -154,7 +166,7 @@ module.exports = {
     async getAllTeams(req, res) {
         try {
             const [rows] = await db.query(`
-                SELECT id, name, logo_url, code FROM teams WHERE manual_owner_id IS NULL ORDER BY name ASC
+                SELECT id${sqlDialect('', ', public_id')}, name, logo_url, code FROM teams WHERE manual_owner_id IS NULL ORDER BY name ASC
             `);
             res.json(rows);
         } catch (err) {
@@ -168,8 +180,8 @@ module.exports = {
         try {
             const { competitionId } = req.query;
 
-            let query = `
-                SELECT 
+            let query = sqlDialect(`
+                SELECT
                     m.id,
                     m.match_number,
                     m.round_name,
@@ -200,16 +212,54 @@ module.exports = {
                     t2.code AS team_b_code,
 
                     IFNULL(m.set_scores, '[]') AS set_scores
-                    
+
 
                 FROM matches m
                 LEFT JOIN competitions c ON m.competition_id = c.id
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
-            `;
+            `, `
+                SELECT
+                    m.id, m.public_id,
+                    m.match_number,
+                    m.round_name,
+                    m.competition_id,
+                    c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en,
+                    c.max_sets,
+                    m.start_time AS raw_start_time,
+                    m.match_date,
+                    m.status,
+                    m.location AS stadium_name,
+
+                    -- คะแนนรวมเซต
+                    m.home_team_id,
+                    m.away_team_id,
+                    m.home_set_score,
+                    m.away_set_score,
+                    m.home_set_score AS team_a_score,
+                    m.away_set_score AS team_b_score,
+
+                    -- ทีมเจ้าบ้าน
+                    t1.name AS team_a_name,
+                    t1.logo_url AS team_a_logo,
+                    t1.code AS team_a_code,
+
+                    -- ทีมเยือน
+                    t2.name AS team_b_name,
+                    t2.logo_url AS team_b_logo,
+                    t2.code AS team_b_code,
+
+                    COALESCE(m.set_scores, '[]') AS set_scores
+
+
+                FROM matches m
+                LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN teams t1 ON m.home_team_id = t1.id
+                LEFT JOIN teams t2 ON m.away_team_id = t2.id
+            `);
 
             const params = [];
-            
+
             // หมายเหตุ: ถ้าในตาราง matches ของคุณไม่มี competition_id ให้ลบส่วน WHERE นี้ออก
             // แต่ปกติควรมีเพื่อแยกรายการแข่งขัน
             if (competitionId) {
@@ -294,8 +344,8 @@ module.exports = {
         try {
             const { teamId } = req.params;
             const [rows] = await db.query(`
-                SELECT id, first_name, last_name, role
-                FROM team_staff 
+                SELECT id${sqlDialect('', ', public_id')}, first_name, last_name, role
+                FROM team_staff
                 WHERE team_id = ?
                 ORDER BY role ASC
             `, [teamId]);
@@ -328,7 +378,7 @@ module.exports = {
                     WHERE m.competition_id = ?
                       AND me.player_id IS NOT NULL
                       ${extraWhere}
-                    GROUP BY p.id, p.first_name, p.last_name, p.first_name_th, p.last_name_th, p.first_name_en, p.last_name_en, p.number, p.photo, t.name
+                    GROUP BY p.id, p.first_name, p.last_name, p.first_name_th, p.last_name_th, p.first_name_en, p.last_name_en, p.number, p.photo, t.name, t.name_th, t.name_en
                     ORDER BY value DESC, p.number ASC
                     LIMIT 10
                 `, [competitionId]);

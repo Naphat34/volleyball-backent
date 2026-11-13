@@ -47,7 +47,7 @@ test('online login opens the dashboard for each role directly', () => {
     for (const [role, path] of [['admin', '/admin'], ['score', '/adminscorer'], ['scorer', '/adminscorer'], ['statistician', '/adminvis']]) {
         assert.equal(accessDecision({ kind: 'online', user: grant(1, role).user }).path, path);
     }
-    assert.equal(accessDecision({ kind: 'online', user: grant(1, 'admin').user }, { section: 'vis' }).path, '/adminvis');
+    assert.equal(accessDecision({ kind: 'online', user: grant(1, 'admin').user }, { section: 'vis' }).kind, 'denied');
     assert.equal(accessDecision({ kind: 'online', user: grant().user }, { section: 'scorer' }).path, '/adminscorer');
 });
 
@@ -57,7 +57,7 @@ test('offline login opens a role-specific list without reading cached matches', 
     assert.equal((await resolveAccess({ section: 'vis' }, session, noRead)).path, '/adminvis');
     assert.equal((await resolveAccess({ section: 'scorer' }, session, noRead)).path, '/scorer-offline');
     assert.equal(accessDecision(session).path, '/adminvis');
-    assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'admin').user }).path, '/adminvis');
+    assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'admin').user }).path, '/admin');
     assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'scorer').user }).path, '/scorer-offline');
     assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'scorer').user }, { section: 'vis' }).kind, 'denied');
 });

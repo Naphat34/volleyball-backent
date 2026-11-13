@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const { normalizeNames } = require('../utils/bilingualNames');
 const { normalizeAthleteRoles, athleteError, withAthleteTransaction } = require('../utils/athleteIntegrity');
 const db = require('../config/db');
@@ -25,9 +26,9 @@ module.exports = {
         try {
             const { teamId } = req.params;
             req.body = normalizeAthleteRoles(normalizeNames(req.body));
-            const { 
-                number, first_name, last_name, nickname, position, 
-                height_cm, weight, birth_date, nationality, photo, 
+            const {
+                number, first_name, last_name, nickname, position,
+                height_cm, weight, birth_date, nationality, photo,
                 gender, is_captain, is_libero1, is_libero2
             } = req.body;
 
@@ -53,24 +54,26 @@ module.exports = {
 
             // --- [LOGIC กัปตัน] ---
             if (cleanIsCaptain) {
-                await athleteConnection.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_captain = 0 WHERE team_id = ?', [teamId]);
             }
 
             // --- [LOGIC ลิเบอโร่] ---
             if (cleanIsLibero1) {
-                await athleteConnection.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_libero1 = 0 WHERE team_id = ?', [teamId]);
             }
             if (cleanIsLibero2) {
-                await athleteConnection.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_libero2 = 0 WHERE team_id = ?', [teamId]);
             }
 
             const result = await athleteConnection.query(
-                `INSERT INTO players 
+                sqlDialect(`INSERT INTO players
                 (team_id, number, first_name, last_name, nickname, position, height_cm, weight, birth_date, nationality, photo, gender, is_captain, is_libero1, is_libero2)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, `INSERT INTO players
+                (team_id, number, first_name, last_name, nickname, position, height_cm, weight, birth_date, nationality, photo, gender, is_captain, is_libero1, is_libero2)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
                 [
                     teamId, cleanNumber, cleanFirstName, cleanLastName, nickname, position,
-                    cleanHeight, cleanWeight, cleanBirthDate, nationality, photo, 
+                    cleanHeight, cleanWeight, cleanBirthDate, nationality, photo,
                     gender, cleanIsCaptain, cleanIsLibero1, cleanIsLibero2
                 ]
             );
@@ -89,9 +92,9 @@ module.exports = {
             const current = await athleteConnection.query('SELECT * FROM players WHERE id = ? FOR UPDATE', [id]);
             if (!current.rows.length) return res.status(404).json({ error: 'Player not found' });
             req.body = normalizeAthleteRoles(normalizeNames(req.body, current.rows[0]), current.rows[0]);
-            const { 
-                number, first_name, last_name, nickname, position, 
-                height_cm, weight, birth_date, nationality, photo, 
+            const {
+                number, first_name, last_name, nickname, position,
+                height_cm, weight, birth_date, nationality, photo,
                 gender, is_captain, is_libero1, is_libero2, is_playing
             } = req.body;
 
@@ -101,7 +104,7 @@ module.exports = {
             }
 
             // Validation: at least first_name or last_name ONLY if names are being updated
-            if ((first_name !== undefined || last_name !== undefined) && 
+            if ((first_name !== undefined || last_name !== undefined) &&
                 (!first_name || first_name === '') && (!last_name || last_name === '')) {
                 return res.status(400).json({ error: 'At least first name or last name must be provided' });
             }
@@ -131,7 +134,7 @@ module.exports = {
                 const playerCheck = await athleteConnection.query('SELECT team_id FROM players WHERE id = ?', [id]);
                 if (playerCheck.rows.length > 0) {
                     const teamId = playerCheck.rows[0].team_id;
-                    await athleteConnection.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
+                    await athleteConnection.query('UPDATE players SET is_captain = 0 WHERE team_id = ?', [teamId]);
                 }
             }
 
@@ -141,10 +144,10 @@ module.exports = {
                 if (playerCheck.rows.length > 0) {
                     const teamId = playerCheck.rows[0].team_id;
                     if (cleanIsLibero1) {
-                        await athleteConnection.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
+                        await athleteConnection.query('UPDATE players SET is_libero1 = 0 WHERE team_id = ?', [teamId]);
                     }
                     if (cleanIsLibero2) {
-                        await athleteConnection.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
+                        await athleteConnection.query('UPDATE players SET is_libero2 = 0 WHERE team_id = ?', [teamId]);
                     }
                 }
             }
@@ -152,7 +155,7 @@ module.exports = {
             // Build dynamic UPDATE query - only include fields that were provided
             const updateFields = [];
             const updateValues = [];
-            
+
             if (number !== undefined) { updateFields.push('number=?'); updateValues.push(cleanNumber); }
             if (first_name !== undefined) { updateFields.push('first_name=?'); updateValues.push(cleanFirstName); }
             if (last_name !== undefined) { updateFields.push('last_name=?'); updateValues.push(cleanLastName); }
@@ -199,7 +202,7 @@ module.exports = {
         try {
             const { id } = req.params;
             const result = await athleteConnection.query('UPDATE players SET is_active = 0, is_playing = 0 WHERE id = ?', [id]);
-            
+
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: "Player not found" });
             }

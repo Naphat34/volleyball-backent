@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const { getMatchTeamStaff } = require('../utils/matchTeamStaff');
 const { refreshTeamEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { applyMatchSetup, setupPlayers, setupStaff, parseSetup, normalizeTeam } = require('../utils/matchSetup');
@@ -7,11 +8,15 @@ const { normalizeVisGrade, normalizeVisSkill } = require('../config/visCodes');
 
 const hasTableColumn = async (tableName, columnName) => {
     const result = await db.query(
-        `SELECT COUNT(*) AS count
+        sqlDialect(`SELECT COUNT(*) AS count
          FROM information_schema.COLUMNS
          WHERE TABLE_SCHEMA = DATABASE()
            AND TABLE_NAME = ?
-           AND COLUMN_NAME = ?`,
+           AND COLUMN_NAME = ?`, `SELECT COUNT(*) AS count
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = current_schema()
+           AND TABLE_NAME = ?
+           AND COLUMN_NAME = ?`),
         [tableName, columnName]
     );
     return Number(result.rows?.[0]?.count || 0) > 0;
@@ -39,23 +44,26 @@ const buildPlayerGenderFilter = (gender) => {
 
     if (['male', 'men', 'm'].includes(normalized)) {
         return {
-            sql: `AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
-                      IN ('male', 'men', 'm')`,
+            sql: sqlDialect(`AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                      IN ('male', 'men', 'm')`, `AND LOWER(CAST(COALESCE(p.gender, '') AS text))
+                      IN ('male', 'men', 'm')`),
             params: []
         };
     }
 
     if (['female', 'women', 'f'].includes(normalized)) {
         return {
-            sql: `AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
-                      IN ('female', 'women', 'f')`,
+            sql: sqlDialect(`AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                      IN ('female', 'women', 'f')`, `AND LOWER(CAST(COALESCE(p.gender, '') AS text))
+                      IN ('female', 'women', 'f')`),
             params: []
         };
     }
 
     return {
-        sql: `AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
-                  = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)`,
+        sql: sqlDialect(`AND LOWER(CONVERT(COALESCE(p.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+                  = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)`, `AND LOWER(CAST(COALESCE(p.gender, '') AS text))
+                  = LOWER(CAST(? AS text))`),
         params: [gender]
     };
 };
@@ -126,10 +134,10 @@ const normalizeRosterPlayer = (player = {}) => {
 const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFields = 'p.*', fallbackSelectFields = 'p.*', options = {}) => {
     if (competitionId) await refreshTeamEntries(db, teamId);
     const entryPlayingWhere = options.entryHasIsPlaying
-        ? 'AND (tep.is_playing = 1 OR tep.is_playing = true OR tep.is_playing IS NULL)'
+        ? 'AND (tep.is_playing = 1 OR tep.is_playing IS NULL)'
         : '';
     const playerPlayingWhere = options.playerHasIsPlaying
-        ? 'AND (p.is_playing = 1 OR p.is_playing = true OR p.is_playing IS NULL)'
+        ? 'AND (p.is_playing = 1 OR p.is_playing IS NULL)'
         : '';
     const displayablePlayerWhere = `
         AND NOT (
@@ -143,8 +151,9 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
         ? 'AND COALESCE(te.age_group_id, c.age_group_id) = ?'
         : '';
     const genderWhere = gender
-        ? `AND LOWER(CONVERT(COALESCE(te.gender, c.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
-              = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)`
+        ? sqlDialect(`AND LOWER(CONVERT(COALESCE(te.gender, c.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
+              = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)`, `AND LOWER(CAST(COALESCE(te.gender, c.gender, '') AS text))
+              = LOWER(CAST(? AS text))`)
         : '';
     const playerGenderFilter = buildPlayerGenderFilter(gender);
     const entryParams = [
@@ -155,7 +164,7 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
         ...playerGenderFilter.params
     ];
 
-    const entryRoster = await db.query(`
+    const entryRoster = await db.query(sqlDialect(`
         SELECT ${entrySelectFields}, tep.athlete_snapshot
         FROM team_entry_players tep
         JOIN team_entries te ON te.id = tep.team_entry_id
@@ -168,7 +177,20 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
           ${playerGenderFilter.sql.replaceAll('p.gender', "COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(tep.athlete_snapshot,'$.gender')),'null'),p.gender)")}
           ${entryPlayingWhere}
         ORDER BY COALESCE(tep.number, p.number) ASC, p.id ASC
-    `, entryParams);
+    `, `
+        SELECT ${entrySelectFields}, tep.athlete_snapshot
+        FROM team_entry_players tep
+        JOIN team_entries te ON te.id = tep.team_entry_id
+        JOIN competitions c ON c.id = te.competition_id
+        JOIN players p ON p.id = tep.player_id
+        WHERE te.competition_id = ?
+          AND te.team_id = ?
+          ${ageGroupWhere}
+          ${genderWhere}
+          ${playerGenderFilter.sql.replaceAll('p.gender', "COALESCE(NULLIF(json_unquote(json_extract(tep.athlete_snapshot,'$.gender')),'null'),p.gender)")}
+          ${entryPlayingWhere}
+        ORDER BY COALESCE(tep.number, p.number) ASC, p.id ASC
+    `), entryParams);
 
     entryRoster.rows = entryRoster.rows.map(restoreSnapshot);
     if (entryRoster.rows.length > 0 || competitionId) {
@@ -176,7 +198,7 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
     }
 
     if (options.allowRegisteredTeamGenderFallback && ageGroupId && gender) {
-        const registeredEntry = await db.query(`
+        const registeredEntry = await db.query(sqlDialect(`
             SELECT te.id
             FROM team_entries te
             JOIN competitions c ON c.id = te.competition_id
@@ -186,10 +208,20 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
               AND LOWER(CONVERT(COALESCE(te.gender, c.gender, '') USING utf8mb4) COLLATE utf8mb4_general_ci)
                   = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)
             LIMIT 1
-        `, [competitionId, teamId, ageGroupId, gender]);
+        `, `
+            SELECT te.id
+            FROM team_entries te
+            JOIN competitions c ON c.id = te.competition_id
+            WHERE te.competition_id = ?
+              AND te.team_id = ?
+              AND COALESCE(te.age_group_id, c.age_group_id) = ?
+              AND LOWER(CAST(COALESCE(te.gender, c.gender, '') AS text))
+                  = LOWER(CAST(? AS text))
+            LIMIT 1
+        `), [competitionId, teamId, ageGroupId, gender]);
 
         if (registeredEntry.rows.length > 0) {
-            return db.query(`
+            return db.query(sqlDialect(`
                 SELECT ${fallbackSelectFields}
                 FROM players p
                 WHERE p.team_id = ?
@@ -197,7 +229,15 @@ const getRosterPlayersForMatchTeam = async (competitionId, teamId, entrySelectFi
                       = LOWER(CONVERT(? USING utf8mb4) COLLATE utf8mb4_general_ci)
                   ${playerPlayingWhere}
                 ORDER BY p.number ASC, p.id ASC
-            `, [teamId, gender]);
+            `, `
+                SELECT ${fallbackSelectFields}
+                FROM players p
+                WHERE p.team_id = ?
+                  AND LOWER(CAST(COALESCE(p.gender, '') AS text))
+                      = LOWER(CAST(? AS text))
+                  ${playerPlayingWhere}
+                ORDER BY p.number ASC, p.id ASC
+            `), [teamId, gender]);
         }
     }
 
@@ -263,8 +303,9 @@ module.exports = {
             }
 
             const result = await db.query(
-                `INSERT INTO players (team_id, first_name, last_name, number, gender, ${playerNameFields.join(', ')})
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                sqlDialect(`INSERT INTO players (team_id, first_name, last_name, number, gender, ${playerNameFields.join(', ')})
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, `INSERT INTO players (team_id, first_name, last_name, number, gender, ${playerNameFields.join(', ')})
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
                 [teamId, firstName, lastName, number, parseNullableString(req.body.gender) || match.gender || null, ...playerNameFields.map(field => names[field] ?? null)]
             );
 
@@ -276,8 +317,9 @@ module.exports = {
                 const entryId = entryRes.rows[0]?.id;
                 if (entryId) {
                     await db.query(
-                        `INSERT INTO team_entry_players (team_entry_id, player_id, number, is_playing)
-                         VALUES (?, ?, ?, 1)`,
+                        sqlDialect(`INSERT INTO team_entry_players (team_entry_id, player_id, number, is_playing)
+                         VALUES (?, ?, ?, 1)`, `INSERT INTO team_entry_players (team_entry_id, player_id, number, is_playing)
+                         VALUES (?, ?, ?, 1) RETURNING id`),
                         [entryId, result.insertId, number]
                     );
                 }
@@ -389,15 +431,23 @@ module.exports = {
         try {
             const { matchId } = req.params;
             // ใช้ชื่อคอลัมน์ตามที่คุณแจ้งมา: match_id, set_id, player_id, skill, grade, ...
-            const result = await db.query(`
-                SELECT id, match_id, set_id, set_id AS set_number, player_id, skill, skill AS event_type, grade, 
+            const result = await db.query(sqlDialect(`
+                SELECT id, match_id, set_id, set_id AS set_number, player_id, skill, skill AS event_type, grade,
                        score_home, score_away, server_player_id, start_zone, end_zone,
                        created_at
-                FROM match_events 
-                WHERE match_id = ? 
+                FROM match_events
+                WHERE match_id = ?
                   AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(details), details, '{}'), '$.vis')), 'false') <> 'true'
                 ORDER BY id DESC
-            `, [matchId]);
+            `, `
+                SELECT id, match_id, set_id, set_id AS set_number, player_id, skill, skill AS event_type, grade,
+                       score_home, score_away, server_player_id, start_zone, end_zone,
+                       created_at
+                FROM match_events
+                WHERE match_id = ?
+                  AND COALESCE(json_unquote(json_extract(CASE WHEN valid_json(details) THEN details ELSE '{}' END, '$.vis')), 'false') <> 'true'
+                ORDER BY id DESC
+            `), [matchId]);
             res.json(result.rows);
         } catch (err) {
             console.error("Get Match Events Error", err);
@@ -410,8 +460,8 @@ module.exports = {
         try {
             const { matchId } = req.params;
             const result = await db.query(`
-                SELECT 
-                    m.*, 
+                SELECT
+                    m.*,
                     t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en,
                     t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en,
                     t1.code as home_team_code,
@@ -463,7 +513,7 @@ module.exports = {
                 LEFT JOIN scorers s1 ON m.scorer_id = s1.id
                 LEFT JOIN line_judges l1 ON m.line_judge_1_id = l1.id
                 LEFT JOIN line_judges l2 ON m.line_judge_2_id = l2.id
-                
+
                 WHERE m.id = ?
             `, [matchId]);
 
@@ -613,11 +663,11 @@ module.exports = {
 
             // ดึง Lineup ล่าสุดของแต่ละทีม
             const lineupResult = await db.query(`
-                SELECT match_id, team_id, set_number, 
-                    player_id_p1, player_id_p2, player_id_p3, 
-                    player_id_p4, player_id_p5, player_id_p6, 
+                SELECT match_id, team_id, set_number,
+                    player_id_p1, player_id_p2, player_id_p3,
+                    player_id_p4, player_id_p5, player_id_p6,
                     libero_id
-                FROM match_lineups 
+                FROM match_lineups
                 WHERE match_id = ?
                 ORDER BY team_id, set_number DESC
             `, [matchId]);
@@ -730,7 +780,7 @@ module.exports = {
             // *หมายเหตุ: ถ้าคุณไม่มีตาราง match_sets อาจจะต้องข้ามส่วนนี้ หรือแก้ query ให้ตรงกับระบบคุณ
             /*
             await db.query(`
-                UPDATE matches 
+                UPDATE matches
                 SET home_set_score = (SELECT SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) FROM match_sets WHERE match_id = ?),
                     away_set_score = (SELECT SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END) FROM match_sets WHERE match_id = ?)
                 WHERE id = ?
@@ -774,11 +824,14 @@ module.exports = {
                 eventDetails ? JSON.stringify(eventDetails) : null
             ];
 
-            const insertSql = `
+            const insertSql = sqlDialect(`
                 INSERT INTO match_events
                 (match_id, set_id, team_id, player_id, skill, grade, score_home, score_away, server_player_id, start_zone, end_zone, details, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            `;
+            `, `
+                INSERT INTO match_events
+                (match_id, set_id, team_id, player_id, skill, grade, score_home, score_away, server_player_id, start_zone, end_zone, details, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id`);
 
             const insertResult = await db.query(insertSql, insertParams);
             const insertedId = insertResult.insertId || insertResult.rows?.[0]?.id;
@@ -855,11 +908,14 @@ module.exports = {
                         WHERE match_id = ? AND team_id = ? AND set_number = ?
                     `, [matchId, team_id, set_number]);
 
-                    await client.query(`
+                    await client.query(sqlDialect(`
                         INSERT INTO match_lineups
                         (match_id, team_id, set_number, player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6, libero_id)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    `, [
+                    `, `
+                        INSERT INTO match_lineups
+                        (match_id, team_id, set_number, player_id_p1, player_id_p2, player_id_p3, player_id_p4, player_id_p5, player_id_p6, libero_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`), [
                         matchId,
                         team_id,
                         set_number,
@@ -954,7 +1010,7 @@ module.exports = {
             } = req.body;
 
             await db.query(`
-                UPDATE matches 
+                UPDATE matches
                 SET referee_1_id = ?,
                     referee_2_id = ?,
                     scorer_id = ?,
@@ -1150,11 +1206,14 @@ module.exports = {
 
                 for (const player of normalizedPlayers) {
                     if (entryId) {
-                        await client.query(`
+                        await client.query(sqlDialect(`
                             INSERT INTO team_entry_players
                                 (team_entry_id, player_id, number, role, is_captain, is_libero1, is_libero2, is_playing)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        `, [
+                        `, `
+                            INSERT INTO team_entry_players
+                                (team_entry_id, player_id, number, role, is_captain, is_libero1, is_libero2, is_playing)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`), [
                             entryId,
                             player.id,
                             player.selected ? player.number : null,
@@ -1227,7 +1286,7 @@ module.exports = {
                 } else {
                     try {
                         await db.query(
-                            'INSERT INTO match_sets (match_id, set_number, start_time) VALUES (?, ?, NOW())',
+                            sqlDialect('INSERT INTO match_sets (match_id, set_number, start_time) VALUES (?, ?, NOW())', "INSERT INTO match_sets (match_id, set_number, start_time) VALUES (?, ?, NOW()) RETURNING id"),
                             [matchId, normalizedSetNumber]
                         );
                     } catch (insertErr) {
@@ -1273,7 +1332,7 @@ module.exports = {
                 await client.query("ROLLBACK");
                 return res.status(400).json({ error: "Missing set data" });
             }
-            
+
             // 1️ ตรวจสอบว่ามีเซตนี้แล้วหรือยัง (กันกดซ้ำ)
             const existingSet = await client.query(
                 `SELECT id, home_score, away_score FROM match_sets WHERE match_id=? AND set_number=?`,
@@ -1292,9 +1351,11 @@ module.exports = {
                 );
             } else {
                 await client.query(
-                    `INSERT INTO match_sets
+                    sqlDialect(`INSERT INTO match_sets
         (match_id, set_number, home_score, away_score, duration_minutes, end_time)
-        VALUES (?, ?, ?, ?, ?, NOW())`,
+        VALUES (?, ?, ?, ?, ?, NOW())`, `INSERT INTO match_sets
+        (match_id, set_number, home_score, away_score, duration_minutes, end_time)
+        VALUES (?, ?, ?, ?, ?, NOW()) RETURNING id`),
                     [matchId, setNumber, homeScore, awayScore, duration || 0]
                 );
             }
@@ -1422,8 +1483,8 @@ module.exports = {
 
             // 1. ดึงรายละเอียดแมตช์ และ Competition (Category, Age Group)
             const matchResult = await db.query(`
-                SELECT 
-                    m.*, 
+                SELECT
+                    m.*,
                     t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en, t1.code as home_team_code, t1.logo_url as home_logo_url, t1.coach as home_coach,
                     t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en, t2.code as away_team_code, t2.logo_url as away_logo_url, t2.coach as away_coach,
                     COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title, CASE WHEN m.manual_title IS NULL THEN c.title_th END as competition_name_th, CASE WHEN m.manual_title IS NULL THEN c.title_en END as competition_name_en,
@@ -1451,13 +1512,19 @@ module.exports = {
             let stadiumName = null;
             let stadiumCity = null;
             if (match.location !== null && match.location !== undefined && match.location !== '') {
-                const stadiumResult = await db.query(`
+                const stadiumResult = await db.query(sqlDialect(`
                     SELECT name, address
                     FROM stadiums
                     WHERE CAST(id AS CHAR) = ? OR name = ?
                     ORDER BY CASE WHEN CAST(id AS CHAR) = ? THEN 0 ELSE 1 END
                     LIMIT 1
-                `, [String(match.location), String(match.location), String(match.location)]);
+                `, `
+                    SELECT name, address
+                    FROM stadiums
+                    WHERE CAST(id AS text) = ? OR name = ?
+                    ORDER BY CASE WHEN CAST(id AS text) = ? THEN 0 ELSE 1 END
+                    LIMIT 1
+                `), [String(match.location), String(match.location), String(match.location)]);
 
                 if (stadiumResult.rows[0]) {
                     stadiumName = stadiumResult.rows[0].name;
@@ -1469,9 +1536,9 @@ module.exports = {
             match.stadium_city = stadiumCity;
 
             // 2. ดึงนักกีฬา และระบุ Captain/Libero
-            const playerColumnsResult = await db.query('SHOW COLUMNS FROM players');
+            const playerColumnsResult = await db.query(sqlDialect('SHOW COLUMNS FROM players', "SELECT column_name AS \"Field\", data_type AS \"Type\" FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='players'"));
             const playerColumnNames = new Set((playerColumnsResult.rows || []).map((col) => col.Field));
-            const entryColumnsResult = await db.query('SHOW COLUMNS FROM team_entry_players');
+            const entryColumnsResult = await db.query(sqlDialect('SHOW COLUMNS FROM team_entry_players', "SELECT column_name AS \"Field\", data_type AS \"Type\" FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='team_entry_players'"));
             const entryColumnNames = new Set((entryColumnsResult.rows || []).map((col) => col.Field));
             const entryRoleExpr = entryColumnNames.has('role') ? 'tep.role' : 'NULL';
             const entryNumberExpr = entryColumnNames.has('number') ? 'tep.number' : 'NULL';
@@ -1520,7 +1587,7 @@ module.exports = {
             for (const [alias, candidates] of Object.entries({ nationality: ['nationality', 'country'], birth_date: ['birth_date', 'birthdate', 'date_of_birth', 'dob'] })) {
                 const field = candidates.find(candidate => playerColumnNames.has(candidate));
                 if (field) {
-                    const expression = alias === 'birth_date' ? `DATE_FORMAT(p.${field}, '%Y-%m-%d')` : `p.${field}`;
+                    const expression = alias === 'birth_date' ? sqlDialect(`DATE_FORMAT(p.${field}, '%Y-%m-%d')`, `to_char(p.${field}, 'YYYY-MM-DD')`) : `p.${field}`;
                     playerSelectFields.push(`${expression} AS ${alias}`);
                     fallbackSelectFields.push(`${expression} AS ${alias}`);
                 }
@@ -1619,15 +1686,15 @@ module.exports = {
 
             // 1. ดึงรายละเอียดแมตช์ (Official, Teams, Competition)
             const matchResult = await db.query(`
-                SELECT 
-                    m.*, 
+                SELECT
+                    m.*,
                     t1.name as home_team_name, t1.name_th as home_team_name_th, t1.name_en as home_team_name_en, t1.code as home_team_code,
                     t2.name as away_team_name, t2.name_th as away_team_name_th, t2.name_en as away_team_name_en, t2.code as away_team_code,
                     COALESCE(m.manual_title, c.title) as competition_name, COALESCE(m.manual_title, c.title) as competition_title, CASE WHEN m.manual_title IS NULL THEN c.title_th END as competition_name_th, CASE WHEN m.manual_title IS NULL THEN c.title_en END as competition_name_en, c.gender as competition_gender, c.gender as competition_category,
                     COALESCE(m.age_group_id, c.age_group_id) as match_age_group_id,
                     ag.name as age_group_name,
                     COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
-                    
+
                     -- Officials
                     r1.firstname as r1_firstname, r1.lastname as r1_lastname, r1.country as r1_country,
                     r2.firstname as r2_firstname, r2.lastname as r2_lastname, r2.country as r2_country,
@@ -1723,5 +1790,5 @@ module.exports = {
         }
     }
 
-}; 
+};
 

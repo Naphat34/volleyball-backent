@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const { normalizeNames } = require('../utils/bilingualNames');
 const { normalizeAthleteRoles, athleteError, withAthleteTransaction } = require('../utils/athleteIntegrity');
 const db = require('../config/db');
@@ -183,7 +184,7 @@ exports.createMyTeam = async (req, res) => {
     // 1. ตรวจสอบว่า User นี้มีทีมอยู่แล้วหรือยัง (เช็คจากตาราง teams โดยตรง)
     // 2. สร้างทีมใหม่ พร้อมใส่ user_id และ code
     const columnsRes = await client.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()"
+      sqlDialect("SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()", "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = current_schema()")
     );
     const columns = columnsRes.rows.map(getColumnName).filter(Boolean);
     const teamFields = [];
@@ -217,7 +218,7 @@ exports.createMyTeam = async (req, res) => {
 
     const placeholders = teamParams.map(() => '?').join(', ');
     const newTeamRes = await client.query(
-      `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${placeholders})`,
+      sqlDialect(`INSERT INTO teams (${teamFields.join(', ')}) VALUES (${placeholders})`, `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${placeholders}) RETURNING id`),
       teamParams
     );
     const newTeamRow = await client.query('SELECT * FROM teams WHERE id = ?', [newTeamRes.insertId]);
@@ -242,7 +243,7 @@ exports.createMyTeam = async (req, res) => {
     }
 
     await client.query(
-      'INSERT INTO team_staff (team_id, first_name, last_name, role) VALUES (?, ?, ?, ?)',
+      sqlDialect('INSERT INTO team_staff (team_id, first_name, last_name, role) VALUES (?, ?, ?, ?)', "INSERT INTO team_staff (team_id, first_name, last_name, role) VALUES (?, ?, ?, ?) RETURNING id"),
       [newTeam.id, coachFirstName, coachLastName, 'Head Coach']
     );
 
@@ -263,7 +264,7 @@ exports.createMyTeam = async (req, res) => {
 exports.getMyTeams = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await db.query(`
+    const result = await db.query(sqlDialect(`
       SELECT
         t.*,
         CASE WHEN u.team_id = t.id THEN 1 ELSE 0 END AS is_active,
@@ -274,9 +275,22 @@ exports.getMyTeams = async (req, res) => {
       LEFT JOIN team_entries te ON te.team_id = t.id
       LEFT JOIN competitions c ON c.id = te.competition_id
       WHERE t.user_id = ?
-      GROUP BY t.id
+      GROUP BY t.id, u.team_id
       ORDER BY is_active DESC, t.created_at ASC, t.id ASC
-    `, [userId, userId]);
+    `, `
+      SELECT
+        t.*,
+        CASE WHEN u.team_id = t.id THEN 1 ELSE 0 END AS is_active,
+        COUNT(te.competition_id) AS competition_count,
+        string_agg(c.title, ', ' ORDER BY c.start_date DESC) AS competition_titles
+      FROM teams t
+      LEFT JOIN users u ON u.id = ?
+      LEFT JOIN team_entries te ON te.team_id = t.id
+      LEFT JOIN competitions c ON c.id = te.competition_id
+      WHERE t.user_id = ?
+      GROUP BY t.id, u.team_id
+      ORDER BY is_active DESC, t.created_at ASC, t.id ASC
+    `), [userId, userId]);
 
     res.json(result.rows);
   } catch (err) {
@@ -405,7 +419,7 @@ exports.updateMyTeam = async (req, res) => {
     }
 
     const columnsRes = await db.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()"
+      sqlDialect("SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()", "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = current_schema()")
     );
     const columns = columnsRes.rows.map(getColumnName).filter(Boolean);
     const updateFields = [];
@@ -498,7 +512,7 @@ exports.createTeam = async (req, res) => {
 
     let userId = null;
     if (username && password) {
-      const userCheck = await client.query('SELECT id FROM users WHERE username = ?', [username]);
+      const userCheck = await client.query(sqlDialect('SELECT id FROM users WHERE username = ?', "SELECT id FROM users WHERE lower(username) = lower(?)"), [username]);
       if (userCheck.rows.length > 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Username already exists' });
@@ -508,14 +522,14 @@ exports.createTeam = async (req, res) => {
       const requestedUserStatus = String(status || 'active').trim().toLowerCase();
       const userStatus = requestedUserStatus === 'approved' ? 'active' : requestedUserStatus;
       const userResult = await client.query(
-        'INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)',
+        sqlDialect('INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?)', "INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, ?) RETURNING id"),
         [username, hashedPassword, 'team_staff', userStatus]
       );
       userId = userResult.insertId;
     }
 
     const teamsColsRes = await client.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()"
+      sqlDialect("SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = DATABASE()", "SELECT column_name FROM information_schema.columns WHERE table_name = 'teams' AND table_schema = current_schema()")
     );
     const teamsCols = teamsColsRes.rows.map(getColumnName).filter(Boolean);
 
@@ -548,7 +562,7 @@ exports.createTeam = async (req, res) => {
 
     const placeholders = teamParams.map(() => '?').join(', ');
     const newTeamRes = await client.query(
-      `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${placeholders})`,
+      sqlDialect(`INSERT INTO teams (${teamFields.join(', ')}) VALUES (${placeholders})`, `INSERT INTO teams (${teamFields.join(', ')}) VALUES (${placeholders}) RETURNING id`),
       teamParams
     );
 
@@ -696,7 +710,7 @@ exports.addStaffToMyTeam = async (req, res) => {
 
     // 4. บันทึกลงฐานข้อมูล (ใช้คอลัมน์ first_name, last_name ตาม DB จริง)
     const newStaff = await db.query(
-      'INSERT INTO team_staff (team_id, first_name, last_name, role, gender) VALUES (?, ?, ?, ?, ?)',
+      sqlDialect('INSERT INTO team_staff (team_id, first_name, last_name, role, gender) VALUES (?, ?, ?, ?, ?)', "INSERT INTO team_staff (team_id, first_name, last_name, role, gender) VALUES (?, ?, ?, ?, ?) RETURNING id"),
       [teamId, dbFirstName, dbLastName, role, gender]
     );
     const insertedStaff = await db.query('SELECT * FROM team_staff WHERE id = ?', [newStaff.insertId]);
@@ -801,7 +815,7 @@ exports.updateMyStaffEntries = async (req, res) => {
 
     for (const entryId of uniqueEntryIds) {
       await client.query(
-        'INSERT INTO team_entry_staff (team_entry_id, staff_id) VALUES (?, ?)',
+        sqlDialect('INSERT INTO team_entry_staff (team_entry_id, staff_id) VALUES (?, ?)', "INSERT INTO team_entry_staff (team_entry_id, staff_id) VALUES (?, ?) RETURNING id"),
         [entryId, id]
       );
     }
@@ -923,7 +937,7 @@ exports.addPlayerToMyTeam = async (req, res, athleteConnection) => {
 
     // --- [เพิ่มส่วนนี้] Logic: ถ้าตั้งคนนี้เป็นกัปตัน ให้ปลดกัปตันคนเก่าออก ---
     if (is_captain === true || is_captain === 'true') {
-        await athleteConnection.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
+        await athleteConnection.query('UPDATE players SET is_captain = 0 WHERE team_id = ?', [teamId]);
     }
     // ----------------------------------------------------------------
 
@@ -941,16 +955,17 @@ exports.addPlayerToMyTeam = async (req, res, athleteConnection) => {
 
     // --- [LOGIC ลิเบอโร่] ---
     if (cleanIsLibero1) {
-        await athleteConnection.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
+        await athleteConnection.query('UPDATE players SET is_libero1 = 0 WHERE team_id = ?', [teamId]);
     }
     if (cleanIsLibero2) {
-        await athleteConnection.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
+        await athleteConnection.query('UPDATE players SET is_libero2 = 0 WHERE team_id = ?', [teamId]);
     }
     // ---------------------
 
     const result = await athleteConnection.query(
-      `INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, title, middle_name, jersey_name, national_id, fivb_id, hometown, school_affiliation, grade_level, contact_phone, identity_document_url, student_certificate_url, guardian_consent_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sqlDialect(`INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, title, middle_name, jersey_name, national_id, fivb_id, hometown, school_affiliation, grade_level, contact_phone, identity_document_url, student_certificate_url, guardian_consent_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, `INSERT INTO players (team_id, first_name, last_name, number, position, height_cm, weight, birth_date, is_captain, gender, nickname, nationality, photo, is_libero1, is_libero2, title, middle_name, jersey_name, national_id, fivb_id, hometown, school_affiliation, grade_level, contact_phone, identity_document_url, student_certificate_url, guardian_consent_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
       [
         teamId,
         parseNullablePersonName(first_name),
@@ -1029,7 +1044,7 @@ exports.updatePlayer = async (req, res, athleteConnection) => {
         if (playerCheck.rows.length > 0) {
             const teamId = playerCheck.rows[0].team_id;
             // 2. ปลดกัปตันทุกคนในทีมนี้ออก
-            await athleteConnection.query('UPDATE players SET is_captain = false WHERE team_id = ?', [teamId]);
+            await athleteConnection.query('UPDATE players SET is_captain = 0 WHERE team_id = ?', [teamId]);
         }
     }
     // ---------------------
@@ -1040,10 +1055,10 @@ exports.updatePlayer = async (req, res, athleteConnection) => {
         if (playerCheck.rows.length > 0) {
             const teamId = playerCheck.rows[0].team_id;
             if (cleanIsLibero1) {
-                await athleteConnection.query('UPDATE players SET is_libero1 = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_libero1 = 0 WHERE team_id = ?', [teamId]);
             }
             if (cleanIsLibero2) {
-                await athleteConnection.query('UPDATE players SET is_libero2 = false WHERE team_id = ?', [teamId]);
+                await athleteConnection.query('UPDATE players SET is_libero2 = 0 WHERE team_id = ?', [teamId]);
             }
         }
     }
@@ -1185,6 +1200,7 @@ exports.getAllTeamEntries = async (req, res) => {
       LEFT JOIN age_groups ag ON ag.id = te.age_group_id
       LEFT JOIN team_entry_players tep ON tep.team_entry_id = te.id
       GROUP BY
+        t.id, c.id,
         te.id, te.team_id, te.competition_id, te.display_name, te.gender,
         te.age_group_id, te.status, te.registered_at, t.name, t.code,
         t.logo_url, t.manager_name, t.coach, t.phone, t.email,
@@ -1389,7 +1405,7 @@ exports.getMyCompetitions = async (req, res) => {
     if (!teamId) return res.json([]); // ยังไม่มีทีม ก็ยังไม่มีรายการแข่ง
 
     const result = await db.query(`
-        SELECT c.*, tc.created_at as joined_at
+        SELECT c.*, tc.registered_at as joined_at
         FROM competitions c
         JOIN team_competitions tc ON c.id = tc.competition_id
         WHERE tc.team_id = ?
@@ -1620,7 +1636,7 @@ exports.getMyMatches = async (req, res) => {
     }
     const placeholders = teamIds.map(() => '?').join(',');
 
-    const result = await db.query(`
+    const result = await db.query(sqlDialect(`
         SELECT
             m.id, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name, m.match_date, m.start_time, m.location, m.status,
             m.match_number, m.pool_name, COALESCE(m.gender, c.gender) as gender,
@@ -1643,7 +1659,30 @@ exports.getMyMatches = async (req, res) => {
         WHERE m.home_team_id IN (${placeholders}) OR m.away_team_id IN (${placeholders})
         ORDER BY IF(m.match_date IS NULL, 1, 0), m.match_date ASC,
                  IF(m.start_time IS NULL, 1, 0), m.start_time ASC, m.id ASC
-    `, [...teamIds, ...teamIds]);
+    `, `
+        SELECT
+            m.id, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name, m.match_date, m.start_time, m.location, m.status,
+            m.match_number, m.pool_name, COALESCE(m.gender, c.gender) as gender,
+            COALESCE(m.age_group_id, c.age_group_id) as age_group_id,
+            ag.name as age_group_name,
+            m.home_set_score, m.away_set_score, m.set_scores,
+
+            m.home_team_id,
+            t1.name as home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t1.code as home_team_code,
+            t1.logo_url as home_team_logo_url,
+
+            m.away_team_id,
+            t2.name as away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en, t2.code as away_team_code,
+            t2.logo_url as away_team_logo_url
+        FROM matches m
+        LEFT JOIN teams t1 ON m.home_team_id = t1.id
+        LEFT JOIN teams t2 ON m.away_team_id = t2.id
+        LEFT JOIN competitions c ON m.competition_id = c.id
+        LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
+        WHERE m.home_team_id IN (${placeholders}) OR m.away_team_id IN (${placeholders})
+        ORDER BY CASE WHEN m.match_date IS NULL THEN 1 ELSE 0 END, m.match_date ASC,
+                 CASE WHEN m.start_time IS NULL THEN 1 ELSE 0 END, m.start_time ASC, m.id ASC
+    `), [...teamIds, ...teamIds]);
 
     const normalizedRows = result.rows.map(row => ({
         ...row,
@@ -1675,7 +1714,7 @@ exports.getMyMatchesByGender = async (req, res) => {
     }
     const placeholders = teamIds.map(() => '?').join(',');
 
-    const result = await db.query(`
+    const result = await db.query(sqlDialect(`
         SELECT
             m.id, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name, m.match_date, m.start_time, m.location, m.status,
             m.match_number, m.pool_name, m.gender,
@@ -1695,7 +1734,27 @@ exports.getMyMatchesByGender = async (req, res) => {
         WHERE (m.home_team_id IN (${placeholders}) OR m.away_team_id IN (${placeholders})) AND m.gender = ?
         ORDER BY IF(m.match_date IS NULL, 1, 0), m.match_date ASC,
                  IF(m.start_time IS NULL, 1, 0), m.start_time ASC, m.id ASC
-    `, [...teamIds, ...teamIds, gender.toLowerCase()]);
+    `, `
+        SELECT
+            m.id, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name, m.match_date, m.start_time, m.location, m.status,
+            m.match_number, m.pool_name, m.gender,
+            m.home_set_score, m.away_set_score, m.set_scores,
+
+            m.home_team_id,
+            t1.name as home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t1.code as home_team_code,
+            t1.logo_url as home_team_logo_url,
+
+            m.away_team_id,
+            t2.name as away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en, t2.code as away_team_code,
+            t2.logo_url as away_team_logo_url
+        FROM matches m
+        LEFT JOIN teams t1 ON m.home_team_id = t1.id
+        LEFT JOIN teams t2 ON m.away_team_id = t2.id
+        LEFT JOIN competitions c ON m.competition_id = c.id
+        WHERE (m.home_team_id IN (${placeholders}) OR m.away_team_id IN (${placeholders})) AND m.gender = ?
+        ORDER BY CASE WHEN m.match_date IS NULL THEN 1 ELSE 0 END, m.match_date ASC,
+                 CASE WHEN m.start_time IS NULL THEN 1 ELSE 0 END, m.start_time ASC, m.id ASC
+    `), [...teamIds, ...teamIds, gender.toLowerCase()]);
 
     const normalizedRows = result.rows.map(row => ({
         ...row,

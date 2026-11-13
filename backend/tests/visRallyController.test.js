@@ -30,6 +30,7 @@ function harness() {
             throw Error(sql);
         } };
     const sandbox = { exports: {}, console: { error() {} }, require: name => {
+        if (name === '../utils/sqlDialect') return require('../utils/sqlDialect');
         if (name === '../config/db') return { connect: async () => connection };
         if (name === '../utils/manualVisAccess') return require('../utils/manualVisAccess');
         if (name === '../utils/visWorkflow') return workflow;

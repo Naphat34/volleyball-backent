@@ -14,6 +14,7 @@ async function request(body, rows = [match], affectedRows = 1) {
         return sql.startsWith('SELECT') ? { rows } : { affectedRows };
     } };
     const context = { module: { exports: {} }, console, require: name => {
+        if (name === '../utils/sqlDialect') return require('../utils/sqlDialect');
         if (name === '../config/db') return db;
         if (name === '../config/visCodes') return {};
         throw new Error(`Unexpected dependency: ${name}`);

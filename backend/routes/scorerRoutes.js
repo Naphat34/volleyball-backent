@@ -10,7 +10,7 @@ const visOffline = require('../controllers/officialVisOfflineController');
 const manual = require('../controllers/manualScorerController');
 const manualVis = require('../controllers/manualVisController');
 router.get('/manual-vis-matches', authMiddleware.verifyApprovedToken, manualVis.access, manualVis.list);
-router.post('/manual-vis-matches/:id/:assignment', authMiddleware.verifyApprovedToken, manualVis.access, manualVis.assignment);
+router.post('/manual-vis-matches/:id/:assignment', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, manualVis.access, manualVis.assignment);
 const manualAccess = [authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches];
 router.get('/manual-matches', manualAccess, manual.list);
 router.post('/manual-matches', manualAccess, manual.save);
@@ -38,13 +38,14 @@ router.get('/match/:matchId/roster', scorerController.getMatchRosterData);
 router.get('/match/:matchId/scoresheet', scorerController.getMatchScoresheetData);
 router.get('/match/:matchId/state', scorerController.getLiveState);
 
-// Mutating scorer endpoints are available to admins and scorer-console users.
-const scorerWriteAccess = [authMiddleware.verifyToken, authMiddleware.canScoreMatches];
+// Mutating scorer endpoints are reserved for scorer-console users, excluding administrators.
+const scorerWriteAccess = [authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches];
+const scorerReadAccess = [authMiddleware.verifyApprovedToken, authMiddleware.hasAnyRole(['admin', 'score', 'scorer', 'statistician'])];
 const settings = require('../controllers/matchSettingsController');
 router.get('/match/:matchId/settings', authMiddleware.verifyApprovedToken, settings.read);
 router.put('/match/:matchId/settings', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, settings.save);
 router.get('/matches', scorerWriteAccess, matchController.getAllMatches);
-router.get('/match/:matchId/vis', scorerWriteAccess, visController.getState);
+router.get('/match/:matchId/vis', scorerReadAccess, visController.getState);
 router.post('/match/:matchId/vis', scorerWriteAccess, visController.command);
 router.post('/match/:matchId/event', scorerWriteAccess, validateRequest('scorerEvent'), offline.online('saveMatchEvent'));
 router.post('/match/:matchId/undo-substitution-batch', scorerWriteAccess, offline.online('undoSubstitutionBatch'));

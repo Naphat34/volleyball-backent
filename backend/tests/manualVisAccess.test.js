@@ -12,11 +12,15 @@ test('statistics opt-in is separate from Livescore visibility and never grants s
         assert.equal(canReadStatistics({ role: 'statistician' }, { ...match, ...patch }), false);
     }
 });
-test('only the current assigned statistics user can write, including admins', () => {
+test('only the current assigned statistician can write', () => {
     assert.doesNotThrow(() => assertStatisticsWriter({ role: 'statistician', id: 9 }, fixture()));
-    for (const user of [{ role: 'statistician', id: 10 }, { role: 'admin', id: 1 }]) {
+    for (const user of [{ role: 'statistician', id: 10 }]) {
         assert.throws(() => assertStatisticsWriter(user, fixture()), { status: 409 });
     }
     assert.throws(() => assertStatisticsWriter({ role: 'statistician', id: 9 }, { ...fixture(), manual_vis_shared: 0 }), { status: 403 });
     assert.throws(() => assertStatisticsWriter({ role: 'statistician', id: 9 }, { ...fixture(), manual_vis_assignee_id: null }), { status: 409 });
+});
+
+test('even an assigned administrator cannot record statistics', () => {
+ assert.throws(() => assertStatisticsWriter({ role: 'admin', id: 9 }, fixture()), {status: 403});
 });

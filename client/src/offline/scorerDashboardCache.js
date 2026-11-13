@@ -7,6 +7,7 @@ const pick = (value, keys) => Object.fromEntries(keys.filter(key => value[key] !
 const matchFields = ['id', 'competition_id', 'competition_name', 'competition_title', 'match_number', 'match_date', 'raw_start_time', 'start_time', 'start_date', 'location', 'round_name', 'pool_name', 'age_group_name', 'category', 'gender', 'competition_gender', 'home_team', 'away_team', 'home_team_name', 'away_team_name', 'home_team_id', 'away_team_id', 'home_set_score', 'away_set_score', 'status', 'max_sets', 'is_manual_scorer', 'manual_lifecycle', 'manual_owner_id', 'manual_published', 'first_serve_team_id', 'dashboard_stale'];
 function cacheMatch(match) {
     const result = pick(match, matchFields);
+    Object.assign(result, pick(match, ['competition_name_th', 'competition_name_en', 'competition_title_th', 'competition_title_en']));
     for (const key of ['official_summary', 'vis_summary']) {
         if (!match[key]) continue;
         result[key] = pick(match[key], ['currentSet', 'status', 'hasActivity']);
@@ -55,7 +56,7 @@ export async function writeDashboardCache(userId, role, kind, snapshot) {
     if (!Array.isArray(snapshot.matches) || !Array.isArray(snapshot.competitions)) throw Error('Invalid dashboard snapshot');
     const value = { key: keyFor(userId, role, kind), version: VERSION,
         matches: snapshot.matches.map(cacheMatch),
-        competitions: snapshot.competitions.map(row => pick(row, ['id', 'title', 'competition_title', 'competition_name', 'gender', 'status', 'age_group_name', 'age_group_id'])),
+        competitions: snapshot.competitions.map(row => pick(row, ['id', 'title', 'title_th', 'title_en', 'short_title_th', 'short_title_en', 'competition_title', 'competition_title_th', 'competition_title_en', 'competition_name', 'competition_name_th', 'competition_name_en', 'gender', 'status', 'age_group_name', 'age_group_id'])),
         updatedAt: snapshot.updatedAt || new Date().toISOString(),
         partialCompetitionIds: snapshot.partialCompetitionIds || [] };
     await access('readwrite', store => store.put(value));
@@ -68,7 +69,10 @@ export function mergeRefereeMatches(competitions, results, previous, titleOf = c
     const matches = competitions.flatMap((competition, index) => {
         const result = results[index];
         if (result?.status === 'fulfilled' && Array.isArray(result.value?.data)) {
-            return result.value.data.map(match => ({ ...match, competition_id: competition.id, competition_name: titleOf(competition), dashboard_stale: false }));
+            return result.value.data.map(match => ({ ...match, competition_id: competition.id, competition_name: titleOf(competition),
+                competition_name_th: competition.title_th || match.competition_name_th || match.competition_title_th,
+                competition_name_en: competition.title_en || match.competition_name_en || match.competition_title_en,
+                dashboard_stale: false }));
         }
         partialCompetitionIds.push(String(competition.id));
         return previous.filter(match => String(match.competition_id) === String(competition.id)).map(match => ({ ...match, dashboard_stale: true }));

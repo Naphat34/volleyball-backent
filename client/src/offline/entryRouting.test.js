@@ -13,7 +13,7 @@ test('one login accepts only internal destinations and enforces role permissions
 });
 
 test('each role opens its dashboard directly online and its match list offline', () => {
-    for (const [role, online, offline] of [['admin', '/admin', '/adminvis'], ['statistician', '/adminvis', '/adminvis'], ['score', '/adminscorer', '/scorer-offline'], ['scorer', '/adminscorer', '/scorer-offline']]) {
+    for (const [role, online, offline] of [['admin', '/admin', '/admin'], ['statistician', '/adminvis', '/adminvis'], ['score', '/adminscorer', '/scorer-offline'], ['scorer', '/adminscorer', '/scorer-offline']]) {
         assert.equal(roleHome({ role }), online);
         assert.equal(roleHome({ role }, true), offline);
     }
@@ -26,4 +26,8 @@ test('return targets reject external URLs, viewers and extra query strings', () 
     for (const target of ['https://evil.test', '//evil.test', '/scorer/42/viewer', '/admin', '/scorer/42?x=1']) {
         assert.equal(loginIntent(`?returnTo=${encodeURIComponent(target)}`).destination, null);
     }
+});
+
+test('administrators cannot enter recording sections online or offline', () => {
+ for (const offline of [false, true]) for (const section of ['vis', 'scorer']) assert.equal(canEnterSection({role: 'admin'}, section, offline), false);
 });

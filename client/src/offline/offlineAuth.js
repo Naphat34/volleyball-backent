@@ -23,7 +23,7 @@ export function offlineProfileMatchesUser(profile, user) {
 export function getOfflineUser({ readOnly = false } = {}) {
     try {
         const grant = JSON.parse(sessionStorage.getItem(SESSION));
-        return grant && (readOnly || (!grant.readOnly && grant.expiresAt > Date.now())) && ['admin', 'statistician', 'score', 'scorer'].includes(grant.user?.role) ? grant.user : null;
+        return grant && (readOnly || (!grant.readOnly && grant.expiresAt > Date.now())) && ['statistician', 'score', 'scorer'].includes(grant.user?.role) ? grant.user : null;
     } catch { return null; }
 }
 export const offlineMode = () => sessionStorage.getItem(MODE) === '1';
@@ -32,7 +32,7 @@ export const clearOfflineSession = () => { sessionStorage.removeItem(SESSION); s
 export async function prepareOffline(grant, pin, { replaceAccount = false } = {}) {
     if (!crypto.subtle) throw Error('การตั้ง PIN Offline ต้องใช้ HTTPS หรือ localhost');
     if (!/^\d{6,12}$/.test(pin)) throw Error('ใช้ PIN ตัวเลข 6–12 หลัก');
-    if (!grant?.user?.id || !['admin', 'statistician', 'score', 'scorer'].includes(grant.user.role) || grant.expiresAt <= Date.now()) throw Error('บัญชีนี้ยังไม่มีสิทธิ์ Offline');
+    if (!grant?.user?.id || !['statistician', 'score', 'scorer'].includes(grant.user.role) || grant.expiresAt <= Date.now()) throw Error('บัญชีนี้ยังไม่มีสิทธิ์ Offline');
     const previous = offlineProfile();
     const different = previous && (previous.userId ? String(previous.userId) !== String(grant.user.id) : previous.user !== grant.user.username);
     if (different) {
@@ -57,7 +57,7 @@ export async function unlockOffline(pin, { section = null, readOnly = false, exp
         grant = JSON.parse(new TextDecoder().decode(plain));
     } catch { throw Error('PIN ไม่ถูกต้อง'); }
     if (!readOnly && grant.expiresAt <= Date.now()) throw Error('สิทธิ์ Offline หมดอายุ');
-    if (!grant.user?.id || !['admin', 'statistician', 'score', 'scorer'].includes(grant.user.role)) throw Error('ข้อมูลสิทธิ์ Offline ไม่สมบูรณ์ กรุณาเตรียมสิทธิ์ออนไลน์ใหม่');
+    if (!grant.user?.id || !['statistician', 'score', 'scorer'].includes(grant.user.role)) throw Error('ข้อมูลสิทธิ์ Offline ไม่สมบูรณ์ กรุณาเตรียมสิทธิ์ออนไลน์ใหม่');
     if (section && !canEnterSection(grant.user, section, true)) throw Error(`บัญชี ${grant.user.username} ไม่มีสิทธิ์เข้า ${section === 'vis' ? 'VIMS' : 'ScorerControl'} กรุณาเลือกหน้าระบบที่มีสิทธิ์`);
     if (expectedUserId != null) {
         let current = null;

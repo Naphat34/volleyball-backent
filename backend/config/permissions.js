@@ -34,6 +34,8 @@ const normalizeRole = (role) => roleAliases[role] || role;
 const getRolePermissions = (role) => permissionsByRole[normalizeRole(role)] || [];
 
 const roleHasPermission = (role, permission) => {
+  // Administration excludes recording scores and statistics.
+  if (normalizeRole(role) === 'admin' && permission === 'match.score') return false;
   const permissions = getRolePermissions(role);
   return permissions.includes('*') || permissions.includes(permission);
 };

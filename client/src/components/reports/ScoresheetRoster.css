@@ -1,0 +1,52 @@
+.scoresheet-roster {
+    --ss-libero-height: 17px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: 32px 18px minmax(0, 1fr) 19px auto 19px 75px 19px 42px;
+    flex: 1 1 0%;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    border: 2px solid #000;
+    background: #fff;
+    color: #000;
+    font-family: Sarabun, sans-serif;
+}
+.scoresheet-roster.ss-roster-compact {
+    --ss-libero-height: 15px;
+    grid-template-rows: 29px 17px minmax(0, 1fr) 17px auto 17px 65px 17px 36px;
+}
+.scoresheet-roster > * { min-width: 0; min-height: 0; }
+.ss-roster-heading { display: grid; grid-template-columns: 8px 19px minmax(0, 1fr) 32px minmax(0, 1fr) 19px 8px; align-items: center; gap: 2px; padding: 3px; border-bottom: 1px solid #000; }
+.ss-roster-choice { display: flex; flex-direction: column; align-items: center; font-size: 6px; line-height: 6px; }
+.ss-roster-chosen { position: relative; }
+.ss-roster-chosen::after { content: '×'; position: absolute; inset: -1px 0 0; text-align: center; font-size: 11px; line-height: 7px; font-weight: 400; }
+.ss-roster-heading .ss-roster-name { height: 22px; border: 1px solid #000; justify-content: center; }
+.ss-roster-heading strong { text-align: center; font-size: 9px; line-height: 1.05; }
+.ss-roster-heading small { display: block; font-size: 8px; }
+.ss-roster-team-marker { display: grid; place-items: center; height: 18px; width: 18px; border: 1px solid #000; border-radius: 50%; font-size: 10px; }
+.ss-roster-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ss-roster-columns > :first-child { border-right: 1px solid #000; }
+.ss-roster-column-head { border-bottom: 1px solid #000; font-size: 9px; font-weight: 700; }
+.ss-roster-name-heading { flex: 1; text-align: center; align-self: center; white-space: nowrap; overflow: hidden; }
+.ss-roster-player-list { display: grid; min-width: 0; min-height: 0; overflow: hidden; }
+.ss-roster-player-row { display: flex; min-width: 0; min-height: 0; overflow: hidden; border-bottom: 1px solid #000; }
+.ss-roster-player-list > :last-child, .ss-roster-column-head .ss-roster-player-row { border-bottom: 0; }
+.ss-roster-player-row.ss-roster-empty { border-bottom: 0; }
+.ss-roster-number { flex: 0 0 26px; min-width: 0; display: flex; align-items: center; justify-content: center; border-right: 1px solid #000; font-size: 10px; line-height: 1; font-weight: 700; overflow: hidden; }
+.ss-roster-compact .ss-roster-number { font-size: 9px; }
+.ss-roster-captain { display: grid; place-items: center; width: 14px; height: 14px; max-height: 95%; border: 1px solid #000; border-radius: 50%; }
+.ss-roster-name { flex: 1; display: flex; align-items: center; min-width: 0; min-height: 0; overflow: hidden; padding: 0 3px; font-weight: 600; }
+.ss-roster-name > span { flex: none; display: inline-block; white-space: nowrap; line-height: 1.4; }
+.scoresheet-roster > h4 { display: grid; place-items: center; margin: 0; border-top: 1px solid #000; border-bottom: 1px solid #000; background: #f3f4f6; font-size: 10px; font-weight: 700; line-height: 1; }
+.ss-roster-officials { display: grid; grid-template-rows: repeat(5, minmax(0, 1fr)); }
+.ss-roster-official-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); min-height: 0; border-bottom: 1px solid #000; }
+.ss-roster-official-row:last-child { border-bottom: 0; }
+.ss-roster-official-row strong { display: grid; place-items: center; border-left: 1px solid #000; border-right: 1px solid #000; font-size: 10px; line-height: 1; }
+.ss-roster-official-row .ss-roster-name { justify-content: center; }
+.ss-roster-signatures > div { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); min-height: 0; }
+.ss-roster-signature { position: relative; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: end; padding: 1px 3px; font-size: 8px; font-weight: 700; border-bottom: 1px solid #000; }
+.ss-roster-signature:last-child { border-bottom: 0; }
+.ss-roster-signature img { position: absolute; right: 3px; top: 1px; height: calc(100% - 2px); max-width: 65%; object-fit: contain; }
+@media print { .scoresheet-roster { break-inside: avoid; } .scoresheet-roster > h4 { background: #fff; } }

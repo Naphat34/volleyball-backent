@@ -1,3 +1,4 @@
+const { sqlDialect } = require('../utils/sqlDialect');
 const { applyMatchSetup, setupPlayers } = require('../utils/matchSetup');
 const crypto = require('crypto');
 const db = require('../config/db');
@@ -33,7 +34,7 @@ async function actualConfig(connection, match) {
 async function saveTeam(connection, config, ownerId, id) {
     const translatedTeamFields = teamNameFields.filter(field => config[field] !== undefined);
     if (!id) {
-        const result = await connection.query(`INSERT INTO teams (name, code, status, main_color, manual_owner_id${translatedTeamFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, 'active', ?, ?${translatedTeamFields.map(() => ', ?').join('')})`,
+        const result = await connection.query(sqlDialect(`INSERT INTO teams (name, code, status, main_color, manual_owner_id${translatedTeamFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, 'active', ?, ?${translatedTeamFields.map(() => ', ?').join('')})`, `INSERT INTO teams (name, code, status, main_color, manual_owner_id${translatedTeamFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, 'active', ?, ?${translatedTeamFields.map(() => ', ?').join('')}) RETURNING id`),
             [config.name, `M${crypto.randomBytes(4).toString('hex')}`, config.color, ownerId, ...translatedTeamFields.map(field => config[field])]);
         id = result.insertId;
     } else await connection.query(`UPDATE teams SET name = ?, main_color = ?${translatedTeamFields.map(field => `, ${field}=?`).join('')} WHERE id = ?`, [config.name, config.color, ...translatedTeamFields.map(field => config[field]), id]);
@@ -51,7 +52,7 @@ async function saveTeam(connection, config, ownerId, id) {
             await connection.query(`UPDATE players SET number=?, first_name=?, last_name=?, position=?, is_captain=?, is_libero1=?, is_libero2=?, is_playing=1${translatedFields.map(field => `, ${field}=?`).join('')} WHERE id=? AND team_id=?`, [...values, ...translatedValues, previous.id, id]);
             keep.push(previous.id);
         } else {
-            const inserted = await connection.query(`INSERT INTO players (number, first_name, last_name, position, is_captain, is_libero1, is_libero2, team_id, is_active, is_playing${translatedFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1${translatedFields.map(() => ', ?').join('')})`, [...values, id, ...translatedValues]);
+            const inserted = await connection.query(sqlDialect(`INSERT INTO players (number, first_name, last_name, position, is_captain, is_libero1, is_libero2, team_id, is_active, is_playing${translatedFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1${translatedFields.map(() => ', ?').join('')})`, `INSERT INTO players (number, first_name, last_name, position, is_captain, is_libero1, is_libero2, team_id, is_active, is_playing${translatedFields.map(field => `, ${field}`).join('')}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1${translatedFields.map(() => ', ?').join('')}) RETURNING id`), [...values, id, ...translatedValues]);
             keep.push(inserted.insertId);
         }
     }
@@ -99,9 +100,11 @@ exports.save = async (req, res) => {
         if (match) {
             await connection.query('UPDATE matches SET match_setup=NULL, match_setup_revision=match_setup_revision+1, manual_title=?, manual_lifecycle=?, manual_config=?, match_date=?, start_time=?, location=?, match_number=?, max_sets=?, has_challenge=?, gender=?, live_state=NULL WHERE id=?', [...values, match.id]);
         } else {
-            const inserted = await connection.query(`INSERT INTO matches
+            const inserted = await connection.query(sqlDialect(`INSERT INTO matches
                 (manual_title, manual_lifecycle, manual_config, match_date, start_time, location, match_number, max_sets, has_challenge, gender, home_team_id, away_team_id, manual_owner_id, manual_creation_id, status, set_scores)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '[]')`, [...values, homeId, awayId, req.user.id, req.body.creationId]);
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '[]')`, `INSERT INTO matches
+                (manual_title, manual_lifecycle, manual_config, match_date, start_time, location, match_number, max_sets, has_challenge, gender, home_team_id, away_team_id, manual_owner_id, manual_creation_id, status, set_scores)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '[]') RETURNING id`), [...values, homeId, awayId, req.user.id, req.body.creationId]);
             match = { id: inserted.insertId };
         }
         await writeAuditLog(req, req.params.id ? 'manual_match.update' : 'manual_match.create', 'match', match.id, { lifecycle: start ? 'ready' : 'draft', config }, connection);

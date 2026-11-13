@@ -3,6 +3,23 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
+    "schema:export:mysql": "node scripts/exportMysqlSchema.js",
+    "schema:build:postgres": "node scripts/buildPostgresBaseline.js",
+    "migrate:postgres:status": "node scripts/runPostgresMigrations.js",
+    "migrate:postgres:adopt-baseline": "node scripts/adoptPostgresBaseline.js --apply",
+    "migrate:data:inspect": "node scripts/migrateMysqlData.js --inspect",
+    "migrate:data:verify": "node scripts/migrateMysqlData.js",
+    "migrate:data:staging": "node scripts/migrateMysqlData.js --apply",
+    "migrate:data:verify-imported": "node scripts/verifyImportedData.js",
+    "test:data-migration": "node --test tests/dataMigration.test.js",
+    "test:public-id": "node --test tests/publicId.test.js",
+    "migrate:postgres:staging": "node scripts/runPostgresMigrations.js --apply",
+    "seed:postgres:staging": "node scripts/runPostgresMigrations.js --seed --apply",
+    "test:postgres": "node --test tests/postgresAdapter.test.js tests/postgresSql.test.js tests/postgresWorkflows.test.js",
+    "test:supabase:staging": "node scripts/testSupabaseStaging.js",
+    "audit:postgres": "node scripts/auditPostgres.js",
+    "check:postgres": "node scripts/auditPostgres.js --check",
+    "test:postgres-adapter": "node --test tests/postgresAdapter.test.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate": "node scripts/runMigrations.js",
@@ -10,6 +27,7 @@
     "seed": "node scripts/runSeeds.js",
     "seed:status": "node scripts/runSeeds.js --status",
     "test": "node --test",
+    "test:recording-policy": "node --test tests/permissions.test.js tests/adminRecordingPolicy.test.js tests/recordingRoutes.test.js tests/manualVisAccess.test.js",
     "test:vis": "node --test tests/visWorkflow.test.js tests/visController.test.js tests/visController.mysql.test.js tests/visStatistics.test.js tests/visEventCode.test.js",
     "test:unit": "node --test tests/**/*.test.js",
     "test:dashboard": "node --test tests/matchDashboard.test.js tests/matchDashboard.mysql.test.js",
@@ -40,10 +58,13 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.22.5",
+    "pg": "^8.23.1",
     "socket.io": "^4.8.3",
     "sweetalert2": "^11.26.17"
   },
   "devDependencies": {
+    "@babel/parser": "^8.1.2",
+    "@electric-sql/pglite": "^0.5.16",
     "nodemon": "^3.1.11"
   }
 }

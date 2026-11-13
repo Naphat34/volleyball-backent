@@ -1,3 +1,5 @@
+import ScoresheetRoster from '../../components/reports/ScoresheetRoster';
+import { scoresheetRoster } from '../../utils/reports/scoresheetRoster';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from 'react';
@@ -367,19 +369,12 @@ export default function ScoreSheet({ matchId }) {
 
     const isPlayerInLibs = (p, libs) => libs.some(l => String(l.id) === String(p.id) || String(l.number) === String(p.number));
 
-    // 4. กรองเอานักกีฬาปกติ 12 คน (ตัดชื่อคนที่ลงกล่อง Libero แล้วออกไป)
+    // 4. แยกนักกีฬาปกติตามจำนวนที่ลงทะเบียน (ตัดชื่อคนที่ลงกล่อง Libero แล้วออกไป)
     const homeNormalPlayers = rawHome.filter(p => !isLibero(p) && p.role !== 'Coach' && !isPlayerInLibs(p, homeLibs));
     const awayNormalPlayers = rawAway.filter(p => !isLibero(p) && p.role !== 'Coach' && !isPlayerInLibs(p, awayLibs));
 
     // 5. แยกนักกีฬาและ Mapping ไปที่ทีม A (ซ้าย) และทีม B (ขวา)
     const configuredRosterSize = Math.max(1, Math.trunc(Number(rosterData?.match?.competition_max_players || matchData.competition_max_players) || 14));
-    const liberoSlotCount = Math.min(2, configuredRosterSize);
-    const regularPlayerSlotCount = Math.max(0, configuredRosterSize - liberoSlotCount);
-    const playersA = (isHomeOnLeft ? homeNormalPlayers : awayNormalPlayers).slice(0, regularPlayerSlotCount);
-    const playersB = (isHomeOnLeft ? awayNormalPlayers : homeNormalPlayers).slice(0, regularPlayerSlotCount);
-    const liberosA = (isHomeOnLeft ? homeLibs : awayLibs).slice(0, liberoSlotCount);
-    const liberosB = (isHomeOnLeft ? awayLibs : homeLibs).slice(0, liberoSlotCount);
-
     const normalizeStaffRole = (role) =>
         String(role || '')
             .toLowerCase()
@@ -489,14 +484,13 @@ export default function ScoreSheet({ matchId }) {
 
     const getPlayerName = (player) => displayNames.personName(player);
 
-    // Keep the competition limits applied above, but do not draw cells for
-    // roster entries that have no usable name.
-    const visiblePlayersA = playersA.filter((player) => getPlayerName(player).trim());
-    const visiblePlayersB = playersB.filter((player) => getPlayerName(player).trim());
-    const visibleLiberoPlayersA = liberosA.filter((player) => getPlayerName(player).trim());
-    const visibleLiberoPlayersB = liberosB.filter((player) => getPlayerName(player).trim());
-    const regularDisplayRowCount = Math.max(visiblePlayersA.length, visiblePlayersB.length);
-    const liberoDisplayRowCount = Math.max(visibleLiberoPlayersA.length, visibleLiberoPlayersB.length);
+    // Omit unnamed entries, then apply the total competition capacity (including
+    // actual libero selections) when laying out the two roster columns.
+    const visiblePlayersA = (isHomeOnLeft ? homeNormalPlayers : awayNormalPlayers).filter((player) => getPlayerName(player).trim());
+    const visiblePlayersB = (isHomeOnLeft ? awayNormalPlayers : homeNormalPlayers).filter((player) => getPlayerName(player).trim());
+    const visibleLiberoPlayersA = (isHomeOnLeft ? homeLibs : awayLibs).filter((player) => getPlayerName(player).trim());
+    const visibleLiberoPlayersB = (isHomeOnLeft ? awayLibs : homeLibs).filter((player) => getPlayerName(player).trim());
+    const rosterLayout = scoresheetRoster({ maxPlayers: configuredRosterSize, playersA: visiblePlayersA, playersB: visiblePlayersB, liberosA: visibleLiberoPlayersA, liberosB: visibleLiberoPlayersB });
 
     const parseEventDetails = (event) => {
         if (!event?.details) return {};
@@ -1392,112 +1386,10 @@ export default function ScoreSheet({ matchId }) {
                     </div>
 
                     {/* โซนขวา: TEAMS (Roster ยาวลงมาเต็มความสูง) กว้าง ~24% */}
-                    <div className="flex-[1] border-2 border-black flex flex-col bg-white">
-                        {/* Header: TEAMS vs */}
-                        <div className="flex items-center justify-between px-2 py-1.5 border-b-2 border-black bg-gray-100 print:bg-white">
-                            <div className="flex-1 flex justify-between items-center gap-1">
-                                <div className="flex flex-col text-[7px] leading-[7px] text-center font-bold">
-                                    <span className="relative">{ui("A")}<div className="absolute inset-0 flex items-center justify-center text-[14px] font-normal leading-none -translate-y-[1px]">&times;</div>
-                                    </span>
-                                    <span>{ui("or")}</span>
-                                    <span>{ui("B")}</span>
-                                </div>
-                                <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 ml-0.5">{ui("A")}</div>
-                                <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 ml-0.5 ${getTeamFontSize(programTeamA, 10)}`}>
-                                    {programTeamA}
-                                </div>
-                            </div>
-                            <div className="text-[11px] font-bold text-center leading-[0.8] mx-1 shrink-0">{ui("TEAMS")}<br /><span className="text-[8px]">{ui("vs")}</span></div>
-                            <div className="flex-1 flex justify-between items-center gap-1">
-                                <div className={`flex-1 border border-black h-[22px] bg-white flex items-center justify-center font-bold truncate px-1 mr-0.5 ${getTeamFontSize(programTeamB, 10)}`}>
-                                    {programTeamB}
-                                </div>
-                                <div className="w-5 h-5 rounded-full border border-black flex items-center justify-center text-[10px] font-bold bg-white shrink-0 mr-0.5">{ui("B")}</div>
-                                <div className="flex flex-col text-[7px] leading-[7px] text-center font-bold">
-                                    <span>{ui("A")}</span>
-                                    <span>{ui("or")}</span>
-                                    <span className="relative">{ui("B")}<div className="absolute inset-0 flex items-center justify-center text-[14px] font-normal leading-none -translate-y-[1px]">&times;</div>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Player List */}
-                        <div className="grid grid-cols-2 divide-x-2 border-black border-b-2 flex-1 min-h-0">
-                            {[visiblePlayersA, visiblePlayersB].map((visiblePlayers, teamIndex) => (
-                                <div key={`roster-team-${teamIndex}`} className="min-w-0 flex flex-col">
-                                    <div className="flex text-[10px] font-bold text-center bg-gray-50 print:bg-white border-b border-black"><div className="w-8 border-r border-black py-0.5">{ui("No.")}</div><div className="flex-1 py-0.5">{ui("Name of the player")}</div></div>
-                                    <div className="flex-1 min-h-0 flex flex-col">
-                                        {Array.from({ length: regularDisplayRowCount }, (_, i) => {
-                                            const player = visiblePlayers[i];
-                                            return player ? (
-                                                <div key={`player-${i}`} className="flex flex-1 divide-x border-b border-black min-h-0">
-                                                    <div className="w-8 shrink-0 text-center font-bold text-[12px] flex items-center justify-center bg-gray-50 print:bg-white">
-                                                        {player.isCaptain || player.is_captain ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}
-                                                    </div>
-                                                    <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{displayNames.personName(player)}</div>
-                                                </div>
-                                            ) : <div key={`empty-${i}`} className="flex-1 min-h-0" aria-hidden="true" />;
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* LIBERO */}
-                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">{ui("LIBERO PLAYERS (\"L\")")}</div>
-                        <div className="grid grid-cols-2 divide-x-2 border-black border-b-2" style={{ height: `${liberoDisplayRowCount * 20}px` }}>
-                            {[visibleLiberoPlayersA, visibleLiberoPlayersB].map((visiblePlayers, teamIndex) => (
-                                <div key={`libero-team-${teamIndex}`} className="flex-1 flex flex-col min-h-0">
-                                    {Array.from({ length: liberoDisplayRowCount }, (_, i) => {
-                                        const player = visiblePlayers[i];
-                                        return player ? (
-                                            <div key={`libero-${i}`} className="min-w-0 flex-1 flex divide-x border-b border-black min-h-0">
-                                                <div className="w-8 shrink-0 bg-gray-50 print:bg-white flex items-center justify-center font-bold text-[12px]">{player.isCaptain || player.is_captain ? <div className="w-[15px] h-[15px] rounded-full border-[1.5px] border-black flex items-center justify-center pb-[1px]">{getPlayerNo(player)}</div> : getPlayerNo(player)}</div>
-                                                <div className="min-w-0 flex-1 px-1.5 flex items-center text-[13px] leading-tight font-semibold normal-case truncate">{displayNames.personName(player)}</div>
-                                            </div>
-                                        ) : <div key={`libero-empty-${i}`} className="flex-1 min-h-0" aria-hidden="true" />;
-                                    })}
-                                </div>
-                            ))}
-                        </div>
-                        {/* OFFICIALS */}
-                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">{ui("OFFICIALS")}</div>
-                        <div className="flex flex-col border-b-2 border-black h-[90px] divide-y border-black">
-                            {[{ r: 'C', nameA: coachA, nameB: coachB }, { r: 'AC1', nameA: ac1A, nameB: ac1B }, { r: 'AC2', nameA: ac2A, nameB: ac2B }, { r: 'T', nameA: tmA, nameB: tmB }, { r: 'M', nameA: mdA, nameB: mdB }].map(item => (
-                                <div key={`off-${item.r}`} className="flex-1 flex divide-x border-black">
-                                    <div className="flex-1 px-2 flex items-center justify-center text-xs font-medium truncate">{item.nameA || ''}</div>
-                                    <div className="w-12 shrink-0 flex items-center justify-center font-bold text-[12px] bg-gray-50 print:bg-white" dangerouslySetInnerHTML={{ __html: item.r }}></div>
-                                    <div className="flex-1 px-2 flex items-center justify-center text-xs font-medium truncate">{item.nameB || ''}</div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* SIGNATURES */}
-                        <div className="border-b-2 border-black text-center font-bold text-[12px] py-1 bg-gray-100 print:bg-white">{ui("SIGNATURES")}</div>
-                        <div className="flex divide-x-2 border-black h-[50px]">
-                            <div className="flex-1 flex flex-col divide-y border-black">
-                                <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCapA && <img src={sigCapA} alt={ui("Cap A")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>{ui("Team Captain:")}{' '}</span>
-                                </div>
-                                <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCoachA && <img src={sigCoachA} alt={ui("Coach A")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>{ui("Coach:")}{' '}</span>
-                                </div>
-                            </div>
-                            <div className="flex-1 flex flex-col divide-y border-black">
-                                <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCapB && <img src={sigCapB} alt={ui("Cap B")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>{ui("Team Captain:")}{' '}</span>
-                                </div>
-                                <div className="flex-1 px-1 text-[9px] font-bold flex flex-col justify-end pb-1 relative">
-                                    {sigCoachB && <img src={sigCoachB} alt={ui("Coach B")} className="absolute bottom-1 right-2 max-h-[20px] max-w-[80%] object-contain" />}
-                                    <span>{ui("Coach:")}{' '}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <ScoresheetRoster roster={rosterLayout} teamA={programTeamA} teamB={programTeamB}
+                        personName={getPlayerName} playerNumber={getPlayerNo} ui={ui}
+                        officials={[{ r: 'C', nameA: coachA, nameB: coachB }, { r: 'AC1', nameA: ac1A, nameB: ac1B }, { r: 'AC2', nameA: ac2A, nameB: ac2B }, { r: 'T', nameA: tmA, nameB: tmB }, { r: 'M', nameA: mdA, nameB: mdB }]}
+                        signatures={{ captainA: sigCapA, captainB: sigCapB, coachA: sigCoachA, coachB: sigCoachB }}/>
                 </div>
 
                 {/* Note */}

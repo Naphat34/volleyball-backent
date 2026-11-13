@@ -1,3 +1,4 @@
+import { getStoredUser } from '../../auth/authStorage';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -472,6 +473,9 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
         };
 
         delete payload.max_sets;
+        if (getStoredUser()?.role === 'admin') {
+            for (const field of ['home_set_score', 'away_set_score', 'winner_team_id', 'set_scores', 'home_lineup', 'away_lineup', 'home_libero', 'away_libero', 'team_a_score', 'team_b_score', 'live_state', 'match_state', 'first_serve_team_id', 'left_side_team_id']) delete payload[field];
+        }
 
         try {
             if (isEditing) {
@@ -797,9 +801,9 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                 <button onClick={() => handleEditMatch(match)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Edit")}>
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title={ui("Score")}>
+                                                {getStoredUser()?.role !== 'admin' && <button onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title={ui("Score")}>
                                                     <Trophy size={16} />
-                                                </button>
+                                                </button>}
                                                 <button onClick={() => window.open('/roster-verification/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Print Roster Verification")}>
                                                     <Users size={16} />
                                                 </button>

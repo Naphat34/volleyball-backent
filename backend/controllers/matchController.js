@@ -1,3 +1,5 @@
+const { assertAdminRecordingPolicy } = require('../utils/adminRecordingPolicy');
+const { sqlDialect } = require('../utils/sqlDialect');
 const { normalizeMatchSchedule } = require('../utils/matchSchedule');
 const db = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLogger');
@@ -210,7 +212,7 @@ module.exports = {
 
     async getAllMatches(req, res) {
         try {
-            const result = await db.query(`
+            const result = await db.query(sqlDialect(`
                 SELECT
                     m.id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
                     m.start_time as raw_start_time, m.location, m.status, m.vis_state, m.live_state,
@@ -249,7 +251,46 @@ module.exports = {
                 ORDER BY
                     m.start_time DESC,
                     m.id DESC
-            `);
+            `, `
+                SELECT
+                    m.id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
+                    m.start_time as raw_start_time, m.location, m.status, m.vis_state, m.live_state,
+                    m.match_number, m.pool_name, m.gender,
+                    COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
+                    COALESCE(ms.away_set_score, m.away_set_score) AS away_set_score,
+                    COALESCE(ms.set_scores, m.set_scores) AS set_scores,
+                    m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
+
+                    m.home_team_id,
+                    t1.name as home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t1.code as home_team_code,
+                    t1.logo_url as home_team_logo_url,
+
+                    m.away_team_id,
+                    t2.name as away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en, t2.code as away_team_code,
+                    t2.logo_url as away_team_logo_url
+                FROM matches m
+                LEFT JOIN teams t1 ON m.home_team_id = t1.id
+                LEFT JOIN teams t2 ON m.away_team_id = t2.id
+                LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
+                LEFT JOIN (
+                    SELECT
+                        match_id,
+                        SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) AS home_set_score,
+                        SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END) AS away_set_score,
+                        CONCAT(
+                            '[',
+                            string_agg(CONCAT('"', home_score, '-', away_score, '"'), ',' ORDER BY set_number ASC),
+                            ']'
+                        ) AS set_scores
+                    FROM match_sets WHERE end_time IS NOT NULL
+                    GROUP BY match_id
+                ) ms ON ms.match_id = m.id
+                WHERE m.manual_owner_id IS NULL
+                ORDER BY
+                    m.start_time DESC,
+                    m.id DESC
+            `));
 
             const normalizedRows = result.rows.map(row => ({ ...normalizeMatchSchedule(row), status: row.status ? row.status.toLowerCase() : row.status }));
             res.json(await attachDashboardSummaries(db, normalizedRows));
@@ -265,7 +306,7 @@ module.exports = {
     async getMatchesByCompetition(req, res) {
         const { competitionId } = req.params;
         try {
-            const result = await db.query(`
+            const result = await db.query(sqlDialect(`
                 SELECT
                     m.id, m.match_setup, m.competition_id, m.round_name,
                     m.start_time as raw_start_time, m.location, m.status,
@@ -307,7 +348,49 @@ module.exports = {
                         ELSE 9999
                     END ASC,
                     m.id ASC
-            `, [competitionId]);
+            `, `
+                SELECT
+                    m.id, m.match_setup, m.competition_id, m.round_name,
+                    m.start_time as raw_start_time, m.location, m.status,
+                    m.match_number, m.pool_name, m.gender,
+                    m.home_set_score, m.away_set_score, m.set_scores,
+                    m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
+
+                    m.home_team_id,
+                    t1.name as home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t1.code as home_team_code,
+                    t1.name as team_a_name, t1.code as team_a_code,
+                    t1.logo_url as home_team_logo_url,
+
+                    m.away_team_id,
+                    t2.name as away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en, t2.code as away_team_code,
+                    t2.name as team_b_name, t2.code as team_b_code,
+                    t2.logo_url as away_team_logo_url
+                FROM matches m
+                LEFT JOIN teams t1 ON m.home_team_id = t1.id
+                LEFT JOIN teams t2 ON m.away_team_id = t2.id
+                LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
+                LEFT JOIN (
+                    SELECT
+                        match_id,
+                        SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) AS home_set_score,
+                        SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END) AS away_set_score,
+                        CONCAT(
+                            '[',
+                            string_agg(CONCAT('"', home_score, '-', away_score, '"'), ',' ORDER BY set_number ASC),
+                            ']'
+                        ) AS set_scores
+                    FROM match_sets
+                    GROUP BY match_id
+                ) ms ON ms.match_id = m.id
+                WHERE m.competition_id = ?
+                ORDER BY
+                    CASE
+                        WHEN CAST(m.match_number AS text) ~ '^[0-9]+$' THEN CAST(m.match_number AS bigint)
+                        ELSE 9999
+                    END ASC,
+                    m.id ASC
+            `), [competitionId]);
 
             const normalizedRows = result.rows.map(row => {
                 let match_date = row.match_date;
@@ -361,6 +444,8 @@ module.exports = {
     // 2. CREATE: สร้างแมตช์ใหม่ (Manual)
     // ==========================================
     async createMatch(req, res) {
+        try { assertAdminRecordingPolicy(req.user, req.body); }
+        catch (error) { return res.status(error.statusCode).json({ error: error.message }); }
         // Validation
         if (!req.body.competition_id) {
             return res.status(400).json({ error: "Competition ID is required" });
@@ -419,7 +504,7 @@ module.exports = {
                 }
             }
 
-            const query = `INSERT INTO matches (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+            const query = sqlDialect(`INSERT INTO matches (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`, `INSERT INTO matches (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`);
             const result = await db.query(query, params);
             const insertedId = result.insertId || result.rows?.[0]?.id;
             if (insertedId) {
@@ -461,6 +546,7 @@ module.exports = {
                 'scorer_name', 'scorer_country', 'scorer_code', 'has_challenge'
             ];
 
+            assertAdminRecordingPolicy(req.user, req.body, beforeResult.rows[0]);
             const updates = [];
             const params = [];
             let index = 1;
@@ -579,8 +665,9 @@ module.exports = {
             for (const match of fixtures) {
                 // แก้ไข: ใช้ set_scores (มี s) ให้ตรงกับฟังก์ชันอื่น
                 await db.query(
-                    `INSERT INTO matches (competition_id, home_team_id, away_team_id, round_name, match_number, status, home_set_score, away_set_score, set_scores, age_group_id, category, gender)
-                     VALUES (?, ?, ?, ?, ?, 'scheduled', 0, 0, '[]', ?, ?, ?)`,
+                    sqlDialect(`INSERT INTO matches (competition_id, home_team_id, away_team_id, round_name, match_number, status, home_set_score, away_set_score, set_scores, age_group_id, category, gender)
+                     VALUES (?, ?, ?, ?, ?, 'scheduled', 0, 0, '[]', ?, ?, ?)`, `INSERT INTO matches (competition_id, home_team_id, away_team_id, round_name, match_number, status, home_set_score, away_set_score, set_scores, age_group_id, category, gender)
+                     VALUES (?, ?, ?, ?, ?, 'scheduled', 0, 0, '[]', ?, ?, ?) RETURNING id`),
                     [
                         competitionId,
                         match.home_team_id,
@@ -649,10 +736,12 @@ module.exports = {
 
             for (let i = 0; i < normalizedSets.length; i++) {
                 const setScore = normalizedSets[i];
-                await client.query(`
+                await client.query(sqlDialect(`
                     INSERT INTO match_sets (match_id, set_number, home_score, away_score)
                     VALUES (?, ?, ?, ?)
-                `, [id, i + 1, setScore.homePoints, setScore.awayPoints]);
+                `, `
+                    INSERT INTO match_sets (match_id, set_number, home_score, away_score)
+                    VALUES (?, ?, ?, ?) RETURNING id`), [id, i + 1, setScore.homePoints, setScore.awayPoints]);
             }
             const afterResult = await client.query('SELECT * FROM matches WHERE id = ?', [id]);
             await writeAuditLog(req, 'match.result_update', 'match', id, {
@@ -688,8 +777,9 @@ module.exports = {
             const { match_id, set_number, team_id, player_id, skill, grade, score_home, score_away, description } = req.body;
 
             await db.query(
-                `INSERT INTO match_actions (match_id, set_number, team_id, player_id, skill, grade, score_home, score_away, description, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                sqlDialect(`INSERT INTO match_actions (match_id, set_number, team_id, player_id, skill, grade, score_home, score_away, description, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`, `INSERT INTO match_actions (match_id, set_number, team_id, player_id, skill, grade, score_home, score_away, description, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) RETURNING id`),
                 [match_id, set_number, team_id, player_id, skill, grade, score_home, score_away, description]
             );
             res.json({ message: "Action saved" });
@@ -814,8 +904,9 @@ module.exports = {
             }
 
             const result = await db.query(
-                `INSERT INTO match_requests (match_id, team_id, request_type, status, details, created_at)
-                 VALUES (?, ?, ?, 'PENDING', ?, NOW())`,
+                sqlDialect(`INSERT INTO match_requests (match_id, team_id, request_type, status, details, created_at)
+                 VALUES (?, ?, ?, 'PENDING', ?, NOW())`, `INSERT INTO match_requests (match_id, team_id, request_type, status, details, created_at)
+                 VALUES (?, ?, ?, 'PENDING', ?, NOW()) RETURNING id`),
                 [matchId, team_id, request_type, details ? JSON.stringify(details) : null]
             );
             const requestId = result.insertId || result.rows?.[0]?.id;
