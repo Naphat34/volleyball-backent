@@ -83,10 +83,18 @@ test('starting a set syncs the latest team athletes before the Live lock', async
         await db.query('INSERT INTO team_entries(team_id,competition_id) VALUES(1,?),(2,?)',[comp.insertId,comp.insertId]);
         await db.query("INSERT INTO players(team_id,number,first_name,gender) VALUES(1,1,'Home','Male'),(2,2,'Away','Male')");
         const match = await db.query("INSERT INTO matches(competition_id,home_team_id,away_team_id,status) VALUES(?,1,2,'scheduled') RETURNING id",[comp.insertId]);
-        await db.query('UPDATE matches SET match_setup=? WHERE id=?',[JSON.stringify({home:{name:'Home',players:[{id:999,number:99}]},away:{name:'Away',players:[]}}),match.insertId]);
+        await db.query('UPDATE matches SET match_setup=? WHERE id=?',[JSON.stringify({home:{name:'Home',players:[{id:999,number:99}],staff:[]},away:{name:'Away',players:[],staff:[]}}),match.insertId]);
         const controllerPath = require.resolve('../controllers/scorerController');
         delete require.cache[controllerPath];
         const controller = require(controllerPath);
+        const rosterSaved = await invoke(controller,'updateMatchRoster',{
+            homePlayers:[{id:1,number:1,selected:true}],awayPlayers:[{id:2,number:2,selected:true}],
+        },{matchId:match.insertId});
+        assert.equal(rosterSaved.code,200,JSON.stringify(rosterSaved.data));
+        const foreign = await invoke(controller,'updateMatchRoster',{
+            homePlayers:[{id:2,number:2,selected:true}],awayPlayers:[{id:2,number:2,selected:true}],
+        },{matchId:match.insertId});
+        assert.equal(foreign.code,400,'foreign players must still be rejected');
         const response = await invoke(controller,'startSet',{setNumber:1},{matchId:match.insertId});
         assert.equal(response.code,200,JSON.stringify(response.data));
         assert.equal((await db.query('SELECT status FROM matches WHERE id=?',[match.insertId])).rows[0].status,'live');
@@ -99,6 +107,10 @@ test('starting a set syncs the latest team athletes before the Live lock', async
         assert.equal(setup.home.players.length,1);
         assert.equal(setup.away.players.length,1);
         assert.equal(setup.home.players[0].number,1);
+        const locked = await invoke(controller,'updateMatchRoster',{
+            homePlayers:[{id:1,number:1,selected:true}],awayPlayers:[{id:2,number:2,selected:true}],
+        },{matchId:match.insertId});
+        assert.equal(locked.code,409,'roster edits must stop at Live');
         delete require.cache[controllerPath];
     } finally { await h.close(); }
 });

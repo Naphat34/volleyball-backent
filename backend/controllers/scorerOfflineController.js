@@ -15,7 +15,7 @@ function scopedController(connection) {
     const query = (sql, args) => /^(BEGIN|COMMIT|ROLLBACK)\b/i.test(sql.trim()) ? Promise.resolve({ rows: [] }) : connection.query(sql, args);
     // The caller owns the real transaction. Nested roster/athlete helpers need
     // the connection interface, but must not commit, roll back or release it.
-    const proxy = { query, beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {} };
+    const proxy = { query, managedTransaction: true, beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {} };
     const database = { query, pool: { connect: async () => proxy }, connect: async () => proxy };
     const localRequire = createRequire(controllerFile);
     const scope = { module: { exports: {} }, exports: {}, console, require: name => name === '../config/db' ? database : localRequire(name) };

@@ -55,7 +55,7 @@ test('PostgreSQL workflows: identity, registration, integrity, custom VIS, manua
         await t.test('match settings load a competition roster through nested transaction helpers',async()=>{
             const matchId=(await db.query("INSERT INTO matches (home_team_id,away_team_id,competition_id,status,set_scores) VALUES (1,2,?,'scheduled','[]') RETURNING id",[competition])).insertId;
             const controller=require('../controllers/matchSettingsController');
-            const result=await invoke(controller,'read',{}, {matchId});
+            const result=await invoke(controller,'read',{}, {matchId}, {id:1,role:'scorer'});
             assert.equal(result.code,200,JSON.stringify(result.data));
             assert.ok(result.data.draft.home.players.length>0);
             assert.ok(Array.isArray(result.data.officials.referees));

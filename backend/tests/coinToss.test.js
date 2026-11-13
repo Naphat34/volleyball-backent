@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createRequire } = require('node:module');
+const localRequire = createRequire(require.resolve('../controllers/scorerController'));
 
 const source = fs.readFileSync(path.join(__dirname, '../controllers/scorerController.js'), 'utf8');
 const match = { home_team_id: 10, away_team_id: 20, status: 'scheduled' };
@@ -17,7 +19,7 @@ async function request(body, rows = [match], affectedRows = 1) {
         if (name === '../utils/sqlDialect') return require('../utils/sqlDialect');
         if (name === '../config/db') return db;
         if (name === '../config/visCodes') return {};
-        throw new Error(`Unexpected dependency: ${name}`);
+        return localRequire(name);
     } };
     vm.runInNewContext(source, context);
     const res = { code: 200, status(code) { this.code = code; return this; }, json(value) { this.body = value; return this; } };

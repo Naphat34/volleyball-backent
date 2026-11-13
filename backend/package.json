@@ -15,7 +15,7 @@
     "test:public-id": "node --test tests/publicId.test.js",
     "migrate:postgres:staging": "node scripts/runPostgresMigrations.js --apply",
     "seed:postgres:staging": "node scripts/runPostgresMigrations.js --seed --apply",
-    "test:postgres": "node --test tests/postgresAdapter.test.js tests/postgresSql.test.js tests/postgresWorkflows.test.js",
+    "test:postgres": "node --test tests/postgresAdapter.test.js tests/postgresSql.test.js tests/postgresWorkflows.test.js tests/teamRosterLock.postgres.test.js tests/postgresLineupApproval.test.js tests/authTokenSelection.test.js tests/matchSettings.test.js tests/automaticEntryRoster.test.js tests/coinToss.test.js tests/athleteIntegrity.test.js",
     "test:supabase:staging": "node scripts/testSupabaseStaging.js",
     "audit:postgres": "node scripts/auditPostgres.js",
     "check:postgres": "node scripts/auditPostgres.js --check",

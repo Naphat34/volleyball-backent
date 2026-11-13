@@ -3063,14 +3063,7 @@ export default function ScorerConsole() {
                 approvedRoster = rosterResponse.data?.[teamCode]?.players;
                 if (!Array.isArray(approvedRoster)) throw new Error('Could not load the match roster. Please retry.');
                 approvedLineup = resolveApprovedLineup(requestDetailsForApproval, approvedRoster);
-                const requestedLineup = approvedLineup.map(player => player.id ?? player.player_id);
 
-                await api.saveLineup(matchId, {
-                    team_id: request.team_id,
-                    set_number: lineupRequestSetNumber,
-                    player_positions: requestedLineup,
-                    libero_id: null
-                });
             }
 
             await client.put(`/match/${matchId}/requests/${request.id}`, { status: 'APPROVED' });

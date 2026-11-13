@@ -966,6 +966,20 @@ module.exports = {
                 }
             }
 
+            if (isScorer && status === 'APPROVED') {
+                const request = (await db.query('SELECT request_type FROM match_requests WHERE id=? AND match_id=?', [requestId,matchId])).rows[0];
+                if (!request) return res.status(404).json({ error: 'Request not found' });
+                if (request.request_type === 'LINEUP') {
+                    const approved = await require('../utils/approveLineupRequest').approveLineupRequest(db,req);
+                    const io = req.app.get('io');
+                    if (io) {
+                        io.to(`match_${matchId}`).emit('request_processed',{id:Number(requestId),status:'APPROVED'});
+                        io.to(`match_${matchId}`).emit('match_updated',{id:matchId});
+                    }
+                    return res.json(approved);
+                }
+            }
+
             let query = 'UPDATE match_requests SET ';
             const updates = [];
             const params = [];
@@ -1018,7 +1032,7 @@ module.exports = {
             res.json(requestData);
         } catch (err) {
             console.error("Update Request Error:", err);
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         }
     },
 

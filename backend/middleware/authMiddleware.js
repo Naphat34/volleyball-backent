@@ -15,7 +15,9 @@ exports.verifyToken = (req, res, next) => {
   if (!cookieToken && (!authHeader || !authHeader.startsWith('Bearer '))) {
     return res.status(401).json({ error: 'Access Denied: No Token Provided' });
   }
-  const token = cookieToken || (authHeader && authHeader.split(' ')[1]); // แยก Token ออกจาก "Bearer "
+  // An explicitly selected account must win over an older shared API cookie.
+  // Never fall back to another account's cookie when a Bearer token is supplied.
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : cookieToken;
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);

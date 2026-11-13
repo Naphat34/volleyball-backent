@@ -38,7 +38,7 @@ test('team master number edit does not rewrite locked competition snapshots',asy
     const c=controller('../controllers/teamController',async(sql,args)=>{
         queries.push(sql);
         if(sql.includes('FROM users u'))return {rows:[{team_id:2}]};
-        if(sql.includes('SELECT te.*')) return {rows:[{id:3,roster_locked_at:'2026-01-01'}]};
+        if(sql.includes('SELECT te.*')) return {rows:[{id:3,roster_locked_at:'2026-01-01',has_completed_match:1}]};
         if(sql.includes('AND (? IS NULL OR id<>?)')) return {rows:[]};
         if(sql.startsWith('UPDATE players'))return {rows:[],affectedRows:1};
         return {rows:[{id:5,team_id:2,number:args?.[0]===25?25:7,position:'OH'}]};
@@ -62,7 +62,7 @@ test('jersey validation checks team scope, excludes the edited player, and norma
 });
 test('both player delete endpoints archive and preserve referenced rows',async()=>{
     for(const file of ['../controllers/teamController','../controllers/adminController']){
-        const queries=[];const c=controller(file,async sql=>{queries.push(sql);return {rows:[{team_id:2}],affectedRows:1,rowCount:1};});
+        const queries=[];const c=controller(file,async sql=>{queries.push(sql);return {rows:sql.includes('SELECT te.*')?[]:[{team_id:2}],affectedRows:1,rowCount:1};});
         const res=response();await c.deletePlayer({params:{id:5},user:{id:1}},res);
         assert.ok(res.code<400);assert.ok(queries.some(sql=>sql.includes('SET is_active = 0')));assert.ok(queries.every(sql=>!sql.startsWith('DELETE')));
     }

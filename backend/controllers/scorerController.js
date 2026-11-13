@@ -958,7 +958,9 @@ module.exports = {
                     break;
                 } catch (innerErr) {
                     await client.query('ROLLBACK');
-                    if (innerErr && innerErr.code === 'ER_LOCK_DEADLOCK' && attempt < maxRetries) {
+                    // PostgreSQL aborts the outer transaction on deadlock. A nested
+                    // controller cannot retry until that owner has rolled it back.
+                    if (!client.managedTransaction && innerErr && innerErr.code === 'ER_LOCK_DEADLOCK' && attempt < maxRetries) {
                         attempt += 1;
                         console.warn(`Deadlock detected in saveLineup, retrying attempt ${attempt}/${maxRetries}`);
                         await sleep(100 * attempt);
@@ -1110,9 +1112,10 @@ module.exports = {
             const { homePlayers = [], awayPlayers = [] } = req.body;
 
             const matchRes = await client.query(`
-                SELECT id, competition_id, home_team_id, away_team_id, match_setup
-                FROM matches
-                WHERE id = ?
+                SELECT m.id,m.competition_id,m.home_team_id,m.away_team_id,m.match_setup,m.status,
+                    COALESCE(m.age_group_id,c.age_group_id) AS age_group_id,c.gender AS competition_gender
+                FROM matches m LEFT JOIN competitions c ON c.id=m.competition_id
+                WHERE m.id = ?
             `, [matchId]);
 
             if (matchRes.rows.length === 0) {
@@ -1120,6 +1123,9 @@ module.exports = {
             }
 
             const match = matchRes.rows[0];
+            if (match.status && match.status !== 'scheduled') {
+                return res.status(409).json({ error: 'แมตช์เริ่ม Live แล้ว ไม่สามารถเปลี่ยนรายชื่อนักกีฬา / Match roster is locked after Live' });
+            }
             // Keep match selections in the match snapshot, never overwrite the competition roster.
             if (!match.match_setup && match.competition_id) {
                 const competition = (await db.query('SELECT * FROM competitions WHERE id=?', [match.competition_id])).rows[0];
@@ -1147,9 +1153,13 @@ module.exports = {
                 for (const [side, submitted] of [['home', homePlayers], ['away', awayPlayers]]) {
                     if (!Array.isArray(submitted)) return res.status(400).json({ error: 'Invalid roster' });
                     const current = setup[side];
-                    const ids = new Set(current.players.map(p => Number(p.id)));
+                    const registered = match.competition_id ? await getRosterPlayersForMatchTeam(match.competition_id, match[`${side}_team_id`],
+                        'p.*,tep.number AS number,tep.role AS role,tep.athlete_snapshot', 'p.*',
+                        { requireEntryRoster: true, ageGroupId: match.age_group_id, gender: match.competition_gender }) : null;
+                    const eligible = registered ? registered.rows.map(restoreSnapshot) : current.players;
+                    const ids = new Set(eligible.map(p => Number(p.id)));
                     const selected = submitted.map(normalizeRosterPlayer).filter(p => p.selected);
-                    const players = selected.map(p => ({ ...current.players.find(row => Number(row.id) === p.id), id: p.id, number: p.number, role: ['C','L1','L2','L1+C','L2+C'].includes(p.role) ? p.role : '' }));
+                    const players = selected.map(p => ({ ...eligible.find(row => Number(row.id) === p.id), id: p.id, number: p.number, role: ['C','L1','L2','L1+C','L2+C'].includes(p.role) ? p.role : '' }));
                     setup[side] = normalizeTeam({ ...current, players }, ids);
                 }
                 await client.query('UPDATE matches SET match_setup=?, match_setup_revision=match_setup_revision+1 WHERE id=?', [JSON.stringify(setup), matchId]);

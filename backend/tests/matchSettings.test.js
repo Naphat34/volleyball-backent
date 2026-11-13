@@ -73,6 +73,17 @@ async function prepare(f) {
     f.req.body = { revision: res.data.revision, fingerprint: res.data.fingerprint, draft: res.data.draft };
     return res.data;
 }
+
+test('coin toss alone does not prevent roster changes before Live', async () => {
+    const f = fixture({first_serve_team_id:10});
+    const current = await prepare(f);
+    assert.equal(current.editableTeams,true);
+    f.req.body.draft.home.players[0].number = 9;
+    const res = f.response();
+    await f.controller.save(f.req,res);
+    assert.equal(res.code,200,JSON.stringify(res.data));
+    assert.equal(JSON.parse(f.state.updates[0].args.at(-2)).home.players[0].number,9);
+});
 test('save commits all four sections together without changing team registrations', async () => {
     const f = fixture(); await prepare(f);
     f.req.body.draft.home.staff.push({ first_name: 'Coach', last_name: '', role: 'coach' });

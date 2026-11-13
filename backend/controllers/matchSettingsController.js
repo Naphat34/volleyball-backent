@@ -8,7 +8,7 @@ const { writeAuditLog } = require('../utils/auditLogger');
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const officialFields = { referee_1_id: 'referees', referee_2_id: 'referees', scorer_id: 'scorers', line_judge_1_id: 'line_judges', line_judge_2_id: 'line_judges', line_judge_3_id: 'line_judges', line_judge_4_id: 'line_judges' };
 const detailFields = ['match_number', 'match_date', 'start_time', 'round_name', 'pool_name', 'location', 'city', 'country', 'category', 'age_group_id', 'has_challenge'];
-const started = match => match.status !== 'scheduled' || Boolean(match.first_serve_team_id);
+const started = match => match.status !== 'scheduled';
 async function roster(connection, req) {
     const scorer = require('./scorerOfflineController');
     return scorer.call(scorer.scopedController(connection), 'getMatchRosterData', req, {});
