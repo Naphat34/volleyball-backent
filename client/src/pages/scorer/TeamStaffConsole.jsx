@@ -1,3 +1,4 @@
+import JerseyToken from '../../components/scorer/JerseyToken';
 import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X, ArrowRight as UiArrowRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -1184,10 +1185,10 @@ export default function TeamStaffConsole() {
                                             }
 
                                             return (
-                                                <button key={i} 
+                                                <JerseyToken filled={Boolean(player)} fillColor={isPendingOut ? '#fecdd3' : isLiberoOnCourt ? '#ffff99' : '#ffdbb2'} outlineColor={isSelected ? '#3b82f6' : isPendingOut ? '#f43f5e' : isLiberoOnCourt ? '#facc15' : '#ffffff'} key={i}
                                                     onClick={() => isSubstitutionMode && handleSlotSubClick(idx)}
                                                     disabled={!isSubstitutionMode || isPendingOut && !isSelected}
-                                                    className={`relative aspect-square rounded-full border-4 flex items-center justify-center text-3xl md:text-4xl font-black shadow-sm mx-auto w-[60px] h-[60px] md:w-[80px] md:h-[80px] transition-all
+                                                    className={`relative aspect-square flex items-center justify-center text-3xl md:text-4xl font-black shadow-sm mx-auto w-[60px] h-[60px] md:w-[80px] md:h-[80px] transition-all
                                                         ${player ? (isLiberoOnCourt ? 'bg-[#ffff99] text-slate-900 border-yellow-400' : 'bg-[#ffdbb2] text-slate-800 border-white') : 'bg-transparent'}
                                                         ${isSubstitutionMode && player ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-default'}
                                                         ${isSelected ? 'border-blue-500 scale-110 shadow-lg shadow-blue-500/50 ring-4 ring-blue-300' : isPendingOut ? 'border-rose-500 opacity-50 bg-rose-200' : isLiberoOnCourt ? 'border-yellow-400 opacity-90' : 'border-white opacity-90'}
@@ -1214,7 +1215,7 @@ export default function TeamStaffConsole() {
                                                             )}
                                                         </>
                                                     ) : ''}
-                                                </button>
+                                                </JerseyToken>
                                             );
                                         })}
                                     </div>
@@ -1239,10 +1240,10 @@ export default function TeamStaffConsole() {
                                             }
 
                                             return (
-                                                <button key={i} 
+                                                <JerseyToken filled={Boolean(player)} fillColor={isPendingOut ? '#fecdd3' : isLiberoOnCourt ? '#ffff99' : '#ffdbb2'} outlineColor={isSelected ? '#3b82f6' : isPendingOut ? '#f43f5e' : isLiberoOnCourt ? '#facc15' : '#ffffff'} key={i}
                                                     onClick={() => isSubstitutionMode && handleSlotSubClick(idx)}
                                                     disabled={!isSubstitutionMode || isPendingOut && !isSelected}
-                                                    className={`relative aspect-square rounded-full border-4 flex items-center justify-center text-3xl md:text-4xl font-black shadow-sm mx-auto w-[60px] h-[60px] md:w-[80px] md:h-[80px] transition-all
+                                                    className={`relative aspect-square flex items-center justify-center text-3xl md:text-4xl font-black shadow-sm mx-auto w-[60px] h-[60px] md:w-[80px] md:h-[80px] transition-all
                                                         ${player ? (isLiberoOnCourt ? 'bg-[#ffff99] text-slate-900 border-yellow-400' : 'bg-[#ffdbb2] text-slate-800 border-white') : 'bg-transparent'}
                                                         ${isSubstitutionMode && player ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-default'}
                                                         ${isSelected ? 'border-blue-500 scale-110 shadow-lg shadow-blue-500/50 ring-4 ring-blue-300' : isPendingOut ? 'border-rose-500 opacity-50 bg-rose-200' : isLiberoOnCourt ? 'border-yellow-400 opacity-90' : 'border-white opacity-90'}
@@ -1269,7 +1270,7 @@ export default function TeamStaffConsole() {
                                                             )}
                                                         </>
                                                     ) : ''}
-                                                </button>
+                                                </JerseyToken>
                                             );
                                         })}
                                     </div>
@@ -1379,10 +1380,10 @@ export default function TeamStaffConsole() {
                                             const player = tempLineup[posIndex];
                                             const isCaptain = player && (player.is_captain || player.isCaptain || player.role === 'C');
                                             return (
-                                                <button 
+                                                <JerseyToken filled={Boolean(player)}
                                                     key={posIndex}
                                                     onClick={() => handleSlotClick(posIndex)}
-                                                    className={`relative aspect-square rounded-full border-4 mx-auto w-[60px] h-[60px] md:w-[70px] md:h-[70px] flex items-center justify-center text-2xl font-black transition-all active:scale-95
+                                                    className={`relative aspect-square mx-auto w-[60px] h-[60px] md:w-[70px] md:h-[70px] flex items-center justify-center text-2xl font-black transition-all active:scale-95
                                                         ${player ? 'bg-[#ffdbb2] text-slate-800 border-white shadow-sm' : 'bg-white/20 border-white/60 text-white/80 border-dashed hover:bg-white/40'}
                                                         ${selectedPlayerForLineup && !player ? 'animate-pulse bg-white/50 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)]' : ''}
                                                     `}
@@ -1395,7 +1396,7 @@ export default function TeamStaffConsole() {
                                                             )}
                                                         </>
                                                     ) : '+'}
-                                                </button>
+                                                </JerseyToken>
                                             );
                                         })}
                                     </div>
@@ -1405,10 +1406,10 @@ export default function TeamStaffConsole() {
                                             const player = tempLineup[posIndex];
                                             const isCaptain = player && (player.is_captain || player.isCaptain || player.role === 'C');
                                             return (
-                                                <button 
+                                                <JerseyToken filled={Boolean(player)}
                                                     key={posIndex}
                                                     onClick={() => handleSlotClick(posIndex)}
-                                                    className={`relative aspect-square rounded-full border-4 mx-auto w-[60px] h-[60px] md:w-[70px] md:h-[70px] flex items-center justify-center text-2xl font-black transition-all active:scale-95
+                                                    className={`relative aspect-square mx-auto w-[60px] h-[60px] md:w-[70px] md:h-[70px] flex items-center justify-center text-2xl font-black transition-all active:scale-95
                                                         ${player ? 'bg-[#ffdbb2] text-slate-800 border-white shadow-sm' : 'bg-white/20 border-white/60 text-white/80 border-dashed hover:bg-white/40'}
                                                         ${selectedPlayerForLineup && !player ? 'animate-pulse bg-white/50 border-white shadow-[0_0_20px_rgba(255,255,255,0.6)]' : ''}
                                                     `}
@@ -1421,7 +1422,7 @@ export default function TeamStaffConsole() {
                                                             )}
                                                         </>
                                                     ) : '+'}
-                                                </button>
+                                                </JerseyToken>
                                             );
                                         })}
                                     </div>
