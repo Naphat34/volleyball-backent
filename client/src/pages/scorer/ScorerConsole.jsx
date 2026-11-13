@@ -1,3 +1,4 @@
+import { resolveApprovedLineup, hasCompleteStartingLineup } from '../../utils/scorer/approvedLineup';
 import VisThemeToggle from '../../components/vis/VisThemeToggle';
 import { scorerIcons } from '../../utils/i18n/alertIcons';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -2993,6 +2994,8 @@ export default function ScorerConsole() {
     // --- STAFF REQUEST HANDLERS ---
     // Keep refs up-to-date so the pendingRequests useEffect always uses the latest version.
     const handleApproveRequest = async (request) => {
+        let approvedLineup = null;
+        let approvedRoster = null;
         try {
             const teamCode = String(request.team_id) === String(matchData.teamHomeId) ? 'home' : 'away';
 
@@ -3055,15 +3058,11 @@ export default function ScorerConsole() {
             }
 
             if (request.request_type === 'LINEUP') {
-                const requestedLineup = Array.isArray(requestDetailsForApproval.lineup)
-                    ? [...requestDetailsForApproval.lineup]
-                        .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
-                        .map((player) => player?.player_id ?? player?.id ?? null)
-                    : [];
-
-                if (requestedLineup.length !== 6 || requestedLineup.some((playerId) => !playerId)) {
-                    throw new Error('The submitted lineup is incomplete. Ask the team to submit all six players again.');
-                }
+                const rosterResponse = await api.getMatchRosterData(matchId);
+                approvedRoster = rosterResponse.data?.[teamCode]?.players;
+                if (!Array.isArray(approvedRoster)) throw new Error('Could not load the match roster. Please retry.');
+                approvedLineup = resolveApprovedLineup(requestDetailsForApproval, approvedRoster);
+                const requestedLineup = approvedLineup.map(player => player.id ?? player.player_id);
 
                 await api.saveLineup(matchId, {
                     team_id: request.team_id,
@@ -3080,24 +3079,24 @@ export default function ScorerConsole() {
             } else if (request.request_type === 'CHALLENGE') {
                 openChallengeForTeam(teamCode);
             } else if (request.request_type === 'LINEUP') {
-                // โหลด Lineup ใหม่จาก DB ที่เจ้าหน้าที่พึ่งบันทึก
-                const lineupRes = await client.get(`/match/${matchId}/lineup/${request.team_id}?set=${lineupRequestSetNumber}`);
-                const savedLineup = lineupRes.data || [];
-                const roster = teamCode === 'home' ? homeRoster : awayRoster;
-
-                // แปลง ID กลับเป็น Object ผู้เล่นที่สมบูรณ์เพื่อให้ CourtView ใช้งานได้
-                const fullLineup = savedLineup.map(p => {
-                    if (!p) return null;
-                    const pid = typeof p === 'object' ? (p.id ?? p.player_id) : p;
-                    return roster.find(r => String(r.id ?? r.player_id) === String(pid)) || null;
-                });
-
-                // เติม null ให้ครบ 6 ตำแหน่งกันเหนียว
-                const paddedLineup = [...fullLineup, ...Array(6).fill(null)].slice(0, 6);
-                const taggedLineup = paddedLineup.map((p, idx) => p ? { ...p, originalPos: idx } : null);
-
-                if (teamCode === 'home') setHomeLineup(taggedLineup);
-                else setAwayLineup(taggedLineup);
+                // Use the accepted six directly; do not require another read or manual placement.
+                const taggedLineup = approvedLineup;
+                markLocalStateUpdate();
+                if (teamCode === 'home') {
+                    setHomeRoster(approvedRoster);
+                    setHomeLineup(taggedLineup);
+                    setLastSetHomeLineup(taggedLineup);
+                } else {
+                    setAwayRoster(approvedRoster);
+                    setAwayLineup(taggedLineup);
+                    setLastSetAwayLineup(taggedLineup);
+                }
+                const nextHome = teamCode === 'home' ? taggedLineup : homeLineup;
+                const nextAway = teamCode === 'away' ? taggedLineup : awayLineup;
+                if (workflowStep === 'LINEUP' && hasCompleteStartingLineup(nextHome) && hasCompleteStartingLineup(nextAway)) {
+                    setShowLineupModal(false);
+                    setWorkflowStep('READY');
+                }
 
                 // บันทึก Match Event สำหรับการยอมรับ Lineup นี้ด้วย
                 const teamName = teamCode === 'home' ? matchData.teamHome : matchData.teamAway;
