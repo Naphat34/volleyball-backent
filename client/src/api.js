@@ -137,6 +137,7 @@ export const api = {
   getMyCompetitions: () => apiClient.get('/my-team/competitions'),
   getMyTeamEntries: () => apiClient.get('/my-team/entries'),
   getMyTeamEntryPlayers: (entryId) => apiClient.get(`/my-team/entries/${entryId}/players`),
+  confirmMyTeamEntryRoster: (entryId) => apiClient.post(`/my-team/entries/${entryId}/confirm-roster`),
   updateMyTeamEntryStaff: (entryId, staff_ids) => apiClient.put(`/my-team/entries/${encodeURIComponent(entryId)}/staff`, { staff_ids }),
   getMyTeamEntryStaff: (entryId) => apiClient.get(`/my-team/entries/${entryId}/staff`),
   updateMyTeamEntryPlayers: (entryId, player_ids, players) => apiClient.put(`/my-team/entries/${entryId}/players`, { player_ids, players }),

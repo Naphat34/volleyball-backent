@@ -1,13 +1,22 @@
 # Team-specific roster locks
 
-Automatic competition rosters freeze independently for each team. A scheduled match
-uses a team's roster when its own saved setup contains players, or its own team ID
-appears in a lineup, action, or event. The opponent's setup and lineup do not freeze
-an empty side. Match history is scoped to the entry's age category.
+Team registers remain editable. Competition rosters sync until registration closes
+(`competitions.status` leaves `open`) or the team explicitly confirms its roster.
+Match setup, match history, lineup acceptance, and the competition start date do
+not automatically freeze the competition roster.
 
-Registration closure, the competition start date, and a match leaving `scheduled`
-still freeze applicable rosters. Existing locks remain frozen when registration is
-reopened; they are never automatically cleared.
+The team dashboard roster dialog provides **Confirm competition roster**. Its
+`POST /api/my-team/entries/:entryId/confirm-roster` endpoint verifies ownership,
+syncs the latest eligible athletes, rejects validation errors or fewer than six
+players, and freezes the entry atomically. Repeated confirmation is idempotent.
+Existing locks remain frozen when registration reopens and are not cleared by
+this policy change; legacy locks need a separate reviewed repair.
+
+Lineup saves keep names and jersey numbers in `match_lineups.player_positions`
+using a versioned snapshot. Lineup reads prefer that snapshot so later team-register
+or competition-roster edits cannot rewrite the accepted six. Existing lineup rows
+without snapshots retain their legacy fallback; their original metadata cannot be
+reconstructed automatically.
 
 The roster editor can fill an empty scheduled-match side from its competition roster.
 Nonempty saved rosters and official scoresheet snapshots keep their existing behavior.

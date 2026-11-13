@@ -2256,13 +2256,34 @@ export default function TeamDashboard() {
                         </div>
                         <div className="overflow-auto p-5">
                             {entryRosterModal.entry.roster_sync_error && <p role="alert" className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">{entryRosterModal.entry.roster_sync_error}</p>}
-                            <p className="mb-4 text-sm text-gray-600">{language === 'THA' ? 'แก้ไขรายชื่อและเบอร์ที่หน้าจัดการนักกีฬา ระบบซิงก์จนกว่าจะปิดรับสมัคร ถึงวันเริ่มแข่งขัน หรือใช้รายชื่อในแมตช์แล้ว หลังล็อก การแก้ทะเบียนทีมจะไม่เปลี่ยนรายชื่อรายการนี้' : 'Edit players and jersey numbers in the team register. Sync stops when registration closes, the competition starts, or a match uses the roster. Locked rosters retain their saved details.'}</p>
+                            <p className="mb-4 text-sm text-gray-600">{language === 'THA' ? 'แก้ไขรายชื่อและเบอร์ที่หน้าจัดการนักกีฬา ระบบซิงก์จนกว่าจะปิดรับสมัครหรือกดยืนยันรายชื่อ การตั้งค่าแมตช์และส่งไลน์อัพไม่ล็อก roster ของรายการ หลังยืนยัน การแก้ทะเบียนทีมจะไม่เปลี่ยนรายชื่อที่ยืนยันไว้' : 'Edit players and jersey numbers in the team register. Sync stops when registration closes or you confirm this roster. Match setup and lineup submission do not lock the competition roster. Confirmed rosters retain their saved details.'}</p>
                             <p className="mb-3 font-semibold">{language === 'THA' ? 'รายชื่อในรายการ' : 'Registered players'}: {entryRosterPlayers.filter(p => Number(p.selected) === 1).length} / {entryRosterModal.entry.max_players || '—'}</p>
                             <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="border p-2">#</th><th className="border p-2">{language === 'THA' ? 'ชื่อ–นามสกุล' : 'Name'}</th><th className="border p-2">{language === 'THA' ? 'บทบาท' : 'Role'}</th></tr></thead>
                                 <tbody>{entryRosterPlayers.filter(p => Number(p.selected) === 1).map(p => <tr key={p.id}><td className="border p-2">{p.entry_number}</td><td className="border p-2">{displayNames.personFirstName(p)} {displayNames.personLastName(p)}</td><td className="border p-2">{p.entry_role || '—'} {Number(p.entry_is_captain) === 1 ? '(C)' : ''}</td></tr>)}</tbody></table></div>
                             {!entryRosterModal.entry.roster_locked_at && <p className="mt-4 text-sm text-gray-600">{language === 'THA' ? 'นักกีฬาที่ไม่ผ่านเพศ/อายุ หรือถูกจัดลงรุ่นอายุน้อยกว่าในรายการเดียวกัน จะไม่อยู่ในรายชื่อนี้ รุ่น U ใช้อายุไม่เกินรุ่นในวันเริ่มแข่งขัน' : 'Players outside gender/age criteria or assigned to a younger eligible category are excluded. U categories use age at most the category limit on the competition start date.'}</p>}
                         </div>
                         <div className="flex justify-end gap-3 border-t p-4">
+                            {!entryRosterModal.entry.roster_locked_at && <GuardedButton type="button" className="rounded bg-emerald-600 px-4 py-2 text-white"
+                                onClick={async () => {
+                                    const result = await Swal.fire({
+                                        icon: 'warning',
+                                        title: language === 'THA' ? 'ยืนยันรายชื่อของรายการนี้?' : 'Confirm this competition roster?',
+                                        text: language === 'THA' ? 'หลังยืนยันจะหยุดซิงก์ทะเบียนทีมสำหรับรายการนี้ กรุณาตรวจชื่อ เบอร์เสื้อ และบทบาทให้ครบถ้วน' : 'Confirmation stops roster sync for this competition. Check names, jersey numbers and roles first.',
+                                        showCancelButton: true,
+                                        confirmButtonText: language === 'THA' ? 'ยืนยันรายชื่อ' : 'Confirm roster',
+                                        cancelButtonText: language === 'THA' ? 'ยกเลิก' : 'Cancel',
+                                    });
+                                    if (!result.isConfirmed) return;
+                                    try {
+                                        const response = await api.confirmMyTeamEntryRoster(entryRosterModal.entry.id);
+                                        setEntryRosterModal(previous => ({ ...previous, entry: { ...previous.entry, ...response.data.entry } }));
+                                        setMyCompetitions(previous => previous.map(row => String(row.team_entry_id) === String(entryRosterModal.entry.id)
+                                            ? { ...row, roster_locked_at: response.data.entry.roster_locked_at } : row));
+                                        await openEntryRosterModal(entryRosterModal.competition);
+                                    } catch (error) {
+                                        Toast.fire({ icon: 'error', title: error.response?.data?.error || (language === 'THA' ? 'ยืนยันรายชื่อไม่สำเร็จ' : 'Could not confirm roster') });
+                                    }
+                                }}>{language === 'THA' ? 'ยืนยันรายชื่อรายการ' : 'Confirm competition roster'}</GuardedButton>}
                             <GuardedButton type="button" onClick={() => { setEntryRosterModal(null); setActiveTab('roster'); }} className="rounded border px-4 py-2">{language === 'THA' ? 'ไปจัดการนักกีฬา' : 'Manage team players'}</GuardedButton>
                             <GuardedButton type="button" onClick={() => setEntryRosterModal(null)} className="rounded bg-blue-600 px-4 py-2 text-white">{language === 'THA' ? 'ปิด' : 'Close'}</GuardedButton>
                         </div>

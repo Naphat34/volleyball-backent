@@ -16,7 +16,7 @@ function getJwtSecret() {
   const isProduction =
     process.env.NODE_ENV === 'production';
 
-  if (!secret) {
+  if (!secret || (isProduction && secret === DEFAULT_JWT_SECRET)) {
     if (isProduction) {
       throw new Error(
         'JWT_SECRET must be set to a strong non-default value in production'
