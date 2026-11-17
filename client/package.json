@@ -28,7 +28,8 @@
     "test:public-urls:browser": "node scripts/checkPublicUrls.mjs",
     "test:competition-workflow": "node --test src/utils/scorer/standings.test.js src/offline/scorerDashboardCache.test.js",
     "test:competition-workflow:browser": "node scripts/checkCompetitionWorkflow.mjs",
-    "test:scorer-lineup-controls": "node --test src/utils/scorer/approvedLineup.test.js && node scripts/checkScorerLineupControls.mjs"
+    "test:scorer-lineup-controls": "node --test src/utils/scorer/approvedLineup.test.js && node scripts/checkScorerLineupControls.mjs",
+    "test:match-master-data:browser": "node scripts/checkMatchMasterData.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

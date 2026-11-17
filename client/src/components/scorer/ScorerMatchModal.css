@@ -97,3 +97,4 @@
 
 html[data-app-theme] .smm-dialog button { color:var(--app-text); }
 html[data-app-theme] .smm-dialog .smm-primary, html[data-app-theme] .smm-tabs button[aria-selected=true] { color:var(--app-accent); }
+.smm-master-create{margin-top:14px}.smm-master-create fieldset{border:1px solid var(--app-border,#cbd5e1);border-radius:8px;padding:14px}.smm-master-create legend{padding:0 6px;font-weight:600}.smm-master-create .smm-actions{margin-top:12px}

@@ -25,6 +25,15 @@ test('roster validation rejects foreign players, duplicate numbers and invalid r
     assert.equal(normalized.players[0].is_captain, 1);
 });
 
+test('registered membership refresh retains match-specific shirts and libero roles without retaining removed people',()=>{
+    const match={status:'scheduled',competition_id:1,match_setup:{home:{players:[{id:1,number:17,first_name:'Match name',role:'L1',is_libero1:1,is_libero:1},{id:99,number:99}]}}};
+    const roster=[{id:1,number:1,first_name:'Master name',role:'S',is_libero1:0,is_libero:0},{id:2,number:2,first_name:'New registration'}];
+    const result=setupPlayers(match,'home',roster,{syncBeforeLive:true});
+    assert.deepEqual(result.map(person=>person.id),[1,2]);
+    assert.equal(result[0].number,17);assert.equal(result[0].role,'L1');assert.equal(result[0].is_libero1,1);
+    assert.equal(roster[0].number,1);assert.equal(roster[0].is_libero1,0);
+});
+
 test('match overrides preserve identities, isolate names and allow an explicitly empty roster', () => {
     const setup = { title: 'Local title', gender: 'Mixed', maxSets: 3, pointsPerSet: 25, decidingSetPoints: 15, home: { ...team, players: [] }, away: { ...team, name: 'Away' } };
     const match = applyMatchSetup({ home_team_id: 10, away_team_id: 20, match_setup: JSON.stringify(setup) });

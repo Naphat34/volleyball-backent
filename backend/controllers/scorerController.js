@@ -1356,7 +1356,7 @@ module.exports = {
                         ...Object.fromEntries(['id','number','role','first_name','last_name',...playerNameFields,'position','is_captain','is_libero1','is_libero2','is_playing'].map(field => [field,player[field] ?? null])),
                         is_libero: Number(player.is_libero1) === 1 || Number(player.is_libero2) === 1 || ['L','L1','L2','L1+C','L2+C'].includes(player.role) ? 1 : 0,
                     }));
-                    setup[side] = { ...setup[side], players };
+                    setup[side] = { ...setup[side], players:setupPlayers(rosterTeams,side,players,{syncBeforeLive:true}) };
                 }
                 await db.query('UPDATE matches SET match_setup=? WHERE id=?',[JSON.stringify(setup),matchId]);
             }

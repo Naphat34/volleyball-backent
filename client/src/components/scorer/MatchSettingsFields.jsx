@@ -3,6 +3,7 @@ import { X as UiX } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { matchCategoryLabel } from '../../utils/scorer/matchSettings';
+import NewMasterPerson from './NewMasterPerson';
 
 
 const shirtColors = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f8fafc', '#1e293b'];
@@ -42,7 +43,7 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
         {field('decidingSetPoints', t('คะแนนเซตตัดสิน', 'Deciding set points'), 'number', !isManual || !settings.editableTeams)}
         <label className="smm-ack"><input type="checkbox" disabled={teamsDisabled} checked={draft.has_challenge} onChange={event => onChange({ ...draft, has_challenge: event.target.checked })}/>{t('ใช้ Challenge', 'Enable Challenge')}</label>
     </div></section>;
-    if (tab === 'roster' || tab === 'staff') return <><p className="smm-hint">{t('การเปลี่ยนแปลงมีผลเฉพาะแมตซ์นี้', 'Changes apply only to this match.')}{!settings.editableTeams && ` · ${t('เริ่มแข่งขันแล้ว รายชื่อถูกล็อก', 'Match started; rosters are locked.')}`}</p><div className="smm-teams">{['home', 'away'].map(side => <section key={side} style={{ borderTop: `3px solid ${draft[side].color || (side === 'home' ? '#6366f1' : '#f43f5e')}` }}>
+    if (tab === 'roster' || tab === 'staff') return <><p className="smm-hint">{t('การแก้ไขชื่อและบทบาทมีผลเฉพาะแมตช์ ปุ่มสร้างข้อมูลหลักจะเพิ่มบุคคลเข้าทะเบียนทีมเมื่อบันทึก','Name and role edits apply only to this match. Create master data buttons register new people when saved.')}{!settings.editableTeams && ` · ${t('เริ่มแข่งขันแล้ว รายชื่อถูกล็อก', 'Match started; rosters are locked.')}`}</p><div className="smm-teams">{['home', 'away'].map(side => <section key={side} style={{ borderTop: `3px solid ${draft[side].color || (side === 'home' ? '#6366f1' : '#f43f5e')}` }}>
         <h3>{side === 'home' ? t('ทีมเจ้าบ้าน (*)', 'Home team (*)') : t('ทีมเยือน (a)', 'Away team (a)')}{draft[side].name && ` · ${draft[side].name}`}</h3>
         {tab === 'roster' ? <>
             <label className="smm-field">{t('ชื่อทีมที่แสดง', 'Team display name')}<input disabled={teamsDisabled} value={draft[side].name} onChange={event => teamChange(side, { name: event.target.value })}/></label>
@@ -71,6 +72,7 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
                 const p = settings.available[side].find(player => String(player.id) === event.target.value);
                 if (p) teamChange(side, { players: [...draft[side].players, { id: p.id, number: p.number || '', first_name: p.first_name || '', last_name: p.last_name || '', role: '' }] });
             }}><option value="">{t('เลือกนักกีฬา', 'Select player')}</option>{settings.available[side].filter(p => !draft[side].players.some(row => Number(row.id) === Number(p.id))).map(p => <option key={p.id} value={p.id}>#{p.number} {displayNames.personName(p)}</option>)}</select></label>
+            {settings.canCreateMaster?.[side]&&<NewMasterPerson kind="players" requiresBirthDate={Boolean(draft.age_group_id)&&!/^(open|general|ทั่วไป|ประชาชน)$/i.test(settings.ageGroups.find(group=>String(group.id)===String(draft.age_group_id))?.name||'')} side={side} teamName={draft[side].name} gender={draft.gender} disabled={teamsDisabled} available={[...settings.available[side],...draft[side].players]} t={t} onAdd={person=>teamChange(side,{players:[...draft[side].players,person]})}/>}
         </> : <>
             <div className="smm-scroll smm-staff-table"><table aria-label={`${t('เจ้าหน้าที่ทีม', 'Team staff')} ${draft[side].name}`}>
                 <thead><tr>{[t('ตำแหน่ง', 'Position'), t('ชื่อ', 'First name'), t('นามสกุล', 'Last name'), t('จัดการ', 'Actions')].map(label => <th scope="col" key={label}>{ui(label)}</th>)}</tr></thead>
@@ -84,7 +86,9 @@ export default function MatchSettingsFields({ tab, draft, settings, disabled, is
                     <td><GuardedButton type="button" disabled={teamsDisabled} aria-label={`${t('นำออก', 'Remove')} ${displayNames.personName(p) || index + 1}`} onClick={() => teamChange(side, { staff: draft[side].staff.filter((_, i) => i !== index) })}>{t('นำออก', 'Remove')}</GuardedButton></td>
                 </tr>) : <tr><td colSpan={4}>{t('ยังไม่มีเจ้าหน้าที่ทีม', 'No team staff added.')}</td></tr>}</tbody>
             </table></div>
-            <GuardedButton type="button" disabled={teamsDisabled} onClick={() => teamChange(side, { staff: [...draft[side].staff, { role: '', first_name: '', last_name: '' }] })}>+ {t('เพิ่มเจ้าหน้าที่ทีม', 'Add team staff')}</GuardedButton>
+            <label className="smm-field">{t('เพิ่มเจ้าหน้าที่จากข้อมูลหลักของทีม','Add registered team staff')}<select aria-label={`${t('เพิ่มเจ้าหน้าที่จากข้อมูลหลักของทีม','Add registered team staff')} ${side}`} value="" disabled={teamsDisabled} onChange={event=>{const person=settings.availableStaff?.[side]?.find(row=>String(row.id)===event.target.value);if(person)teamChange(side,{staff:[...draft[side].staff,{...person}]});}}><option value="">{t('เลือกเจ้าหน้าที่ทีม','Select team staff')}</option>{(settings.availableStaff?.[side]||[]).filter(person=>!draft[side].staff.some(row=>String(row.id)===String(person.id))).map(person=><option key={person.id} value={person.id}>{displayNames.personName(person)} · {ui(person.role)}</option>)}</select></label>
+            <GuardedButton type="button" disabled={teamsDisabled} onClick={() => teamChange(side, { staff: [...draft[side].staff, { role: '', first_name: '', last_name: '' }] })}>+ {t('เพิ่มเจ้าหน้าที่เฉพาะแมตช์นี้', 'Add staff for this match only')}</GuardedButton>
+            {settings.canCreateMaster?.[side]&&<NewMasterPerson kind="staff" side={side} teamName={draft[side].name} disabled={teamsDisabled} available={[...(settings.availableStaff?.[side]||[]),...draft[side].staff]} t={t} onAdd={person=>teamChange(side,{staff:[...draft[side].staff,person]})}/>}
         </>}
     </section>)}</div></>;
     if (tab === 'officials') return <div className="smm-form-grid">{[

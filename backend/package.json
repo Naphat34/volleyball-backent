@@ -55,7 +55,8 @@
     "test:public-urls": "node --test tests/publicUrls.test.js tests/publicId.test.js tests/accessHttp.test.js",
     "migrate:public-urls": "node scripts/migratePublicUrlIds.js",
     "test:competition-workflow": "node --test tests/competitionWorkflow.test.js tests/competitionWorkflowStore.test.js tests/workflowSchedule.test.js tests/workflowScheduleStore.test.js tests/workflowThirdPlace.test.js",
-    "migrate:competition-workflow": "node scripts/migrateCompetitionWorkflows.js"
+    "migrate:competition-workflow": "node scripts/migrateCompetitionWorkflows.js",
+    "test:match-master-data": "node --test tests/matchMasterData.test.js tests/matchSettings.test.js"
   },
   "keywords": [],
   "author": "",

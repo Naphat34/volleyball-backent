@@ -5,6 +5,7 @@ const { roleHasPermission } = require('../config/permissions');
 const { canManage, assertReady } = require('../utils/manualScorer');
 const { canReadStatistics } = require('../utils/manualVisAccess');
 const { writeAuditLog } = require('../utils/auditLogger');
+const {createMatchMasterData,hasNewMasterData}=require('../utils/matchMasterData');
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const officialFields = { referee_1_id: 'referees', referee_2_id: 'referees', scorer_id: 'scorers', line_judge_1_id: 'line_judges', line_judge_2_id: 'line_judges', line_judge_3_id: 'line_judges', line_judge_4_id: 'line_judges' };
 const detailFields = ['match_number', 'match_date', 'start_time', 'round_name', 'pool_name', 'location', 'city', 'country', 'category', 'age_group_id', 'has_challenge'];
@@ -19,9 +20,9 @@ function teamDraft(data, side) {
     return { name: match[`${side}_team_name`] || '', name_th: match[`${side}_team_name_th`] || '', name_en: match[`${side}_team_name_en`] || '', code: match[`${side}_team_code`] || '',
         color: parseSetup(match.match_setup)?.[side]?.color || (side === 'home' ? '#6366f1' : '#f43f5e'),
         liberoColor: parseSetup(match.match_setup)?.[side]?.liberoColor || (side === 'home' ? '#facc15' : '#3b82f6'),
-        players: data[side].players.map(p => ({ id: p.id, number: p.number, first_name: p.first_name || '', last_name: p.last_name || '', ...Object.fromEntries(['first_name_th','last_name_th','first_name_en','last_name_en'].map(field=>[field,p[field] || null])), position: p.playing_position || p.position || '',
+        players: data[side].players.map(p => ({ id: p.id, number: p.number, first_name: p.first_name || '', last_name: p.last_name || '', ...Object.fromEntries(['first_name_th','last_name_th','first_name_en','last_name_en'].map(field=>[field,p[field] || null])), position: ['S','OH','MB','OPP','L'].includes(p.position)?p.position:p.playing_position||'',
             role: flag(p.is_libero2) || String(p.role).startsWith('L2') ? (flag(p.is_captain) ? 'L2+C' : 'L2') : flag(p.is_libero1) || flag(p.is_libero) || ['L', 'L1', 'L1+C'].includes(p.role) ? (flag(p.is_captain) ? 'L1+C' : 'L1') : flag(p.is_captain) || p.role === 'C' ? 'C' : '' })),
-        staff: data[side].staff.map(p => ({ first_name: p.first_name || '', last_name: p.last_name || '', role: p.role || '' })) };
+        staff: data[side].staff.map(p => ({ ...(p.id?{id:p.id}:{}), first_name: p.first_name || '', last_name: p.last_name || '', role: p.role || '' })) };
 }
 async function snapshot(connection, req) {
     const data = await roster(connection, req), match = data.match;
@@ -36,9 +37,12 @@ async function snapshot(connection, req) {
     const config = parseSetup(match.manual_config) || {};
     Object.assign(draft, { title: match.competition_title || '', gender: match.competition_gender || match.gender || '', maxSets: Number(match.max_sets || 5), pointsPerSet: Number(match.points_per_set || config.pointsPerSet || 25), decidingSetPoints: Number(match.deciding_set_points || config.decidingSetPoints || 15) });
     const owns = !match.manual_owner_id || canManage(req.user, match);
+    const availableStaff={home:[],away:[]};
+    for(const side of ['home','away'])if(match[`${side}_team_id`])availableStaff[side]=(await connection.query('SELECT id,first_name,last_name,role FROM team_staff WHERE team_id=? ORDER BY first_name,last_name,id',[match[`${side}_team_id`]])).rows;
     return { draft, fingerprint: createHash('sha256').update(JSON.stringify(draft)).digest('hex'), revision: match.match_setup_revision || 0, editableTeams: !started(match),
         canEdit: owns && roleHasPermission(req.user?.role, 'match.score') && match.manual_lifecycle !== 'confirmed' && !['completed', 'cancelled'].includes(match.status),
-        available: { home: data.home.availablePlayers, away: data.away.availablePlayers } };
+        available: { home: data.home.availablePlayers, away: data.away.availablePlayers },availableStaff,
+        canCreateMaster:{home:Boolean(match.home_team_id&&owns&&roleHasPermission(req.user?.role,'score.record')&&!started(match)),away:Boolean(match.away_team_id&&owns&&roleHasPermission(req.user?.role,'score.record')&&!started(match))} };
 }
 exports.read = async (req, res) => {
     let connection;
@@ -76,7 +80,7 @@ exports.save = async (req, res) => {
         const lease = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=? FOR UPDATE', [match.id])).rows[0];
         if (lease && !lease.released && Number(lease.expires_at) > Date.now()) fail('กรุณาซิงค์และคืนสิทธิ์ Offline ก่อนแก้ไข', 409);
         if (req.body.revision !== (match.match_setup_revision || 0)) fail('มีการเปลี่ยนข้อมูล กรุณาโหลดข้อมูลล่าสุดก่อนบันทึก', 409);
-        const current = await snapshot(connection, req), input = req.body.draft;
+        const current = await snapshot(connection, req), input = req.body.draft&&JSON.parse(JSON.stringify(req.body.draft));
         if (req.body.fingerprint !== current.fingerprint) fail('ข้อมูลเปลี่ยนระหว่างแก้ไข กรุณาโหลดข้อมูลล่าสุดก่อนบันทึก', 409);
         if (!input || typeof input !== 'object') fail('ข้อมูลไม่ครบถ้วน');
         const setup = {};
@@ -92,8 +96,12 @@ exports.save = async (req, res) => {
             if (started(match) && setup[key] !== current.draft[key]) fail('เริ่มแข่งขันแล้ว ไม่สามารถเปลี่ยนกติกาได้', 409);
         }
         if (!match.manual_owner_id && (setup.pointsPerSet !== 25 || setup.decidingSetPoints !== 15)) fail('แมตซ์จากรายการใช้คะแนน 25 และเซตตัดสิน 15');
+        const hasNew=hasNewMasterData(input);
+        const createdMaster=hasNew?await createMatchMasterData(connection,req,match,input,current):[];
         for (const side of ['home', 'away']) {
             const ids = new Set([...current.available[side], ...current.draft[side].players].map(p => Number(p.id)));
+            const staffIds=new Set([...current.availableStaff[side],...current.draft[side].staff].map(person=>Number(person.id)).filter(Number.isSafeInteger));
+            if(input[side]?.staff?.some(person=>person.id!=null&&(!Number.isSafeInteger(Number(person.id))||!staffIds.has(Number(person.id)))))fail('เจ้าหน้าที่ไม่ได้อยู่ในทีมของแมตช์นี้');
             setup[side] = normalizeTeam(input[side], ids);
             if (started(match) && JSON.stringify(setup[side]) !== JSON.stringify(normalizeTeam(current.draft[side], ids))) fail('เริ่มแข่งขันแล้ว ไม่สามารถเปลี่ยนข้อมูลทีมและรายชื่อได้', 409);
         }
@@ -129,12 +137,12 @@ exports.save = async (req, res) => {
             const config = { ...parseSetup(match.manual_config), title: setup.title, gender: setup.gender, hasChallenge: input.has_challenge, maxSets: setup.maxSets, pointsPerSet: setup.pointsPerSet, decidingSetPoints: setup.decidingSetPoints, date: input.match_date, time: input.start_time, location: input.location, matchNumber: input.match_number === '' ? null : Number(input.match_number) };
             await connection.query('UPDATE matches SET manual_config=? WHERE id=?', [JSON.stringify(config), match.id]);
         }
-        await writeAuditLog(req, 'match.settings.update', 'match', match.id, { revision: current.revision + 1 }, connection);
+        await writeAuditLog(req, 'match.settings.update', 'match', match.id, { revision: current.revision + 1 }, connection,{strict:true});
         await connection.commit();
         const io = req.app.get('io');
         io?.to(`match_${match.id}`).emit('match_updated', { id: match.id });
         io?.to(`match_${match.id}`).emit('roster_updated', { id: match.id });
-        res.json({ success: true });
+        res.json({ success: true,createdMaster });
     } catch (error) {
         if (connection) await connection.rollback();
         if (!error.status) console.error('Match settings:', error);

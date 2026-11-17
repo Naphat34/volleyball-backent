@@ -26,8 +26,15 @@ function applyMatchSetup(match) {
 }
 function setupPlayers(match, side, fallback, { fillEmpty = false, syncBeforeLive = false } = {}) {
     const saved = parseSetup(match.match_setup)?.[side]?.players;
-    // Official pre-match rosters follow registration, including additions and removals.
-    if (syncBeforeLive && match.status === 'scheduled' && match.competition_id && !match.manual_owner_id) return fallback;
+    // Registration determines membership; match-only display, shirts and roles survive refreshes.
+    if (syncBeforeLive && match.status === 'scheduled' && match.competition_id && !match.manual_owner_id) {
+        const overrides=new Map((saved||[]).map(player=>[String(player.id),player]));
+        const fields=['number','first_name','last_name',...playerNameFields,'position','role','is_captain','is_libero1','is_libero2','is_libero'];
+        return fallback.map(player=>{
+            const local=overrides.get(String(player.id));
+            return local?{...player,...Object.fromEntries(fields.filter(field=>local[field]!==undefined).map(field=>[field,local[field]]))}:player;
+        });
+    }
     // The roster editor may populate a side that was empty when the other team saved setup.
     if (fillEmpty && match.status === 'scheduled' && Array.isArray(saved) && !saved.length) return fallback;
     return saved ?? fallback;
@@ -62,7 +69,7 @@ function normalizeTeam(team, allowedIds) {
     const staff = team.staff.map(p => {
         const first_name = text(p.first_name, 50), last_name = text(p.last_name ?? '', 50), role = text(p.role, 50);
         if (!first_name || !role) fail('กรุณาระบุชื่อและตำแหน่งเจ้าหน้าที่ทีม');
-        return { first_name, last_name, role };
+        return { ...(p.id!=null?{id:Number(p.id)}:{}),first_name, last_name, role };
     });
     const names = normalizeNames(team, {}, true);
     const result = { name, name_th:names.name_th || null, name_en:names.name_en || null, code, players, staff };

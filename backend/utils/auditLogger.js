@@ -11,7 +11,7 @@ const getRequestIp = (req) => {
     : String(forwardedFor || req.ip || req.socket?.remoteAddress || '').split(',')[0].trim() || null;
 };
 
-async function writeAuditLog(req, action, entityType, entityId, details = {}, client = db) {
+async function writeAuditLog(req, action, entityType, entityId, details = {}, client = db, {strict = false} = {}) {
   try {
     await client.query(
       sqlDialect(`INSERT INTO audit_logs
@@ -33,6 +33,7 @@ async function writeAuditLog(req, action, entityType, entityId, details = {}, cl
     );
   } catch (err) {
     console.error('Audit log write failed:', err);
+    if (strict) throw err;
   }
 }
 
