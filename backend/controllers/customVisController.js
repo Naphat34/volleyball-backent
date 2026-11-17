@@ -11,9 +11,10 @@ const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 const audit = (payload, req, action) => {
     payload.audit = [...(payload.audit || []), { action, actor_id: req.user.id, at: new Date().toISOString(), revision: payload.revision }];
 };
-const admin = req => req.user.role === 'admin';
+const admin = req => req.user.role === 'super_admin';
 const allowed = (row, req) => { if (!row || (!admin(req) && String(row.owner_id) !== String(req.user.id))) fail('ไม่พบแมตช์หรือไม่มีสิทธิ์เข้าถึง', 404); };
-const decorate = row => ({ ...view(parse(row.payload)).match, updated_at: row.updated_at, last_synced_at: parse(row.payload).lastSyncedAt || row.updated_at, published: Boolean(row.published), public_token: row.public_token });
+const decorate = row => ({ ...view(parse(row.payload)).match, owner_id:row.owner_id,competition_id:row.competition_id,public_id:row.public_id,
+    updated_at: row.updated_at, last_synced_at: parse(row.payload).lastSyncedAt || row.updated_at, published: Boolean(row.published), public_token: row.public_token });
 function endpoint(handler) {
     return async (req, res) => {
         let connection;
@@ -36,7 +37,7 @@ exports.create = endpoint(async (req, res, connection) => {
     const id = `custom-${req.body.creationId || randomUUID()}`, token = randomBytes(24).toString('hex');
     const payload = req.body.importBackup ? importCustomVis(req.body.importBackup, id) : createPayload(req.body, id);
     audit(payload, req, 'CREATE');
-    await connection.query(sqlDialect('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?)', "INSERT INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING RETURNING id"), [id, req.user.id, token, JSON.stringify(payload)]);
+    await connection.query(sqlDialect('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload, public_id) VALUES (?, ?, ?, ?, ?)', "INSERT INTO custom_vis_matches (id, owner_id, public_token, payload, public_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING RETURNING id"), [id, req.user.id, token, JSON.stringify(payload), id.slice(7)]);
     const saved = await connection.query('SELECT * FROM custom_vis_matches WHERE id = ?', [id]);
     allowed(saved.rows[0], req);
     res.status(201).json({ match: decorate(saved.rows[0]), config: parse(saved.rows[0].payload).config });
@@ -114,7 +115,7 @@ exports.publicView = endpoint(async (req, res, connection) => {
 
 exports.offlinePermit = async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    res.json({ user: { id: req.user.id, role: req.user.role, username: req.user.username || `VIMS ${req.user.id}` },
+    res.json({ policyVersion: 2, domain: 'vims', authorizationVersion: req.user.authorization_version, user: { id: req.user.id, role: req.user.role, username: req.user.username || `VIMS ${req.user.id}`,competition_ids:req.user.competition_ids||[] },
         issuedAt: Date.now(), expiresAt: Date.now() + 7 * 86400000 });
 };
 exports.offlineCheckout = endpoint(async (req, res, connection) => {
@@ -139,8 +140,8 @@ exports.offlineSync = endpoint(async (req, res, connection) => {
     // INSERT IGNORE + row lock serialize first syncs as well as existing matches.
     if (req.body.config) {
         const initial = req.body.importBackup ? importCustomVis(req.body.importBackup, req.params.id) : createPayload(req.body.config, req.params.id);
-        await connection.query(sqlDialect('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?)', "INSERT INTO custom_vis_matches (id, owner_id, public_token, payload) VALUES (?, ?, ?, ?) ON CONFLICT (id) DO NOTHING RETURNING id"),
-            [req.params.id, req.user.id, randomBytes(24).toString('hex'), JSON.stringify(initial)]);
+        await connection.query(sqlDialect('INSERT IGNORE INTO custom_vis_matches (id, owner_id, public_token, payload, public_id) VALUES (?, ?, ?, ?, ?)', "INSERT INTO custom_vis_matches (id, owner_id, public_token, payload, public_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING RETURNING id"),
+            [req.params.id, req.user.id, randomBytes(24).toString('hex'), JSON.stringify(initial), req.params.id.slice(7)]);
     }
     const result = await connection.query('SELECT * FROM custom_vis_matches WHERE id = ? FOR UPDATE', [req.params.id]);
     const row = result.rows[0]; allowed(row, req);

@@ -4,7 +4,7 @@ const adminController = require('../controllers/adminController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 router.use(authMiddleware.verifyApprovedToken);
-router.get('/vis/overview', authMiddleware.isAdmin, require('../controllers/adminVisController').overview);
+router.get('/vis/overview', authMiddleware.hasPermission('vims.monitor'), require('../controllers/adminVisController').overview);
 router.use(authMiddleware.canManageTeams);
 
 // Player Management Routes

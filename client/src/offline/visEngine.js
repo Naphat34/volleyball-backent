@@ -362,7 +362,7 @@ function view(payload) {
     state.isReadOnly = ['confirmed', 'cancelled'].includes(payload.lifecycle);
     match.vis_summary = visDashboardSummary(match, payload.actions, state);
     if (payload.match.is_custom_vis !== false) {
-        match.status = payload.lifecycle === 'confirmed' ? 'completed' : payload.lifecycle === 'cancelled' ? 'cancelled' : payload.actions.length ? 'live' : 'scheduled';
+        match.status = payload.lifecycle === 'cancelled' ? 'cancelled' : state.phase === 'MATCH_FINISHED' || payload.lifecycle === 'confirmed' ? 'completed' : payload.actions.length ? 'live' : 'scheduled';
         match.home_set_score = state.setsWon.home; match.away_set_score = state.setsWon.away;
         // Custom matches own their scores. Admin matches retain the original
         // official snapshot; VIS statistics must not replace eScore in reports.
@@ -469,8 +469,7 @@ function commandPayload(previous, operation) {
             afterEventId: payload.actions.at(-1)?.id || 0 };
         setup.controls.push(event); response.event = event;
     } else if (command.type === 'CONFIRM') {
-        if (state.phase !== 'MATCH_FINISHED') fail('การแข่งขันยังไม่จบ');
-        payload.lifecycle = 'confirmed';
+        fail('Submit this match for administrator review', 403);
     } else if (command.type === 'REOPEN') fail('กรุณาใช้คำสั่งเปิดแก้ไขผลสำหรับเจ้าของแมตช์');
     else if (command.type === 'CANCEL') payload.lifecycle = 'cancelled';
     else fail('Unsupported custom VIMS command');

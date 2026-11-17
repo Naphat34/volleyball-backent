@@ -76,7 +76,9 @@ function endpoint(action) {
         } finally { connection?.release(); }
     };
 }
-exports.permit = (req, res) => res.json({ user: { id: req.user.id, role: req.user.role, username: req.user.username || `Scorer ${req.user.id}` }, expiresAt: Date.now() + 7 * 86400000 });
+exports.permit = (req, res) => res.json({ policyVersion: 2, domain: 'score', authorizationVersion: req.user.authorization_version,
+    user: { id: req.user.id, role: req.user.role, username: req.user.username || `Scorer ${req.user.id}`, competition_ids:req.user.competition_ids||[] },
+    issuedAt:Date.now(),expiresAt: Date.now() + 7 * 86400000 });
 exports.status = async (req, res) => {
     let connection;
     res.set('Cache-Control', 'no-store');
@@ -211,7 +213,7 @@ exports.sync = endpoint(async (req, res, connection) => {
 });
 exports.confirm = endpoint(async (req,res,connection) => {
     const session = (await connection.query('SELECT * FROM scorer_offline_sessions WHERE match_id=? FOR UPDATE',[req.params.matchId])).rows[0];
-    if (!session?.released || (String(session.owner_id) !== String(req.user.id) && req.user.role !== 'admin')) fail('ต้องซิงค์และคืนสิทธิ์ก่อนยืนยันผล',409);
+    if (!session?.released || (String(session.owner_id) !== String(req.user.id) && req.user.role !== 'super_admin')) fail('ต้องซิงค์และคืนสิทธิ์ก่อนยืนยันผล',409);
     const checkpoint = parse(session.checkpoint), wins = {home:0,away:0};
     Object.values(checkpoint.completed).forEach(score=>wins[score.home>score.away?'home':'away']++);
     if (Math.max(wins.home,wins.away)<Math.ceil(checkpoint.maxSets/2)) fail('การแข่งขันยังไม่จบ');

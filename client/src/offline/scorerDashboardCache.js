@@ -1,10 +1,11 @@
 import { localRead } from './localRead.js';
+import { rememberResponse } from '../utils/navigation/publicUrls.js';
 
 const DATABASE = 'volley-scorer-dashboard-v1', STORE = 'snapshots', VERSION = 1;
 const keyFor = (userId, role, kind) => `${String(userId)}:${String(role).toLowerCase()}:${kind}`;
 const validScope = (userId, role, kind) => userId != null && String(userId) !== '' && Boolean(role) && ['server', 'manual'].includes(kind);
 const pick = (value, keys) => Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]));
-const matchFields = ['id', 'competition_id', 'competition_name', 'competition_title', 'match_number', 'match_date', 'raw_start_time', 'start_time', 'start_date', 'location', 'round_name', 'pool_name', 'age_group_name', 'category', 'gender', 'competition_gender', 'home_team', 'away_team', 'home_team_name', 'away_team_name', 'home_team_id', 'away_team_id', 'home_set_score', 'away_set_score', 'status', 'max_sets', 'is_manual_scorer', 'manual_lifecycle', 'manual_owner_id', 'manual_published', 'first_serve_team_id', 'dashboard_stale'];
+const matchFields = ['id', 'public_id', 'competition_id', 'competition_name', 'competition_title', 'match_number', 'match_date', 'raw_start_time', 'start_time', 'start_date', 'location', 'location_th', 'location_en', 'round_name', 'pool_name', 'age_group_name', 'category', 'gender', 'competition_gender', 'home_team', 'away_team', 'home_team_name', 'away_team_name', 'home_team_name_th', 'home_team_name_en', 'away_team_name_th', 'away_team_name_en', 'home_team_id', 'away_team_id', 'home_set_score', 'away_set_score', 'status', 'result_type', 'forfeit_reason', 'workflow_phase', 'max_sets', 'is_manual_scorer', 'manual_lifecycle', 'manual_owner_id', 'manual_published', 'first_serve_team_id', 'dashboard_stale'];
 function cacheMatch(match) {
     const result = pick(match, matchFields);
     Object.assign(result, pick(match, ['competition_name_th', 'competition_name_en', 'competition_title_th', 'competition_title_en']));
@@ -48,6 +49,7 @@ export async function readDashboardCache(userId, role, kind) {
         || !value.matches.every(row => row && typeof row === 'object' && row.id != null)
         || !value.competitions.every(row => row && typeof row === 'object' && row.id != null)
         || !value.updatedAt || !Number.isFinite(Date.parse(value.updatedAt))) return null;
+    rememberResponse(value);
     return value;
 }
 
@@ -56,7 +58,7 @@ export async function writeDashboardCache(userId, role, kind, snapshot) {
     if (!Array.isArray(snapshot.matches) || !Array.isArray(snapshot.competitions)) throw Error('Invalid dashboard snapshot');
     const value = { key: keyFor(userId, role, kind), version: VERSION,
         matches: snapshot.matches.map(cacheMatch),
-        competitions: snapshot.competitions.map(row => pick(row, ['id', 'title', 'title_th', 'title_en', 'short_title_th', 'short_title_en', 'competition_title', 'competition_title_th', 'competition_title_en', 'competition_name', 'competition_name_th', 'competition_name_en', 'gender', 'status', 'age_group_name', 'age_group_id'])),
+        competitions: snapshot.competitions.map(row => pick(row, ['id', 'public_id', 'title', 'title_th', 'title_en', 'short_title_th', 'short_title_en', 'competition_title', 'competition_title_th', 'competition_title_en', 'competition_name', 'competition_name_th', 'competition_name_en', 'gender', 'status', 'age_group_name', 'age_group_id'])),
         updatedAt: snapshot.updatedAt || new Date().toISOString(),
         partialCompetitionIds: snapshot.partialCompetitionIds || [] };
     await access('readwrite', store => store.put(value));

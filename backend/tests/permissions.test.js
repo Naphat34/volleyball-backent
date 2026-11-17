@@ -8,9 +8,10 @@ test('legacy score role maps to scorer permissions', () => {
   assert.equal(roleHasPermission('score', 'match.score'), true);
 });
 
-test('statisticians can access scoring data without competition-management privileges', () => {
-  assert.equal(normalizeRole('statistician'), 'scorer');
-  assert.equal(roleHasPermission('statistician', 'match.score'), true);
+test('statisticians have statistics-only permission without score recording', () => {
+  assert.equal(normalizeRole('statistician'), 'vims_operator');
+  assert.equal(roleHasPermission('statistician', 'match.score'), false)
+  assert.equal(roleHasPermission('statistician','vims.record'),true);
   assert.equal(roleHasPermission('statistician', 'competition.manage'), false);
 });
 

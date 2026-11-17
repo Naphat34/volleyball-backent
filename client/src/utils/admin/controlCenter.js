@@ -19,10 +19,11 @@ export function matchPreparationIssues(match) {
 
 export function buildControlCenter(matches, competitions, now = new Date()) {
     const today = bangkokDay(now);
-    const official = matches.filter(m => !m.is_custom_vis);
-    const todayMatches = official.filter(m => m.match_date === today).sort((a, b) => String(a.start_time || '99:99').localeCompare(String(b.start_time || '99:99')));
+    const sortedMatches = [...matches].sort((a, b) => String(a.match_number || a.id).localeCompare(String(b.match_number || b.id), 'en', { numeric: true }));
+    const official = sortedMatches.filter(m => !m.is_custom_vis);
+    const todayMatches = official.filter(m => m.match_date === today);
     const needsPreparation = official.filter(m => matchPreparationIssues(m).length);
-    const needsStatistics = matches.filter(m => adminVisIssues(m).length);
+    const needsStatistics = sortedMatches.filter(m => adminVisIssues(m).length);
     const collisions = [];
     const scheduled = official.filter(m => m.match_date && m.start_time && !['cancelled', 'completed'].includes(dashboardMatchStatus(m)));
     const slots = new Map();

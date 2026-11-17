@@ -54,7 +54,12 @@ function fixture() {
     };
     const file = require.resolve('../controllers/officialVisOfflineController');
     const localRequire = createRequire(file);
-    const scope = { exports: {}, console, require: name => name === '../config/db' ? { connect: async () => connection } : name === './scorerOfflineController' ? fakeScorer : localRequire(name) };
+    // Nested VIS replay uses createRequire too; keep its roster reads on this fixture.
+    const moduleFixture={...require('node:module'),createRequire:filename=>{
+        const nested=createRequire(filename);
+        return name=>name==='./scorerOfflineController'?fakeScorer:nested(name);
+    }};
+    const scope = { exports: {}, console, require: name => name === 'node:module' ? moduleFixture : name === '../config/db' ? { connect: async () => connection } : name === './scorerOfflineController' ? fakeScorer : localRequire(name) };
     scope.require.resolve = localRequire.resolve;
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), scope, { filename: file });
     const invoke = async (method, body = {}, user = 7) => {
@@ -78,7 +83,7 @@ test('Admin VIS: checkout keeps original identities; sync/retry/release updates 
     assert.equal(checkout.code, 200, JSON.stringify(checkout.data));
     assert.equal(checkout.data.payload.match.home_team_id, 21);
     assert.equal(checkout.data.payload.config.home.players[0].id, 2101);
-    await assert.rejects(f.assertOnline(), /VIS Offline/);
+    await assert.rejects(f.assertOnline(), /VIMS Offline/);
     assert.equal((await f.invoke('checkout', {}, 8)).code, 409);
     const retryCheckout = await f.invoke('checkout');
     assert.equal(retryCheckout.data.payload.offlineLease.checkoutToken, checkout.data.payload.offlineLease.checkoutToken);

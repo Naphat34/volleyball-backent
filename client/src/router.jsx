@@ -7,6 +7,8 @@ import React, {
   useState,
 } from 'react';
 import { navigateBrowser } from './utils/navigation/routerNavigation';
+import { publicUrl, internalUrl } from './utils/navigation/publicUrls.js';
+import PublicAnchor from './components/ui/PublicAnchor';
 
 const RouterContext = createContext(null);
 const ParamsContext = createContext({});
@@ -53,6 +55,19 @@ const matchPath = (path, pathname) => {
 
 export function BrowserRouter({ children }) {
   const [location, setLocation] = useState(getLocationSnapshot);
+  const [decoded, setDecoded] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void internalUrl(`${location.pathname}${location.search}${location.hash}`).then(to => {
+      if (!active) return;
+      const url = new URL(to, window.location.origin);
+      setDecoded({ pathname: url.pathname, search: url.search, hash: url.hash, state: location.state });
+      setError('');
+    }).catch(failure => { if (active) { setDecoded(null); setError(failure.message); } });
+    return () => { active = false; };
+  }, [location]);
 
   useEffect(() => {
     const refresh = () => setLocation(getLocationSnapshot());
@@ -60,16 +75,19 @@ export function BrowserRouter({ children }) {
     return () => window.removeEventListener('popstate', refresh);
   }, []);
 
-  const navigate = useCallback((to, options = {}) => {
-    if (navigateBrowser(window, to, options)) setLocation(getLocationSnapshot());
+  const navigate = useCallback(async (to, options = {}) => {
+    try {
+      const target = typeof to === 'number' ? to : await publicUrl(to);
+      if (navigateBrowser(window, target, options)) setLocation(getLocationSnapshot());
+    } catch (failure) { setError(failure.message); }
   }, []);
 
-  const value = useMemo(() => ({ location, navigate }), [location, navigate]);
-  return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
+  const value = useMemo(() => ({ location, decoded, navigate }), [location, decoded, navigate]);
+  return <RouterContext.Provider value={value}>{error ? <main role="alert" className="p-8"><p>{error}</p><a href="/">กลับหน้าหลัก</a></main> : decoded ? children : <p role="status" className="p-8">กำลังเปิดหน้า…</p>}</RouterContext.Provider>;
 }
 
 export function Routes({ children }) {
-  const { location } = useContext(RouterContext);
+  const { decoded: location } = useContext(RouterContext);
   const routeList = React.Children.toArray(children);
 
   for (const route of routeList) {
@@ -122,9 +140,9 @@ export function Link({ to, state, replace = false, onClick, children, ...props }
   };
 
   return (
-    <a href={href} onClick={handleClick} {...props}>
+    <PublicAnchor href={href} onClick={handleClick} {...props}>
       {children}
-    </a>
+    </PublicAnchor>
   );
 }
 
@@ -143,7 +161,7 @@ export function useParams() {
 }
 
 export function useSearchParams() {
-  const { location, navigate } = useContext(RouterContext);
+  const { decoded: location, navigate } = useContext(RouterContext);
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
   const setSearchParams = useCallback((nextInit) => {

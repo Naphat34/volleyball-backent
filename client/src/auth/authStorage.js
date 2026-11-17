@@ -1,4 +1,5 @@
 import { clearVisMatchGate } from '../offline/visMatchGate.js';
+import { normalizeAccount } from './roles.js';
 import { getOfflineUser, clearOfflineSession, offlineMode, setOfflineMode } from '../offline/offlineAuth.js';
 const TOKEN_KEY = 'token';
 const USER_KEY = 'user';
@@ -8,7 +9,7 @@ export const getAuthSessionVersion = () => authSessionVersion;
 const safeJsonParse = (value) => {
   if (!value) return null;
   try {
-    return JSON.parse(value);
+    return normalizeAccount(JSON.parse(value));
   } catch {
     return null;
   }

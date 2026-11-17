@@ -147,7 +147,7 @@ export default function CreateTeam() {
       alert(ui('Team created successfully.'));
 
       const user = getStoredUser();
-      navigate(user?.role === 'admin' ? '/admin-dashboard' : '/team-dashboard');
+      navigate(user?.role === 'super_admin' ? '/admin-dashboard' : '/team-dashboard');
       window.location.reload();
     } catch (err) {
       alert((err.response?.data?.error) || (ui('Failed to create team')));

@@ -3,11 +3,18 @@ const path=require('node:path');
 const { randomBytes }=require('node:crypto');
 const { createDatabase }=require('../../config/postgres');
 
-async function setup() {
+async function setup({ local = false } = {}) {
     const schema='volley_test_'+randomBytes(8).toString('hex');
     let db, engine;
     const staging=process.env.RUN_SUPABASE_STAGING_TESTS==='1';
-    if(staging) {
+    if(local) {
+        const env=require('dotenv').parse(fs.readFileSync(path.join(__dirname,'../../.env')));
+        const options=require('../../scripts/migrateLocalAccess').localOptions(env);
+        for(const key of ['DB_PROVIDER','DB_HOST','DB_PORT','DB_USER','DB_PASSWORD','DB_NAME','DB_SSL','JWT_SECRET'])if(env[key]!==undefined)process.env[key]=env[key];
+        delete process.env.DATABASE_URL;
+        process.env.DB_PG_SCHEMA=schema;process.env.DB_POSTGRES_PREVIEW='true';
+        db=createDatabase({...env,...options,DB_PG_SCHEMA:schema});
+    } else if(staging) {
         require('dotenv').config({path:path.join(__dirname,'../../.env'),quiet:true});
         if(!process.env.STAGING_DATABASE_URL)throw Error('STAGING_DATABASE_URL is required; production DATABASE_URL is never used');
         db=createDatabase({...process.env,DATABASE_URL:process.env.STAGING_DATABASE_URL,DB_PG_SCHEMA:schema,DB_SSL:'true',DB_POOL_MAX:'4'});

@@ -18,10 +18,10 @@ exports.getAllReferees = async (req, res) => {
 
 exports.createReferee = async (req, res) => {
     try {
-        const { firstname, lastname, country, code } = req.body;
+        const { firstname, lastname, country, code, firstname_en, lastname_en } = req.body;
         const result = await db.query(
-            sqlDialect('INSERT INTO referees (firstname, lastname, country, code) VALUES (?, ?, ?, ?)', "INSERT INTO referees (firstname, lastname, country, code) VALUES (?, ?, ?, ?) RETURNING id"),
-            [firstname, lastname, country, code]
+            sqlDialect('INSERT INTO referees (firstname, lastname, country, code, firstname_en, lastname_en) VALUES (?, ?, ?, ?, ?, ?)', "INSERT INTO referees (firstname, lastname, country, code, firstname_en, lastname_en) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"),
+            [firstname, lastname, country, code || null, firstname_en?.trim() || null, lastname_en?.trim() || null]
         );
         const inserted = await db.query('SELECT * FROM referees WHERE id = ?', [result.insertId]);
         res.status(201).json(inserted.rows[0]);
@@ -33,10 +33,10 @@ exports.createReferee = async (req, res) => {
 exports.updateReferee = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstname, lastname, country, code } = req.body;
+        const { firstname, lastname, country, code, firstname_en, lastname_en } = req.body;
         await db.query(
-            'UPDATE referees SET firstname = ?, lastname = ?, country = ?, code = ? WHERE id = ?',
-            [firstname, lastname, country, code || null, id]
+            'UPDATE referees SET firstname = ?, lastname = ?, country = ?, code = ?, firstname_en = COALESCE(?, firstname_en), lastname_en = COALESCE(?, lastname_en) WHERE id = ?',
+            [firstname, lastname, country, code || null, firstname_en === undefined ? null : firstname_en.trim(), lastname_en === undefined ? null : lastname_en.trim(), id]
         );
         const updated = await db.query('SELECT * FROM referees WHERE id = ?', [id]);
         res.json(updated.rows[0]);
@@ -76,10 +76,10 @@ exports.getAllScorers = async (req, res) => {
 
 exports.createScorer = async (req, res) => {
     try {
-        const { firstname, lastname, country } = req.body;
+        const { firstname, lastname, country, firstname_en, lastname_en } = req.body;
         const result = await db.query(
-            sqlDialect('INSERT INTO scorers (firstname, lastname, country) VALUES (?, ?, ?)', "INSERT INTO scorers (firstname, lastname, country) VALUES (?, ?, ?) RETURNING id"),
-            [firstname, lastname, country]
+            sqlDialect('INSERT INTO scorers (firstname, lastname, country, firstname_en, lastname_en) VALUES (?, ?, ?, ?, ?)', "INSERT INTO scorers (firstname, lastname, country, firstname_en, lastname_en) VALUES (?, ?, ?, ?, ?) RETURNING id"),
+            [firstname, lastname, country, firstname_en?.trim() || null, lastname_en?.trim() || null]
         );
         const inserted = await db.query('SELECT * FROM scorers WHERE id = ?', [result.insertId]);
         res.status(201).json(inserted.rows[0]);
@@ -91,10 +91,10 @@ exports.createScorer = async (req, res) => {
 exports.updateScorer = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstname, lastname, country } = req.body;
+        const { firstname, lastname, country, firstname_en, lastname_en } = req.body;
         await db.query(
-            'UPDATE scorers SET firstname = ?, lastname = ?, country = ? WHERE id = ?',
-            [firstname, lastname, country, id]
+            'UPDATE scorers SET firstname = ?, lastname = ?, country = ?, firstname_en = COALESCE(?, firstname_en), lastname_en = COALESCE(?, lastname_en) WHERE id = ?',
+            [firstname, lastname, country, firstname_en === undefined ? null : firstname_en.trim(), lastname_en === undefined ? null : lastname_en.trim(), id]
         );
         const updated = await db.query('SELECT * FROM scorers WHERE id = ?', [id]);
         res.json(updated.rows[0]);
@@ -129,10 +129,10 @@ exports.getAllLineJudges = async (req, res) => {
 
 exports.createLineJudge = async (req, res) => {
     try {
-        const { firstname, lastname, country } = req.body;
+        const { firstname, lastname, country, firstname_en, lastname_en } = req.body;
         const result = await db.query(
-            sqlDialect('INSERT INTO line_judges (firstname, lastname, country) VALUES (?, ?, ?)', "INSERT INTO line_judges (firstname, lastname, country) VALUES (?, ?, ?) RETURNING id"),
-            [firstname, lastname, country]
+            sqlDialect('INSERT INTO line_judges (firstname, lastname, country, firstname_en, lastname_en) VALUES (?, ?, ?, ?, ?)', "INSERT INTO line_judges (firstname, lastname, country, firstname_en, lastname_en) VALUES (?, ?, ?, ?, ?) RETURNING id"),
+            [firstname, lastname, country, firstname_en?.trim() || null, lastname_en?.trim() || null]
         );
         const inserted = await db.query('SELECT * FROM line_judges WHERE id = ?', [result.insertId]);
         res.status(201).json(inserted.rows[0]);
@@ -144,10 +144,10 @@ exports.createLineJudge = async (req, res) => {
 exports.updateLineJudge = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstname, lastname, country } = req.body;
+        const { firstname, lastname, country, firstname_en, lastname_en } = req.body;
         await db.query(
-            'UPDATE line_judges SET firstname = ?, lastname = ?, country = ? WHERE id = ?',
-            [firstname, lastname, country, id]
+            'UPDATE line_judges SET firstname = ?, lastname = ?, country = ?, firstname_en = COALESCE(?, firstname_en), lastname_en = COALESCE(?, lastname_en) WHERE id = ?',
+            [firstname, lastname, country, firstname_en === undefined ? null : firstname_en.trim(), lastname_en === undefined ? null : lastname_en.trim(), id]
         );
         const updated = await db.query('SELECT * FROM line_judges WHERE id = ?', [id]);
         res.json(updated.rows[0]);

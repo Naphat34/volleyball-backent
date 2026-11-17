@@ -74,6 +74,7 @@
         .scorer-court > button { min-height: 44px; flex-shrink: 0; }
         .scorer-shell .scorer-player-token { width: clamp(44px, 7dvh, 60px); height: clamp(44px, 7dvh, 60px); }
         .scorer-shell .scorer-player-number { font-size: clamp(24px, 4dvh, 36px); }
+        .scorer-shell .scorer-player-jersey .scorer-player-number { font-size: clamp(18px, 3dvh, 26px); }
         .scorer-shell .scorer-controls {
             height: auto;
             min-height: 120px;

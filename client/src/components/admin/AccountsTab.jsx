@@ -10,18 +10,12 @@ import {
 } from 'lucide-react';
 
 const USER_ROLES = [
-    { value: 'user', label: 'User' },
-    { value: 'team_staff', label: 'Team staff' },
-    { value: 'score', label: 'Scorekeeper' },
-    { value: 'scorer', label: 'Scorekeeper (legacy role)' },
-    { value: 'statistician', label: 'Statistician' },
-    { value: 'referee', label: 'Referee' },
-    { value: 'organizer', label: 'Organizer' },
-    { value: 'staff', label: 'Staff (legacy)' },
-    { value: 'admin', label: 'Administrator' },
+ {value:'super_admin',label:'Super admin'}, {value:'super_admin_scorer',label:'Scorer admin'}, {value:'super_admin_vims',label:'VIMS admin'},
+ {value:'scorer',label:'Scorer'}, {value:'vims_operator',label:'VIMS operator'}, {value:'organizer',label:'Organizer'},
+ {value:'team_staff',label:'Team staff'}, {value:'referee',label:'Referee'},
 ];
 const USER_ROLE_LABELS = Object.fromEntries(USER_ROLES.map(({ value, label }) => [value, label]));
-const getOfficialKind = (role) => ['score', 'scorer', 'statistician'].includes(role)
+const getOfficialKind = (role) => role === 'scorer'
     ? 'scorer'
     : role === 'referee' ? 'referee' : null;
 
@@ -42,7 +36,7 @@ const AccountsTab = () => {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
-        role: 'user', // user, admin, staff
+        role: 'team_staff', // user, admin, staff
         status: 'active',
         firstname: '',
         lastname: '',
@@ -93,7 +87,7 @@ const AccountsTab = () => {
             setFormData({
                 username: '',
                 password: '',
-                role: 'user',
+                role: 'team_staff',
                 status: 'active',
                 firstname: '',
                 lastname: '',
@@ -279,7 +273,7 @@ const AccountsTab = () => {
                                     </td>
                                     <td className="p-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                                            ${user.role === 'admin'
+                                            ${user.role === 'super_admin'
                                                 ? 'bg-purple-100 text-purple-800'
                                                 : 'bg-blue-100 text-blue-800'
                                             }`}>
@@ -324,7 +318,7 @@ const AccountsTab = () => {
                         <GuardedForm onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                             <div><label className="block text-sm font-medium mb-1">{ui("Username")}</label><div className="relative"><User className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="text" name="username" required value={formData.username} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder={ui("johndoe")} /></div></div>
                             <div><label className="block text-sm font-medium mb-1">{ui("Password")}{' '}{modalMode === 'edit' && <span className="text-xs font-normal text-gray-500">{ui("(Leave blank to keep)")}</span>}</label><div className="relative"><Key className="absolute left-3 top-2.5 text-gray-400" size={18} /><input type="password" name="password" required={modalMode === 'create'} value={formData.password} onChange={handleInputChange} className="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 border-gray-300" placeholder="••••••••" /></div></div>
-                            {['score', 'scorer', 'statistician', 'referee'].includes(formData.role) && (
+                            {['scorer', 'referee'].includes(formData.role) && (
                                 <div className="grid grid-cols-2 gap-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
                                     <div className="col-span-2 text-sm font-semibold text-blue-900">{ui("Official profile (linked to this account)")}</div>
                                     <label className="col-span-2 text-sm font-medium">{ui("Existing official record")}<select name="official_id" value={formData.official_id} onChange={handleInputChange} className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2">

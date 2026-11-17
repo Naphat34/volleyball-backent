@@ -1,7 +1,7 @@
 const { fail } = require('./visWorkflow');
 
 async function linkAthlete(connection, payload, matchId, actor, command) {
-    if (actor.role !== 'admin') fail('เฉพาะผู้ดูแลระบบสามารถยืนยันตัวตนนักกีฬาได้', 403);
+    if (!require('../config/permissions').roleHasPermission(actor.role,'athlete.identity.link')) fail('เฉพาะผู้ดูแลระบบสามารถยืนยันตัวตนนักกีฬาได้', 403);
     const { side, localPlayerId, playerId } = command;
     if (!['home', 'away'].includes(side) || !Number.isSafeInteger(localPlayerId)
         || !payload.config[side].players.some(player => player.id === localPlayerId)) fail('ไม่พบนักกีฬาในแมตช์');

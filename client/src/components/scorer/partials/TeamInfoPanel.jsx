@@ -1,3 +1,4 @@
+import {hasCompleteStartingLineup} from '../../../utils/scorer/approvedLineup';
 import useDisplayNames from '../../../hooks/useDisplayNames';
 import useScorerTranslation from '../useScorerTranslation';
 import { getTeamCode } from '../../../utils/scorer/scorerHelpers';
@@ -92,7 +93,8 @@ export default function TeamInfoPanel({ team, align = 'left', onPlayerClick }) {
                             return (
                                 <div
                                     key={p.id || p.number}
-                                    onClick={() => onPlayerClick && onPlayerClick(align === 'left' ? 'home' : 'away', p.posIndex)}
+                                    aria-disabled={!hasCompleteStartingLineup(lineup)}
+                                    onClick={() => hasCompleteStartingLineup(lineup) && onPlayerClick && onPlayerClick(align === 'left' ? 'home' : 'away', p.posIndex)}
                                     className="flex items-center px-3 py-2 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                                 >
                                     {/* หมายเลขผู้เล่นปัจจุบัน + (หมายเลขเดิม) */}

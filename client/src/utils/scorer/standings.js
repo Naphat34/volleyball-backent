@@ -4,12 +4,14 @@ export const isMatchLive = (status) => ['live', 'set_playing', 'in_progress'].in
 
 // Shared by the public overview and full table, including best-of-three matches.
 export function calculateStandings(teams, matches, competitions = []) {
+    const finalizedPool=teams.length>0&&teams.every(team=>team.workflow_rank&&team.workflow_pool===teams[0].workflow_pool);
+    const finalRank=new Map(teams.map(team=>[String(team.id),team.workflow_rank]));
     const stats = new Map(teams.map(team => [String(team.id), {
         id: team.id, name: team.name, logo_url: team.logo_url,
         played: 0, won: 0, lost: 0, points: 0, sets_won: 0, sets_lost: 0, points_won: 0, points_lost: 0
     }]));
     for (const match of matches) {
-        if (!isMatchFinished(match.status)) continue;
+        if (!isMatchFinished(match.status) || match.workflow_phase === 'knockout') continue;
         const home = stats.get(String(match.home_team_id));
         const away = stats.get(String(match.away_team_id));
         const h = Number(match.home_set_score ?? match.team_a_score) || 0;
@@ -46,5 +48,5 @@ export function calculateStandings(teams, matches, competitions = []) {
         return { ...team, setRatioVal, pointRatioVal,
             setRatioStr: !team.sets_lost && team.sets_won ? 'MAX' : setRatioVal.toFixed(3),
             pointRatioStr: !team.points_lost && team.points_won ? 'MAX' : pointRatioVal.toFixed(3) };
-    }).sort((a, b) => b.points - a.points || b.won - a.won || b.setRatioVal - a.setRatioVal || b.pointRatioVal - a.pointRatioVal || String(a.name).localeCompare(String(b.name), 'th'));
+    }).sort((a, b) => finalizedPool?finalRank.get(String(a.id))-finalRank.get(String(b.id)):b.points - a.points || b.won - a.won || b.setRatioVal - a.setRatioVal || b.pointRatioVal - a.pointRatioVal || String(a.name).localeCompare(String(b.name), 'th'));
 }

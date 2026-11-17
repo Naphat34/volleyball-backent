@@ -7,6 +7,7 @@ export default function MatchDashboardScore({ match, source = 'vis' }) {
     const away = Number(setsWon?.away ?? match.away_set_score ?? 0);
     const completedSets = officialCompletedSetScores(match);
     return <div className="vd-score-details">
+        {match.result_type === 'forfeit' && <span className="vd-badge" title={match.forfeit_reason || ''}>Forfeit</span>}
         {!match.is_custom_vis && <div className={source === 'official' ? 'vd-score-official is-primary' : 'vd-score-official'}>
             <span className="vd-official-result"><span className={home > away ? 'vd-winning-score' : ''}>{home}</span>
             <span className="vd-score-separator">-</span><span className={away > home ? 'vd-winning-score' : ''}>{away}</span></span>

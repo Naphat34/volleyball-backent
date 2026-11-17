@@ -4,6 +4,7 @@ import { localRead } from './localRead.js';
 import { nextSyncBatch, assertAcknowledged } from './syncBatch.js';
 import { applyScorerCache, hydrateScorerCache, scorerStorageSnapshot } from './scorerCache.js';
 import EventQueue from '../utils/scorer/eventQueue.js';
+import { internalUrl, rememberOfflineMatch } from '../utils/navigation/publicUrls.js';
 const activeKey = id => `scorer_offline_active_${id}`;
 export const scorerOfflineActive = id => localStorage.getItem(activeKey(id)) === '1';
 const owner = (options) => {
@@ -13,7 +14,11 @@ const owner = (options) => {
 };
 export async function scorerRecords(options) {
     const id = owner(options);
-    return localRead(access('readonly', store => store.getAll())).then(records => records.filter(record => record.owner === id && record.cache));
+    return localRead(access('readonly', store => store.getAll())).then(records => {
+        const owned = records.filter(record => record.owner === id && record.cache);
+        owned.forEach(rememberOfflineMatch);
+        return owned;
+    });
 }
 function access(mode, action) {
     return new Promise((resolve, reject) => {
@@ -122,10 +127,11 @@ export function installScorerOffline(client) {
     client.interceptors.request.use(async config => {
         const url = new URL(config.url, 'https://local.test');
         const match = /^\/scorer\/match\/(\d+)(?:\/(.*))?$/.exec(url.pathname);
-        const currentId = /^\/scorer\/(\d+)\/?$/.exec(window.location.pathname)?.[1];
+        const currentId = /^\/scorer\/(\d+)\/?$/.exec(await internalUrl(window.location.pathname))?.[1];
         const id = match?.[1] || currentId;
         if (!currentId || id !== currentId || !scorerOfflineActive(id) || match?.[2]?.startsWith('offline-') || url.pathname === '/scorer/offline-permit') return config;
         const path = match?.[2] || '', method = (config.method || 'get').toUpperCase();
+        config.scorerOffline = true;
         config.adapter = async () => {
             let record = await scorerRecord(id), data;
             if (record.preparingUntil > Date.now()) throw Error('กำลังดาวน์โหลดแมตช์ กรุณารอ');

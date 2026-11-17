@@ -1,4 +1,5 @@
 import { rewriteApiUrls } from './utils/common/apiResponse';
+import { publicUrl, rememberResponse } from './utils/navigation/publicUrls.js';
 import axios from 'axios';
 import { getAuthToken } from './auth/authStorage';
 import { offlineMode } from './offline/offlineAuth';
@@ -22,10 +23,14 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (!config.scorerOffline) {
+      config.url = await publicUrl(config.url, { mode: 'api', params: config.params });
+      config.params = undefined;
     }
     return config;
   },
@@ -36,6 +41,7 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
+    rememberResponse(response.data, response.config?.url);
     if (response.data) response.data = rewriteApiUrls(response.data, API_ORIGIN);
     return response;
   },
@@ -48,6 +54,23 @@ const customVis = id => String(id).startsWith('custom-') || isLocalVis(id);
 installScorerOffline(apiClient);
 const readCustomVis = async id => isLocalVis(id) ? { data: localView(await getLocal(id, { readOnly: true })) } : apiClient.get(`/vis-custom/${id}`);
 export const api = {
+  getCompetitionWorkflow: id => apiClient.get(`/competition-workflows/${id}`),
+  updateCompetitionWorkflow: (id, action, data) => apiClient.post(`/competition-workflows/${id}/${action}`, data),
+  accessSession: () => apiClient.get('/access/session'),
+  accessCatalog: () => apiClient.get('/access/catalog'),
+  accessCompetitions: () => apiClient.get('/access/competitions'),
+  accessMatches: () => apiClient.get('/access/matches'),
+  accessUsers: () => apiClient.get('/access/users'),
+  accessCreateUser: data => apiClient.post('/access/users', data),
+  accessUpdateUser: (id,data) => apiClient.put(`/access/users/${id}`,data),
+  accessSetCompetitions: (id,competition_ids) => apiClient.put(`/access/users/${id}/competitions`,{competition_ids}),
+  accessReviews: () => apiClient.get('/access/reviews'),
+  accessPreview: (kind,id) => apiClient.get(`/access/matches/${kind}/${id}/preview`),
+  accessMatchDetail: (id, eventPage = 1) => apiClient.get(`/access/matches/match/${encodeURIComponent(id)}/detail`, { params: { eventPage } }),
+  accessCorrection: (kind,id,domain) => apiClient.get(`/access/matches/${kind}/${id}/${domain}/correction`),
+  accessSaveCorrection: (kind,id,domain,data) => apiClient.put(`/access/matches/${kind}/${id}/${domain}/correction`,data),
+  accessReview: (kind,id,domain,action,data={}) => apiClient.post(`/access/matches/${kind}/${id}/${domain}/${action}`,data),
+  accessLinkCompetition: (kind,id,competition_id) => apiClient.put(`/access/matches/${kind}/${id}/competition`,{competition_id}),
   getScorerMatches: () => apiClient.get('/scorer/matches', { timeout: 15000 }),
   getScorerOfflineStatus: (id, deviceId) => apiClient.get(`/scorer/match/${id}/offline-status`, { params: { deviceId }, timeout: 15000 }),
   getOfflinePermit: () => apiClient.get('/vis-custom/offline-permit'),

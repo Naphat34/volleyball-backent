@@ -1,5 +1,7 @@
+import { openPublicWindow } from '../../utils/navigation/publicUrls.js';
 import { GuardedButton } from '../ui/GuardedAction';
 import useUiTranslation from '../../hooks/useUiTranslation';
+import useDisplayNames from '../../hooks/useDisplayNames';
 import React from 'react';
 import { Calendar, MapPin, Swords, Edit2, Trash2, FileText } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -15,6 +17,7 @@ const MatchList = ({
     isAdmin = false // Default to false (read-only)
 }) => {
     const ui = useUiTranslation();
+    const names = useDisplayNames();
 
     if (!matches || matches.length === 0) {
         return <EmptyState text="No matches found." darkMode={darkMode} />;
@@ -91,7 +94,7 @@ const MatchList = ({
                                 <TeamLogoDisplay
                                     logo={m.home_team_logo_url}
                                     code={m.home_team_code}
-                                    name={m.home_team}
+                                    name={names.matchTeamName(m,'home')}
                                     isRightAligned={true}
                                     textColor={homeWin ? 'text-green-600 dark:text-green-400' : (isCompleted ? 'text-gray-400' : '')}
                                 />
@@ -135,7 +138,7 @@ const MatchList = ({
                                 <TeamLogoDisplay
                                     logo={m.away_team_logo_url}
                                     code={m.away_team_code}
-                                    name={m.away_team}
+                                    name={names.matchTeamName(m,'away')}
                                     isRightAligned={false}
                                     textColor={awayWin ? 'text-green-600 dark:text-green-400' : (isCompleted ? 'text-gray-400' : '')}
                                 />
@@ -150,13 +153,13 @@ const MatchList = ({
                                 {onScore && (
                                     <div className="flex flex-col gap-2">
                                         <GuardedButton
-                                            onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}`, '_blank'); }}
+                                            onClick={(e) => { e.stopPropagation(); openPublicWindow(`/scoresheet/${m.id}`, '_blank'); }}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
                                             title={ui("Official Score Sheet")}
                                         >
                                             <FileText size={12} />{ui("Official Score Sheet")}</GuardedButton>
                                         <GuardedButton
-                                            onClick={(e) => { e.stopPropagation(); window.open(`/scoresheet/${m.id}?view=result`, '_blank'); }}
+                                            onClick={(e) => { e.stopPropagation(); openPublicWindow(`/scoresheet/${m.id}?view=result`, '_blank'); }}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-md transition-colors"
                                             title={ui("O-4 Match Report")}
                                         >

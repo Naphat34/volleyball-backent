@@ -48,3 +48,4 @@ async function run(){
     finally{await client.end();}
 }
 if(require.main===module)run().catch(error=>{console.error(error.code||error.message);process.exitCode=1;});
+module.exports={describe};

@@ -126,7 +126,16 @@ exports.exportReport = async (req, res) => {
     const report = reportQueries[type];
     if (!report) return res.status(404).json({ error: 'Report type not found' });
 
-    const result = await db.query(report.sql);
+    let sql=report.sql, params=[];
+    if (!require('../utils/accessScope').isSystemAdmin(req.user)) {
+      const scope=require('../utils/accessScope').scopeSql(req.user, type==='competitions'?'c.id':'m.competition_id');
+      if (type==='audit') return res.status(403).json({error:'System administrator only'});
+      if (type==='teams') {
+        sql=sql.replace('ORDER BY', 'WHERE id IN (SELECT team_id FROM team_entries te WHERE '+require('../utils/accessScope').scopeSql(req.user,'te.competition_id').sql+') ORDER BY');
+      } else sql=sql.replace('ORDER BY','WHERE '+scope.sql+' ORDER BY');
+      params=scope.params;
+    }
+    const result = await db.query(sql,params);
     const rows = result.rows || [];
     const filename = `${type}-report.${format}`;
 

@@ -24,7 +24,7 @@ export default function AdminVimsTab({ theme: inheritedTheme }) {
     const t = (a, b) => th ? a : b;
     const [matches, setMatches] = useState([]), [loading, setLoading] = useState(true), [error, setError] = useState(''), [updated, setUpdated] = useState(null);
     const [filters, setFilters] = useState(emptyFilters), [view, setView] = useState('matches'), [page, setPage] = useState(1), [pageSize, setPageSize] = useState(25);
-    const [sort, setSort] = useState({ field: 'date', descending: true }), [includeUnconfirmed, setIncludeUnconfirmed] = useState(false);
+    const [sort, setSort] = useState({ field: 'number', descending: false }), [includeUnconfirmed, setIncludeUnconfirmed] = useState(false);
     const [detail, setDetail] = useState(null), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
     const { theme: globalTheme } = useVisTheme();
     const theme = inheritedTheme || globalTheme;

@@ -1,3 +1,4 @@
+import {hasCompleteStartingLineup} from '../../../utils/scorer/approvedLineup';
 import { GuardedButton } from '../../ui/GuardedAction';
 import { PenTool, Trophy, Flag, Clock, Users, RotateCcw, AlertTriangle, X as UiX, Cross as SystemCross, ShieldAlert as SystemShieldAlert } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
@@ -50,6 +51,7 @@ const TeamChoiceModal = ({ isOpen, title, subtitle, leftTeam, rightTeam, onCance
                         <GuardedButton
                             key={team.code}
                             type="button"
+                            disabled={!hasCompleteStartingLineup(team.lineup)}
                             onClick={() => onSelect(team.code)}
                             className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:bg-white hover:shadow-md active:scale-95"
                         >
@@ -99,7 +101,9 @@ const ControlActionsPanel = ({
     const displayNames = useDisplayNames();
     const st = useScorerTranslation();
     const [showInjuryTeamPicker, setShowInjuryTeamPicker] = useState(false);
-    const officialActionsDisabled = workflowStep === 'RALLY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW';
+    const anyTeamReady=hasCompleteStartingLineup(leftTeam.lineup)||hasCompleteStartingLineup(rightTeam.lineup);
+    const bothTeamsReady=hasCompleteStartingLineup(leftTeam.lineup)&&hasCompleteStartingLineup(rightTeam.lineup);
+    const officialActionsDisabled = !anyTeamReady || workflowStep === 'RALLY' || workflowStep === 'LINEUP' || workflowStep === 'CHALLENGE_REVIEW';
     const officialActionsVisible = ['SERVING', 'SERVER_SELECT', 'READY'].includes(workflowStep);
 
     return (
@@ -241,7 +245,7 @@ const ControlActionsPanel = ({
                                 </div>
                             </div>
                         ) : workflowStep === 'READY' ? (
-                            <GuardedButton onClick={handleStartMatch} className="scorer-start-match bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xl py-3 px-10 shadow-md w-full max-w-xs transition-colors mt-4">{st("START MATCH")}</GuardedButton>
+                            <GuardedButton disabled={!bothTeamsReady} onClick={handleStartMatch} className="scorer-start-match bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xl py-3 px-10 shadow-md w-full max-w-xs transition-colors mt-4">{st("START MATCH")}</GuardedButton>
                         ) : workflowStep === 'SERVING' ? (
                             <div className="flex flex-col items-center w-full max-w-sm mt-2">
                                 <div className="text-indigo-700 font-bold text-sm flex items-center gap-2 mb-1.5 uppercase">

@@ -43,7 +43,7 @@ export default function Login() {
     try {
       const response = await api.login({ username: formData.username, password: formData.password });
       const { user, token } = response.data;
-      if (!['admin', 'score', 'scorer', 'statistician'].includes(user.role) && String(user.status || '').toLowerCase() !== 'active') {
+      if (String(user.status || '').toLowerCase() !== 'active') {
         clearAuthSession();
         setFormError(t('login.pendingText'));
         return;

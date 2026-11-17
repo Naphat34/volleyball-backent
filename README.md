@@ -9,7 +9,7 @@ ScorerControl: [คู่มือ Offline และการซิงค์ค�
 ## Project Structure
 
 - `client/` React/Vite frontend
-- `backend/` Express/MySQL backend
+- `backend/` Express backend รองรับ PostgreSQL และ MySQL เดิม
 - `backend/migrations/` SQL migrations
 - `backend/seeds/` SQL seed files
 - `client/src/pages/` หน้าตามกลุ่ม auth, admin, team, scorer, vis, reports, matches และ public
@@ -23,10 +23,12 @@ ScorerControl: [คู่มือ Offline และการซิงค์ค�
 
 ดู [ผังโครงสร้างและหลักการวางไฟล์](docs/technical/project-structure.md) และ [สารบัญเอกสาร](docs/README.md)
 
+งานสิทธิ์ Admin/Scorer/VIMS รุ่นใหม่: [สถานะพัฒนาและ migration local](docs/technical/access-control-implementation-2026-11-16.md) ใช้ PostgreSQL และยังมีข้อที่รอการยืนยันก่อนเปิดใช้จริง ส่วน MySQL adapter เป็นเส้นทางเดิมที่ยังไม่ได้เพิ่ม migration สิทธิ์รุ่นนี้
+
 ## Requirements
 
 - Node.js 20+
-- MySQL
+- PostgreSQL สำหรับการพัฒนาในเครื่องปัจจุบัน (ยังรองรับ MySQL เดิม)
 - ใช้ `npm.cmd` บน Windows PowerShell ถ้า `npm` ถูกบล็อกด้วย Execution Policy
 
 ## Environment
@@ -35,12 +37,16 @@ ScorerControl: [คู่มือ Offline และการซิงค์ค�
 
 ```env
 NODE_ENV=development
-PORT=3000
+PORT=5000
+DB_PROVIDER=postgres
+DB_POSTGRES_PREVIEW=true
 DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
+DB_PORT=5432
+DB_USER=postgres
 DB_PASSWORD=
-DB_NAME=volley
+DB_NAME=Volley_db2026
+DB_PG_SCHEMA=volley
+DB_SSL=false
 JWT_SECRET=change-me-in-production
 CORS_ORIGINS=http://localhost:5173
 ```
@@ -48,10 +54,14 @@ CORS_ORIGINS=http://localhost:5173
 สร้าง `client/.env`:
 
 ```env
-VITE_API_URL=http://localhost:3000
+VITE_API_URL=http://localhost:5000
 ```
 
 Production ต้องตั้ง `JWT_SECRET` เป็นค่าที่แข็งแรง และตั้ง `CORS_ORIGINS` เป็น domain จริงเท่านั้น
+
+กรอกรหัสผ่าน PostgreSQL ใน `.env` ภายในเครื่อง โค้ดรองรับทั้ง `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME` และ `DATABASE_URL`; ถ้าตั้ง `DATABASE_URL` จะใช้ URL ก่อน สำหรับ Supabase ให้ใช้ TLS พร้อม CA ตาม [คู่มือย้าย PostgreSQL](backend/SUPABASE_MIGRATION.md) ค่า `DB_SSL=false` ข้างต้นใช้กับบริการ loopback ในเครื่องนี้ที่ไม่รองรับ SSL ส่วน preview guard ยังคงเปิดใช้งาน ไม่ใช่การรับรอง production cutover
+
+ดู [ผลตั้งค่าฐานในเครื่องและตรวจ Master Data](docs/technical/local-postgres-master-data-2026-11-16.md) ฐานในเครื่องที่คัดลอกมีโครงสร้างแล้วแต่ยังไม่มีข้อมูล รวมถึงยังไม่มีบัญชีเข้าสู่ระบบ
 
 สำหรับ frontend บน Vercel และ API บน Render ให้ตั้ง Environment ของบริการ API แล้ว redeploy:
 
@@ -75,6 +85,10 @@ npm.cmd install
 ```
 
 ## Database
+
+ฐาน PostgreSQL ในเครื่องปัจจุบันถูกคัดลอกโครงสร้างไว้แล้ว ไม่ต้องรัน importer หรือ baseline ซ้ำ ยังไม่ได้บันทึก migration history ของต้นทาง ต้องทบทวนการ adopt schema ก่อนใช้ migration runner สำหรับ PostgreSQL
+
+คำสั่งด้านล่างเป็นของ **MySQL เดิม** ใช้เมื่อเลือก `DB_PROVIDER=mysql` เท่านั้น สำหรับ PostgreSQL ดู [คู่มือ](backend/SUPABASE_MIGRATION.md); runner PostgreSQL ที่มีอยู่ใช้ `STAGING_DATABASE_URL` จึงไม่ควรรันกับค่าของ Online โดยเข้าใจว่าเป็นฐานในเครื่อง
 
 ```bash
 cd backend

@@ -5,6 +5,8 @@ import { Feedback } from './components/ui/SystemUI';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
+const AccessCenter = lazy(() => import('./pages/admin/AccessCenter'));
+const AdminMatchDetail = lazy(() => import('./pages/admin/AdminMatchDetail'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const CreateTeam = lazy(() => import('./pages/team/CreateTeam'));
 const TeamDashboard = lazy(() => import('./pages/team/TeamDashboard'));
@@ -27,6 +29,9 @@ const RosterVerification = lazy(() => import('./pages/reports/RosterVerification
 const MatchDetail = lazy(() => import('./pages/matches/MatchDetail'));
 import useAccessSession from './hooks/useAccessSession';
 import OfflineMatchGate from './components/auth/OfflineMatchGate';
+import AdminWorkspaceGate from './components/admin/AdminWorkspaceGate';
+import { getStoredUser } from './auth/authStorage';
+import { workspaceFor } from './utils/adminWorkspace';
 
 // import App (หน้าเดิมที่เป็น Scoreboard) ไว้ใช้ทีหลัง
 // import ScoreboardApp from './App_Original';
@@ -38,8 +43,8 @@ const PrivateRoute = ({ children, roleRequired }) => {
   const role = user?.role || null;
 
   // ถ้าไม่มี Token หรือ Role ให้ถือว่ายังไม่ Login
-  const offlineAllowed = session.kind === 'offline' && /^\/(?:adminvis(?:\/|$)|adminscorer(?:\/|$)|scorer\/\d+(?:\/|$)|scorer-offline(?:\/|$))/.test(window.location.pathname);
-  if ((session.kind !== 'online' && !offlineAllowed) || !role) return <Navigate to={`/login?returnTo=${encodeURIComponent(window.location.pathname)}`} />;
+  const offlineAllowed = session.kind === 'offline' && /^\/(?:adminvis(?:\/|$)|adminscorer(?:\/|$)|scorer\/[0-9a-f-]{36}(?:\/|$)|scorer-offline(?:\/|$))/.test(window.location.pathname);
+  if ((session.kind !== 'online' && !offlineAllowed) || !role) return <Navigate to={`/login?returnTo=${encodeURIComponent(window.location.pathname+window.location.search+window.location.hash)}`} />;
 
   // ถ้าไม่ใช่ Role ที่ต้องการ (เช่น Admin) ให้เด้งไป Login
   const allowedRoles = Array.isArray(roleRequired) ? roleRequired : roleRequired ? [roleRequired] : [];
@@ -55,14 +60,18 @@ function App() {
       <PageBoundary>
       <Suspense fallback={<div className="app-page flex min-h-screen items-center justify-center p-6"><Feedback title={ui("กำลังเปิดหน้า / Loading page…")} /></div>}>
       <Routes>
-        <Route path="/scorer-offline" element={<PrivateRoute roleRequired={['score','scorer','statistician']}><ScorerOfflineHome /></PrivateRoute>} />
-        <Route path="/adminvis" element={<PrivateRoute roleRequired={['statistician']}><AdminVis /></PrivateRoute>} />
-        <Route path="/adminvis/match/:matchId" element={<PrivateRoute roleRequired={['statistician']}><AdminVis /></PrivateRoute>} />
+        <Route path="/admin-matches/:matchId" element={<PrivateRoute roleRequired={['super_admin','super_admin_scorer','super_admin_vims','organizer']}><AdminWorkspaceGate roles={['super_admin','super_admin_scorer','super_admin_vims','organizer']}><AdminMatchDetail /></AdminWorkspaceGate></PrivateRoute>} />
+        <Route path="/access-center" element={<PrivateRoute roleRequired={['super_admin','super_admin_scorer','super_admin_vims','organizer','scorer','vims_operator']}><AccessCenterLanding /></PrivateRoute>} />
+        <Route path="/scorer-admin" element={<PrivateRoute roleRequired="super_admin_scorer"><AdminWorkspaceGate roles={['super_admin_scorer']}><AccessCenter /></AdminWorkspaceGate></PrivateRoute>} />
+        <Route path="/vims-admin" element={<PrivateRoute roleRequired="super_admin_vims"><AdminWorkspaceGate roles={['super_admin_vims']}><AccessCenter /></AdminWorkspaceGate></PrivateRoute>} />
+        <Route path="/scorer-offline" element={<PrivateRoute roleRequired="scorer"><ScorerOfflineHome /></PrivateRoute>} />
+        <Route path="/adminvis" element={<PrivateRoute roleRequired={['vims_operator']}><AdminVis /></PrivateRoute>} />
+        <Route path="/adminvis/match/:matchId" element={<PrivateRoute roleRequired={['vims_operator']}><AdminVis /></PrivateRoute>} />
         {/* หน้า AdminScorer สำหรับ role score */}
         <Route
           path="/adminscorer"
           element={
-            <PrivateRoute roleRequired={['score', 'scorer', 'statistician', 'referee']}>
+            <PrivateRoute roleRequired={['scorer', 'referee']}>
               <AdminScorer />
             </PrivateRoute>
           }
@@ -71,7 +80,7 @@ function App() {
         <Route
           path="/admin/champion/:competitionId"
           element={
-            <PrivateRoute roleRequired={['score', 'scorer', 'statistician']}>
+            <PrivateRoute roleRequired={['scorer']}>
               <MatchDetail />
             </PrivateRoute>
           }
@@ -87,8 +96,8 @@ function App() {
         <Route
           path="/admin"
           element={
-            <PrivateRoute roleRequired="admin">
-              <AdminDashboard />
+            <PrivateRoute roleRequired={['super_admin','organizer']}>
+              <AdminWorkspaceGate roles={['super_admin','organizer']}><AdminDashboard /></AdminWorkspaceGate>
             </PrivateRoute>
           }
         />
@@ -97,7 +106,7 @@ function App() {
         <Route
           path="/create-team"
           element={
-            <PrivateRoute>
+            <PrivateRoute roleRequired="team_staff">
               <CreateTeam />
             </PrivateRoute>
           }
@@ -107,7 +116,7 @@ function App() {
         <Route
           path="/team-dashboard"
           element={
-            <PrivateRoute>
+            <PrivateRoute roleRequired="team_staff">
               <TeamDashboard />
             </PrivateRoute>
           }
@@ -117,7 +126,7 @@ function App() {
         <Route
           path="/scorer/:matchId"
           element={
-            <PrivateRoute roleRequired={['score', 'scorer', 'statistician']}>
+            <PrivateRoute roleRequired={['scorer']}>
               <ScorerConsole />
             </PrivateRoute>
           }
@@ -126,7 +135,7 @@ function App() {
         <Route
           path="/staff/:matchId"
           element={
-            <PrivateRoute>
+            <PrivateRoute roleRequired="team_staff">
               <TeamStaffConsole />
             </PrivateRoute>
           }
@@ -157,3 +166,9 @@ function App() {
 }
 
 export default App;
+
+function AccessCenterLanding(){
+    const role=getStoredUser()?.role;
+    if(['super_admin_scorer','super_admin_vims'].includes(role))return <Navigate to={workspaceFor(role).home+window.location.search} replace/>;
+    return <AdminWorkspaceGate roles={['super_admin','organizer','scorer','vims_operator']}><AccessCenter /></AdminWorkspaceGate>;
+}

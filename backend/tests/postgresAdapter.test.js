@@ -40,6 +40,32 @@ test('connection config verifies TLS and strips URL SSL overrides', () => {
     assert.throws(() => poolOptions({ DATABASE_URL: 'postgres://localhost/db', DB_PG_SCHEMA: 'public;drop schema volley' }), /Invalid DB_PG_SCHEMA/);
 });
 
+test('PostgreSQL supports discrete local settings while URL connections retain precedence', () => {
+    const fields = { DB_HOST: 'localhost', DB_PORT: '5432', DB_USER: 'postgres',
+        DB_PASSWORD: 'fixture:@/#? special', DB_NAME: 'Volley_db2026', DB_SSL: 'false' };
+    const local = poolOptions(fields);
+    assert.equal(local.host, 'localhost');
+    assert.equal(local.port, 5432);
+    assert.equal(local.user, 'postgres');
+    assert.equal(local.database, 'Volley_db2026');
+    assert.equal(local.password, fields.DB_PASSWORD);
+    assert.equal(local.ssl, false);
+    assert.equal(local.connectionString, undefined);
+    assert.equal(poolOptions({ ...fields, DB_PASSWORD: undefined, DB_PORT: undefined }).password, '');
+    assert.equal(poolOptions({ ...fields, DB_PORT: undefined }).port, 5432);
+    assert.equal(poolOptions({ ...fields, DB_SSL: 'true', DB_SSL_REJECT_UNAUTHORIZED: 'false' }).ssl.rejectUnauthorized, true);
+    for (const invalid of ['0', '-1', '65536', '5432.5', 'not-a-port']) {
+        assert.throws(() => poolOptions({ ...fields, DB_PORT: invalid }), /DB_PORT/);
+    }
+    assert.throws(() => poolOptions({ ...fields, DB_NAME: '' }), /DB_NAME/);
+    const url = poolOptions({ ...fields, DATABASE_URL: 'postgres://url-user:url-password@remote.example/url-db' });
+    assert.equal(url.host, undefined);
+    assert.equal(url.password, undefined);
+    assert.equal(new URL(url.connectionString).hostname, 'remote.example');
+    assert.throws(() => poolOptions({ ...fields, DATABASE_URL: 'invalid-connection-PRIVATE_PASSWORD' }),
+        error => !error.message.includes('PRIVATE_PASSWORD') && /valid PostgreSQL/.test(error.message));
+});
+
 test('transactions use one checked-out connection and preserve rollback/release', async () => {
     const calls = [];
     let options;

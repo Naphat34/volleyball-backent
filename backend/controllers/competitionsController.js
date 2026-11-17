@@ -424,6 +424,12 @@ module.exports = {
         return res.status(404).json({ error: "Competition not found" });
       }
 
+      const workflow=await require('../utils/competitionWorkflowStore').read(db,id);
+      if(workflow&&workflow.state.status!=='draft'){
+        const previous=currentCompetitionRes.rows[0];
+        const canonical=value=>{try{const parsed=typeof value==='string'?JSON.parse(value):value;return JSON.stringify(parsed||{},Object.keys(parsed||{}).sort());}catch{return String(value);}};
+        if(Number(cleanMaxSets)!==Number(previous.max_sets)||Number(cleanAgeGroup)!==Number(previous.age_group_id)||singleGender&&singleGender!==previous.gender||canonical(cleanScoringConfig)!==canonical(previous.scoring_config))return res.status(409).json({error:'ยืนยัน workflow แล้ว ไม่สามารถเปลี่ยนประเภท รุ่นอายุ หรือกติกาการนับคะแนนได้'});
+      }
       const names = competitionInput(req.body, currentCompetitionRes.rows[0]);
       if (names.categories.length !== 1) return res.status(400).json({ error: 'Edit one competition category at a time' });
       const currentBaseTitle = normalizeCompetitionTitle(currentCompetitionRes.rows[0].title);
@@ -1091,7 +1097,7 @@ module.exports = {
 
       const result = await db.query(query, params);
       if (result.rows.length > 0) {
-        return res.json(result.rows);
+        return res.json(await require('../utils/competitionWorkflowStore').attachRanks(db,competitionId,result.rows));
       }
 
       const matchTeams = await db.query(`

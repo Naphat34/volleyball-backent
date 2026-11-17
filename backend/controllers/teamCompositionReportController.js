@@ -44,7 +44,8 @@ exports.detail = async (req, res) => {
         const staff = await teamCompositionStaff(connection, entryId);
         await connection.query('COMMIT');
         res.setHeader('Cache-Control', 'no-store');
-        res.json({ teamInfo: metadata.rows[0], players: players.rows.map(restoreSnapshot), staff: staff.staff, staff_source: staff.source });
+        const data={ teamInfo: metadata.rows[0], players: players.rows.map(restoreSnapshot), staff: staff.staff, staff_source: staff.source };
+        res.json(require('../utils/accessScope').isSystemAdmin(req.user)?data:require('../middleware/accessBoundary').publicProjection(data));
     } catch (error) {
         if (connection) await connection.query('ROLLBACK');
         console.error('Team composition report:', error.message);

@@ -60,17 +60,31 @@ function normalizeResult(result) {
 }
 
 function poolOptions(env) {
-    if (!env.DATABASE_URL) throw new Error('DATABASE_URL is required for PostgreSQL');
-    const url = new URL(env.DATABASE_URL);
-    if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw new Error('DATABASE_URL must be a PostgreSQL connection string');
-    // Prevent URL parameters from overriding certificate verification in node-postgres.
-    for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'options']) url.searchParams.delete(key);
+    let connection;
+    if (env.DATABASE_URL) {
+        let url;
+        try { url = new URL(env.DATABASE_URL); }
+        catch { throw new Error('DATABASE_URL must be a valid PostgreSQL connection string'); }
+        if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw new Error('DATABASE_URL must be a PostgreSQL connection string');
+        // Prevent URL parameters from overriding certificate verification in node-postgres.
+        for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'options']) url.searchParams.delete(key);
+        connection = { connectionString: url.toString() };
+    } else {
+        if (!env.DB_HOST || !env.DB_USER || !env.DB_NAME) {
+            throw new Error('DATABASE_URL or DB_HOST, DB_USER and DB_NAME are required for PostgreSQL');
+        }
+        const port = Number(env.DB_PORT || 5432);
+        if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('DB_PORT must be an integer from 1 to 65535');
+        // Keep credentials as driver fields so reserved characters need no URL escaping.
+        connection = { host: env.DB_HOST, port, user: env.DB_USER,
+            password: env.DB_PASSWORD ?? '', database: env.DB_NAME };
+    }
     const max = Number(env.DB_POOL_MAX || 10);
     const schema = env.DB_PG_SCHEMA || 'volley';
     if (!/^[a-z_][a-z0-9_]{0,62}$/.test(schema)) throw new Error('Invalid DB_PG_SCHEMA');
     if (!Number.isInteger(max) || max < 1) throw new Error('DB_POOL_MAX must be a positive integer');
     return {
-        connectionString: url.toString(), max,
+        ...connection, max,
         options: `-c search_path=${schema},public -c timezone=Asia/Bangkok`,
         connectionTimeoutMillis: 10000,
         idleTimeoutMillis: 30000,

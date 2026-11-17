@@ -39,7 +39,8 @@ test('PostgreSQL plans complete static SQL from the real application against the
         const queries=staticQueries();
         for(const {sql,location} of queries) {
             // Prepare with null binds; EXPLAIN plans writes without executing them.
-            const markers=prepareSql(sql,Array((sql.match(/\?/g)||[]).length).fill(null));
+            const count=Math.max((sql.match(/\?/g)||[]).length,0,...[...sql.matchAll(/\$(\d+)/g)].map(m=>Number(m[1])));
+            const markers=prepareSql(sql,Array(count).fill(null));
             const numbered=Math.max(0,...[...markers.text.matchAll(/\$(\d+)/g)].map(m=>Number(m[1])));
             try { await db.query('EXPLAIN '+markers.text,Array(numbered).fill(null)); }
             catch(error) { failures.push(`${location} [${error.code}] ${error.message}`); }

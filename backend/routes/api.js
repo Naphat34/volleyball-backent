@@ -246,16 +246,16 @@ router.delete('/admin/users/:id', authMiddleware.isAdmin, authController.deleteU
 router.put('/admin/users/:id', authMiddleware.isAdmin, authController.updateUser);
 
 // --- Admin: Teams ---
-router.get('/admin/teams', authMiddleware.canManageTeams, teamController.getAllTeams);
-router.get('/admin/team-entries', authMiddleware.canManageTeams, teamController.getAllTeamEntries);
-router.patch('/admin/team-entries/:entryId/status', authMiddleware.canManageTeams, teamController.updateTeamEntryStatus);
+router.get('/admin/teams', authMiddleware.canReadTeams, teamController.getAllTeams);
+router.get('/admin/team-entries', authMiddleware.hasPermission('registration.manage'), teamController.getAllTeamEntries);
+router.patch('/admin/team-entries/:entryId/status', authMiddleware.hasPermission('registration.manage'), teamController.updateTeamEntryStatus);
 router.post('/admin/teams', authMiddleware.canManageTeams, teamController.createTeam);
 router.put('/admin/teams/:id', authMiddleware.canManageTeams, teamController.updateTeam);
 router.delete('/admin/teams/:id', authMiddleware.canManageTeams, teamController.deleteTeam);
-router.get('/admin/teams/:id', authMiddleware.canManageTeams, teamController.getTeamDetails);
-router.get('/admin/players', authMiddleware.canManageTeams, teamController.getAllPlayers);
-router.get('/admin/teams/:id/players', authMiddleware.canManageTeams, teamController.getPlayersByTeam);
-router.get('/admin/teams/:id/staff', authMiddleware.canManageTeams, teamController.getStaffByTeam);
+router.get('/admin/teams/:id', authMiddleware.canReadTeams, teamController.getTeamDetails);
+router.get('/admin/players', authMiddleware.canReadTeams, teamController.getAllPlayers);
+router.get('/admin/teams/:id/players', authMiddleware.canReadTeams, teamController.getPlayersByTeam);
+router.get('/admin/teams/:id/staff', authMiddleware.canReadTeams, teamController.getStaffByTeam);
 
 // --- Admin: Matches ---
 router.get('/admin/matches/all', authMiddleware.canManageMatches, matchController.getAllMatches);
@@ -272,7 +272,7 @@ router.put('/admin/stadiums/:id', authMiddleware.canManageCompetitions, stadiums
 router.delete('/admin/stadiums/:id', authMiddleware.canManageCompetitions, stadiumsController.deleteStadium);
 
 // --- Admin: Officials (Use Router) ---
-router.use('/admin', authMiddleware.canManageCompetitions, officialRoutes);
+router.use('/admin', (req,res,next) => authMiddleware.hasPermission(['GET','HEAD'].includes(req.method)?'official.view':'official.manage')(req,res,next), officialRoutes);
 
 
 

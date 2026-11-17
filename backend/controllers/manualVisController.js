@@ -32,7 +32,7 @@ exports.assignment = async (req, res) => {
             if (match.manual_vis_assignee_id && !mine) fail(409, 'มีเจ้าหน้าที่รับงานนี้แล้ว กรุณาโหลดข้อมูลใหม่');
             await connection.query('UPDATE matches SET manual_vis_assignee_id=?, manual_vis_claimed_at=COALESCE(manual_vis_claimed_at, NOW()) WHERE id=?', [req.user.id, match.id]);
         } else if (req.params.assignment === 'release') {
-            if (!mine && req.user.role !== 'admin') fail(403, 'เฉพาะผู้รับงานหรือผู้ดูแลเท่านั้นที่คืนงานได้');
+            if (!mine && req.user.role !== 'super_admin') fail(403, 'เฉพาะผู้รับงานหรือผู้ดูแลเท่านั้นที่คืนงานได้');
             await connection.query('UPDATE matches SET manual_vis_assignee_id=NULL, manual_vis_claimed_at=NULL WHERE id=?', [match.id]);
         } else fail(400, 'คำสั่งไม่ถูกต้อง');
         await writeAuditLog(req, `manual_statistics.${req.params.assignment}`, 'match', match.id, {}, connection);

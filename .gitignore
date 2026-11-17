@@ -6,6 +6,7 @@ client/node_modules/
 *.env
 backend/.env
 client/.env
+Connection postgres Online.txt
 *.log
 ~$*
 

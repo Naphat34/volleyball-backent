@@ -10,7 +10,7 @@ const visOffline = require('../controllers/officialVisOfflineController');
 const manual = require('../controllers/manualScorerController');
 const manualVis = require('../controllers/manualVisController');
 router.get('/manual-vis-matches', authMiddleware.verifyApprovedToken, manualVis.access, manualVis.list);
-router.post('/manual-vis-matches/:id/:assignment', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, manualVis.access, manualVis.assignment);
+router.post('/manual-vis-matches/:id/:assignment', authMiddleware.verifyApprovedToken, authMiddleware.canRecordVims, manualVis.access, manualVis.assignment);
 const manualAccess = [authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches];
 router.get('/manual-matches', manualAccess, manual.list);
 router.post('/manual-matches', manualAccess, manual.save);
@@ -18,10 +18,10 @@ router.get('/manual-matches/:id', manualAccess, manual.read);
 router.put('/manual-matches/:id', manualAccess, manual.save);
 router.get('/manual-matches/:id/backup', manualAccess, manual.backup);
 router.post('/manual-matches/:id/:action', manualAccess, manual.action);
-router.post('/match/:matchId/vis-offline-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, visOffline.checkout);
-router.post('/match/:matchId/vis-offline-cancel-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, visOffline.cancel);
-router.post('/match/:matchId/vis-offline-sync', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, visOffline.sync);
-router.post('/match/:matchId/vis-offline-release', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, visOffline.release);
+router.post('/match/:matchId/vis-offline-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canRecordVims, visOffline.checkout);
+router.post('/match/:matchId/vis-offline-cancel-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canRecordVims, visOffline.cancel);
+router.post('/match/:matchId/vis-offline-sync', authMiddleware.verifyApprovedToken, authMiddleware.canRecordVims, visOffline.sync);
+router.post('/match/:matchId/vis-offline-release', authMiddleware.verifyApprovedToken, authMiddleware.canRecordVims, visOffline.release);
 router.get('/offline-permit', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.permit);
 router.get('/match/:matchId/offline-status', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.status);
 router.post('/match/:matchId/offline-checkout', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, offline.checkout);
@@ -40,13 +40,13 @@ router.get('/match/:matchId/state', scorerController.getLiveState);
 
 // Mutating scorer endpoints are reserved for scorer-console users, excluding administrators.
 const scorerWriteAccess = [authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches];
-const scorerReadAccess = [authMiddleware.verifyApprovedToken, authMiddleware.hasAnyRole(['admin', 'score', 'scorer', 'statistician'])];
+const scorerReadAccess = [authMiddleware.verifyApprovedToken, authMiddleware.canReadRecording];
 const settings = require('../controllers/matchSettingsController');
 router.get('/match/:matchId/settings', authMiddleware.verifyApprovedToken, settings.read);
 router.put('/match/:matchId/settings', authMiddleware.verifyApprovedToken, authMiddleware.canScoreMatches, settings.save);
-router.get('/matches', scorerWriteAccess, matchController.getAllMatches);
+router.get('/matches', scorerReadAccess, matchController.getAllMatches);
 router.get('/match/:matchId/vis', scorerReadAccess, visController.getState);
-router.post('/match/:matchId/vis', scorerWriteAccess, visController.command);
+router.post('/match/:matchId/vis', [authMiddleware.verifyApprovedToken, authMiddleware.canRecordVims], visController.command);
 router.post('/match/:matchId/event', scorerWriteAccess, validateRequest('scorerEvent'), offline.online('saveMatchEvent'));
 router.post('/match/:matchId/undo-substitution-batch', scorerWriteAccess, offline.online('undoSubstitutionBatch'));
 router.post('/match/:matchId/toss', scorerWriteAccess, offline.online('saveCoinToss'));
@@ -56,14 +56,14 @@ router.post('/match/:matchId/end-set', scorerWriteAccess, offline.online('endSet
 router.put('/match/:matchId/state', scorerWriteAccess, offline.online('updateLiveState'));
 router.put('/match/:matchId/officials', scorerWriteAccess, offline.online('updateMatchOfficials'));
 router.put('/match/:matchId/roster', scorerWriteAccess, offline.online('updateMatchRoster'));
-router.post('/match/:matchId/teams/:teamId/players', scorerWriteAccess, offline.online('createMatchTeamPlayer'));
-router.put('/match/:matchId/teams/:teamId/players/:playerId', scorerWriteAccess, offline.online('updateMatchTeamPlayer'));
+router.post('/match/:matchId/teams/:teamId/players', scorerWriteAccess, require('../controllers/scopedAthleteController').update);
+router.put('/match/:matchId/teams/:teamId/players/:playerId', scorerWriteAccess, require('../controllers/scopedAthleteController').update);
 
 const officialController = require('../controllers/officialController');
 
 // Master data helpers are for logged-in scorer/admin workflows.
-router.get('/referees', authMiddleware.verifyToken, officialController.getAllReferees);
-router.get('/scorers', authMiddleware.verifyToken, officialController.getAllScorers);
-router.get('/line-judges', authMiddleware.verifyToken, officialController.getAllLineJudges);
+router.get('/referees', authMiddleware.verifyApprovedToken, authMiddleware.hasPermission('official.view'), officialController.getAllReferees);
+router.get('/scorers', authMiddleware.verifyApprovedToken, authMiddleware.hasPermission('official.view'), officialController.getAllScorers);
+router.get('/line-judges', authMiddleware.verifyApprovedToken, authMiddleware.hasPermission('official.view'), officialController.getAllLineJudges);
 
 module.exports = router;

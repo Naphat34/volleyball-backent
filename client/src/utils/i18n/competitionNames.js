@@ -1,4 +1,10 @@
 import { normalizeLanguage } from './language.js';
+export function matchLocation(record = {}, language = 'THA') {
+    const locale = normalizeLanguage(language) === 'ENG' ? 'en' : 'th';
+    const clean = value => typeof value === 'string' ? value.trim() : '';
+    return clean(record?.[`location_${locale}`]) || clean(record?.location)
+        || clean(record?.location_th) || clean(record?.location_en);
+}
 export function competitionName(record = {}, language = 'THA', short = false) {
     if (typeof record === 'string') return record;
     if (!record || typeof record !== 'object') return '';

@@ -1,3 +1,4 @@
+import { normalizeAccount } from '../auth/roles.js';
 import { canEnterSection } from './entryRouting.js';
 import { localRead } from './localRead.js';
 const PROFILE = 'vis_offline_profile_v1';
@@ -23,7 +24,8 @@ export function offlineProfileMatchesUser(profile, user) {
 export function getOfflineUser({ readOnly = false } = {}) {
     try {
         const grant = JSON.parse(sessionStorage.getItem(SESSION));
-        return grant && (readOnly || (!grant.readOnly && grant.expiresAt > Date.now())) && ['statistician', 'score', 'scorer'].includes(grant.user?.role) ? grant.user : null;
+        if (grant?.user) grant.user=normalizeAccount(grant.user);
+        return grant && (readOnly || (!grant.readOnly && grant.policyVersion === 2 && grant.expiresAt > Date.now())) && ['vims_operator', 'scorer'].includes(grant.user?.role) ? grant.user : null;
     } catch { return null; }
 }
 export const offlineMode = () => sessionStorage.getItem(MODE) === '1';
@@ -32,7 +34,10 @@ export const clearOfflineSession = () => { sessionStorage.removeItem(SESSION); s
 export async function prepareOffline(grant, pin, { replaceAccount = false } = {}) {
     if (!crypto.subtle) throw Error('การตั้ง PIN Offline ต้องใช้ HTTPS หรือ localhost');
     if (!/^\d{6,12}$/.test(pin)) throw Error('ใช้ PIN ตัวเลข 6–12 หลัก');
-    if (!grant?.user?.id || !['statistician', 'score', 'scorer'].includes(grant.user.role) || grant.expiresAt <= Date.now()) throw Error('บัญชีนี้ยังไม่มีสิทธิ์ Offline');
+    if (grant?.user) grant.user=normalizeAccount(grant.user);
+    if (grant?.policyVersion !== 2) throw Error('กรุณาเตรียมสิทธิ์ Offline เวอร์ชันใหม่ขณะออนไลน์');
+    if(grant.domain!==(grant.user?.role==='scorer'?'score':'vims'))throw Error('ประเภทสิทธิ์ Offline ไม่ตรงกับบทบาท');
+    if (!grant?.user?.id || !['vims_operator', 'scorer'].includes(grant.user.role) || grant.expiresAt <= Date.now()) throw Error('บัญชีนี้ยังไม่มีสิทธิ์ Offline');
     const previous = offlineProfile();
     const different = previous && (previous.userId ? String(previous.userId) !== String(grant.user.id) : previous.user !== grant.user.username);
     if (different) {
@@ -56,8 +61,10 @@ export async function unlockOffline(pin, { section = null, readOnly = false, exp
         const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decode(record.iv) }, await keyFor(pin, decode(record.salt)), decode(record.encrypted));
         grant = JSON.parse(new TextDecoder().decode(plain));
     } catch { throw Error('PIN ไม่ถูกต้อง'); }
+    if (grant.user) grant.user=normalizeAccount(grant.user);
+    if (!readOnly && grant.policyVersion !== 2) throw Error('กรุณาต่ออายุสิทธิ์ Offline เวอร์ชันใหม่ ข้อมูลเดิมยังอยู่สำหรับสำรอง');
     if (!readOnly && grant.expiresAt <= Date.now()) throw Error('สิทธิ์ Offline หมดอายุ');
-    if (!grant.user?.id || !['statistician', 'score', 'scorer'].includes(grant.user.role)) throw Error('ข้อมูลสิทธิ์ Offline ไม่สมบูรณ์ กรุณาเตรียมสิทธิ์ออนไลน์ใหม่');
+    if (!grant.user?.id || !['vims_operator', 'scorer'].includes(grant.user.role)) throw Error('ข้อมูลสิทธิ์ Offline ไม่สมบูรณ์ กรุณาเตรียมสิทธิ์ออนไลน์ใหม่');
     if (section && !canEnterSection(grant.user, section, true)) throw Error(`บัญชี ${grant.user.username} ไม่มีสิทธิ์เข้า ${section === 'vis' ? 'VIMS' : 'ScorerControl'} กรุณาเลือกหน้าระบบที่มีสิทธิ์`);
     if (expectedUserId != null) {
         let current = null;

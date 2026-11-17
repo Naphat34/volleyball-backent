@@ -1,15 +1,15 @@
-﻿.login-page{min-height:100vh;min-height:100dvh;display:flex;background:var(--app-surface-alt);color:var(--app-text);font-family:var(--font-sans);font-size:12px}
+﻿.login-page{min-height:100vh;min-height:100dvh;display:flex;background:var(--app-surface-alt);color:var(--app-text);font-family:var(--font-sans);font-size:14px}
 .login-main{width:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .login-card{width:100%;max-width:420px;background:var(--app-surface);border:1px solid var(--app-border);border-radius:11px;overflow:hidden}
-.login-card-header{height:36px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px;border-bottom:1px solid var(--app-border)}
+.login-card-header{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-bottom:1px solid var(--app-border)}
 .login-card-header h1{margin:0;font-family:var(--font-sans);font-size:15px;line-height:1.2;font-weight:700;color:var(--app-text)}
 .login-status{display:inline-flex;align-items:center;gap:5px;padding:1px 7px;border:1px solid var(--app-border);border-radius:20px;background:var(--app-surface-alt);font-family:var(--font-sans);font-size:12px;line-height:16px;white-space:nowrap}
 .login-status>span{width:10px;height:10px;border-radius:50%;background:#20c563;box-shadow:0 0 0 3px #c5f0d5}
 .login-card-body{padding:23px 12px 11px}
 .login-description{margin:0 0 25px;color:var(--app-muted);font-size:12px;line-height:20px}
 .login-form{display:flex;flex-direction:column;gap:12px}
-.login-form label{display:block;margin:0 0 3px;color:var(--app-muted);font-size:12px;line-height:17px;font-weight:400}
-.login-form input{display:block;width:100%;height:34px;min-width:0;padding:5px 10px;border:1px solid var(--app-border);border-radius:8px;outline:0;background:var(--app-surface-alt);color:var(--app-text);font:inherit;font-size:14px}
+.login-form label{display:block;margin:0 0 3px;color:var(--app-muted);font-size:14px;line-height:17px;font-weight:400}
+.login-form input{display:block;width:100%;height:38px;min-width:0;padding:5px 10px;border:1px solid var(--app-border);border-radius:8px;outline:0;background:var(--app-surface-alt);color:var(--app-text);font:inherit;font-size:14px}
 .login-form input:focus{border-color:#008ac5;box-shadow:0 0 0 2px #008ac51a}
 .login-submit{width:100%;min-height:36px;border:0;border-radius:8px;background:#008bc5;color:#061c30;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .login-submit:hover{background:#007db3}

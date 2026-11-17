@@ -4,6 +4,22 @@ import { IDBFactory } from 'fake-indexeddb';
 import { readDashboardCache, writeDashboardCache, mergeRefereeMatches, readDashboardPreferences, writeDashboardPreferences } from './scorerDashboardCache.js';
 
 const snapshot = { matches: [{ id: 42, competition_id: 1 }], competitions: [{ id: 1, title: 'Cup' }] };
+
+test('offline dashboard retains both registered venue names', async () => {
+    globalThis.indexedDB = new IDBFactory();
+    await writeDashboardCache(7,'scorer','server',{matches:[{...snapshot.matches[0],location:'สนามไทย',location_th:'สนามไทย',location_en:'English Gymnasium'}],competitions:snapshot.competitions});
+    const cached = await readDashboardCache(7,'scorer','server');
+    assert.equal(cached.matches[0].location_en,'English Gymnasium');
+    assert.equal(cached.matches[0].location_th,'สนามไทย');
+});
+
+test('offline dashboard retains registered Thai and English team names', async () => {
+    globalThis.indexedDB = new IDBFactory();
+    const names = {home_team_name_th:'ทีม ก',home_team_name_en:'Alpha',away_team_name_th:'ทีม ข',away_team_name_en:'Beta'};
+    await writeDashboardCache(7,'scorer','server',{matches:[{...snapshot.matches[0],...names}],competitions:snapshot.competitions});
+    const cached = await readDashboardCache(7,'scorer','server');
+    for (const [key,value] of Object.entries(names)) assert.equal(cached.matches[0][key],value);
+});
 test('dashboard snapshot survives a module reload (F5) and includes fetch time', async () => {
     globalThis.indexedDB = new IDBFactory();
     assert.equal(await readDashboardCache(7, 'scorer', 'server'), null);

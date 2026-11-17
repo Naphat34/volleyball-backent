@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:admin-workspace": "node --test src/utils/adminWorkspace.test.js src/utils/adminMatchRoutes.test.js src/utils/navigation/loginReturnTo.test.js src/utils/competitionAccessGroups.test.js src/offline/entryRouting.test.js src/offline/accessRouting.test.js",
     "test:adminscorer-language": "node --test src/utils/scorer/adminScorerCompetitionNames.test.js src/offline/scorerDashboardCache.test.js && node scripts/checkAdminScorerLanguage.mjs",
     "test:scoresheet-roster": "node --test src/utils/reports/scoresheetRoster.test.js && node scripts/checkScoresheetRoster.mjs",
     "dev": "vite",
@@ -22,7 +23,12 @@
     "test:vis:timing": "node --test src/utils/vis/visTiming.test.js src/offline/visEngine.test.js src/utils/vis/visReportData.test.js src/utils/vis/visReportPdf.test.js",
     "test:vis:set-scores": "node --test src/utils/vis/visSetScores.test.js",
     "test:vis:p2": "node --test src/utils/vis/visP2Scores.test.js src/utils/vis/visReportData.test.js src/utils/vis/visReportPdf.test.js src/utils/vis/visMatchResultPdf.test.js",
-    "generate:theme": "node scripts/generateAppTheme.mjs"
+    "generate:theme": "node scripts/generateAppTheme.mjs",
+    "test:public-urls": "node --test src/utils/navigation/publicUrls.test.js src/utils/navigation/loginReturnTo.test.js src/utils/adminMatchRoutes.test.js src/offline/entryRouting.test.js src/offline/accessRouting.test.js src/offline/scorerOffline.test.js src/offline/scorerDashboardCache.test.js",
+    "test:public-urls:browser": "node scripts/checkPublicUrls.mjs",
+    "test:competition-workflow": "node --test src/utils/scorer/standings.test.js src/offline/scorerDashboardCache.test.js",
+    "test:competition-workflow:browser": "node scripts/checkCompetitionWorkflow.mjs",
+    "test:scorer-lineup-controls": "node --test src/utils/scorer/approvedLineup.test.js && node scripts/checkScorerLineupControls.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

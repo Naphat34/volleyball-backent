@@ -1,4 +1,4 @@
-import { competitionName, competitionGroupName, localizedReference } from '../utils/i18n/competitionNames';
+import { competitionName, competitionGroupName, localizedReference, matchLocation } from '../utils/i18n/competitionNames';
 import { useMemo } from 'react';
 import { useOptionalLanguage } from '../context/LanguageContext';
 import { personName, personNameParts, teamName } from '../utils/i18n/names';
@@ -11,6 +11,7 @@ export default function useDisplayNames(languageOverride) {
         competitionName: (value, short = false) => competitionName(value, language, short),
         competitionGroupName: (base, records) => competitionGroupName(base, records, language),
         referenceName: value => localizedReference(value, language),
+        matchLocation: value => matchLocation(value, language),
         personName: value => personName(value, language),
         personFirstName: value => personNameParts(value, language).first,
         personLastName: value => personNameParts(value, language).last,

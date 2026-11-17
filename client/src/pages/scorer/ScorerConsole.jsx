@@ -303,6 +303,7 @@ export default function ScorerConsole() {
     // Lineup State
     const [homeLineup, setHomeLineup] = useState(() => loadState('homeLineup', Array(6).fill(null)));
     const [awayLineup, setAwayLineup] = useState(() => loadState('awayLineup', Array(6).fill(null)));
+    const canUseTeamControls=useCallback(team=>hasCompleteStartingLineup(team==='home'?homeLineup:team==='away'?awayLineup:[]),[homeLineup,awayLineup]);
     const [lastSetHomeLineup, setLastSetHomeLineup] = useState(() => loadState('lastSetHomeLineup', null));
     const [lastSetAwayLineup, setLastSetAwayLineup] = useState(() => loadState('lastSetAwayLineup', null));
 
@@ -390,6 +391,8 @@ export default function ScorerConsole() {
 
     const [showTimeoutTimer, setShowTimeoutTimer] = useState(false);
     const [timeoutStartTime, setTimeoutStartTime] = useState(null);
+    const timeoutConfirmationPendingRef = useRef(false);
+    const timeoutRequestContextRef = useRef(null);
 
     const [pendingSetWinner, setPendingSetWinner] = useState(() => loadState('pendingSetWinner', null));
     const [isEndingSet, setIsEndingSet] = useState(false);
@@ -1845,6 +1848,7 @@ export default function ScorerConsole() {
     };
 
     const handlePoint = (winnerTeamCode) => {
+        if(!canUseTeamControls(winnerTeamCode))return;
         markLocalStateUpdate();
         saveStateToHistory();
         const currentScore = scoreRef.current || score;
@@ -2214,6 +2218,7 @@ export default function ScorerConsole() {
     };
 
     const handleStartMatch = async () => {
+        if(!canUseTeamControls('home')||!canUseTeamControls('away'))return;
         markLocalStateUpdate();
         const setNum = matchData.currentSet;
         try {
@@ -2382,8 +2387,8 @@ export default function ScorerConsole() {
         });
 
         // 4. กลับสู่หน้าหลักตามสิทธิ์การใช้งาน (Role)
-        const role = getStoredUser()?.role || 'admin';
-        if (role === 'score') {
+        const role = getStoredUser()?.role || 'super_admin';
+        if (role === 'scorer') {
             navigate('/adminscorer');
         } else {
             navigate('/admin');
@@ -2835,13 +2840,40 @@ export default function ScorerConsole() {
         });
     };
 
-    const handleActionSelect = (teamCode, actionType) => {
+    useEffect(() => {
+        timeoutRequestContextRef.current = {setNumber:matchData.currentSet,workflowStep,timeouts,showTimeoutTimer,canUseTeamControls,startTimeoutTimer};
+        return () => { timeoutRequestContextRef.current = null; };
+    });
+    const handleActionSelect = async (teamCode, actionType) => {
+        if(!canUseTeamControls(teamCode))return;
         if (actionType === 'TIMEOUT') {
+            if(timeoutConfirmationPendingRef.current||showTimeoutTimer)return;
             if (timeouts[teamCode] >= 2) {
                 alert(st("Timeout limit reached."));
                 return;
             }
-            startTimeoutTimer(teamCode);
+            timeoutConfirmationPendingRef.current=true;
+            const requestedSet=matchData.currentSet,requestedStep=workflowStep;
+            try {
+                const teamName=getScorerTeamName(matchData,teamCode,language);
+                const result=await Swal.fire({
+                    icon:'question',
+                    title:language==='THA'?'ยืนยันขอเวลานอก':'Confirm timeout',
+                    text:language==='THA'?`ขอเวลานอกให้ทีม ${teamName} และเริ่มจับเวลา 30 วินาทีหรือไม่?`:`Request a timeout for ${teamName} and start the 30-second timer?`,
+                    showCancelButton:true,
+                    confirmButtonText:language==='THA'?'ตกลง':'OK',
+                    cancelButtonText:language==='THA'?'ยกเลิก':'Cancel',
+                    confirmButtonColor:'#2563eb',
+                    focusCancel:true,
+                    allowOutsideClick:false
+                });
+                if(!result.isConfirmed)return;
+                const current=timeoutRequestContextRef.current;
+                if(!current||current.setNumber!==requestedSet||current.workflowStep!==requestedStep||current.showTimeoutTimer||!current.canUseTeamControls(teamCode)||Number(current.timeouts?.[teamCode]||0)>=2)return;
+                current.startTimeoutTimer(teamCode);
+            } finally {
+                timeoutConfirmationPendingRef.current=false;
+            }
         }
     };
 
@@ -2882,6 +2914,7 @@ export default function ScorerConsole() {
             : sanctionPayload;
 
         const teamCode = payload?.teamCode || sanctionTeam;
+        if(!canUseTeamControls(teamCode))return;
         const sanctionType = payload?.sanctionType || payload?.details?.card;
         if (!payload || !teamCode || !sanctionType) return;
 
@@ -2908,6 +2941,7 @@ export default function ScorerConsole() {
     };
 
     const handleInjury = (teamCode) => {
+        if(!canUseTeamControls(teamCode))return;
         setSubData({
             isOpen: true,
             team: teamCode,
@@ -2963,6 +2997,7 @@ export default function ScorerConsole() {
     ), [matchData]);
 
     const openChallengeForTeam = useCallback((team) => {
+        if(!canUseTeamControls(team))return;
         if (!isChallengeEnabledForMatch()) {
             Swal.fire({
                 icon: 'info',
@@ -2975,7 +3010,7 @@ export default function ScorerConsole() {
         }
         setChallengeData({ team });
         setShowChallengeModal(true);
-    }, [isChallengeEnabledForMatch, st]);
+    }, [isChallengeEnabledForMatch, st, canUseTeamControls]);
 
     const handleChallengeSelect = (result) => {
         if (!isChallengeEnabledForMatch()) {
@@ -2984,7 +3019,7 @@ export default function ScorerConsole() {
             return;
         }
         const team = challengeData.team;
-        if (!team) return;
+        if (!canUseTeamControls(team)) return;
         if (result === 'UNSUCCESSFUL') {
             setChallenges(prev => ({ ...prev, [team]: Math.max(0, prev[team] - 1) }));
         }
@@ -3451,6 +3486,7 @@ export default function ScorerConsole() {
     // LIBERO SWEETALERT
     // ============================================================
     const openLiberoSwal = (teamCode) => {
+        if(!canUseTeamControls(teamCode))return;
         const roster = teamCode === 'home' ? homeRoster : awayRoster;
         const liberos = teamCode === 'home' ? homeLiberos : awayLiberos;
         let availableIn = [liberos?.l1, liberos?.l2].filter(Boolean);
@@ -3490,6 +3526,7 @@ export default function ScorerConsole() {
 
     // --- LIBERO REPLACEMENT HANDLER ---
     const handleLiberoConfirm = async (actionType, teamCode, details) => {
+        if(!canUseTeamControls(teamCode))return;
         const team = teamCode;
         let { posIndex, playerIn, playerOut } = details;
         const liberoSwapKey = `${actionType}:${team}:${posIndex}:${playerOut?.id || playerOut?.player_id || playerOut?.number}:${playerIn?.id || playerIn?.player_id || playerIn?.number}`;
@@ -3648,6 +3685,7 @@ export default function ScorerConsole() {
         }
 
         const actualTeamCode = (clickedSide === 'home') ? (isHomeLeft ? 'home' : 'away') : (isHomeLeft ? 'away' : 'home');
+        if(!canUseTeamControls(actualTeamCode))return;
         const lineup = actualTeamCode === 'home' ? homeLineup : awayLineup;
         const playerOut = lineup[posIndex];
         const tracker = actualTeamCode === 'home' ? subTracker.home : subTracker.away;
@@ -3744,6 +3782,7 @@ export default function ScorerConsole() {
     // 2. ฟังก์ชันนี้จะถูกเรียกเมื่อกด Confirm ใน SubstitutionModal
     const handleSubstitutionBatchConfirm = async pairs => {
         const team = subData.team;
+        if (!canUseTeamControls(team)) throw Error('Complete the six-player lineup before substitution.');
         if (!team || !['SERVING', 'SERVER_SELECT', 'READY'].includes(workflowStep)) throw Error('Substitutions are unavailable during this phase.');
         const opponent = team === 'home' ? 'away' : 'home';
         const result = applySubstitutionBatch({ lineup: team === 'home' ? homeLineup : awayLineup,
@@ -3762,6 +3801,7 @@ export default function ScorerConsole() {
 
     const handleSubstitutionConfirm = async (playerIn, isExceptional, innerPosIndex, innerPlayerOut, teamOverride = null) => {
         const team = teamOverride || subData.team;
+        if(!canUseTeamControls(team))return;
         const posIndex = innerPosIndex !== undefined && innerPosIndex !== null ? innerPosIndex : subData.posIndex;
         const playerOut = innerPlayerOut !== undefined && innerPlayerOut !== null ? innerPlayerOut : subData.playerOut;
         const playerOutIdForPos = playerOut?.id || playerOut?.player_id;
@@ -3994,8 +4034,8 @@ export default function ScorerConsole() {
                         <GuardedButton onClick={() => setShowMatchLogModal(true)} className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-600 transition-colors hover:bg-slate-100 hover:text-blue-700" title={st("Match Log")}><ListChecks size={16} /></GuardedButton>
                         <GuardedButton
                             onClick={() => {
-                                const role = getStoredUser()?.role || 'admin';
-                                if (role === 'score') {
+                                const role = getStoredUser()?.role || 'super_admin';
+                                if (role === 'scorer') {
                                     navigate('/adminscorer');
                                 } else {
                                     navigate('/admin');
@@ -4143,7 +4183,7 @@ export default function ScorerConsole() {
                     <div className="scorer-touch-scoring grid grid-cols-2 gap-3 2xl:hidden">
                         {[leftTeam, rightTeam].map(team => (
                             <GuardedButton key={team.code} type="button" onClick={() => handlePoint(team.code)}
-                                disabled={workflowStep !== 'RALLY'}
+                                disabled={workflowStep !== 'RALLY' || !canUseTeamControls(team.code)}
                                 className="flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40"
                                 style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}>
                                 <span aria-hidden="true" className="text-xl">+</span>
@@ -4157,6 +4197,7 @@ export default function ScorerConsole() {
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-50 to-white pointer-events-none"></div>
                         <div className="scorer-court-stage w-full flex-1 min-h-0 max-w-4xl max-h-[420px] relative z-10">
                             <CourtView
+                                jerseyTokens
                                 homePositions={!isSetupPhase ? (isHomeLeft ? homeLineup : awayLineup) : Array(6).fill(null)}
                                 awayPositions={!isSetupPhase ? (isHomeLeft ? awayLineup : homeLineup) : Array(6).fill(null)}
                                 servingSide={!isSetupPhase && visibleServingTeam ? ((visibleServingTeam === 'home' && isHomeLeft) || (visibleServingTeam === 'away' && !isHomeLeft) ? 'left' : 'right') : null}
@@ -4412,10 +4453,10 @@ export default function ScorerConsole() {
             <SanctionModal
                 isOpen={showSanctionModal}
                 onClose={() => setShowSanctionModal(false)}
-                initialTeam={sanctionTeam || 'home'}
+                initialTeam={sanctionTeam || (canUseTeamControls('home')?'home':'away')}
                 teams={{
-                    home: { name: homeTeamDisplayName, roster: homeRoster, staff: homeStaff },
-                    away: { name: awayTeamDisplayName, roster: awayRoster, staff: awayStaff }
+                    home: { name: homeTeamDisplayName, roster: homeRoster, staff: homeStaff, actionsDisabled: !canUseTeamControls('home') },
+                    away: { name: awayTeamDisplayName, roster: awayRoster, staff: awayStaff, actionsDisabled: !canUseTeamControls('away') }
                 }}
                 onConfirm={handleSanction}
             />

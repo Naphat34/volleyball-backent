@@ -1,3 +1,4 @@
+import {hasCompleteStartingLineup} from '../../../utils/scorer/approvedLineup';
 import { GuardedButton } from '../../ui/GuardedAction';
 import { ArrowRightToLine, Video, Timer, Replace, CirclePlus } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
@@ -32,6 +33,7 @@ export default function MobileTeamDrawer({
 
     const team = [leftTeam, rightTeam].find(candidate => candidate?.code === mobilePanelTeam);
     if (!team) return null;
+    const lineupReady = hasCompleteStartingLineup(team.lineup);
     const isRallyOrLineup = workflowStep === 'RALLY' || workflowStep === 'LINEUP';
     const activeColor = teamColors[mobilePanelTeam];
     const contrastColor = getContrastColorHex(activeColor);
@@ -78,7 +80,7 @@ export default function MobileTeamDrawer({
                                     onOpenLiberoSwap(mobilePanelTeam);
                                     onClose();
                                 }}
-                                disabled={isRallyOrLineup}
+                                disabled={!lineupReady || isRallyOrLineup}
                                 className="border text-[11px] font-bold py-2 rounded bg-white hover:bg-slate-50 disabled:opacity-50 animate-pulse"
                                 style={{ borderColor: activeColor, color: '#000' }}
                             ><span className="flex items-center justify-center gap-1 px-1"><ArrowRightToLine size={14} className="shrink-0" aria-hidden="true" />{st("Libero in")}</span></GuardedButton>
@@ -94,7 +96,7 @@ export default function MobileTeamDrawer({
                                         onOpenChallenge(mobilePanelTeam);
                                         onClose();
                                     }}
-                                    disabled={!challengeEnabled || challenges[mobilePanelTeam] <= 0 || isRallyOrLineup}
+                                    disabled={!lineupReady || !challengeEnabled || challenges[mobilePanelTeam] <= 0 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[10px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
                                     title={challengeEnabled ? st('Video challenge') : st('Challenge system is not enabled for this match')}
@@ -114,7 +116,7 @@ export default function MobileTeamDrawer({
                                         onActionSelect(mobilePanelTeam, 'TIMEOUT');
                                         onClose();
                                     }}
-                                    disabled={timeouts[mobilePanelTeam] >= 2 || isRallyOrLineup}
+                                    disabled={!lineupReady || timeouts[mobilePanelTeam] >= 2 || isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
                                 ><span className="flex items-center justify-center gap-1 px-1"><Timer size={14} className="shrink-0" aria-hidden="true" />{st("Timeout")}</span></GuardedButton>
@@ -133,7 +135,7 @@ export default function MobileTeamDrawer({
                                         onOpenSubstitution(mobilePanelTeam);
                                         onClose();
                                     }}
-                                    disabled={isRallyOrLineup}
+                                    disabled={!lineupReady || isRallyOrLineup}
                                     className="flex-1 bg-white text-[11px] font-bold py-2 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                                     style={{ borderColor: activeColor, color: '#000' }}
                                 ><span className="flex items-center justify-center gap-1 px-1"><Replace size={14} className="shrink-0" aria-hidden="true" />{st("Substitution")}</span></GuardedButton>
@@ -153,7 +155,7 @@ export default function MobileTeamDrawer({
                             onPointScored(mobilePanelTeam);
                             onClose();
                         }}
-                        disabled={workflowStep !== 'RALLY'}
+                        disabled={!lineupReady || workflowStep !== 'RALLY'}
                         className="w-full font-bold py-3 rounded-md text-[13px] hover:opacity-90 disabled:opacity-50 transition-opacity"
                         style={{ backgroundColor: activeColor, color: contrastColor }}
                     ><span className="flex items-center justify-center gap-1 px-1"><CirclePlus size={14} className="shrink-0" aria-hidden="true" />{st("Point scored")}</span></GuardedButton>

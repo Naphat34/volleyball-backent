@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getScorerTeamName, getScorerTeamNameFields } from './scorerTeamNames.js';
+import { getScorerTeamName, getScorerTeamNameFields, getScorerTeamOptions } from './scorerTeamNames.js';
+
+test('team filter labels change language while selected values remain stable', () => {
+    const matches = [{ home_team:'ทีม ก', away_team:'ทีม ข', home_team_name_en:'Alpha',away_team_name_en:'Beta' }];
+    assert.deepEqual(getScorerTeamOptions(matches,'ENG'),[{value:'ทีม ก',label:'Alpha'},{value:'ทีม ข',label:'Beta'}]);
+    assert.deepEqual(getScorerTeamOptions(matches,'THA').map(option=>option.value),['ทีม ก','ทีม ข']);
+    assert.equal(getScorerTeamOptions([...matches,...matches],'ENG').length,2);
+    assert.equal(getScorerTeamOptions([{home_team:'ทีมเดิม'}],'ENG')[0].label,'ทีมเดิม');
+});
 
 const apiMatch = {
     home_team_name_th: 'โรงเรียนสันติธรรมวิทยานุกูลนิธิ',

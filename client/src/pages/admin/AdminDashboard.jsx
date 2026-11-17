@@ -1,22 +1,12 @@
-import { GuardedButton } from '../../components/ui/GuardedAction';
-import VisThemeToggle from '../../components/vis/VisThemeToggle';
-import useUiTranslation from '../../hooks/useUiTranslation';
-import { useVisTheme } from '../../components/vis/visThemeContext';
-import GlobalSearch from '../../components/layout/GlobalSearch';
-import Logo from '../../assets/img/Logo_Phatthalung.png';
-import React, { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { LayoutDashboard, MapPin, Flag, Swords, UserCheck, Users, Trophy, Shield, Star, BarChart2, User, ListChecks, FileText, KeyRound } from 'lucide-react';
 import { api } from '../../api';
-import { useNavigate } from 'react-router-dom';
-import {
-    LayoutDashboard, MapPin, Flag, Swords,
-    UserCheck, LogOut, Users, Trophy, Shield,
-    Star, BarChart2, Menu, X, User, Bell,
-    PanelLeftClose, PanelLeftOpen, ListChecks, FileText
-} from 'lucide-react';
-import Swal from 'sweetalert2';
 import { useLanguage } from '../../context/LanguageContext';
 import { getStoredUser } from '../../auth/authStorage';
-
+import { useVisTheme } from '../../components/vis/visThemeContext';
+import AdminWorkspaceShell from '../../components/admin/AdminWorkspaceShell';
+import GlobalSearch from '../../components/layout/GlobalSearch';
 import CompetitionsTab from '../../components/admin/CompetitionsTab';
 import HomeTab from '../../components/admin/HomeTab';
 import AdminControlCenter from '../../components/admin/AdminControlCenter';
@@ -31,121 +21,27 @@ import EScoreTab from '../../components/admin/EScoreTab';
 import StadiumsTab from '../../components/admin/StadiumsTab';
 import TeamRankingTab from '../../components/admin/TeamRankingTab';
 import OfficialsTab from '../../components/admin/OfficialsTab';
+import CompetitionWorkflowTab from '../../components/admin/CompetitionWorkflowTab';
+
 
 
 export default function AdminDashboard() {
-    const ui = useUiTranslation();
-    const navigate = useNavigate();
-    const { language, setLanguage, t } = useLanguage();
-    const [activeTab, setActiveTab] = useState(() => {
-        const storedTab = sessionStorage.getItem('adminActiveTab');
-        return ['home','action_center','competition_overview','competitions','clubs','stadium','team_ranking','players','officials','accounts','pending_users','matches','escore','reports'].includes(storedTab) ? storedTab : 'home';
-    });
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [adminContext, setAdminContext] = useState(null);
-    const { theme: adminTheme } = useVisTheme();
-    const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
-    const [clubSearch, setGlobalSearch] = useState('');
-    const [isCollapsed, setIsCollapsed] = useState(false);
-    const [user] = useState(() => getStoredUser());
-    const [pendingUsersCount, setPendingUsersCount] = useState(0);
-
-    useEffect(() => {
-        const media = window.matchMedia('(min-width: 1024px)');
-        const onChange = event => setIsDesktop(event.matches);
-        media.addEventListener('change', onChange);
-        return () => media.removeEventListener('change', onChange);
-    }, []);
-
-    const fetchPendingUsersCount = useCallback(async () => {
-        try {
-            const res = await api.getPendingUsers();
-            if (res.data) setPendingUsersCount(res.data.length);
-        } catch (error) {
-            console.error('Error fetching pending users count', error);
-        }
-    }, []);
-
-    useEffect(() => {
-        const updateCount = async () => {
-            await fetchPendingUsersCount();
-        };
-        updateCount();
-    }, [fetchPendingUsersCount, activeTab]);
-
-    useEffect(() => {
-        sessionStorage.setItem('adminActiveTab', activeTab);
-    }, [activeTab]);
-
-    const handleLogout = async () => {
-        const result = await Swal.fire({
-            title: t('admin.logoutConfirmTitle'),
-            text: t('admin.logoutConfirmText'),
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#2563eb',
-            cancelButtonColor: '#d33',
-            confirmButtonText: t('admin.logoutConfirmBtn'),
-            cancelButtonText: t('common.cancel')
-        });
-
-        if (result.isConfirmed) {
-            try {
-                await api.logout();
-                localStorage.clear();
-                sessionStorage.clear();
-                navigate('/login');
-            } catch (error) {
-                console.error('Logout failed', error);
-                localStorage.clear();
-                sessionStorage.clear();
-                navigate('/login');
-            }
-        }
+    const [params,setParams] = useSearchParams();
+    const { language,t } = useLanguage(), { theme: adminTheme } = useVisTheme();
+    const user=getStoredUser(),organizer=user?.role==='organizer';
+    const allowed=organizer?['competitions','matches','workflow']:['home','action_center','competition_overview','competitions','clubs','stadium','team_ranking','players','officials','accounts','pending_users','matches','escore','reports','workflow'];
+    const requested=params.get('view'), activeTab=allowed.includes(requested)?requested:organizer?'competitions':'home';
+    const [clubSearch,setGlobalSearch]=useState(''),[adminContext,setAdminContext]=useState(null),[pendingUsersCount,setPendingUsersCount]=useState(0);
+    const fetchPendingUsersCount=useCallback(async()=>{
+        if(organizer)return;
+        try{const response=await api.getPendingUsers();setPendingUsersCount(response.data?.length||0);}catch{setPendingUsersCount(0);}
+    },[organizer]);
+    useEffect(()=>{void fetchPendingUsersCount();},[fetchPendingUsersCount,activeTab]);
+    const changeTab=(tab,search='')=>{
+        if(!allowed.includes(tab))return;
+        setGlobalSearch(typeof search==='string'?search:'');setAdminContext(typeof search==='object'?search:null);
+        setParams(tab==='home'?{}:{view:tab});
     };
-
-    const toggleSidebar = () => {
-        if (window.innerWidth >= 1024) {
-            setIsCollapsed(prev => !prev);
-        } else {
-            setIsSidebarOpen(prev => !prev);
-        }
-    };
-
-    useEffect(() => {
-        if (!isSidebarOpen) return;
-        const onKey = event => { if (event.key === 'Escape') setIsSidebarOpen(false); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [isSidebarOpen]);
-
-    const getTabName = (tab) => {
-
-        const mapping = {
-            home: 'home',
-            competitions: 'competitions',
-            clubs: 'teams',
-            stadium: 'stadium',
-            team_ranking: 'teamRanking',
-            players: 'players',
-            coaches: 'coaches',
-            officials: 'officials',
-            accounts: 'accounts',
-            pending_users: 'pendingUsers',
-            matches: 'matches',
-            escore: 'vis'
-        };
-        const key = mapping[tab] || tab;
-        return t(`admin.${key}`);
-    };
-
-    const changeTab = (tab, search = '') => {
-        setGlobalSearch(typeof search === 'string' ? search : '');
-        setAdminContext(typeof search === 'object' ? search : null);
-        setActiveTab(tab);
-        setIsSidebarOpen(false);
-    };
-
     const tr = (thai, english) => language === 'THA' ? thai : english;
     const sidebarSections = [
         { label: tr('ภาพรวม', 'Overview'), items: [
@@ -155,6 +51,7 @@ export default function AdminDashboard() {
         { label: tr('การแข่งขัน', 'Competition'), items: [
             { key: 'competitions', icon: <Trophy size={19} />, label: t('admin.competitions') },
             { key: 'matches', icon: <Swords size={19} />, label: tr('ตารางและผลการแข่งขัน', 'Fixtures & results') },
+            { key: 'workflow', icon: <Swords size={19} />, label: tr('รอบ สาย และทีมเข้ารอบ', 'Pools & advancement') },
             { key: 'competition_overview', icon: <LayoutDashboard size={19} />, label: tr('รายละเอียดรายการ', 'Competition details') },
             { key: 'stadium', icon: <MapPin size={19} />, label: t('admin.stadium') },
             { key: 'team_ranking', icon: <BarChart2 size={19} />, label: t('admin.teamRanking') }
@@ -175,248 +72,28 @@ export default function AdminDashboard() {
             { key: 'pending_users', icon: <User size={19} />, label: t('admin.pendingUsers'), badge: pendingUsersCount }
         ]}
     ];
-    const currentSection = sidebarSections.find(section => section.items.some(item => item.key === activeTab));
-    const currentPage = currentSection?.items.find(item => item.key === activeTab);
 
-    return (
-        <div className="admin-console dashboard-shell app-page flex overflow-hidden font-sans" data-admin-theme={adminTheme}>
-            {isSidebarOpen && (
-                <div
-                className="fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-sm lg:hidden"
-                    onClick={() => setIsSidebarOpen(false)}
-                />
-            )}
-
-            <aside inert={!isDesktop && !isSidebarOpen} aria-hidden={!isDesktop && !isSidebarOpen} className={`
-                fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden border-r border-slate-200/80 bg-white transition-all duration-300 transform
-                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                lg:translate-x-0 lg:static lg:inset-0
-                ${isCollapsed ? 'lg:w-[84px]' : 'lg:w-72'}
-                w-72
-            `}>
-                <div className={`h-[76px] flex items-center justify-between px-5 border-b border-slate-200/70 bg-white/95 ${isCollapsed ? 'lg:px-4 lg:justify-center' : ''}`}>
-                    {!isCollapsed ? (
-                        <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center">
-                                <img src={Logo} alt={ui("Phatthalung Volleyball Club")} className="h-10 w-10 object-contain" />
-                            </div>
-                            <div className="min-w-0">
-                            <h1 className="truncate text-base font-semibold tracking-tight text-slate-950">
-                                {t('admin.title')}
-                            </h1>
-                            <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
-                                {language === 'THA' ? ui('ระบบจัดการการแข่งขัน') : ui('Competition control panel')}
-                            </p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="hidden h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white shadow-[0_10px_22px_rgba(15,23,42,0.18)] lg:flex">
-                            <img src={Logo} alt={ui("Phatthalung Volleyball Club")} className="h-10 w-10 object-contain" />
-                        </div>
-                    )}
-                    {isCollapsed && (
-                        <h1 className="text-base font-semibold tracking-tight text-slate-950 lg:hidden">
-                            {t('admin.title')}
-                        </h1>
-                    )}
-                    <GuardedButton
-                        onClick={() => setIsSidebarOpen(false)}
-                        className="lg:hidden p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
-                        aria-label={ui("Close sidebar")}
-                    >
-                        <X size={20} />
-                    </GuardedButton>
-                </div>
-
-                <nav className="flex-1 overflow-y-auto px-3 py-5">
-                    <div className="space-y-6">
-                        {sidebarSections.map((section) => (
-                            <div key={section.label} className="space-y-1">
-                                <SectionHeader label={ui(section.label)} isCollapsed={isCollapsed} />
-                                {section.items.map((item) => (
-                                    <MenuButton
-                                        key={item.key}
-                                        active={activeTab === item.key}
-                                        onClick={() => item.href ? navigate(item.href) : changeTab(item.key)}
-                                        icon={item.icon}
-                                        label={ui(item.label)}
-                                        badge={item.badge}
-                                        isCollapsed={isCollapsed}
-                                    />
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-                </nav>
-
-                <div className="border-t border-slate-200/80 bg-white/75 p-4">
-                    <GuardedButton
-                        onClick={handleLogout}
-                        title={isCollapsed ? t('nav.logout') : undefined}
-                        className={`w-full flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:border-rose-300 hover:bg-rose-50 cursor-pointer ${isCollapsed ? 'px-0' : ''}`}
-                    >
-                        <LogOut size={18} className="shrink-0" />
-                        <span className={`transition-all duration-200 ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
-                            {t('nav.logout')}
-                        </span>
-                    </GuardedButton>
-                </div>
-            </aside>
-
-            <div className="flex-1 flex flex-col min-w-0 bg-transparent">
-                <header className="sticky top-0 z-30 flex h-[76px] items-center justify-between border-b border-slate-200/80 bg-white px-4 lg:px-7">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <GuardedButton
-                            onClick={toggleSidebar}
-                            className="rounded-xl border border-blue-100 bg-white p-2 text-slate-500 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
-                            aria-label={ui("Toggle sidebar")}
-                        >
-                            <span className="lg:hidden"><Menu size={22} /></span>
-                            <span className="hidden lg:block">
-                                {isCollapsed ? <PanelLeftOpen size={21} /> : <PanelLeftClose size={21} />}
-                            </span>
-                        </GuardedButton>
-                        <div className="min-w-0">
-                            <p className="hidden text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 sm:block">
-                                {currentSection?.label || t('admin.dashboard')}
-                            </p>
-                            <h2 className="truncate text-xl font-bold tracking-tight text-slate-950">
-                                {currentPage?.label || getTabName(activeTab)}
-                            </h2>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 lg:gap-4">
-                        <VisThemeToggle compact /><GlobalSearch onSelect={(tab, label) => changeTab(tab, label)} />
-                        <div className="hidden items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm md:flex">
-                            <Shield size={15} className="text-blue-500" />{ui("Admin Panel")}</div>
-
-                        <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100/80 p-1 shadow-inner">
-                            <GuardedButton
-                                onClick={() => setLanguage('THA')}
-                                className={`rounded px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                                    language === 'THA'
-                                        ? 'bg-white text-slate-950 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-900'
-                                }`}
-                            >{ui("TH")}</GuardedButton>
-                            <GuardedButton
-                                onClick={() => setLanguage('ENG')}
-                                className={`rounded px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                                    language === 'ENG'
-                                        ? 'bg-white text-slate-950 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-900'
-                                }`}
-                            >{ui("EN")}</GuardedButton>
-                        </div>
-
-                        <GuardedButton onClick={() => changeTab('pending_users')} className="relative rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-blue-100 hover:bg-blue-50 hover:text-blue-700" aria-label={language === 'THA' ? ui('ดูรายการรออนุมัติ') : ui('View pending approvals')}>
-                            <Bell size={20} />
-                            {pendingUsersCount > 0 && (
-                                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-rose-500"></span>
-                            )}
-                        </GuardedButton>
-
-                        <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
-
-                        <div className="flex items-center gap-3 pl-1">
-                            <div className="text-right hidden sm:block">
-                                <p className="text-sm font-semibold text-slate-900 leading-none">
-                                    {(user?.username) || (ui('Admin User'))}
-                                </p>
-                                <p className="text-xs font-medium text-slate-500 mt-1">
-                                    {language === 'THA' ? ui('ผู้ดูแลระบบ') : ui('Administrator')}
-                                </p>
-                            </div>
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm ring-4 ring-slate-100">
-                                <User size={18} />
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                <main id="main-content" className="dashboard-content flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-transparent">
-                    <div className="mx-auto w-full max-w-[1600px]">
-                        <div className="admin-breadcrumb"><GuardedButton onClick={() => changeTab('home')}>{tr('ศูนย์บริหารการแข่งขัน', 'Control center')}</GuardedButton><span>/</span><span>{ui(currentSection?.label)}</span><span>/</span><strong>{ui(currentPage?.label)}</strong></div>
-                        {activeTab === 'home' && <AdminControlCenter key="home" theme={adminTheme} onNavigate={changeTab} />}
-                        {activeTab === 'action_center' && <AdminControlCenter key="actions" theme={adminTheme} onNavigate={changeTab} actionsOnly />}
-                        {activeTab === 'competition_overview' && <HomeTab />}
-                        {activeTab === 'reports' && <AdminReportCenter onNavigate={changeTab} />}
-                        {activeTab === 'competitions' && <CompetitionsTab />}
-                        {activeTab === 'clubs' && <ClubsTab initialSearch={clubSearch} />}
-                        {activeTab === 'stadium' && <StadiumsTab />}
-                        {activeTab === 'team_ranking' && <TeamRankingTab />}
-
-                        {activeTab === 'players' && <PlayerViewTab />}
-
-                        {activeTab === 'officials' && <OfficialsTab />}
-
-                        {activeTab === 'accounts' && <AccountsTab />}
-                        {activeTab === 'pending_users' && <PendingUsersTab />}
-                        {activeTab === 'matches' && <MatchManagementTab initialCompetitionId={adminContext?.competitionId} initialMatchId={adminContext?.matchId} />}
-                        {activeTab === 'escore' && <EScoreTab theme={adminTheme} />}
-                    </div>
-                </main>
-            </div>
-        </div>
-    );
-}
-
-function SectionHeader({ label, isCollapsed }) {
-    const ui = useUiTranslation();
-    if (isCollapsed) {
-        return (
-            <>
-                <div className="my-4 hidden border-b border-slate-200/80 lg:block" />
-                <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 lg:hidden">{ui(label)}</p>
-            </>
-        );
-    }
-
-    return <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{ui(label)}</p>;
-}
-
-function MenuButton({ active, onClick, icon, label, badge, isCollapsed }) {
-    const ui = useUiTranslation();
-    return (
-        <GuardedButton
-            onClick={onClick}
-            title={isCollapsed ? ui(label) : undefined}
-            aria-label={ui(label)}
-            aria-current={active ? 'page' : undefined}
-            className={`
-                group min-h-11 w-full flex items-center justify-between px-3 py-2.5 my-0.5 rounded-xl text-sm font-semibold transition-all duration-200 relative cursor-pointer
-                ${isCollapsed ? 'lg:justify-center' : 'justify-between'}
-                ${active
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700'
-                }
-            `}
-        >
-            <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full transition-opacity ${active ? 'bg-blue-500 opacity-100' : 'opacity-0'}`} />
-            <div className="flex items-center gap-3 min-w-0">
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors ${
-                    active
-                        ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
-                        : 'bg-white text-slate-400 ring-1 ring-blue-100 group-hover:text-blue-600 group-hover:ring-blue-200'
-                }`}>{icon}</span>
-                <span className={`transition-all duration-200 truncate ${isCollapsed ? 'lg:hidden w-0 opacity-0 overflow-hidden' : 'opacity-100 w-auto'}`}>
-                    {ui(label)}
-                </span>
-            </div>
-            {!isCollapsed && badge > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center shrink-0 ${active ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600 ring-1 ring-rose-100'}`}>
-                    {badge}
-                </span>
-            )}
-            {isCollapsed && badge > 0 && (
-                <>
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border border-white lg:block hidden"></span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold min-w-[20px] text-center lg:hidden ${active ? 'bg-blue-100 text-blue-700' : 'bg-rose-50 text-rose-600'}`}>
-                        {badge}
-                    </span>
-                </>
-            )}
-        </GuardedButton>
-    );
+    if(!organizer)sidebarSections.push({label:tr('สิทธิ์และการตรวจรับ','Access & review'),items:[{key:'access',icon:<KeyRound size={19}/>,label:tr('ผู้ใช้และสิทธิ์รายการ','Access center'),href:'/access-center'}]});
+    const visibleSections=organizer?sidebarSections.map(section=>({...section,items:section.items.filter(item=>allowed.includes(item.key))})).filter(section=>section.items.length):sidebarSections;
+    const currentPage=visibleSections.flatMap(section=>section.items).find(item=>item.key===activeTab);
+    return <AdminWorkspaceShell user={user} sections={visibleSections} activeKey={activeTab} onSelect={tab=>changeTab(tab)}
+        title={activeTab==='home'?tr('ภาพรวมระบบการแข่งขัน','Competition overview'):currentPage?.label}
+        subtitle={tr('ติดตามการแข่งขัน ความพร้อม และงานที่ต้องดำเนินการ','Monitor competitions, readiness and pending work')}
+        headerActions={<GlobalSearch onSelect={(tab,label)=>changeTab(tab,label)}/>}>
+        {activeTab==='home'&&<AdminControlCenter embedded theme={adminTheme} onNavigate={changeTab}/>}
+        {activeTab==='action_center'&&<AdminControlCenter theme={adminTheme} onNavigate={changeTab} actionsOnly/>}
+        {activeTab==='competition_overview'&&<HomeTab/>}
+        {activeTab==='reports'&&<AdminReportCenter onNavigate={changeTab}/>}
+        {activeTab==='competitions'&&<CompetitionsTab/>}
+        {activeTab==='clubs'&&<ClubsTab initialSearch={clubSearch}/>}
+        {activeTab==='stadium'&&<StadiumsTab/>}
+        {activeTab==='team_ranking'&&<TeamRankingTab/>}
+        {activeTab==='players'&&<PlayerViewTab/>}
+        {activeTab==='officials'&&<OfficialsTab/>}
+        {activeTab==='accounts'&&<AccountsTab/>}
+        {activeTab==='pending_users'&&<PendingUsersTab/>}
+        {activeTab==='matches'&&<MatchManagementTab initialCompetitionId={params.get('competitionId')||adminContext?.competitionId} initialMatchId={adminContext?.matchId}/>}
+        {activeTab==='workflow'&&<CompetitionWorkflowTab/>}
+        {activeTab==='escore'&&<EScoreTab theme={adminTheme}/>}
+    </AdminWorkspaceShell>;
 }

@@ -1,3 +1,4 @@
+import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { GuardedButton } from '../ui/GuardedAction';
 import { X as UiX, ArrowUpRight as UiArrowUpRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -56,9 +57,9 @@ export default function VisCreateMatch({ matchId, onClose, onSaved, sources = []
             {error && <p role="alert" className="rounded bg-red-950 p-3 text-sm text-red-200">{ui(error)}</p>}
             {match && <div className="space-y-2 rounded bg-slate-800 p-3 text-sm"><p>{ui("สถานะ:")}{' '}{({ draft: 'ฉบับร่าง', ready: 'พร้อมแข่งขัน', playing: 'กำลังแข่งขัน', review: 'รอตรวจสอบผล', confirmed: 'ยืนยันผลแล้ว', cancelled: 'ยกเลิก' })[match.vis_lifecycle]}</p><p>{ui("การเผยแพร่จะแสดงชื่อทีม ชื่อนักกีฬา เบอร์ คะแนน และสถิติ ให้ทุกคนที่มีลิงก์เข้าถึงได้")}</p>
                 {match.is_offline_vis && <p className="text-amber-200">{ui("แมตช์ในเครื่อง: กรุณาซิงค์และคืนสิทธิ์ แล้วเปิดแมตช์เซิร์ฟเวอร์เพื่อตรวจสอบยืนยันผลหรือเผยแพร่")}</p>}
-                <GuardedButton disabled={busy || match.is_offline_vis || match.vis_lifecycle === 'cancelled'} className={btn} onClick={() => run(async () => { const response = await api.publishCustomVis(matchId, !match.published); setMatch({ ...match, ...response.data }); })}>{match.published ? ui('ปิดการเผยแพร่') : ui('เปิดเผยแพร่ Livescore สาธารณะ')}</GuardedButton>
-                {match.published && <a className="ml-3 text-sky-300 underline" href={`/vis-live/${match.public_token}`} target="_blank" rel="noreferrer"><><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("เปิดลิงก์สาธารณะ ↗").replace(/↗\uFE0F?/gu, '').trim()}</></a>}
-                {match.vis_lifecycle === 'confirmed' && <GuardedButton disabled={busy} className={`${btn} ml-2`} onClick={() => run(async () => { await api.reopenCustomVis(matchId); onSaved(matchId, true); })}>{ui("เปิดตรวจแก้ไขผล")}</GuardedButton>}
+                <PublicAnchor className={btn} href="/access-center">ส่งตรวจ / การเผยแพร่</PublicAnchor>
+                {match.published && <PublicAnchor className="ml-3 text-sky-300 underline" href={`/vis-live/${match.public_token}`} target="_blank" rel="noreferrer"><><UiArrowUpRight size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" />{ui("เปิดลิงก์สาธารณะ ↗").replace(/↗\uFE0F?/gu, '').trim()}</></PublicAnchor>}
+
                 {!['confirmed', 'cancelled'].includes(match.vis_lifecycle) && <GuardedButton disabled={busy} className={`${btn} ml-2 !bg-red-900`} onClick={() => run(async () => { const response = await api.getVisState(matchId); await api.saveVisCommand(matchId, { operationId: crypto.randomUUID(), revision: response.data.state.revision, command: { type: 'CANCEL' } }); onSaved(matchId, false); })}>{ui("ยกเลิกแมตช์ (เก็บประวัติ)")}</GuardedButton>}
                 {locked && <p className="text-xs text-slate-400">{ui("ข้อมูลทีมและรายชื่อถูกล็อกหลังเริ่มบันทึก ย้อนรายการและยืนยันผลได้ในหน้าคีย์")}</p>}
             </div>}

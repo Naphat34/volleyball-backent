@@ -1,3 +1,4 @@
+import {hasCompleteStartingLineup} from '../../../utils/scorer/approvedLineup';
 import { GuardedButton } from '../../ui/GuardedAction';
 import useScorerTranslation from '../useScorerTranslation';
 import React from 'react';
@@ -18,6 +19,7 @@ export default function TeamQuickControls({
     challengeEnabled = true
 }) {
     const st = useScorerTranslation();
+    const lineupReady = hasCompleteStartingLineup(team.lineup);
     const isRallyOrLineup = workflowStep === 'RALLY' || workflowStep === 'LINEUP';
 
     return (
@@ -27,7 +29,7 @@ export default function TeamQuickControls({
                 <div className="flex flex-col gap-1 w-1/2">
                     <GuardedButton
                         onClick={() => onOpenLiberoSwap(team.code)}
-                        disabled={isRallyOrLineup}
+                        disabled={!lineupReady || isRallyOrLineup}
                         className="border text-[11px] font-bold py-1.5 rounded hover:bg-slate-50 disabled:opacity-50"
                         style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                     ><span className="flex items-center justify-center gap-1 px-1"><ArrowRightToLine size={14} className="shrink-0" aria-hidden="true" />{st("Libero in")}</span></GuardedButton>
@@ -41,7 +43,7 @@ export default function TeamQuickControls({
                     <div className="flex border rounded overflow-hidden" style={{ borderColor: team.color }}>
                         <GuardedButton
                             onClick={() => onOpenChallenge(team.code)}
-                            disabled={!challengeEnabled || challenges[team.code] <= 0 || isRallyOrLineup}
+                            disabled={!lineupReady || !challengeEnabled || challenges[team.code] <= 0 || isRallyOrLineup}
                             className="flex-1 bg-white text-[10px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                             style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                             title={challengeEnabled ? st('Video challenge') : st('Challenge system is not enabled for this match')}
@@ -58,7 +60,7 @@ export default function TeamQuickControls({
                     <div className="flex border rounded overflow-hidden" style={{ borderColor: team.color }}>
                         <GuardedButton
                             onClick={() => onActionSelect(team.code, 'TIMEOUT')}
-                            disabled={timeouts[team.code] >= 2 || isRallyOrLineup}
+                            disabled={!lineupReady || timeouts[team.code] >= 2 || isRallyOrLineup}
                             className="flex-1 bg-white text-[11px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                             style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                         ><span className="flex items-center justify-center gap-1 px-1"><Timer size={14} className="shrink-0" aria-hidden="true" />{st("Timeout")}</span></GuardedButton>
@@ -74,7 +76,7 @@ export default function TeamQuickControls({
                     <div className="flex border rounded overflow-hidden" style={{ borderColor: team.color }}>
                         <GuardedButton
                             onClick={() => onOpenSubstitution(team.code)}
-                            disabled={isRallyOrLineup}
+                            disabled={!lineupReady || isRallyOrLineup}
                             className="flex-1 bg-white text-[11px] font-bold py-1.5 text-center border-r hover:bg-slate-50 disabled:opacity-50"
                             style={{ borderColor: team.color, color: 'var(--scorer-control-ink, #000)' }}
                         ><span className="flex items-center justify-center gap-1 px-1"><Replace size={14} className="shrink-0" aria-hidden="true" />{st("Substitution")}</span></GuardedButton>
@@ -91,7 +93,7 @@ export default function TeamQuickControls({
             {/* Point Scored */}
             <GuardedButton
                 onClick={() => onPointScored(team.code)}
-                disabled={workflowStep !== 'RALLY'}
+                disabled={!lineupReady || workflowStep !== 'RALLY'}
                 className="w-full font-bold py-2.5 rounded-md text-[13px] hover:opacity-90 disabled:opacity-50 transition-opacity"
                 style={{ backgroundColor: team.color, color: getContrastColorHex(team.color) }}
             ><span className="flex items-center justify-center gap-1"><CirclePlus size={16} className="shrink-0" aria-hidden="true" />{st("Point scored")}</span></GuardedButton>

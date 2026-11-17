@@ -1,0 +1,201 @@
+{
+  "web": [
+    [
+      "^/(?:admin-matches|scorer|staff|match|scoresheet|roster-verification|match-centre)/([^/]+)(?:/|$)",
+      {
+        "1": "matchRecords"
+      }
+    ],
+    [
+      "^/adminvis/match/([^/]+)(?:/|$)",
+      {
+        "1": "matchRecords"
+      }
+    ],
+    [
+      "^/admin/champion/([^/]+)(?:/|$)",
+      {
+        "1": "competitions"
+      }
+    ]
+  ],
+  "api": [
+    [
+      "^/competition-workflows/([^/]+)(?:/|$)",
+      {
+        "1": "competitions"
+      }
+    ],
+    [
+      "^/access/matches/match/([^/]+)(?:/|$)",
+      {
+        "1": "matches"
+      }
+    ],
+    [
+      "^/access/matches/custom/([^/]+)(?:/|$)",
+      {
+        "1": "custom_vis_matches"
+      }
+    ],
+    [
+      "^/access/users/([^/]+)(?:/|$)",
+      {
+        "1": "users"
+      }
+    ],
+    [
+      "^/scorer/(?:match|manual-matches|manual-vis-matches)/([^/]+)(?:/|$)",
+      {
+        "1": "matches"
+      }
+    ],
+    [
+      "^/(?:public/|admin/)?competitions/([^/]+)/(?:teams|matches|generate-matches)(?:/|$)",
+      {
+        "1": "competitions"
+      }
+    ],
+    [
+      "^/admin/competitions/[^/]+/teams/([^/]+)(?:/|$)",
+      {
+        "1": "teams"
+      }
+    ],
+    [
+      "^/admin/competitions/([^/]+)(?:/(?:status))?$",
+      {
+        "1": "competitions"
+      }
+    ],
+    [
+      "^/public/statistics/([^/]+)$",
+      {
+        "1": "competitions"
+      }
+    ],
+    [
+      "^/(?:public/|admin/)?teams/([^/]+)(?:/|$)",
+      {
+        "1": "teams"
+      }
+    ],
+    [
+      "^/(?:public/|admin/|my-team/)?players/(?!stats(?:/|$))([^/]+)(?:/|$)",
+      {
+        "1": "players"
+      }
+    ],
+    [
+      "^/admin/users/([^/]+)(?:/|$)",
+      {
+        "1": "users"
+      }
+    ],
+    [
+      "^/admin/stadiums/([^/]+)(?:/|$)",
+      {
+        "1": "stadiums"
+      }
+    ],
+    [
+      "^/admin/referees/([^/]+)(?:/|$)",
+      {
+        "1": "referees"
+      }
+    ],
+    [
+      "^/admin/scorers/([^/]+)(?:/|$)",
+      {
+        "1": "scorers"
+      }
+    ],
+    [
+      "^/admin/line-judges/([^/]+)(?:/|$)",
+      {
+        "1": "line_judges"
+      }
+    ],
+    [
+      "^/admin/team-entries/([^/]+)(?:/|$)",
+      {
+        "1": "team_entries"
+      }
+    ],
+    [
+      "^/my-team/entries/([^/]+)(?:/|$)",
+      {
+        "1": "team_entries"
+      }
+    ],
+    [
+      "^/my-team/staff/([^/]+)(?:/|$)",
+      {
+        "1": "team_staff"
+      }
+    ],
+    [
+      "^/my-team/([^/]+)/switch$",
+      {
+        "1": "teams"
+      }
+    ],
+    [
+      "^/reports/team-composition/([^/]+)$",
+      {
+        "1": "team_entries"
+      }
+    ],
+    [
+      "^/(?:matches|match)/([^/]+)(?:/|$)",
+      {
+        "1": "matches"
+      }
+    ],
+    [
+      "^/match/[^/]+/requests/([^/]+)$",
+      {
+        "1": "match_requests"
+      }
+    ],
+    [
+      "^/match/[^/]+/lineup/([^/]+)$",
+      {
+        "1": "teams"
+      }
+    ],
+    [
+      "^/scorer/match/[^/]+/teams/([^/]+)/players(?:/|$)",
+      {
+        "1": "teams"
+      }
+    ],
+    [
+      "^/scorer/match/[^/]+/teams/[^/]+/players/([^/]+)$",
+      {
+        "1": "players"
+      }
+    ],
+    [
+      "^/vis-custom/(?!(?:public|offline-permit|athlete-options)(?:/|$))([^/]+)(?:/|$)",
+      {
+        "1": "custom_vis_matches"
+      }
+    ]
+  ],
+  "query": {
+    "compId": "competitions",
+    "competitionId": "competitions",
+    "competition_id": "competitions",
+    "matchId": "matchRecords",
+    "match_id": "matchRecords",
+    "teamId": "teams",
+    "team_id": "teams",
+    "playerId": "players",
+    "player_id": "players",
+    "entryId": "team_entries",
+    "entry_id": "team_entries",
+    "userId": "users",
+    "user_id": "users"
+  }
+}

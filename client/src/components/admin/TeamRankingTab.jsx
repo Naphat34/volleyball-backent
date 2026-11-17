@@ -107,7 +107,7 @@ export default function TeamRankingTab() {
                 api.getTeamsByCompetition(compId)
             ]);
 
-            const matches = matchesRes.data;
+            const matches = matchesRes.data.filter(match => match.workflow_phase !== 'knockout');
             setAllMatches(matches); // เก็บแมตช์ดิบไว้ใช้งาน
             let teams = Array.isArray(teamsRes.data) ? teamsRes.data : [];
 
@@ -283,6 +283,10 @@ export default function TeamRankingTab() {
 
             // เรียงลำดับตามความสำคัญ: 1. คะแนน (Points) > 2. จำนวนแมตช์ที่ชนะ (Won Matches) > 3. Set Ratio > 4. Point Ratio
             standingsArray.sort((a, b) => {
+                if(selectedPool){
+                    const ar=teamsById.get(String(a.id))?.workflow_rank,br=teamsById.get(String(b.id))?.workflow_rank;
+                    if(ar&&br)return ar-br;
+                }
                 // จัดเรียงจาก คะแนน (Points) มากไปหาน้อย
                 if (b.points !== a.points) return (b.points || 0) - (a.points || 0);
                 // ถ้าคะแนนเท่ากัน ให้ดูจำนวนแมตช์ที่ชนะ (Won Matches)

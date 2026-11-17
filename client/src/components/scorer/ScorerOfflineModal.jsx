@@ -17,7 +17,7 @@ import '../vis/VisOfflinePanel.css';
 import './ScorerOfflineModal.css';
 
 const loginUrl = '/login?reauth=1&returnTo=%2Fadminscorer';
-const roles = ['admin', 'statistician', 'score', 'scorer'];
+const roles = ['scorer'];
 const date = value => value ? new Date(value).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : 'ยังไม่ซิงค์';
 
 export default function ScorerOfflineModal({ onClose }) {

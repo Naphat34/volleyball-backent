@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
+    "test:competition-access-groups": "node --test tests/competitionAccessGroups.test.js",
+    "test:access-control": "node --test tests/accessControl.test.js tests/accessHttp.test.js tests/adminMatchDetail.test.js tests/accessSocket.test.js tests/localAccessMigration.test.js tests/reviewCorrections.test.js tests/accessPath.test.js",
+    "test:recording-isolation:local": "node --test tests/accessNative.test.js tests/recordingIsolation.native.test.js",
+    "migrate:local:access:check": "node scripts/migrateLocalAccess.js",
+    "migrate:local:access": "node scripts/migrateLocalAccess.js --apply",
+    "bootstrap:local:admin": "node scripts/bootstrapLocalAdmin.js",
+    "audit:master-data": "node scripts/auditMasterData.js",
+    "test:master-data-audit": "node --test tests/masterDataAudit.test.js",
     "schema:export:mysql": "node scripts/exportMysqlSchema.js",
     "schema:build:postgres": "node scripts/buildPostgresBaseline.js",
     "migrate:postgres:status": "node scripts/runPostgresMigrations.js",
@@ -43,7 +51,11 @@
     "test:rosters": "node --test tests/automaticEntryRoster.test.js tests/automaticEntryRoster.mysql.test.js tests/athleteIntegrity.test.js tests/teamCompositionReport.test.js tests/scorerBilingualNames.test.js",
     "migrate:athletes": "node scripts/migrateAthleteIntegrity.js",
     "migrate:names": "node scripts/migrateBilingualNames.js",
-    "test:names": "node --test tests/bilingualNames.test.js tests/bilingualNames.mysql.test.js"
+    "test:names": "node --test tests/bilingualNames.test.js tests/bilingualNames.mysql.test.js",
+    "test:public-urls": "node --test tests/publicUrls.test.js tests/publicId.test.js tests/accessHttp.test.js",
+    "migrate:public-urls": "node scripts/migratePublicUrlIds.js",
+    "test:competition-workflow": "node --test tests/competitionWorkflow.test.js tests/competitionWorkflowStore.test.js tests/workflowSchedule.test.js tests/workflowScheduleStore.test.js tests/workflowThirdPlace.test.js",
+    "migrate:competition-workflow": "node scripts/migrateCompetitionWorkflows.js"
   },
   "keywords": [],
   "author": "",

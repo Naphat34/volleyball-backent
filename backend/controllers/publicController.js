@@ -1,3 +1,4 @@
+const {attachScheduleSources} = require('../utils/workflowSchedule');
 const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
 const { refreshTeamEntries, refreshCompetitionEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
@@ -90,7 +91,7 @@ module.exports = {
                 WHERE te.competition_id = ?
                 ORDER BY t.name ASC
             `, [competitionId]);
-            res.json(rows);
+            res.json(await require('../utils/competitionWorkflowStore').attachRanks(db,competitionId,rows));
         } catch (err) {
             console.error("Public: Get Comp Teams Error", err);
             res.status(500).json({ error: "Database error" });
@@ -183,7 +184,7 @@ module.exports = {
             let query = sqlDialect(`
                 SELECT
                     m.id,
-                    m.match_number,
+                    wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.match_number,
                     m.round_name,
                     m.competition_id,
                     c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en,
@@ -216,12 +217,13 @@ module.exports = {
 
                 FROM matches m
                 LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN competition_workflow_matches wm ON wm.match_id=m.id
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
             `, `
                 SELECT
                     m.id, m.public_id,
-                    m.match_number,
+                    wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.match_number,
                     m.round_name,
                     m.competition_id,
                     c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en,
@@ -254,6 +256,7 @@ module.exports = {
 
                 FROM matches m
                 LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN competition_workflow_matches wm ON wm.match_id=m.id
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
             `);
@@ -331,7 +334,7 @@ module.exports = {
                 };
             });
 
-            res.json(matches);
+            res.json(await attachScheduleSources(db, matches));
 
         } catch (err) {
             console.error("Public: Get Matches Error", err);

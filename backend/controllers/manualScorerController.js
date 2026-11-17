@@ -64,7 +64,7 @@ exports.list = async (req, res) => {
     try {
         const rows = (await db.query(`SELECT m.*, m.manual_title AS competition_name, t1.name AS home_team, t1.name_th AS home_team_name_th, t1.name_en AS home_team_name_en, t2.name AS away_team, t2.name_th AS away_team_name_th, t2.name_en AS away_team_name_en
             FROM matches m JOIN teams t1 ON t1.id=m.home_team_id JOIN teams t2 ON t2.id=m.away_team_id
-            WHERE m.manual_owner_id IS NOT NULL AND (? = 'admin' OR m.manual_owner_id=?) ORDER BY m.id DESC`, [req.user.role, req.user.id])).rows;
+            WHERE m.manual_owner_id IS NOT NULL AND (? = 'super_admin' OR m.manual_owner_id=?) ORDER BY m.id DESC`, [req.user.role, req.user.id])).rows;
         const matches = rows.map(m => ({ ...m, is_manual_scorer: true, manual_lifecycle: m.manual_lifecycle === 'confirmed' ? 'confirmed' : m.status === 'completed' ? 'review' : m.status === 'live' ? 'live' : m.manual_lifecycle }));
         res.json(await attachDashboardSummaries(db, matches));
     } catch (error) { sendError(res, error); }
@@ -127,6 +127,7 @@ exports.action = async (req, res) => {
         connection = await db.connect(); await connection.beginTransaction();
         const match = await owned(connection, req, true);
         const action = req.params.action;
+        if(['confirm','publish'].includes(action))throw httpError(403,'Use the administrator review workflow with a revision');
         if (action === 'publish') {
             if (typeof req.body.published !== 'boolean') throw httpError(400, 'กรุณาระบุสถานะเผยแพร่');
             if (req.body.published && match.manual_lifecycle === 'draft') throw httpError(409, 'เตรียมแมตช์ให้พร้อมก่อนเผยแพร่');

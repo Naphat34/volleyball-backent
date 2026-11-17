@@ -5,7 +5,7 @@ const normalize = value => {
     return JSON.stringify(value);
 };
 function assertAdminRecordingPolicy(user, body, previous = {}) {
-    if (user?.role !== 'admin') return;
+    if (!require('../config/permissions').administratorRoles.has(require('../config/permissions').normalizeRole(user?.role))) return;
     if (fields.some(field => body[field] !== undefined && normalize(body[field]) !== normalize(previous[field]))) {
         throw Object.assign(new Error('Administrators cannot record scores, lineups or statistics'), { statusCode: 403 });
     }

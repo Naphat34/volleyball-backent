@@ -60,5 +60,5 @@ function assertReady(config) {
     }
 }
 const parseConfig = value => typeof value === 'string' ? JSON.parse(value) : value;
-const canManage = (user, match) => Boolean(user && (user.role === 'admin' || String(user.id) === String(match.manual_owner_id)));
+const canManage = (user, match) => Boolean(user && (require('../utils/accessScope').isSystemAdmin(user) || String(user.id) === String(match.manual_owner_id)));
 module.exports = { normalizeManualMatch, assertReady, parseConfig, canManage };

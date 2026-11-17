@@ -6,6 +6,9 @@ require('dotenv').config();
 const { getAuthCookieOptions, getJwtSecret } = require('../config/security');
 const { writeAuditLog } = require('../utils/auditLogger');
 const { normalizeTeamGender } = require('../utils/teamGender');
+const { normalizeRole, permissionsByRole } = require('../config/permissions');
+const { loadCapabilities } = require('../utils/accessScope');
+const { identityAudit } = require('../utils/identityAudit');
 
 const SECRET_KEY = getJwtSecret();
 const PUBLIC_REGISTER_ROLE = 'team_staff';
@@ -15,13 +18,11 @@ const normalizeAccountStatus = (status) => {
   const normalizedStatus = String(status || '').trim().toLowerCase();
   return normalizedStatus === 'approved' ? 'active' : normalizedStatus;
 };
-const ADMIN_MANAGED_ROLES = new Set([
-  'admin', 'organizer', 'team_staff', 'staff', 'user', 'score', 'scorer', 'statistician', 'referee'
-]);
+const ADMIN_MANAGED_ROLES = new Set(Object.keys(permissionsByRole));
 const ADMIN_MANAGED_STATUSES = new Set(['active', 'pending', 'inactive', 'banned']);
 
 const getOfficialKind = (role) => {
-  if (['score', 'scorer', 'statistician'].includes(role)) return 'scorer';
+  if (role === 'scorer') return 'scorer';
   if (role === 'referee') return 'referee';
   return null;
 };
@@ -67,6 +68,7 @@ const buildSafeUserSelect = (columns) => {
   if (columns.has('email')) optionalFields.push('email');
   if (columns.has('phone')) optionalFields.push('phone');
   if (columns.has('public_id')) optionalFields.push('public_id');
+  if (columns.has('authorization_version')) optionalFields.push('authorization_version');
   return ['id', 'username', 'role', 'status', 'team_id', ...optionalFields].join(', ');
 };
 
@@ -75,7 +77,8 @@ const buildAuthToken = (user) => jwt.sign(
     id: user.id,
     username: user.username,
     role: user.role,
-    team_id: user.team_id
+    team_id: user.team_id,
+    authorization_version: user.authorization_version || 1
   },
   SECRET_KEY,
   { expiresIn: '2d' }
@@ -100,7 +103,7 @@ exports.getMe = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(result.rows[0]);
+    res.json(await loadCapabilities(db, result.rows[0]));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -196,7 +199,8 @@ exports.changeMyPassword = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(new_password, 8);
-    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashedPassword, userId]);
+    const changed=await db.query('UPDATE users SET password_hash=?,authorization_version=authorization_version+1 WHERE id=? AND authorization_version=?', [hashedPassword,userId,req.user.authorization_version]);
+    if(!changed.rowCount)return res.status(409).json({error:'Account changed; sign in and retry'});
 
     await writeAuditLog(req, 'user.password_change', 'user', userId, {});
 
@@ -406,9 +410,10 @@ exports.login = async (req, res) => {
         id: user.id,
         public_id: user.public_id,
         username: user.username,
-        role: user.role,
+        role: normalizeRole(user.role),
         status: user.status,
-        team_id: user.team_id
+        team_id: user.team_id,
+        ...(await loadCapabilities(db, { id: user.id, role: user.role }))
       }
     });
 
@@ -440,12 +445,17 @@ exports.approveUser = async (req, res) => {
     }
 
     await client.query('BEGIN');
-    const targetUser = await client.query('SELECT id, role, team_id FROM users WHERE id = ? FOR UPDATE', [targetId]);
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('volley-account-administration'))");
+    const targetUser = await client.query('SELECT id, role, team_id, status FROM users WHERE id = ? FOR UPDATE', [targetId]);
     if (!targetUser.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'User not found.' });
     }
 
+    if(targetUser.rows[0].role==='super_admin'&&targetUser.rows[0].status==='active'&&newStatus!=='active'){
+      const active=Number((await client.query("SELECT COUNT(*) AS count FROM users WHERE role='super_admin' AND status='active'")).rows[0].count);
+      if(active<=1){await client.query('ROLLBACK');return res.status(409).json({error:'Cannot disable the last active super_admin'});}
+    }
     await client.query('UPDATE users SET status = ? WHERE id = ?', [newStatus, targetId]);
     if (targetUser.rows[0].role === 'team_staff') {
       const teamStatus = requestedStatus === 'approved'
@@ -460,6 +470,7 @@ exports.approveUser = async (req, res) => {
         await client.query('UPDATE teams SET status = ? WHERE user_id = ?', [teamStatus, targetId]);
       }
     }
+    await identityAudit(client,req,'user.approve',targetId,{previous:targetUser.rows[0],status:newStatus});
     await client.query('COMMIT');
     res.json({ message: `User ID ${targetId} is now ${newStatus}.` });
   } catch (err) {
@@ -489,7 +500,7 @@ exports.getPendingUsers = async (req, res) => {
       SELECT u.id, u.username, u.role, u.status, u.created_at, t.name${emailSelect}
       FROM users u
       LEFT JOIN teams t ON u.team_id = t.id
-      WHERE u.status = 'pending' AND u.role != 'admin'
+      WHERE u.status = 'pending' AND u.role != 'super_admin'
       ORDER BY u.created_at DESC
     `;
 
@@ -529,7 +540,7 @@ exports.createUser = async (req, res) => {
   try {
     const username = String(req.body.username || '').trim();
     const password = String(req.body.password || '');
-    const role = String(req.body.role || 'user').trim().toLowerCase();
+    const role = normalizeRole(String(req.body.role || '').trim().toLowerCase());
     const status = normalizeAccountStatus(req.body.status || 'active');
 
     if (!username) return res.status(400).json({ error: 'Username is required' });
@@ -597,6 +608,7 @@ exports.createUser = async (req, res) => {
       'SELECT id, username, role, status, team_id FROM users WHERE id = ?',
       [result.insertId]
     );
+    await identityAudit(client,req,'user.create',result.insertId,{role,status});
     await client.query('COMMIT');
 
     res.status(201).json({
@@ -605,7 +617,7 @@ exports.createUser = async (req, res) => {
         ...insertedUser.rows[0],
         ...officialProfile,
         ...(officialKind === 'referee' ? { referee_id: officialRecordId } : {}),
-        ...(['score', 'scorer', 'statistician'].includes(role) ? { scorer_id: officialRecordId } : {})
+        ...(['scorer', 'vims_operator'].includes(role) ? { scorer_id: officialRecordId } : {})
       }
     });
   } catch (err) {
@@ -627,6 +639,7 @@ exports.deleteUser = async (req, res) => {
     const { id } = req.params;
 
     await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('volley-account-administration'))");
 
     const userBeforeResult = await client.query(
       'SELECT id, username, role, status, team_id FROM users WHERE id = ?',
@@ -637,15 +650,17 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    if(userBeforeResult.rows[0].role==='super_admin'&&userBeforeResult.rows[0].status==='active'){
+      const count=Number((await client.query("SELECT COUNT(*) AS count FROM users WHERE role='super_admin' AND status='active'")).rows[0].count);
+      if(count<=1){await client.query('ROLLBACK');return res.status(409).json({error:'Cannot delete the last active super_admin'});}
+    }
     // 1. ปลด User ออกจากการเป็นเจ้าของทีม (ถ้ามี) เพื่อป้องกัน Error FK
     await client.query('UPDATE teams SET user_id = NULL WHERE user_id = ?', [id]);
 
     // 2. ลบ User
     const result = await client.query('DELETE FROM users WHERE id = ?', [id]);
 
-    await writeAuditLog(req, 'user.delete', 'user', id, {
-      deleted: userBeforeResult.rows[0] || null
-    }, client);
+    await identityAudit(client,req,'user.delete',id,{deleted:userBeforeResult.rows[0]||null});
 
     await client.query('COMMIT');
 
@@ -665,7 +680,7 @@ exports.updateUser = async (req, res) => {
     const { id } = req.params;
     const username = req.body.username === undefined ? undefined : String(req.body.username).trim();
     const password = req.body.password === undefined ? undefined : String(req.body.password);
-    const role = req.body.role === undefined ? undefined : String(req.body.role).trim().toLowerCase();
+    const role = req.body.role === undefined ? undefined : normalizeRole(String(req.body.role).trim().toLowerCase());
     const status = req.body.status === undefined ? undefined : normalizeAccountStatus(req.body.status);
 
     if (username !== undefined && !username) return res.status(400).json({ error: 'Username is required' });
@@ -677,6 +692,7 @@ exports.updateUser = async (req, res) => {
 
     client = await db.pool.connect();
     await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('volley-account-administration'))");
 
     const userCheck = await client.query('SELECT * FROM users WHERE id = ? FOR UPDATE', [id]);
     if (userCheck.rows.length === 0) {
@@ -684,6 +700,10 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const currentUser = userCheck.rows[0];
+    if(currentUser.role==='super_admin'&&currentUser.status==='active'&&((role&&role!=='super_admin')||(status&&status!=='active'))){
+      const count=Number((await client.query("SELECT COUNT(*) AS count FROM users WHERE role='super_admin' AND status='active'")).rows[0].count);
+      if(count<=1){await client.query('ROLLBACK');return res.status(409).json({error:'Cannot disable the last active super_admin'});}
+    }
     const currentKind = getOfficialKind(currentUser.role);
     const nextRole = role || currentUser.role;
     const nextKind = getOfficialKind(nextRole);
@@ -745,11 +765,13 @@ exports.updateUser = async (req, res) => {
     if (password && password.trim() !== "") {
       const hashedPassword = await bcrypt.hash(password, 8);
       fields.push('password_hash = ?');
+      fields.push('authorization_version=authorization_version+1');
       values.push(hashedPassword);
     }
 
     const officialProfileChanged = Boolean(nextKind && nextProfile);
     const roleChanged = role !== undefined && role !== currentUser.role;
+    if(roleChanged)await client.query('UPDATE user_competition_access SET revoked_at=NOW() WHERE user_id=? AND revoked_at IS NULL',[id]);
     if (fields.length === 0 && !officialProfileChanged && !roleChanged) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'No fields to update' });
@@ -787,6 +809,7 @@ exports.updateUser = async (req, res) => {
     }
 
     const updatedUser = await client.query('SELECT id, username, role, status, team_id FROM users WHERE id = ?', [id]);
+    await identityAudit(client,req,'user.update',id,{previous:{role:currentUser.role,status:currentUser.status},next:updatedUser.rows[0],password_reset:Boolean(password&&password.trim())});
     await client.query('COMMIT');
 
     res.json({
@@ -795,7 +818,7 @@ exports.updateUser = async (req, res) => {
         ...updatedUser.rows[0],
         ...(nextProfile || {}),
         ...(nextKind === 'referee' ? { referee_id: requestedOfficialId } : {}),
-        ...(['score', 'scorer', 'statistician'].includes(nextRole) ? { scorer_id: requestedOfficialId } : {})
+        ...(['scorer', 'vims_operator'].includes(nextRole) ? { scorer_id: requestedOfficialId } : {})
       }
     });
 

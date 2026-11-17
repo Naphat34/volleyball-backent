@@ -1,3 +1,4 @@
+import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { GuardedButton } from '../ui/GuardedAction';
 import { CloudOff as UiCloudOff, X as UiX } from 'lucide-react';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -39,8 +40,8 @@ export default function ScorerOfflineControls({ matchId, flushState }) {
                 {record?.released && <GuardedButton disabled={busy} className="ui-button ui-button-primary" onClick={() => run(async () => { await client.post(`/scorer/match/${matchId}/offline-confirm`); window.location.reload(); })}>{ui("ตรวจสอบแล้ว · ยืนยันผลทางการ")}</GuardedButton>}
             </div>
             <p>{record ? ui(`{0} คำสั่งรอซิงค์ · ล่าสุด {1}`, [record.queue.length, record.syncedAt || 'ยังไม่ซิงค์']) : ui('ยังไม่ได้ดาวน์โหลดแมตช์นี้')}</p>
-            <a className="text-blue-700 underline" href={`/login?reauth=1&returnTo=${encodeURIComponent(`/scorer/${matchId}`)}`}>{ui("เข้าสู่ระบบออนไลน์ / ปลดล็อกด้วย PIN")}</a>
-            <a className="ml-3 text-blue-700 underline" href="/scorer-offline">{ui("รายการแมตช์ในเครื่อง")}</a>
+            <PublicAnchor className="text-blue-700 underline" href={`/login?reauth=1&returnTo=${encodeURIComponent(`/scorer/${matchId}`)}`}>{ui("เข้าสู่ระบบออนไลน์ / ปลดล็อกด้วย PIN")}</PublicAnchor>
+            <PublicAnchor className="ml-3 text-blue-700 underline" href="/scorer-offline">{ui("รายการแมตช์ในเครื่อง")}</PublicAnchor>
             {notice && <p role="status" className="text-amber-800">{ui(notice)}{' '}{ui("หากข้อมูลขัดแย้งให้สำรองและตรวจสอบกับผู้ดูแล ระบบไม่เขียนทับอัตโนมัติ")}</p>}
         </section>}
     </div>;

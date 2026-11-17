@@ -1,3 +1,4 @@
+import { remember } from '../utils/navigation/publicUrls.js';
 import {test,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
@@ -6,10 +7,13 @@ const storage=()=>{const data={};return {getItem:key=>data[key]??null,setItem:(k
 let id=700;
 beforeEach(()=>{
  globalThis.localStorage=storage();globalThis.sessionStorage=storage();globalThis.window=new EventTarget();
- window.location={pathname:`/scorer/${++id}`};
+ ++id;
+ const publicId = `00000000-0000-4000-8000-${String(id).padStart(12,'0')}`;
+ remember({entity:'matches',id,public_id:publicId});
+ window.location={pathname:`/scorer/${publicId}`};
  Object.defineProperty(navigator,'onLine',{value:true,configurable:true});
  const user={id:7,role:'scorer'};sessionStorage.setItem('user',JSON.stringify(user));sessionStorage.setItem('token',`e30.${btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))}.test`);
- sessionStorage.setItem('vis_offline_unlocked_v1',JSON.stringify({user,expiresAt:Date.now()+60000}));
+ sessionStorage.setItem('vis_offline_unlocked_v1',JSON.stringify({policyVersion:2,domain:'score',user,expiresAt:Date.now()+60000}));
 });
 const snapshot=()=>({ [`/scorer/match/${id}`]: { id, home_team_id: 1, away_team_id: 2 },
  [`/scorer/match/${id}/state`]: {score:{home:0,away:0}}, [`/scorer/match/${id}/roster`]: {home:{players:[]},away:{players:[]}},

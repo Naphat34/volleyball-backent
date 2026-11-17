@@ -1,6 +1,6 @@
 export function visPanelState({ profile, profileMismatch = false, userId, grant, offline, readOnly, online, onlineUserId, pwaReady, shellRequired, now = Date.now() }) {
     const expired = Boolean(profile && profile.expiresAt <= now);
-    const unlocked = Boolean(profile && !profileMismatch && !expired && !readOnly && grant && String(grant.id) === String(userId) && ['admin', 'statistician'].includes(grant.role));
+    const unlocked = Boolean(profile && !profileMismatch && !expired && !readOnly && grant && String(grant.id) === String(userId) && ['vims_operator'].includes(grant.role));
     const serverAccount = Boolean(userId && onlineUserId && String(onlineUserId) === String(userId));
     const serverReady = online && serverAccount;
     const shellReady = !shellRequired || pwaReady;

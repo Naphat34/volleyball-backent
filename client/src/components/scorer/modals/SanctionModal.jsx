@@ -86,7 +86,7 @@ const SanctionModal = ({
 
     const selectedPlayer = activeRoster.find(p => String(p.id) === String(selectedPersonId));
     const selectedStaff = activeStaff.find((s, index) => String(s.id || s.staff_id || index) === String(selectedPersonId));
-    const canSubmit = !needsPerson || !!selectedPersonId;
+    const canSubmit = !activeTeam.actionsDisabled && (!needsPerson || !!selectedPersonId);
 
     const handleConfirmClick = () => {
         if (!canSubmit) return;
@@ -155,6 +155,7 @@ const SanctionModal = ({
                                 <GuardedButton
                                     key={code}
                                     type="button"
+                                    disabled={!!normalizedTeams[code]?.actionsDisabled}
                                     onClick={() => setTeamCode(code)}
                                     className={`rounded-2xl border px-4 py-3 text-left font-bold transition-all ${teamCode === code ? 'border-blue-300 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-white'}`}
                                 >

@@ -10,7 +10,7 @@ test('PostgreSQL workflows: identity, registration, integrity, custom VIS, manua
     try {
         const bcrypt=require('bcryptjs');
         const hash=await bcrypt.hash('migration-test-password',4);
-        await db.query("INSERT INTO users (id,username,password_hash,role,status) VALUES (1,'MigrationAdmin',?,'admin','active'),(2,'TeamOwner',?,'team_staff','active')",[hash,hash]);
+        await db.query("INSERT INTO users (id,username,password_hash,role,status) VALUES (1,'MigrationAdmin',?,'super_admin','active'),(2,'TeamOwner',?,'team_staff','active')",[hash,hash]);
         await db.query("INSERT INTO age_groups (id,name) VALUES (1,'U18')");
         await db.query("INSERT INTO teams (id,name,code,user_id,status,gender) VALUES (1,'ทีมทดสอบ','TEST1',2,'active','Male'),(2,'ทีมคู่แข่ง','TEST2',NULL,'active','Male')");
         await db.query('UPDATE users SET team_id=1 WHERE id=2');
@@ -27,7 +27,7 @@ test('PostgreSQL workflows: identity, registration, integrity, custom VIS, manua
             assert.equal(bad.code,401);
         });
         await t.test('database keeps casefold uniqueness and rejects invalid JSON/enums',async()=>{
-            await assert.rejects(db.query("INSERT INTO users (username,password_hash,role) VALUES ('MIGRATIONADMIN','x','admin')"),{code:'ER_DUP_ENTRY'});
+            await assert.rejects(db.query("INSERT INTO users (username,password_hash,role) VALUES ('MIGRATIONADMIN','x','super_admin')"),{code:'ER_DUP_ENTRY'});
             await assert.rejects(db.query("INSERT INTO players (team_id,number,position) VALUES (1,90,'invalid')"),{code:'ER_CHECK_CONSTRAINT_VIOLATED'});
             await assert.rejects(db.query("INSERT INTO matches (set_scores) VALUES ('invalid json')"),{code:'ER_CHECK_CONSTRAINT_VIOLATED'});
         });
@@ -200,7 +200,7 @@ test('PostgreSQL workflows: identity, registration, integrity, custom VIS, manua
         });
         await t.test('public, team, competition and administrator reads execute real aggregate queries',async()=>{
             const calls=[['publicController','getCompetitions',{}],['publicController','getCompetitionTeams',{competitionId:competition}],['publicController','getStatistics',{competitionId:competition}],['teamController','getMyTeams',{}],['teamController','getAllTeamEntries',{}],['teamController','getMyCompetitions',{}],['competitionsController','getAllCompetitions',{}],['matchController','getAllMatches',{}],['matchController','getMatchesByCompetition',{competitionId:competition}],['adminVisController','overview',{}]];
-            for(const [file,method,params]of calls){const controller=require('../controllers/'+file);assert.equal(typeof controller[method],'function',method);const result=await invoke(controller,method,{},params,{id:2,role:'admin'});assert.equal(result.code,200,`${file}.${method}: ${JSON.stringify(result.data)}`);}
+            for(const [file,method,params]of calls){const controller=require('../controllers/'+file);assert.equal(typeof controller[method],'function',method);const result=await invoke(controller,method,{},params,{id:2,role:'super_admin'});assert.equal(result.code,200,`${file}.${method}: ${JSON.stringify(result.data)}`);}
         });
     } finally {await h.close();}
 });

@@ -1,0 +1,25 @@
+-- Optional English names for all official categories.
+SET @official_ddl = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='referees' AND COLUMN_NAME='firstname_en'), 'SELECT 1', 'ALTER TABLE referees ADD COLUMN firstname_en VARCHAR(100) NULL');
+PREPARE official_stmt FROM @official_ddl;
+EXECUTE official_stmt;
+DEALLOCATE PREPARE official_stmt;
+SET @official_ddl = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='referees' AND COLUMN_NAME='lastname_en'), 'SELECT 1', 'ALTER TABLE referees ADD COLUMN lastname_en VARCHAR(100) NULL');
+PREPARE official_stmt FROM @official_ddl;
+EXECUTE official_stmt;
+DEALLOCATE PREPARE official_stmt;
+SET @official_ddl = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='scorers' AND COLUMN_NAME='firstname_en'), 'SELECT 1', 'ALTER TABLE scorers ADD COLUMN firstname_en VARCHAR(100) NULL');
+PREPARE official_stmt FROM @official_ddl;
+EXECUTE official_stmt;
+DEALLOCATE PREPARE official_stmt;
+SET @official_ddl = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='scorers' AND COLUMN_NAME='lastname_en'), 'SELECT 1', 'ALTER TABLE scorers ADD COLUMN lastname_en VARCHAR(100) NULL');
+PREPARE official_stmt FROM @official_ddl;
+EXECUTE official_stmt;
+DEALLOCATE PREPARE official_stmt;
+SET @official_ddl = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='line_judges' AND COLUMN_NAME='firstname_en'), 'SELECT 1', 'ALTER TABLE line_judges ADD COLUMN firstname_en VARCHAR(100) NULL');
+PREPARE official_stmt FROM @official_ddl;
+EXECUTE official_stmt;
+DEALLOCATE PREPARE official_stmt;
+SET @official_ddl = IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='line_judges' AND COLUMN_NAME='lastname_en'), 'SELECT 1', 'ALTER TABLE line_judges ADD COLUMN lastname_en VARCHAR(100) NULL');
+PREPARE official_stmt FROM @official_ddl;
+EXECUTE official_stmt;
+DEALLOCATE PREPARE official_stmt;

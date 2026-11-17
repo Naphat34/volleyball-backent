@@ -1,10 +1,11 @@
+import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { GuardedButton } from '../ui/GuardedAction';
 import VisThemeToggle from '../vis/VisThemeToggle';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LogIn, Menu, X } from 'lucide-react';
-import Logo from '../../assets/img/Logo_Phatthalung.png';
+import VolleyBrand from '../ui/VolleyBrand';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function PublicHeader() {
@@ -23,11 +24,10 @@ export default function PublicHeader() {
         {['THA', 'ENG'].map(value => <GuardedButton key={value} type="button" aria-pressed={language === value} onClick={() => setLanguage(value)}>{value === 'THA' ? ui('TH') : ui('EN')}</GuardedButton>)}
     </div>;
     return <header className="public-header">
-        <a className="ui-skip-link" href="#main-content">{language === 'THA' ? ui('ข้ามไปเนื้อหา') : ui('Skip to content')}</a>
+        <PublicAnchor className="ui-skip-link" href="#main-content">{language === 'THA' ? ui('ข้ามไปเนื้อหา') : ui('Skip to content')}</PublicAnchor>
         <div className="public-header-inner">
             <Link to="/" className="public-brand">
-                <img src={Logo} alt={ui("Phatthalung Volleyball Club")} className="public-brand-logo" />
-                <span className="public-brand-copy">{t('nav.systemName')}<small>{language === 'THA' ? ui('ระบบจัดการแข่งขันวอลเลย์บอล') : ui('Volleyball competition manager')}</small></span>
+                <VolleyBrand/>
             </Link>
             <nav aria-label={language === 'THA' ? ui('เมนูหลัก') : ui('Main navigation')} className="public-desktop-nav">
                 {links.map(([to, key]) => <Link key={to} to={to} aria-current={pathname === to ? 'page' : undefined} className={`public-nav-link ${pathname === to ? 'is-active' : ''}`}>{t(`nav.${key}`)}</Link>)}

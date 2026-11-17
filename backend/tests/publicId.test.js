@@ -31,17 +31,19 @@ test('UUID migration backfills old rows, generates new UUIDs, and preserves inte
     }finally{await db.close();}
 });
 
-test('legacy integer URLs pass through without database work; UUIDs resolve with bound values',async()=>{
+test('resolved internal IDs pass through; external integers are rejected and UUIDs use bound values',async()=>{
     const calls=[],database={query:async(sql,params)=>{calls.push({sql,params});return {rows:[{id:42}]};}};
     const resolve=resolvePublicId('teams','teamId',{database});
     let next=0;
-    const numeric={params:{teamId:'42'}};
+    const numeric={params:{teamId:'42'},publicUrl:`/public/teams/${uuid}/players`};
     await resolve(numeric,response(),()=>next++);
     assert.equal(calls.length,0);assert.equal(numeric.params.teamId,'42');
     const external={params:{teamId:uuid}};
     await resolve(external,response(),()=>next++);
     assert.equal(external.params.teamId,'42');assert.equal(next,2);
     assert.deepEqual(calls,[{sql:'SELECT id FROM teams WHERE public_id = ?',params:[uuid]}]);
+    const rejected=response();await resolve({params:{teamId:'42'}},rejected,()=>next++);
+    assert.equal(rejected.code,400);assert.equal(next,2);
 });
 
 test('query UUIDs work with Express 5 query getters without dropping other filters',async()=>{

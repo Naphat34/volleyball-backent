@@ -1,3 +1,4 @@
+import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { GuardedButton } from '../ui/GuardedAction';
 import VisThemeToggle from './VisThemeToggle';
 import { ListOrdered, BookOpen, Columns3, Rows3, RotateCcw, PanelsTopLeft, Video, ClipboardList, ChartColumn, Share2, Download, HelpCircle, ArrowLeft as UiArrowLeft, X as UiX } from 'lucide-react';
@@ -6,9 +7,10 @@ import useVisTranslation from './useVisTranslation';
 
 import { useState } from 'react';
 import { exportVisMatch } from '../../utils/vis/visMatchFiles';
+import { publicUrl } from '../../utils/navigation/publicUrls.js';
 
 export default function VisToolbar({ match, onClose, orientation, onOrientation, onReset,
-    exportOptions, showCode, onToggleCode, showGuide, onToggleGuide, showCourt, onToggleCourt, showVideo, onToggleVideo, onSettings, onStats, onHelp, liveEnabled, pending, isSaving, retrySave, onConfirm }) {
+    exportOptions, showCode, onToggleCode, showGuide, onToggleGuide, showCourt, onToggleCourt, showVideo, onToggleVideo, onSettings, onStats, onHelp, liveEnabled, pending, isSaving, retrySave }) {
     const ui = useUiTranslation();
     const vt = useVisTranslation();
     const [notice, setNotice] = useState('');
@@ -16,9 +18,11 @@ export default function VisToolbar({ match, onClose, orientation, onOrientation,
     const button = 'vis-tool-button';
     const selected = value => `${button} ${value ? 'vis-tool-selected' : ''}`;
     const share = async () => {
-        const url = new URL(`/adminvis/match/${match.is_offline_vis && match.server_id ? match.server_id : match.id}`, window.location.origin).href;
-        try { await navigator.clipboard.writeText(url); setNotice('คัดลอกลิงก์แล้ว · ผู้เปิดต้องเข้าสู่ระบบและมีสิทธิ์ VIMS ของแมตช์นี้'); }
-        catch { setNotice(`${vt("ลิงก์สำหรับผู้มีสิทธิ์ VIMS: ")}${url}`); }
+        try {
+            const url = new URL(await publicUrl(`/adminvis/match/${match.is_offline_vis && match.server_id ? match.server_id : match.id}`), window.location.origin).href;
+            try { await navigator.clipboard.writeText(url); setNotice('คัดลอกลิงก์แล้ว · ผู้เปิดต้องเข้าสู่ระบบและมีสิทธิ์ VIMS ของแมตช์นี้'); }
+            catch { setNotice(`${vt("ลิงก์สำหรับผู้มีสิทธิ์ VIMS: ")}${url}`); }
+        } catch (error) { setNotice(error.message); }
     };
     const exportMatch = async () => {
         setExporting(true); setNotice('');
@@ -48,8 +52,8 @@ export default function VisToolbar({ match, onClose, orientation, onOrientation,
                 <GuardedButton className={button} onClick={share} title={vt("แชร์")} aria-label={vt("แชร์")}><Share2 size={17} /></GuardedButton>
                 <GuardedButton className={button} disabled={exporting || isSaving || Boolean(pending)} onClick={exportMatch} title={exporting ? vt('กำลังส่งออก…') : vt('ส่งออก JSON')} aria-label={vt("ส่งออก JSON")}><Download size={17} /></GuardedButton>
             </div>
-            {match.is_custom_vis && !match.is_offline_vis && match.vis_lifecycle === 'review' && <GuardedButton className={button} disabled={isSaving || Boolean(pending)} onClick={onConfirm}>{vt("ยืนยันผล")}</GuardedButton>}
-            {liveEnabled && (!match.is_custom_vis || match.published) && <a className="vis-live-link" href={match.is_custom_vis ? `/vis-live/${match.public_token}` : `/match-centre/${match.is_offline_vis && match.server_id ? match.server_id : match.id}`} target="_blank" rel="noreferrer">{ui("LIVE:")}{' '}{(match.match_number) || (ui('VIMS'))}</a>}
+            {match.is_custom_vis && !match.is_offline_vis && match.vis_lifecycle === 'review' && <PublicAnchor className={button} href="/access-center">ส่งตรวจสถิติ</PublicAnchor>}
+            {liveEnabled && (!match.is_custom_vis || match.published) && <PublicAnchor className="vis-live-link" href={match.is_custom_vis ? `/vis-live/${match.public_token}` : `/match-centre/${match.is_offline_vis && match.server_id ? match.server_id : match.id}`} target="_blank" rel="noreferrer">{ui("LIVE:")}{' '}{(match.match_number) || (ui('VIMS'))}</PublicAnchor>}
             {pending && !isSaving && <GuardedButton className={button} onClick={retrySave}>{vt("ลองส่งรายการค้าง")}</GuardedButton>}
         </nav>
         {notice && <div role="status" className="vis-toolbar-notice"><span>{vt(notice)}</span><GuardedButton onClick={() => setNotice('')} aria-label={vt("ปิดข้อความ")}><UiX size={16} aria-hidden="true" className="inline-block shrink-0 align-middle" /></GuardedButton></div>}

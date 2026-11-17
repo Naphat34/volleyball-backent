@@ -1,5 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+test('knockout results do not enter pool standings and confirmed same-pool draw order is respected', () => {
+    const teams=[{id:1,name:'Alpha',workflow_pool:'A',workflow_rank:2},{id:2,name:'Beta',workflow_pool:'A',workflow_rank:1}];
+    const result=calculateStandings(teams,[{status:'completed',workflow_phase:'knockout',home_team_id:1,away_team_id:2,home_set_score:3,away_set_score:0}]);
+    assert.deepEqual(result.map(team=>team.id),[2,1]);
+    assert.ok(result.every(team=>team.played===0));
+});
 import { calculateStandings } from './standings.js';
 
 const teams = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];

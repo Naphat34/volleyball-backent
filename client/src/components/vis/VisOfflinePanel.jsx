@@ -1,3 +1,4 @@
+import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -126,7 +127,7 @@ export default function VisOfflinePanel({ matches, reload }) {
                     {!record.released && model.unlocked && <Link className="vop-button" to={`/adminvis/match/${record.id}`}>{ui("เปิดแมตช์")}</Link>}
                     <GuardedButton disabled={busy} className="vop-button" type="button" onClick={() => run(() => exportVisMatch(localView(record).match))}>{ui("สำรอง JSON")}</GuardedButton>
                     {!record.released && <><GuardedButton disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => sync(record, false)}>{ui("ซิงค์")}</GuardedButton><GuardedButton disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => sync(record, true)}>{ui("ซิงค์และคืนสิทธิ์")}</GuardedButton></>}
-                    {record.released && model.serverReady && <a href={`/adminvis/match/${record.serverId}`} className="vop-button" onClick={event => { try { switchAccessMode(false); } catch (error) { event.preventDefault(); setNotice(error.message); setNoticeError(true); } }}>{ui("เปิดบนเซิร์ฟเวอร์")}</a>}
+                    {record.released && model.serverReady && <PublicAnchor href={`/adminvis/match/${record.serverId}`} className="vop-button" onClick={event => { try { switchAccessMode(false); } catch (error) { event.preventDefault(); setNotice(error.message); setNoticeError(true); } }}>{ui("เปิดบนเซิร์ฟเวอร์")}</PublicAnchor>}
                 </div>
                 {conflict === record.id && <div role="alert" className="vop-conflict"><p>{ui("ข้อมูลขัดแย้ง ระบบไม่ได้เขียนทับ เลือกเก็บเป็นสำเนาหรือสำรองก่อนใช้ข้อมูลเซิร์ฟเวอร์")}</p><div className="vop-match-actions">
                     <GuardedButton disabled={busy || !model.unlocked} className="vop-button" type="button" onClick={() => run(async () => { const latest = await getLocal(record.id); await createLocal({ creationId: crypto.randomUUID(), importBackup: { config: latest.payload.config, match: latest.payload.match, actions: latest.payload.actions } }); setNotice('สร้างสำเนาใหม่แล้ว ต้นฉบับในเครื่องยังอยู่'); setConflict(null); })}>{ui("สร้างสำเนาเป็นแมตช์ใหม่")}</GuardedButton>

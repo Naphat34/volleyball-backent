@@ -8,7 +8,7 @@ for (const file of ['../routes/scorerRoutes','../routes/customVisRoutes']) test(
  const router={use:(...args)=>{if(typeof args[0]!=='string')global.push(...args);}};
  for(const method of ['get','post','put','delete'])router[method]=(path,...handlers)=>entries.push({method,path,handlers:[...global,...handlers].flat(Infinity)});
  const pass=(req,res,next)=>next();
- const auth={verifyApprovedToken:[pass,pass],verifyToken:pass,canScoreMatches:(req,res,next)=>roleHasPermission(req.user.role,'match.score')?next():res.status(403).json({}),hasAnyRole:roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({})};
+ const auth={verifyApprovedToken:[pass,pass],verifyToken:pass,canRecordVims:(req,res,next)=>roleHasPermission(req.user.role,'vims.record')?next():res.status(403).json({}),canReadRecording:pass,hasPermission:p=>(req,res,next)=>roleHasPermission(req.user.role,p)?next():res.status(403).json({}),canScoreMatches:(req,res,next)=>roleHasPermission(req.user.role,'match.score')?next():res.status(403).json({}),hasAnyRole:roles=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({})};
  const controller=new Proxy({},{get:(_,key)=>key==='online'?()=>pass:pass});
  vm.runInNewContext(fs.readFileSync(require.resolve(file),'utf8'),{module:{exports:{}},require:name=>name==='express'?{Router:()=>router}:name.includes('authMiddleware')?auth:name.includes('validateRequest')?()=>pass:controller});
  const mutations=entries.filter(r=>['post','put','delete'].includes(r.method)&&!r.path.endsWith('/athletes'));

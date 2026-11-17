@@ -1,3 +1,4 @@
+import { remember } from '../utils/navigation/publicUrls.js';
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { IDBFactory } from 'fake-indexeddb';
@@ -7,9 +8,18 @@ import { accessDecision, resolveAccess, navigateAccess } from './accessRouting.j
 import { localRead } from './localRead.js';
 
 const memory = () => { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, String(value)), removeItem: key => data.delete(key) }; };
-const grant = (id = 1, role = 'statistician') => ({ user: { id, role, username: `user${id}` }, expiresAt: Date.now() + 86400000 });
+const grant = (id = 1, role = 'vims_operator') => ({ policyVersion: 2, domain: ['scorer','score'].includes(role)?'score':'vims', user: { id, role, username: `user${id}` }, expiresAt: Date.now() + 86400000 });
 beforeEach(() => {
     globalThis.localStorage = memory(); globalThis.sessionStorage = memory(); globalThis.indexedDB = new IDBFactory();
+});
+
+test('legacy offline permits retain readonly identity but cannot unlock recording under the new policy',async()=>{
+    const old={...grant(1,'scorer'),policyVersion:1};
+    await assert.rejects(prepareOffline(old,'123456'),/เวอร์ชันใหม่/);
+    sessionStorage.setItem('vis_offline_unlocked_v1',JSON.stringify(old));
+    assert.equal(getOfflineUser(),null);
+    assert.equal(getOfflineUser({readOnly:true}).id,1);
+    await assert.rejects(prepareOffline({...grant(1,'scorer'),domain:'vims'},'123456'),/ไม่ตรง/);
 });
 async function put(name, record) {
     await new Promise((resolve, reject) => {
@@ -40,7 +50,7 @@ test('missing permits stay locked and expired sessions allow backup without usin
     const expired = grant(); expired.expiresAt = Date.now() - 1;
     sessionStorage.setItem('vis_offline_unlocked_v1', JSON.stringify(expired));
     assert.equal(getAccessSession().kind, 'offline'); assert.equal(getAccessSession().readOnly, true); assert.equal(getStoredUser().id, expired.user.id);
-    const result = await resolveAccess({ section: 'vis', search: '?returnTo=/adminvis/match/local-example' });
+    const result = await resolveAccess({ section: 'vis', search: '?returnTo=/adminvis/match/06012119-33ce-4572-ae3b-8fcb00aa022b' });
     assert.equal(result.path, '/adminvis'); assert.match(result.notice, /สำรอง/);
 });
 test('online login opens the dashboard for each role directly', () => {
@@ -48,28 +58,36 @@ test('online login opens the dashboard for each role directly', () => {
         assert.equal(accessDecision({ kind: 'online', user: grant(1, role).user }).path, path);
     }
     assert.equal(accessDecision({ kind: 'online', user: grant(1, 'admin').user }, { section: 'vis' }).kind, 'denied');
-    assert.equal(accessDecision({ kind: 'online', user: grant().user }, { section: 'scorer' }).path, '/adminscorer');
+    assert.equal(accessDecision({ kind: 'online', user: grant().user }, { section: 'scorer' }).kind, 'denied');
+});
+test('online login resumes an allowed admin detail and offline login does not enter admin routes',()=>{
+    const search='?returnTo='+encodeURIComponent('/admin-matches/06012119-33ce-4572-ae3b-8fcb00aa022b?tab=history#reviews');
+    assert.equal(accessDecision({kind:'online',user:{role:'super_admin_scorer'}},{search}).path,'/admin-matches/06012119-33ce-4572-ae3b-8fcb00aa022b?tab=history#reviews');
+    assert.equal(accessDecision({kind:'online',user:{role:'scorer'}},{search}).path,'/adminscorer');
+    assert.equal(accessDecision({kind:'offline',user:{role:'scorer'}},{search}).path,'/scorer-offline');
+    assert.equal(accessDecision({kind:'online',user:{role:'super_admin_scorer'}},{search:'?returnTo=https%3A%2F%2Fevil.test'}).path,'/scorer-admin');
 });
 
 test('offline login opens a role-specific list without reading cached matches', async () => {
     const session = { kind: 'offline', user: grant().user };
     const noRead = () => { throw Error('must not read'); };
     assert.equal((await resolveAccess({ section: 'vis' }, session, noRead)).path, '/adminvis');
-    assert.equal((await resolveAccess({ section: 'scorer' }, session, noRead)).path, '/scorer-offline');
+    assert.equal((await resolveAccess({ section: 'scorer' }, session, noRead)).kind, 'denied');
     assert.equal(accessDecision(session).path, '/adminvis');
     assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'admin').user }).path, '/admin');
     assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'scorer').user }).path, '/scorer-offline');
     assert.equal(accessDecision({ kind: 'offline', user: grant(1, 'scorer').user }, { section: 'vis' }).kind, 'denied');
 });
 test('missing, released and broken match storage give distinct visible notices and keep the list accessible', async () => {
-    const session = { kind: 'offline', user: grant().user }, options = { section: 'scorer', search: '?returnTo=/scorer/42' };
+    remember({entity:'matches',id:'42',public_id:'06012119-33ce-4572-ae3b-8fcb00aa022b'});
+    const session = { kind: 'offline', user: grant(1,'scorer').user }, options = { section: 'scorer', search: '?returnTo=/scorer/06012119-33ce-4572-ae3b-8fcb00aa022b' };
     for (const [load, expected] of [[async () => [], /ไม่พบแมตช์/], [async () => [{ id: 42, released: true }], /คืนสิทธิ์/], [async () => { throw Error('disk'); }, /อ่านข้อมูลแมตช์.*disk/]]) {
         const result = await resolveAccess(options, session, load);
         assert.equal(result.path, '/scorer-offline'); assert.match(result.notice, expected);
     }
     const result = await resolveAccess(options, session, async () => [{ id: 42, localStorage: { match_42_state: 'saved', token: 'bad' } }]);
-    assert.equal(result.path, '/scorer/42'); assert.equal(localStorage.getItem('match_42_state'), 'saved'); assert.equal(localStorage.getItem('token'), null);
-    let calls = 0; navigateAccess((path, options) => { calls++; assert.equal(path, '/scorer/42'); assert.equal(options.replace, true); }, result);
+    assert.equal(result.path, '/scorer/06012119-33ce-4572-ae3b-8fcb00aa022b'); assert.equal(localStorage.getItem('match_42_state'), 'saved'); assert.equal(localStorage.getItem('token'), null);
+    let calls = 0; navigateAccess((path, options) => { calls++; assert.equal(path, '/scorer/06012119-33ce-4572-ae3b-8fcb00aa022b'); assert.equal(options.replace, true); }, result);
     assert.equal(calls, 1);
 });
 test('account replacement requires explicit confirmation and is blocked by unsynced work in either database', async () => {

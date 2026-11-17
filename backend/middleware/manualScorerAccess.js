@@ -7,11 +7,21 @@ const { canReadStatistics, assertStatisticsWriter } = require('../utils/manualVi
 // Cover the existing console, viewer, report, team and legacy action routes.
 module.exports = async (req, res, next) => {
     try {
-        const path = req.path;
+        // Express decodes route parameters later; apply the same decoding before ACLs.
+        let path;
+        try { path = require('../utils/accessPath').accessPath(req.path); }
+        catch { return res.status(400).json({error:'Invalid identifier'}); }
         const matchId = path.match(/^\/(?:scorer\/match|match|(?:admin\/)?matches)\/(\d+)(?:\/|$)/)?.[1]
             || (path.startsWith('/match-data/') ? req.body?.match_id : null);
-        const teamId = !matchId && path.match(/^\/(?:public\/|admin\/)?teams\/(\d+)(?:\/|$)/)?.[1];
-        const playerId = !matchId && !teamId && path.match(/^\/(?:public\/|admin\/)?players\/(\d+)(?:\/|$)/)?.[1];
+        const teamKey = !matchId && path.match(/^\/(?:public\/|admin\/)?teams\/([^/]+)(?:\/|$)/)?.[1];
+        const playerKey = !matchId && !teamKey && path.match(/^\/(?:public\/|admin\/)?players\/([^/]+)(?:\/|$)/)?.[1];
+        const resolve = async (table, key) => {
+            if (!key || /^\d+$/.test(key)) return key;
+            if (!require('./publicId').uuidPattern.test(key)) return null;
+            return (await db.query(`SELECT id FROM ${table} WHERE public_id=?`, [key])).rows[0]?.id;
+        };
+        const teamId = await resolve('teams', teamKey);
+        const playerId = await resolve('players', playerKey);
         if (!matchId && !teamId && !playerId) return next();
         let rows;
         if (matchId) rows = (await db.query('SELECT * FROM matches WHERE id=? AND manual_owner_id IS NOT NULL', [matchId])).rows;
@@ -51,7 +61,11 @@ module.exports = async (req, res, next) => {
         };
         if (read && match.manual_published && match.manual_lifecycle !== 'draft') return next();
         // Reload role/status from the database; never trust stale JWT roles.
-        return auth.verifyToken(req, res, () => auth.requireApprovedUser(req, res, authorize));
+        return auth.verifyToken(req, res, () => auth.requireApprovedUser(req, res, () => {
+            if(!match.competition_id)return authorize();
+            return require('../utils/accessScope').assertCompetition(db,req.user,match.competition_id).then(authorize)
+                .catch(error=>res.status(error.status||500).json({error:'No access to this competition'}));
+        }));
     } catch (error) {
         console.error('Manual match access:', error);
         res.status(500).json({ error: 'ไม่สามารถตรวจสิทธิ์แมตช์ได้' });

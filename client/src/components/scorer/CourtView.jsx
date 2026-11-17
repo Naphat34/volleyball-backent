@@ -30,7 +30,8 @@ const PlayerToken = ({
     rightSubTracker,
     leftTeam,
     rightTeam,
-    tokenNumberClass = 'text-[24px] lg:text-[46px]',
+    jerseyTokens = false,
+    tokenNumberClass = jerseyTokens ? 'text-[20px] lg:text-[32px]' : 'text-[24px] lg:text-[46px]',
     tokenBoxClass = 'w-[45px] h-[45px] lg:w-[76px] lg:h-[76px]'
 }) => {
     const displayNames = useDisplayNames();
@@ -78,6 +79,7 @@ const PlayerToken = ({
     const finalStyle = (!isLibero && isHex) ? { backgroundColor: colorClass } : {};
     const finalTextColorClass = isLibero ? 'text-black' : getContrastColorClass(colorClass);
     const isCaptain = player?.isCaptain || player?.is_captain || player?.role === 'C' || player?.role?.includes('C');
+    const jerseyColor = isLibero ? '#ffff99' : isHex ? colorClass : ({'bg-blue-600':'#2563eb','bg-pink-600':'#db2777','bg-red-600':'#dc2626'}[colorClass] || '#2563eb');
 
     return (
         <div 
@@ -88,17 +90,21 @@ const PlayerToken = ({
                 className={`
                     relative scorer-player-token
                     ${tokenBoxClass}
-                    rounded-md lg:rounded-xl border-[2px] border-white 
+                    ${jerseyTokens ? 'scorer-player-jersey' : 'rounded-md lg:rounded-xl border-[2px] border-white'}
                     flex flex-col items-center justify-center 
                     transition-transform transform group-hover:scale-105 hover:border-blue-500
-                    ${finalColorClass}
+                    ${jerseyTokens ? '' : finalColorClass}
                 `}
                 data-theme-fixed
-                style={finalStyle}
+                style={jerseyTokens ? undefined : finalStyle}
             >
+                {jerseyTokens && <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false" className="absolute inset-0 h-full w-full overflow-visible drop-shadow-md pointer-events-none">
+                    <path d="M30 10 40 7 Q50 19 60 7 L70 10 96 28 84 45 77 39 77 94 23 94 23 39 16 45 4 28Z" fill={jerseyColor} stroke="white" strokeWidth="2.5" strokeLinejoin="round"/>
+                    <path d="M40 7Q50 23 60 7M7 29 17 41M93 29 83 41" fill="none" stroke="white" strokeOpacity=".5" strokeWidth="2" strokeLinecap="round"/>
+                </svg>}
                 {/* หมายเลขตรงกลาง */}
                 <span className={`
-                    scorer-player-number ${tokenNumberClass} font-bold drop-shadow-sm leading-none
+                    scorer-player-number ${tokenNumberClass} font-bold drop-shadow-sm leading-none ${jerseyTokens ? 'relative mt-1 lg:mt-2 tracking-tight' : ''}
                     ${finalTextColorClass}
                     ${isCaptain ? 'border-b-[3px] lg:border-b-[6px] border-current pb-0.5' : ''}
                 `}>
@@ -155,6 +161,7 @@ const CourtView = ({
     homeSubTracker,
     awaySubTracker,
     isHomeLeft,
+    jerseyTokens = false,
     tokenNumberClass,
     tokenBoxClass,
     className = 'max-w-3xl'
@@ -177,6 +184,7 @@ const CourtView = ({
         rightSubTracker,
         leftTeam,
         rightTeam,
+        jerseyTokens,
         tokenNumberClass,
         tokenBoxClass
     };

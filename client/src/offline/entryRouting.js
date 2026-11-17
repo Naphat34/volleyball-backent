@@ -1,14 +1,16 @@
+import { normalizeAccountRole } from '../auth/roles.js';
 export function canEnterSection(user, section, offline = false) {
-    const role = user?.role;
-    if (section === 'vis') return ['statistician'].includes(role);
-    if (section === 'scorer') return ['statistician', 'score', 'scorer'].includes(role) || (!offline && role === 'referee');
+    const role = normalizeAccountRole(user?.role);
+    if (section === 'vis') return ['vims_operator'].includes(role);
+    if (section === 'scorer') return ['scorer'].includes(role) || (!offline && role === 'referee');
     return false;
 }
 
 export function loginIntent(search = '') {
     const params = new URLSearchParams(search);
     const target = params.get('returnTo') || '';
-    const destination = /^(\/adminvis\/match\/[\w-]+|\/scorer\/\d+)$/.test(target) ? target : null;
+    const uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
+    const destination = new RegExp(`^(/adminvis/match/${uuid}|/scorer/${uuid})$`).test(target) ? target : null;
     const section = destination || ['/adminvis', '/adminscorer', '/scorer-offline'].includes(target) ? (target.startsWith('/adminvis') ? 'vis' : 'scorer') :
         params.get('scorer-offline') === '1' ? 'scorer' : params.get('vis-sync') === '1' ? 'vis' : null;
     return { section, destination };
@@ -19,9 +21,13 @@ export function sectionHome(section, offline) {
 }
 
 export function roleHome(user, offline = false) {
-    if (user.role === 'admin') return '/admin';
-    if (user.role === 'statistician') return '/adminvis';
-    if (['score', 'scorer', 'referee'].includes(user.role)) return sectionHome('scorer', offline);
+    const role=normalizeAccountRole(user.role);
+    if (role === 'super_admin') return '/admin';
+    if (role==='super_admin_scorer') return '/scorer-admin';
+    if (role==='super_admin_vims') return '/vims-admin';
+    if (role==='organizer') return '/access-center';
+    if (role === 'vims_operator') return '/adminvis';
+    if (['scorer', 'referee'].includes(role)) return sectionHome('scorer', offline);
     return user.team_id ? '/team-dashboard' : '/create-team';
 }
 

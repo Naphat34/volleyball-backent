@@ -15,7 +15,7 @@ export default function VisMatchSettings({ match, teams, onClose, onLineup, canE
     const displayNames = useDisplayNames();
     const ui = useUiTranslation();
     const vt = useVisTranslation();
-    const isAdmin = getStoredUser()?.role === 'admin';
+    const isAdmin = getStoredUser()?.role === 'super_admin';
     const custom = Boolean(match.is_custom_vis);
     const [matchSettings,setMatchSettings] = useState(null);
     const locked = Boolean(readOnly || (!custom && matchSettings && !matchSettings.canEdit) || match.offline_released || ['confirmed', 'cancelled'].includes(match.vis_lifecycle));

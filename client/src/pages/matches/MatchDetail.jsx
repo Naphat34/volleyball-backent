@@ -1,3 +1,4 @@
+import { openPublicWindow } from '../../utils/navigation/publicUrls.js';
 import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -9,7 +10,7 @@ import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../../uti
 import { getStoredUser } from "../../auth/authStorage";
 
 
-import Logo from '../../assets/img/Logo_Phatthalung.png';
+import VolleyBrand from '../../components/ui/VolleyBrand';
 import backgroundImage from '../../assets/img/bg.png';
 
 const MatchDetail = () => {
@@ -146,13 +147,7 @@ const MatchDetail = () => {
                 <div className="flex justify-between h-16 items-center">
                   {/* Logo Section */}
                   <div className="flex items-center gap-3">
-                    <div className="w-15 h-15 rounded-md bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden">
-                      <img src={Logo} alt={ui("Logo")} className="w-9 h-9 object-contain" />
-                    </div>
-                    <div className="leading-tight">
-                      <div className="text-base font-bold text-blue-950">{ui("Volleyball")}</div>
-                      <div className="text-xs font-medium text-slate-500">{ui("Scorer Console")}</div>
-                    </div>
+                    <VolleyBrand tone="light"/>
                   </div>
       
                   {/* Right Section: User Info + Logout */}
@@ -298,7 +293,7 @@ const MatchDetail = () => {
                   <Volleyball size={80} aria-hidden="true" />
                 </div>
                 <GuardedButton
-                  onClick={() => window.open(`/match/${matchId}/referee`, '_blank')}
+                  onClick={() => openPublicWindow(`/match/${matchId}/referee`, '_blank')}
                   className="bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-semibold py-2.5 px-6 rounded-md transition-colors text-sm"
                 >{ui("Open in a browser tab")}</GuardedButton>
               </div>

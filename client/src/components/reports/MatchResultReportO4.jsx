@@ -464,6 +464,7 @@ export default function MatchResultReportO4({ matchData, scoreData, rosterData, 
 
     return (
         <div data-theme-paper className="o4-paper w-[820px] min-h-[1000px] mx-auto bg-white border border-gray-300 p-8 shadow-md text-[11px] leading-snug font-sans text-black select-none box-border flex flex-col justify-between">
+            {liveState.resultCorrection&&<p className="border border-black p-1 text-[10px]">Result corrected retrospectively · {liveState.resultCorrection.signaturesRetained?'Original signatures retained · ':''}Revision {liveState.resultCorrection.reviewRevision}</p>}
             {/* Style override for printing O-4 */}
             <style>{ui(`
                 @media print {

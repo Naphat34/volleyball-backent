@@ -3,6 +3,7 @@ import useUiTranslation from '../../hooks/useUiTranslation';
 import { Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import '../../pages/auth/Login.css';
+import VolleyBrand from '../ui/VolleyBrand';
 
 export default function LoginLayout({ language, setLanguage, t, formError, recoveryPath, submitting,
     handleChange, handleSubmit, offlineForm }) {
@@ -12,7 +13,7 @@ export default function LoginLayout({ language, setLanguage, t, formError, recov
         <main className="login-main">
             <section className="login-card" aria-labelledby="login-title">
                 <header className="login-card-header">
-                    <h1 id="login-title">{ui("VIMS")}</h1>
+                    <h1 id="login-title"><VolleyBrand/></h1>
                     <span className="login-status"><span aria-hidden="true" />{ui("Online Login")}</span>
                 </header>
                 <div className="login-card-body">
@@ -23,7 +24,7 @@ export default function LoginLayout({ language, setLanguage, t, formError, recov
                         <div><label htmlFor="auth-password">{ui("Password")}</label><input id="auth-password" name="password" autoComplete="current-password" type="password" required onChange={handleChange} disabled={submitting} /></div>
                         <GuardedButton className="login-submit" type="submit" disabled={submitting}>{submitting ? th ? ui('กำลังเข้าสู่ระบบ…') : ui('Signing in…') : th ? ui('เข้าสู่ระบบ') : ui('Sign in')}</GuardedButton>
                     </GuardedForm>
-                    <footer className="login-footer">{ui("VIMS · Volley Manager builder 20261103")}</footer>
+                    <footer className="login-footer">VOLLEY</footer>
                 </div>
             </section>
         </main>

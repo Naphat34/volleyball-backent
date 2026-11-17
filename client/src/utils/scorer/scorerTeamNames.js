@@ -1,6 +1,15 @@
 import { normalizeLanguage } from '../i18n/language.js';
 const text = value => typeof value === 'string' ? value.trim() : '';
 
+export function getScorerTeamOptions(matches, language = 'THA') {
+    const options = new Map();
+    for (const match of matches) for (const side of ['home','away']) {
+        const value = match[`${side}_team`];
+        if (text(value)) options.set(value, { value, label: getScorerTeamName(match,side,language) });
+    }
+    return [...options.values()].sort((a,b) => a.label.localeCompare(b.label,normalizeLanguage(language) === 'ENG' ? 'en' : 'th'));
+}
+
 /** Select registered team names for display without changing canonical match data. */
 export function getScorerTeamName(match, side, language = 'THA') {
     const key = side === 'away' ? 'teamAway' : 'teamHome';

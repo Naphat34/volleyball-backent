@@ -57,7 +57,7 @@ exports.requireApprovedUser = async (req, res, next) => {
     if (!req.user?.id) return res.status(401).json({ error: 'Access Denied: No Token Provided' });
 
     const result = await db.query(
-      'SELECT status, role, team_id FROM users WHERE id = ?',
+      'SELECT status, role, team_id, authorization_version FROM users WHERE id = ?',
       [req.user.id]
     );
     const user = result.rows[0];
@@ -65,9 +65,14 @@ exports.requireApprovedUser = async (req, res, next) => {
     if (!ACTIVE_STATUSES.has(String(user.status || '').trim().toLowerCase())) {
       return res.status(403).json({ error: 'Account is not active' });
     }
+    if (user.authorization_version != null && Number(req.user.authorization_version)!==Number(user.authorization_version)) {
+      return res.status(403).json({ error: 'Permissions changed; sign in again' });
+    }
 
-    req.user.role = user.role;
+    req.user.role = normalizeRole(user.role);
     req.user.team_id = user.team_id;
+    req.user.authorization_version = user.authorization_version;
+    req.user = await require('../utils/accessScope').loadCapabilities(db,req.user);
     next();
   } catch (err) {
     console.error('Approved user check failed:', err);
@@ -132,7 +137,13 @@ exports.canAccessOwnMatchTeam = ({ allowScorer = true, teamParam = 'teamId', mat
 exports.isScorerOrAdmin = exports.hasAnyRole(['admin', 'score', 'scorer']);
 exports.canManageCompetitions = exports.hasPermission('competition.manage');
 exports.canManageTeams = exports.hasPermission('team.manage');
+exports.canReadTeams = (req,res,next) => ['team.read','team.manage'].some(p=>roleHasPermission(req.user?.role,p))?next():res.status(403).json({error:'Insufficient permissions'});
 exports.canManageMatches = exports.hasPermission('match.manage');
 exports.canScoreMatches = exports.hasPermission('match.score');
+exports.canRecordVims = exports.hasPermission('vims.record');
+exports.canReadRecording = (req, res, next) => (
+  ['match.view','score.monitor','vims.monitor'].some(p => roleHasPermission(req.user?.role, p))
+    ? next() : res.status(403).json({ error: 'Insufficient permissions' })
+);
 exports.canExportReports = exports.hasPermission('report.export');
 exports.canMonitorSockets = exports.hasPermission('socket.monitor');

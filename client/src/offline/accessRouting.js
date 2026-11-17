@@ -4,6 +4,8 @@ import { listLocal } from './offlineStore.js';
 import { scorerRecords } from './scorerOffline.js';
 import { deviceId } from './offlineAuth.js';
 import { scorerStorageSnapshot } from './scorerCache.js';
+import { loginReturnTo } from '../utils/navigation/loginReturnTo.js';
+import { internalUrl } from '../utils/navigation/publicUrls.js';
 
 export function accessDecision(session, { section = null, search = '' } = {}) {
     if (session.kind === 'locked') return { kind: 'locked', message: session.reason };
@@ -11,6 +13,8 @@ export function accessDecision(session, { section = null, search = '' } = {}) {
     const selected = section || intent.section;
     const offline = session.kind === 'offline', user = session.user;
     if (selected && !canEnterSection(user, selected, offline)) return { kind: 'denied', message: `บัญชี ${user.username || ''} ไม่มีสิทธิ์เข้า ${selected === 'vis' ? 'VIMS' : 'ScorerControl'} กรุณาเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์` };
+    const returnPath=!offline&&!section?loginReturnTo(search,user):null;
+    if(returnPath)return {kind:'ready',path:returnPath,offline:false};
     if (selected) return { kind: 'ready', path: sectionHome(selected, offline), section: selected, matchPath: intent.section === selected ? intent.destination : null, offline };
     return { kind: 'ready', path: roleHome(user, offline), offline };
 }
@@ -24,7 +28,7 @@ export async function resolveAccess(options = {}, session = getAccessSession(), 
     if (!decision.offline) return { ...decision, path: decision.matchPath };
     try {
         const records = await load(decision.section);
-        const id = decision.matchPath.split('/').pop();
+        const id = (await internalUrl(decision.matchPath)).split('/').pop();
         const record = records.find(row => String(row.id) === id);
         if (!record) return { ...decision, notice: `ไม่พบแมตช์ ${id} ในเครื่องนี้ กรุณาเลือกแมตช์อื่นหรือดาวน์โหลดขณะออนไลน์` };
         if (record.recoveryReadOnly) return { ...decision, notice: 'ไฟล์สำรองจากเครื่องอื่นเก็บไว้อ่านและสำรองเท่านั้น กรุณาซิงค์จากเครื่องหลักเดิม' };

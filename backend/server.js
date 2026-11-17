@@ -42,7 +42,7 @@ app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use('/uploads', express.static(uploadsDir));
 
-app.get('/api/debug/uploads', (req, res) => {
+app.get('/api/debug/uploads', require('./middleware/authMiddleware').verifyApprovedToken, require('./middleware/authMiddleware').isAdmin, (req, res) => {
   const fs = require('fs');
 
   try {
@@ -68,6 +68,11 @@ app.get('/api/debug/uploads', (req, res) => {
 // ==========================================
 // 2. Setup Routes SECOND
 // ==========================================
+app.post('/api/public-identifiers', require('./middleware/rateLimiter')({ windowMs: 60000, max: 300, keyPrefix: 'public-identifiers' }), require('./controllers/publicIdentifierController').resolve);
+app.use('/api', require('./middleware/publicUrl').publicUrl());
+app.use('/api', require('./middleware/accessBoundary').boundary);
+app.use('/api/competition-workflows', require('./routes/competitionWorkflowRoutes'));
+app.use('/api/access', require('./routes/accessRoutes'));
 app.use('/api', require('./middleware/manualScorerAccess'));
 app.use('/api/vis-custom', require('./routes/customVisRoutes'));
 app.use('/api/scorer', scorerRoutes);
@@ -130,40 +135,51 @@ function createSocketIo(server) {
     if (!token) return null;
 
     const decoded = jwt.verify(token, SECRET_KEY);
-    const result = await db.query('SELECT id, role, status, team_id FROM users WHERE id = ?', [decoded.id]);
+    const result = await db.query('SELECT id, role, status, team_id, authorization_version FROM users WHERE id = ?', [decoded.id]);
     const user = result.rows[0];
+    if (user) user.role=require('./config/permissions').normalizeRole(user.role);
     if (!user || String(user.status || '').trim().toLowerCase() !== 'active') return null;
-    return user;
+    if(Number(decoded.authorization_version)!==Number(user.authorization_version))return null;
+    return require('./utils/accessScope').loadCapabilities(db,user);
   };
 
   const canJoinMatchRoom = async ({ socket, matchId, role, side }) => {
     if (/^custom-[a-f0-9-]{36}$/i.test(String(matchId)) && role === 'viewer') {
       try {
         const user = await getSocketUser(socket);
-        if (!user || !roleHasPermission(user.role, 'match.score')) return false;
-        const result = await db.query('SELECT owner_id FROM custom_vis_matches WHERE id = ?', [matchId]);
-        return Boolean(result.rows[0] && (user.role === 'admin' || String(result.rows[0].owner_id) === String(user.id)));
+        if (!user || !roleHasPermission(user.role, 'vims.record')) return false;
+        const result = await db.query('SELECT owner_id,competition_id FROM custom_vis_matches WHERE id = ?', [matchId]);
+        if(!result.rows[0]||String(result.rows[0].owner_id)!==String(user.id))return false;
+        if(result.rows[0].competition_id)await require('./utils/accessScope').assertCompetition(db,user,result.rows[0].competition_id);
+        return true;
       } catch { return false; }
     }
     if (!matchId || !/^\d+$/.test(String(matchId))) return false;
     if (!['viewer', 'referee', 'staff', 'scorer'].includes(String(role || 'viewer'))) return false;
-    const manual = (await db.query('SELECT manual_owner_id, manual_published, manual_lifecycle, manual_vis_shared, status FROM matches WHERE id=?', [matchId])).rows[0];
+    const manual = (await db.query('SELECT competition_id, manual_owner_id, manual_published, manual_lifecycle, manual_vis_shared, status FROM matches WHERE id=?', [matchId])).rows[0];
     if (manual?.manual_owner_id) {
       let user;
-      try { user = socket.user || await getSocketUser(socket); } catch { user = null; }
-      const owner = user && (user.role === 'admin' || String(user.id) === String(manual.manual_owner_id)) && roleHasPermission(user.role, 'match.score');
+      try { user = await getSocketUser(socket); } catch { user = null; }
+      const owner = user && (user.role === 'super_admin' || String(user.id) === String(manual.manual_owner_id)) && roleHasPermission(user.role, 'match.score');
       const statisticsReader = ['viewer', 'scorer'].includes(role) && require('./utils/manualVisAccess').canReadStatistics(user, manual);
+      if(statisticsReader&&manual.competition_id){
+        try{await require('./utils/accessScope').assertCompetition(db,user,manual.competition_id);}catch{return false;}
+      }
       if (!owner && !statisticsReader && !(role === 'viewer' && manual.manual_published && manual.manual_lifecycle !== 'draft')) return false;
       if (user) socket.user = user;
     }
     if (role === 'viewer' || role === 'referee') return true;
 
-    const user = socket.user || await getSocketUser(socket);
+    const user = await getSocketUser(socket);
     if (!user) return false;
     socket.user = user;
 
-    if (role === 'scorer') return roleHasPermission(user.role, 'match.score');
-    if (role !== 'staff' || !user.team_id || !['home', 'away'].includes(side)) return false;
+    if (role === 'scorer') {
+      if (!roleHasPermission(user.role,'score.record')) return false;
+      try { await require('./utils/accessScope').assertMatch(db,user,'match',matchId,'score.record',{draftOwner:true}); return true; }
+      catch { return false; }
+    }
+    if (role !== 'staff' || !roleHasPermission(user.role,'match.request') || !user.team_id || !['home', 'away'].includes(side)) return false;
 
     const matchResult = await db.query('SELECT home_team_id, away_team_id FROM matches WHERE id = ?', [matchId]);
     const match = matchResult.rows[0];
@@ -172,7 +188,36 @@ function createSocketIo(server) {
     return String(expectedTeamId) === String(user.team_id);
   };
 
+  const baseTo=io.to.bind(io);
+  io.to=room=>{
+    const target=baseTo(room),emit=target.emit;
+    target.emit=function(event,...args){
+      if(/^match_.*:(score|operations)$/.test(String(room))){
+        for(const socketId of io.sockets.adapter.rooms.get(room)||[]){
+          const socket=io.sockets.sockets.get(socketId);
+          if(socket?.lastJoin)void canJoinMatchRoom({socket,...socket.lastJoin}).then(allowed=>{
+            if(allowed)socket.emit(event,...args);else socket.leave(room);
+          }).catch(()=>socket.leave(room));
+        }
+        return true;
+      }
+      return emit.call(this,event,...(/^match_[^:]+$/.test(String(room))?args.map(require('./middleware/accessBoundary').publicProjection):args));
+    };
+    return target;
+  };
   io.on('connection', (socket) => {
+    let checking=false;
+    const revalidate=setInterval(async()=>{
+      if(checking||!socket.lastJoin)return;checking=true;
+      try {
+        if(!await canJoinMatchRoom({socket,...socket.lastJoin})){
+          for(const room of [...socket.rooms])if(room.startsWith('match_'))socket.leave(room);
+          socket.emit('join_error',{error:'Access was revoked; sign in again'});socket.disconnect(true);
+        }
+      }catch {socket.disconnect(true);}finally{checking=false;}
+    },5000);
+    revalidate.unref();
+    socket.once('disconnect',()=>clearInterval(revalidate));
     socketMonitor.onConnect(socket);
     console.log(`🔌 Socket connected: ${socket.id}`);
 
@@ -182,11 +227,15 @@ function createSocketIo(server) {
         socket.emit('join_error', { error: 'Not authorized to join this match room' });
         return;
       }
+      for (const room of [...socket.rooms]) if (room.startsWith('match_')) socket.leave(room);
       socket.join(`match_${matchId}`);
+      if(role==='scorer') socket.join(`match_${matchId}:score`);
+      if(['scorer','staff'].includes(role))socket.join(`match_${matchId}:operations`);
       socket.matchId = matchId;
       socket.role = role;
       socket.side = side;
       socketMonitor.onJoin(socket, matchId, role, side);
+      socket.lastJoin={matchId,role,side};
       console.log(`👤 Socket ${socket.id} joined room match_${matchId} as ${role} (${side || 'N/A'})`);
 
       updateAndEmitStatus(io, matchId);
@@ -226,4 +275,5 @@ function startServer(port) {
   });
 }
 
-startServer(Number(process.env.PORT || 3000));
+if(require.main===module)startServer(Number(process.env.PORT || 3000));
+module.exports={app,createSocketIo,startServer};

@@ -178,7 +178,7 @@ export default function PublicMatches() {
                                                     <MapPin size={14}/> {(m.stadium_name) || (language === 'THA' ? ui('สนามกีฬากลาง') : ui('Central Stadium'))}
                                                 </span>
                                             </div>
-                                            <div>{m.round_name}</div>
+                                            <div>#{m.match_number} · {m.round_name}</div>
                                         </div>
 
                                         {/* Card Body: Teams & Score */}
@@ -200,12 +200,12 @@ export default function PublicMatches() {
                                                                 <span className="text-gray-300 text-xl">:</span>
                                                                 <span className={m.team_b_score > m.team_a_score ? "text-blue-600" : "text-gray-400"}>{m.team_b_score}</span>
                                                             </div>
-                                                            <div className="mt-2">{getStatusBadge(m.status)}</div>
+                                                            <div className="mt-2">{getStatusBadge(m.status)}{m.result_type==='forfeit'&&<span className="ml-2 rounded border border-amber-300 px-2 py-1 text-xs font-semibold">Forfeit</span>}</div>
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col items-center">
                                                             <span className="text-2xl font-semibold text-gray-300">{ui("VS")}</span>
-                                                            <div className="mt-2">{getStatusBadge(m.status)}</div>
+                                                            <div className="mt-2">{m.workflow_invalidated ? <span className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">{language==='THA'?'รอผู้จัดยืนยันผังใหม่':'Awaiting bracket reconfirmation'}</span> : m.awaiting_teams ? <span className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">{language==='THA'?'รอทีม / รอผลการแข่งขัน':'Awaiting teams / results'}</span> : getStatusBadge(m.status)}</div>
                                                         </div>
                                                     )}
                                                 </div>

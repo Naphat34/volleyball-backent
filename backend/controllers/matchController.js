@@ -1,3 +1,4 @@
+const {attachScheduleSources} = require('../utils/workflowSchedule');
 const { assertAdminRecordingPolicy } = require('../utils/adminRecordingPolicy');
 const { sqlDialect } = require('../utils/sqlDialect');
 const { normalizeMatchSchedule } = require('../utils/matchSchedule');
@@ -215,7 +216,7 @@ module.exports = {
             const result = await db.query(sqlDialect(`
                 SELECT
                     m.id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
-                    m.start_time as raw_start_time, m.location, m.status, m.vis_state, m.live_state,
+                    m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status, m.vis_state, m.live_state,
                     m.match_number, m.pool_name, m.gender,
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
                     COALESCE(ms.away_set_score, m.away_set_score) AS away_set_score,
@@ -233,6 +234,9 @@ module.exports = {
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
                 LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN competition_workflow_matches wm ON wm.match_id=m.id
+                LEFT JOIN stadiums venue ON venue.id = COALESCE(m.stadium_id, c.stadium_id)
+                    AND (NULLIF(TRIM(m.location), '') IS NULL OR TRIM(m.location) IN (venue.name, venue.name_th, venue.name_en))
                 LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
                 LEFT JOIN (
                     SELECT
@@ -254,7 +258,7 @@ module.exports = {
             `, `
                 SELECT
                     m.id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
-                    m.start_time as raw_start_time, m.location, m.status, m.vis_state, m.live_state,
+                    m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status, m.vis_state, m.live_state,
                     m.match_number, m.pool_name, m.gender,
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
                     COALESCE(ms.away_set_score, m.away_set_score) AS away_set_score,
@@ -272,6 +276,9 @@ module.exports = {
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
                 LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN competition_workflow_matches wm ON wm.match_id=m.id
+                LEFT JOIN stadiums venue ON venue.id = COALESCE(m.stadium_id, c.stadium_id)
+                    AND (NULLIF(TRIM(m.location), '') IS NULL OR TRIM(m.location) IN (venue.name, venue.name_th, venue.name_en))
                 LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
                 LEFT JOIN (
                     SELECT
@@ -293,7 +300,7 @@ module.exports = {
             `));
 
             const normalizedRows = result.rows.map(row => ({ ...normalizeMatchSchedule(row), status: row.status ? row.status.toLowerCase() : row.status }));
-            res.json(await attachDashboardSummaries(db, normalizedRows));
+            res.json(await attachScheduleSources(db, await attachDashboardSummaries(db, normalizedRows)));
         } catch (err) {
             console.error("Get All Matches Error:", err);
             res.status(500).json({ error: err.message });
@@ -309,7 +316,7 @@ module.exports = {
             const result = await db.query(sqlDialect(`
                 SELECT
                     m.id, m.match_setup, m.competition_id, m.round_name,
-                    m.start_time as raw_start_time, m.location, m.status,
+                    m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
                     m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
@@ -327,6 +334,9 @@ module.exports = {
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
                 LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN competition_workflow_matches wm ON wm.match_id=m.id
+                LEFT JOIN stadiums venue ON venue.id = COALESCE(m.stadium_id, c.stadium_id)
+                    AND (NULLIF(TRIM(m.location), '') IS NULL OR TRIM(m.location) IN (venue.name, venue.name_th, venue.name_en))
                 LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
                 LEFT JOIN (
                     SELECT
@@ -351,7 +361,7 @@ module.exports = {
             `, `
                 SELECT
                     m.id, m.match_setup, m.competition_id, m.round_name,
-                    m.start_time as raw_start_time, m.location, m.status,
+                    m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
                     m.city, m.category, m.age_group_id, ag.name as age_group_name, m.match_date, COALESCE(c.max_sets, m.max_sets, 5) as max_sets,
@@ -369,6 +379,9 @@ module.exports = {
                 LEFT JOIN teams t1 ON m.home_team_id = t1.id
                 LEFT JOIN teams t2 ON m.away_team_id = t2.id
                 LEFT JOIN competitions c ON m.competition_id = c.id
+                LEFT JOIN competition_workflow_matches wm ON wm.match_id=m.id
+                LEFT JOIN stadiums venue ON venue.id = COALESCE(m.stadium_id, c.stadium_id)
+                    AND (NULLIF(TRIM(m.location), '') IS NULL OR TRIM(m.location) IN (venue.name, venue.name_th, venue.name_en))
                 LEFT JOIN age_groups ag ON ag.id = COALESCE(m.age_group_id, c.age_group_id)
                 LEFT JOIN (
                     SELECT
@@ -433,7 +446,7 @@ module.exports = {
                     status: row.status ? row.status.toLowerCase() : row.status
                 };
             });
-            res.json(normalizedRows.map(row => applyMatchSetup(row)));
+            res.json(await attachScheduleSources(db, normalizedRows.map(row => applyMatchSetup(row))));
         } catch (err) {
             console.error("Get Matches Error:", err);
             res.status(500).json({ error: err.message });
@@ -452,6 +465,8 @@ module.exports = {
         }
 
         try {
+            const workflow=await require('../utils/competitionWorkflowStore').read(db,req.body.competition_id);
+            if(workflow&&workflow.state.status!=='draft')return res.status(409).json({error:'รายการนี้จัดคู่ผ่าน workflow แล้ว กรุณาใช้หน้ารอบและสาย'});
             const fields = [
                 'home_team_id', 'away_team_id', 'start_time', 'location', 'status',
                 'home_set_score', 'away_set_score', 'competition_id', 'match_number',
@@ -514,7 +529,7 @@ module.exports = {
             res.json(result.rows[0]);
         } catch (err) {
             console.error("Create Match Error:", err);
-            res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : "Database Error: " + err.message });
+            res.status(err.status || err.statusCode || 500).json({ error: err.statusCode ? err.message : "Database Error: " + err.message });
         }
     },
 
@@ -525,6 +540,7 @@ module.exports = {
         const { id } = req.params;
 
         try {
+            await require('../utils/competitionWorkflowStore').assertMetadata(db,id,req.body);
             const beforeResult = await db.query('SELECT * FROM matches WHERE id = ?', [id]);
             if (beforeResult.rows.length === 0) {
                 return res.status(404).json({ error: "Match not found" });
@@ -547,6 +563,10 @@ module.exports = {
             ];
 
             assertAdminRecordingPolicy(req.user, req.body, beforeResult.rows[0]);
+            if(req.body.competition_id!==undefined&&String(req.body.competition_id)!==String(beforeResult.rows[0].competition_id)){
+                const reviewed=await db.query('SELECT id FROM match_reviews WHERE match_id=? LIMIT 1',[id]);
+                if(reviewed.rows.length)return res.status(409).json({error:'Competition cannot change after a review submission'});
+            }
             const updates = [];
             const params = [];
             let index = 1;
@@ -602,7 +622,7 @@ module.exports = {
             res.json({ message: "Match details updated" });
         } catch (err) {
             console.error("Update Match Error:", err);
-            res.status(err.statusCode || 500).json({ error: err.message });
+            res.status(err.status || err.statusCode || 500).json({ error: err.message });
         }
     },
 
@@ -612,6 +632,7 @@ module.exports = {
     async deleteMatch(req, res) {
         try {
             const { id } = req.params;
+            await require('../utils/competitionWorkflowStore').assertMetadata(db,id,{},true);
             const beforeResult = await db.query('SELECT * FROM matches WHERE id = ?', [id]);
             if (beforeResult.rows.length === 0) {
                 return res.status(404).json({ error: "Match not found" });
@@ -623,13 +644,14 @@ module.exports = {
             });
             res.json({ message: "Match deleted" });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         }
     },
 
     async generateFixtures(req, res) {
         const { competitionId } = req.params;
         try {
+            if(await require('../utils/competitionWorkflowStore').read(db,competitionId))return res.status(409).json({error:'รายการนี้ตั้งค่า workflow แล้ว กรุณาสร้างตารางจากหน้ารอบและสาย'});
             const check = await db.query("SELECT COUNT(*) as count FROM matches WHERE competition_id = ?", [competitionId]);
             if (parseInt(check.rows[0].count) > 0) return res.status(400).json({ error: "Matches already generated" });
 
@@ -763,7 +785,7 @@ module.exports = {
         } catch (err) {
             await client.query('ROLLBACK'); // ย้อนกลับถ้ามี Error
             console.error("Update Match Result Error:", err);
-            res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : "Database error" });
+            res.status(err.status || err.statusCode || 500).json({ error: err.statusCode ? err.message : "Database error" });
         } finally {
             client.release();
         }
@@ -930,7 +952,7 @@ module.exports = {
             // ส่งเหตุการณ์ผ่าน Socket.io ไปยังโต๊ะบันทึกคะแนนในแบบเรียลไทม์
             const io = req.app.get('io');
             if (io) {
-                io.to(`match_${matchId}`).emit('new_staff_request', requestData);
+                io.to(`match_${matchId}:score`).emit('new_staff_request', requestData);
             }
 
             res.json({ success: true, requestId });
@@ -973,7 +995,7 @@ module.exports = {
                     const approved = await require('../utils/approveLineupRequest').approveLineupRequest(db,req);
                     const io = req.app.get('io');
                     if (io) {
-                        io.to(`match_${matchId}`).emit('request_processed',{id:Number(requestId),status:'APPROVED'});
+                        io.to(`match_${matchId}:operations`).emit('request_processed',{id:Number(requestId),status:'APPROVED'});
                         io.to(`match_${matchId}`).emit('match_updated',{id:matchId});
                     }
                     return res.json(approved);

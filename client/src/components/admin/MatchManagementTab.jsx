@@ -1,3 +1,4 @@
+import { openPublicWindow } from '../../utils/navigation/publicUrls.js';
 import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import { useOptionalLanguage } from '../../context/LanguageContext';
 import { localizedReference } from '../../utils/i18n/competitionNames';
@@ -477,7 +478,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
         };
 
         delete payload.max_sets;
-        if (getStoredUser()?.role === 'admin') {
+        if (getStoredUser()?.role === 'super_admin') {
             for (const field of ['home_set_score', 'away_set_score', 'winner_team_id', 'set_scores', 'home_lineup', 'away_lineup', 'home_libero', 'away_libero', 'team_a_score', 'team_b_score', 'live_state', 'match_state', 'first_serve_team_id', 'left_side_team_id']) delete payload[field];
         }
 
@@ -798,6 +799,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                     <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 uppercase">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>{ui("Completed")}</div>
                                                 )}
+                                                {match.result_type==='forfeit'&&<span className="rounded border border-amber-300 px-2 py-1 text-xs font-semibold">Forfeit</span>}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -805,13 +807,13 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                 <GuardedButton onClick={() => handleEditMatch(match)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Edit")}>
                                                     <Edit2 size={16} />
                                                 </GuardedButton>
-                                                {getStoredUser()?.role !== 'admin' && <GuardedButton onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title={ui("Score")}>
+                                                {getStoredUser()?.role !== 'super_admin' && <GuardedButton onClick={() => openScoreModal(match)} className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-all" title={ui("Score")}>
                                                     <Trophy size={16} />
                                                 </GuardedButton>}
-                                                <GuardedButton onClick={() => window.open('/roster-verification/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Print Roster Verification")}>
+                                                <GuardedButton onClick={() => openPublicWindow('/roster-verification/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("Print Roster Verification")}>
                                                     <Users size={16} />
                                                 </GuardedButton>
-                                                <GuardedButton onClick={() => window.open('/scoresheet/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("View & Print Scoresheet")}>
+                                                <GuardedButton onClick={() => openPublicWindow('/scoresheet/' + match.id, '_blank')} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" title={ui("View & Print Scoresheet")}>
                                                     <Printer size={16} />
                                                 </GuardedButton>
                                                 <GuardedButton onClick={() => handleDeleteMatch(match.id)} className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all" title={ui("Delete")}>

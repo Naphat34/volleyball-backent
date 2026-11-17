@@ -15,7 +15,7 @@ export default function Referees({ darkMode = false }) {
     // Modal State
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
-    const [formData, setFormData] = useState({ firstname: '', lastname: '', country: '', code: '' });
+    const [formData, setFormData] = useState({ firstname: '', lastname: '', firstname_en: '', lastname_en: '', country: '', code: '' });
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -78,8 +78,8 @@ export default function Referees({ darkMode = false }) {
     const openModal = (item = null) => {
         setEditItem(item);
         setFormData(item
-            ? { firstname: item.firstname, lastname: item.lastname, country: item.country, code: item.code }
-            : { firstname: '', lastname: '', country: '', code: '' }
+            ? { firstname: item.firstname, lastname: item.lastname, firstname_en: item.firstname_en || '', lastname_en: item.lastname_en || '', country: item.country, code: item.code }
+            : { firstname: '', lastname: '', firstname_en: '', lastname_en: '', country: '', code: '' }
         );
         setShowModal(true);
     };
@@ -155,7 +155,9 @@ export default function Referees({ darkMode = false }) {
                                                 <div className={`w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'official-icon-box'}`}>
                                                     {displayNames.personFirstName(item).charAt(0)}
                                                 </div>
-                                                <span className="font-medium">{displayNames.personFirstName(item)} {displayNames.personLastName(item)}</span>
+                                                <div><span className="font-medium">{item.firstname} {item.lastname}</span>
+                                                    {(item.firstname_en || item.lastname_en) && <div lang="en" className="text-sm text-gray-500">{[item.firstname_en, item.lastname_en].filter(Boolean).join(' ')}</div>}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -220,6 +222,14 @@ export default function Referees({ darkMode = false }) {
                                         placeholder={ui("Doe")}
                                     />
                                 </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                {[['firstname_en', 'ชื่อภาษาอังกฤษ / First name'], ['lastname_en', 'นามสกุลภาษาอังกฤษ / Last name']].map(([field, label]) => <div key={field}>
+                                    <label htmlFor={field} className="block text-xs font-bold mb-1 text-gray-500">{label}</label>
+                                    <input id={field} lang="en" maxLength={100} value={formData[field]}
+                                        onChange={e => setFormData({ ...formData, [field]: e.target.value })}
+                                        className="w-full p-2.5 rounded-lg border text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50 border-gray-300 text-gray-900" />
+                                </div>)}
                             </div>
                             <div>
                                 <label className="block text-xs font-bold uppercase mb-1 text-gray-500">{ui("Country / Association")}</label>

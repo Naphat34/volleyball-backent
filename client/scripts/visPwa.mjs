@@ -5,7 +5,7 @@ export function visPwa() {
         enforce: 'post',
         generateBundle: { order: 'post', handler(_options, bundle) {
             const fonts = ['Sarabun-ExtraLight', 'Sarabun-Light', 'Sarabun-Regular', 'Sarabun-Medium', 'Sarabun-SemiBold', 'Sarabun-Bold', 'Sarabun-ExtraBold'].map(name => `/fonts/${name}.ttf`);
-            const files = ['/index.html', '/manifest.webmanifest', '/vis-icon.svg', ...fonts, ...Object.values(bundle).map(file => file.fileName).filter(path => !path.endsWith('.map')).map(path => `/${path}`)];
+            const files = ['/index.html', '/manifest.webmanifest', '/vis-icon.svg', '/brand/volley-v-light.png', '/brand/volley-v-dark.png', ...fonts, ...Object.values(bundle).map(file => file.fileName).filter(path => !path.endsWith('.map')).map(path => `/${path}`)];
             const cache = `vis-shell-${createHash('sha256').update(JSON.stringify(bundle)).digest('hex').slice(0, 12)}`;
             this.emitFile({ type: 'asset', fileName: 'sw.js', source: `
 const CACHE = ${JSON.stringify(cache)};

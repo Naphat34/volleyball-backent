@@ -44,10 +44,11 @@ test('end-to-end lifecycle finishes two sets, requires review and locks confirme
     }
     assert.equal(view(g.payload).state.phase, 'MATCH_FINISHED');
     assert.equal(g.payload.lifecycle, 'review');
-    g.send({ type: 'CONFIRM' });
-    assert.equal(g.payload.lifecycle, 'confirmed');
-    assert.equal(view(g.payload).match.status, 'completed');
-    assert.throws(() => g.send({ type: 'UNDO' }), /ล็อก/);
+    assert.throws(() => g.send({ type: 'CONFIRM' }),{status:403});
+    assert.equal(g.payload.lifecycle, 'review');
+    const confirmed=structuredClone(g.payload);confirmed.lifecycle='confirmed';
+    assert.equal(view(confirmed).match.status, 'completed');
+    assert.throws(() => commandPayload(confirmed,{revision:confirmed.revision,operationId:'locked-operation-0001',command:{type:'UNDO'}}),/ล็อก/);
 });
 test('timeouts and substitutions enforce limits, ownership of players and return pairs', () => {
     const g = game(); g.send(setup);
