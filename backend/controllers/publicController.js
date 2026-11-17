@@ -1,53 +1,31 @@
 const {attachScheduleSources} = require('../utils/workflowSchedule');
 const { sqlDialect } = require('../utils/sqlDialect');
 const db = require('../config/db');
-const { refreshTeamEntries, refreshCompetitionEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
+const { restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { visStatisticsSource } = require('../utils/visStatistics');
-
-const hasTableColumn = async (tableName, columnName) => {
-    const result = await db.query(sqlDialect(`
-        SELECT COUNT(*) AS count
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = ?
-          AND COLUMN_NAME = ?
-    `, `
-        SELECT COUNT(*) AS count
-        FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = current_schema()
-          AND TABLE_NAME = ?
-          AND COLUMN_NAME = ?
-    `), [tableName, columnName]);
-    return Number(result.rows?.[0]?.count || 0) > 0;
-};
-
-const hasTable = async (tableName) => {
-    const result = await db.query(sqlDialect(`
-        SELECT COUNT(*) AS count
-        FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = ?
-    `, `
-        SELECT COUNT(*) AS count
-        FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = current_schema()
-          AND TABLE_NAME = ?
-    `), [tableName]);
-    return Number(result.rows?.[0]?.count || 0) > 0;
-};
 
 module.exports = {
 
     // 1. ดึงรายการแข่งขันทั้งหมด (สำหรับ Dropdown)
     async getCompetitions(req, res) {
         try {
-            const hasMatchDate = await hasTableColumn('competitions', 'match_date');
-            const hasEndDate = await hasTableColumn('competitions', 'end_date');
-            const hasMaxSets = await hasTableColumn('competitions', 'max_sets');
-            const hasAgeGroupId = await hasTableColumn('competitions', 'age_group_id');
-            const hasLogoUrl = await hasTableColumn('competitions', 'logo_url');
-            const hasScoringConfig = await hasTableColumn('competitions', 'scoring_config');
-            const canJoinAgeGroups = hasAgeGroupId && await hasTable('age_groups');
+            // Inspect optional columns in one round trip; do not cache across migrations.
+            const metadata = await db.query(sqlDialect(`
+                SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('competitions','age_groups')
+            `, `
+                SELECT table_name, column_name FROM information_schema.columns
+                WHERE table_schema = current_schema() AND table_name IN ('competitions','age_groups')
+            `));
+            const columns = new Set(metadata.rows.filter(row => row.table_name === 'competitions').map(row => row.column_name));
+            const hasMatchDate = columns.has('match_date');
+            const hasEndDate = columns.has('end_date');
+            const hasMaxSets = columns.has('max_sets');
+            const hasAgeGroupId = columns.has('age_group_id');
+            const hasLogoUrl = columns.has('logo_url');
+            const hasScoringConfig = columns.has('scoring_config');
+            const canJoinAgeGroups = hasAgeGroupId && metadata.rows.some(row => row.table_name === 'age_groups');
             const dateSelect = hasMatchDate ? 'c.match_date' : 'NULL as match_date';
             const endDateSelect = hasEndDate ? 'c.end_date' : 'NULL as end_date';
             const maxSetsSelect = hasMaxSets ? 'c.max_sets' : '3 as max_sets';
@@ -75,7 +53,8 @@ module.exports = {
     async getCompetitionTeams(req, res) {
         try {
             const { competitionId } = req.params;
-            await refreshCompetitionEntries(db, competitionId);
+            // Registration/master-data writes persist rosters. Public reads must not
+            // acquire team locks or synchronize every team for each visitor.
             const [rows] = await db.query(`
                 SELECT
                        te.id as team_entry_id,
@@ -106,7 +85,6 @@ module.exports = {
             let rows = [];
 
             if (competitionId) {
-                await refreshTeamEntries(db, teamId);
                 const [entryRows] = await db.query(`
                     SELECT p.id${sqlDialect('', ', p.public_id')}, tep.athlete_snapshot,
                         p.first_name,

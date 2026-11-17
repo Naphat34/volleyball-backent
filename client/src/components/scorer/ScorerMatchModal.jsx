@@ -84,7 +84,8 @@ export default function ScorerMatchModal({ source, canConfirm = false, onClose, 
         if (errors.length) { setTab(errors[0].tab); return; }
         const response=await api.updateMatchSettings(matchId, { revision: snapshot.settings.revision, fingerprint: snapshot.settings.fingerprint, draft });
         if (!mounted.current) return;
-        await load();
+        // The parent refreshes through onConfirmed; closing needs no new snapshot.
+        if (!closeAfter) await load();
         setNotice(response.data?.createdMaster?.length?t('สร้างข้อมูลหลักและเพิ่มเข้าแมตช์เรียบร้อยแล้ว','Master data created and added to this match.'):t('บันทึกการตั้งค่าแมตซ์แล้ว', 'Match settings saved.'));
         onConfirmed?.(matchId);
         if (closeAfter) onClose();
