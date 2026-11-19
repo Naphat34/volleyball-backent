@@ -1,3 +1,4 @@
+import useAccessTranslation from '../../hooks/useAccessTranslation';
 import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -13,6 +14,7 @@ import '../../pages/admin/AdminConsole.css';
 import './AdminWorkspace.css';
 
 export default function AdminWorkspaceShell({ user, sections, activeKey, onSelect, title, subtitle, headerActions, children }) {
+    const ui=useAccessTranslation();
     const workspace = workspaceFor(user?.role) || {label:'Organizer',accent:'system'};
     const { language, setLanguage } = useLanguage();
     const { theme, setTheme } = useVisTheme();
@@ -33,28 +35,28 @@ export default function AdminWorkspaceShell({ user, sections, activeKey, onSelec
     const logout = async () => {try {await api.logout();} finally {clearAuthSession();navigate('/login',{replace:true});}};
     const select = item => {setOpen(false);onSelect?.(item.key);};
     return <div className="admin-console aw-shell" data-admin-theme={theme} data-workspace={workspace.accent}>
-        <PublicAnchor className="aw-skip" href="#workspace-content">ข้ามไปเนื้อหา</PublicAnchor>
-        {open&&!desktop&&<button className="aw-scrim" aria-label="ปิดเมนู" onClick={()=>setOpen(false)}/>}
+        <PublicAnchor className="aw-skip" href="#workspace-content">{ui("ข้ามไปเนื้อหา")}</PublicAnchor>
+        {open&&!desktop&&<button className="aw-scrim" aria-label={ui("ปิดเมนู")} onClick={()=>setOpen(false)}/>}
         <aside id={sidebarId} className={`aw-sidebar${open?' is-open':''}`} inert={!desktop&&!open} aria-hidden={!desktop&&!open}>
             <Link className="aw-brand" to={workspace.home||'/admin'} aria-label="VOLLEY"><VolleyBrand tone="dark"/></Link>
-            <div className="aw-workspace-label"><ShieldCheck size={17}/><span>{workspace.label}</span><span className="aw-role-dot"/></div>
-            <nav aria-label={`เมนู ${workspace.label}`}>
+            <div className="aw-workspace-label"><ShieldCheck size={17}/><span>{ui(workspace.label)}</span><span className="aw-role-dot"/></div>
+            <nav aria-label={ui("เมนู {0}",[ui(workspace.label)])}>
                 {sections.map(section=><div className="aw-nav-section" key={section.label}><p>{section.label}</p>{section.items.map(item=>{
                     const content=<><span className="aw-nav-icon">{item.icon||<LayoutDashboard size={18}/>}</span><span>{item.label}</span>{item.badge>0&&<b>{item.badge}</b>}{item.href&&<ArrowUpRight size={14}/> }</>;
                     return item.href?<Link className="aw-nav-item" key={item.key} to={item.href} onClick={()=>setOpen(false)}>{content}</Link>:
                         <button className={`aw-nav-item${activeKey===item.key?' is-active':''}`} key={item.key} aria-current={activeKey===item.key?'page':undefined} onClick={()=>select(item)}>{content}</button>;
                 })}</div>)}
             </nav>
-            <div className="aw-sidebar-footer"><GuardedButton onClick={logout}><LogOut size={16}/>ออกจากระบบ</GuardedButton></div>
+            <div className="aw-sidebar-footer"><GuardedButton onClick={logout}><LogOut size={16}/>{ui("ออกจากระบบ")}</GuardedButton></div>
         </aside>
         <div className="aw-main">
             <header className="aw-topbar">
-                <button ref={menuRef} className="aw-menu-toggle" aria-label={open?'ปิดเมนู':'เปิดเมนู'} aria-expanded={open} aria-controls={sidebarId} onClick={()=>setOpen(!open)}>{open?<X size={20}/>:<Menu size={20}/>}</button>
-                <div className="aw-breadcrumb"><span>Workspace</span><span>/</span><strong>{workspace.label}</strong></div>
-                <div className="aw-top-actions"><span className={`aw-connection${online?'':' is-offline'}`} role="status"><i/>{online?'ออนไลน์':'ออฟไลน์'}</span>
-                    <select aria-label="ภาษา" value={language} onChange={e=>setLanguage(e.target.value)}><option value="THA">TH</option><option value="ENG">EN</option></select>
-                    <button aria-label={theme==='dark'?'ใช้ธีมสว่าง':'ใช้ธีมมืด'} onClick={()=>setTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
-                    <div className="aw-profile"><span>{String(user?.username||'V').slice(0,1).toUpperCase()}</span><div><strong>{user?.username}</strong><small>{workspace.label}</small></div></div>
+                <button ref={menuRef} className="aw-menu-toggle" aria-label={open?ui("ปิดเมนู"):ui("เปิดเมนู")} aria-expanded={open} aria-controls={sidebarId} onClick={()=>setOpen(!open)}>{open?<X size={20}/>:<Menu size={20}/>}</button>
+                <div className="aw-breadcrumb"><span>{ui('พื้นที่ทำงาน')}</span><span>/</span><strong>{ui(workspace.label)}</strong></div>
+                <div className="aw-top-actions"><span className={`aw-connection${online?'':' is-offline'}`} role="status"><i/>{online?ui("ออนไลน์"):ui("ออฟไลน์")}</span>
+                    <select aria-label={ui("ภาษา")} value={language} onChange={e=>setLanguage(e.target.value)}><option value="THA">TH</option><option value="ENG">EN</option></select>
+                    <button aria-label={theme==='dark'?ui("ใช้ธีมสว่าง"):ui("ใช้ธีมมืด")} onClick={()=>setTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
+                    <div className="aw-profile"><span>{String(user?.username||'V').slice(0,1).toUpperCase()}</span><div><strong>{user?.username}</strong><small>{ui(workspace.label)}</small></div></div>
                 </div>
             </header>
             <main id="workspace-content" className="aw-content dashboard-content"><div className="aw-page-heading"><div className="aw-heading-copy"><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>{headerActions&&<div className="aw-heading-actions">{headerActions}</div>}</div>{children}</main>

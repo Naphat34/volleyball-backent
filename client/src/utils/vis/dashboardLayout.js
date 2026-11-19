@@ -9,14 +9,20 @@ export function visCompetitionKey(name) {
     return 'name:' + visCompetitionName(name).toLocaleLowerCase();
 }
 
-export function groupVisMatches(rows, allMatches = rows) {
-    const keyOf = match => `${match.is_custom_vis ? 'custom' : 'official'}:${match.competition_id || match.competition_name || 'vis'}`;
+export function visMatchGender(match) {
+    const value=String(match.gender || match.competition_gender || '').trim().toLowerCase();
+    if(['male','men','boys','m','ชาย'].includes(value))return 'Male';
+    if(['female','women','girls','f','หญิง'].includes(value))return 'Female';
+    return value;
+}
+export function groupVisMatches(rows, allMatches = rows, {combineByName=false} = {}) {
+    const keyOf = match => `${match.is_custom_vis ? 'custom' : 'official'}:${combineByName&&match.competition_name?visCompetitionKey(match.competition_name):match.competition_id || match.competition_name || 'vis'}`;
     const counts = new Map();
     for (const match of allMatches) counts.set(keyOf(match), (counts.get(keyOf(match)) || 0) + 1);
     const groups = new Map();
     for (const match of rows) {
         const key = keyOf(match);
-        if (!groups.has(key)) groups.set(key, { key, title: match.competition_name || 'VIMS', total: counts.get(key), matches: [] });
+        if (!groups.has(key)) groups.set(key, { key, title: (combineByName?visCompetitionName(match.competition_name):match.competition_name) || 'VIMS', total: counts.get(key), matches: [] });
         groups.get(key).matches.push(match);
     }
     return [...groups.values()];

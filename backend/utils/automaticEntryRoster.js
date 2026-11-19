@@ -60,7 +60,7 @@ async function loadTeamRosterEntries(connection, teamId) {
         AND lm.status='${status}')`;
     const liveColumns = `${usedMatch('live')} AS has_live_match, ${usedMatch('completed')} AS has_completed_match,`;
 
-    const result = await connection.query(sqlDialect(`SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
+    const result = await connection.query(sqlDialect(`SELECT te.*, c.title AS competition_title, c.title_th AS competition_title_th, c.title_en AS competition_title_en, c.gender AS competition_gender,
         c.start_date,c.status AS competition_status,c.max_players,ag.name AS age_group_name,
         DATE_FORMAT(CURRENT_DATE,'%Y-%m-%d') AS today,
         ${liveColumns}
@@ -73,7 +73,7 @@ async function loadTeamRosterEntries(connection, teamId) {
                 OR EXISTS (SELECT 1 FROM match_lineups l WHERE l.match_id=m.id AND l.team_id=te.team_id))) AS has_history
         FROM team_entries te JOIN competitions c ON c.id=te.competition_id
         LEFT JOIN age_groups ag ON ag.id=COALESCE(te.age_group_id,c.age_group_id)
-        WHERE te.team_id=? ORDER BY te.id FOR UPDATE`, `SELECT te.*, c.title AS competition_title, c.gender AS competition_gender,
+        WHERE te.team_id=? ORDER BY te.id FOR UPDATE`, `SELECT te.*, c.title AS competition_title, c.title_th AS competition_title_th, c.title_en AS competition_title_en, c.gender AS competition_gender,
         c.start_date,c.status AS competition_status,c.max_players,ag.name AS age_group_name,
         to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today,
         ${liveColumns}
@@ -113,7 +113,8 @@ async function syncTeamEntries(connection, teamId) {
         }
     }
     const normalizeTitle = title => String(title || '').replace(/\s*\((Male|Female|Mixed|Mix|Men|Women)\)\s*$/i, '').trim().toLowerCase();
-    for (const entry of entries.filter(e => !e.roster_locked_at)) {
+    for(const entry of entries.filter(e=>e.roster_mode==='manual'&&!e.roster_locked_at))await require('./manualTeamRoster').syncManualEntry(connection,entry,players);
+    for (const entry of entries.filter(e => e.roster_mode!=='manual'&&!e.roster_locked_at)) {
         const siblings = entries.filter(e => normalizeTitle(e.competition_title) === normalizeTitle(entry.competition_title));
         const selected = players.filter(player => {
             if (eligibility(player, entry)) return false;
@@ -146,6 +147,7 @@ async function confirmEntryRoster(connection, teamId, entryId) {
     const entry = (await loadTeamRosterEntries(connection, teamId)).find(row => String(row.id) === String(entryId));
     const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
     if (!entry) fail('Team entry not found', 404);
+    if(entry.roster_mode==='manual')fail('Select and confirm the roster through the team data center',409);
     if (entry.roster_locked_at) return entry;
     fail('รายชื่อจะล็อกได้เมื่อแมตช์เป็น Live เท่านั้น / Roster locks only when a match is Live', 409);
 }

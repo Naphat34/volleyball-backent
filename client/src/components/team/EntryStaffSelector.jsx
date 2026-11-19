@@ -8,7 +8,7 @@ import useUiTranslation from '../../hooks/useUiTranslation';
 export default function EntryStaffSelector({ entryId, onSaved }) {
     const { language } = useLanguage(), names = useDisplayNames(), ui = useUiTranslation();
     const t = (th, en) => language === 'ENG' ? en : th;
-    const [staff, setStaff] = useState([]), [selected, setSelected] = useState([]);
+    const [staff, setStaff] = useState([]), [selected, setSelected] = useState([]), [manual, setManual] = useState(false);
     const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false);
     const [error, setError] = useState(''), [saved, setSaved] = useState(false), [retry, setRetry] = useState(0);
     const mounted = useRef(true);
@@ -18,7 +18,7 @@ export default function EntryStaffSelector({ entryId, onSaved }) {
         setLoading(true); setError('');
         api.getMyTeamEntryStaff(entryId).then(response => {
             if (!Array.isArray(response.data?.staff) || String(response.data.entry?.id) !== String(entryId)) throw Error('Invalid staff response');
-            if (!cancelled) { setStaff(response.data.staff); setSelected(response.data.staff.filter(person => Number(person.selected) === 1).map(person => Number(person.id))); }
+            if (!cancelled) { setManual(response.data.entry?.roster_mode==='manual'); setStaff(response.data.staff); setSelected(response.data.staff.filter(person => Number(person.selected) === 1).map(person => Number(person.id))); }
         }).catch(failure => { if (!cancelled) setError(failure.response?.data?.error || failure.message); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
@@ -32,6 +32,7 @@ export default function EntryStaffSelector({ entryId, onSaved }) {
         } catch (failure) { if (mounted.current) setError(failure.response?.data?.error || failure.message); }
         finally { if (mounted.current) setSaving(false); }
     };
+    if(manual)return <section className="rounded-lg border p-4"><p>{t('เลือกเจ้าหน้าที่ประจำรายการที่เมนูศูนย์ข้อมูลทีม → รายชื่อรายการ เพื่อยืนยันร่วมกับรายชื่อนักกีฬา','Assign team staff in Team data center → Competition rosters, then confirm them with the athletes.')}</p></section>;
     return <section className="rounded-lg border border-blue-200 p-4 dark:border-gray-600" aria-label={t('กำหนดเจ้าหน้าที่ประจำรายการ', 'Assign entry officials')}>
         <h4 className="font-semibold">{t('กำหนดเจ้าหน้าที่ประจำรายการ', 'Assign entry officials')}</h4>
         <p className="text-sm text-gray-500">{t('เลือกจากทะเบียนเจ้าหน้าที่ทีม แล้วบันทึกสำหรับประเภทแข่งขันที่เลือก', 'Select registered team staff and save them for the selected competition category.')}</p>

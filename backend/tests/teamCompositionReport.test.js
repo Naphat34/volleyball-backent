@@ -13,7 +13,7 @@ function harness(found = true) {
         return { rows: [] };
     };
     const connection = { query, release() {} };
-    const scope = { exports: {}, console: { error() {} }, require: name => name === '../config/db' ? { query, connect: async () => connection } : name === '../utils/auditLogger' ? { writeAuditLog: async () => {} } : name === '../utils/automaticEntryRoster' ? require('../utils/automaticEntryRoster') : require('../utils/teamCompositionStaff') };
+    const scope = { exports: {}, console: { error() {} }, require: name => name === '../config/db' ? { query, connect: async () => connection } : name === '../utils/auditLogger' ? { writeAuditLog: async () => {} } : name === '../utils/accessScope' ? require('../utils/accessScope') : name === '../middleware/accessBoundary' ? require('../middleware/accessBoundary') : name === '../utils/automaticEntryRoster' ? require('../utils/automaticEntryRoster') : require('../utils/teamCompositionStaff') };
     vm.runInNewContext(fs.readFileSync(require.resolve('../controllers/teamCompositionReportController'), 'utf8'), scope);
     const res = { code: 200, headers: {}, status(code) { this.code = code; return this; }, setHeader(key, value) { this.headers[key] = value; }, json(body) { this.body = body; return this; } };
     return { calls, controller: scope.exports, res };

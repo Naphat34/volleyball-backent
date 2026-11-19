@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
+    "test:team-data": "node --test tests/teamDataCenter.test.js tests/matchMasterData.test.js tests/automaticEntryRoster.test.js tests/teamRosterLock.postgres.test.js",
+    "migrate:team-data:check": "node scripts/migrateTeamDataCenter.js",
+    "migrate:team-data": "node scripts/migrateTeamDataCenter.js --apply",
+    "test:vims-review": "node --test tests/vimsReviewDetail.test.js tests/vimsReviewHttp.test.js tests/accessLanguage.test.js tests/accessControl.test.js tests/reviewCorrections.test.js",
     "test:competition-access-groups": "node --test tests/competitionAccessGroups.test.js",
     "test:access-control": "node --test tests/accessControl.test.js tests/accessHttp.test.js tests/adminMatchDetail.test.js tests/accessSocket.test.js tests/localAccessMigration.test.js tests/reviewCorrections.test.js tests/accessPath.test.js",
     "test:recording-isolation:local": "node --test tests/accessNative.test.js tests/recordingIsolation.native.test.js",

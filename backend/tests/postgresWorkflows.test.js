@@ -33,12 +33,17 @@ test('PostgreSQL workflows: identity, registration, integrity, custom VIS, manua
         });
         const competition=(await db.query("INSERT INTO competitions (title,title_th,title_en,sport,gender,age_group_id,start_date,end_date,status,max_players,max_sets) VALUES ('Migration Cup','รายการทดสอบ','Migration Cup','volleyball','Male',1,'2099-01-01','2099-01-02','open',14,3) RETURNING id")).insertId;
         await db.query("INSERT INTO players (team_id,number,first_name,last_name,gender,position,birth_date) VALUES (1,1,'นักกีฬา','ทดสอบ','Male','OH','2085-01-01')");
-        await t.test('registration generates roster snapshots and repeated registration creates no duplicates',async()=>{
+        await t.test('registration requires manual selection and repeated registration creates no duplicates',async()=>{
             const controller=require('../controllers/competitionsController');
             const user={id:2,role:'team_staff'};
             const response=await invoke(controller,'joinCompetition',{competition_id:competition},{},user);
             assert.equal(response.code,200,JSON.stringify(response.data));
             assert.equal((await db.query('SELECT * FROM team_entries WHERE team_id=1')).rows.length,1);
+            assert.equal((await db.query('SELECT * FROM team_entry_players')).rows.length,0);
+            const entry=(await db.query('SELECT * FROM team_entries WHERE team_id=1')).rows[0];
+            const player=(await db.query('SELECT * FROM players WHERE team_id=1')).rows[0];
+            const saved=await invoke(require('../controllers/teamDataController'),'saveEntry',{revision:entry.roster_revision,players:[{player_id:player.id,number:player.number,role:player.position}],staff_ids:[],confirm:false},{entryId:entry.id},user);
+            assert.equal(saved.code,200,JSON.stringify(saved.data));
             const roster=(await db.query('SELECT * FROM team_entry_players')).rows;
             assert.equal(roster.length,1);
             assert.equal(roster[0].athlete_snapshot.first_name,'นักกีฬา');

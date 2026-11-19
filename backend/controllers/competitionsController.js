@@ -603,6 +603,7 @@ module.exports = {
           te.registered_at,
           te.roster_locked_at,
           te.roster_sync_error,
+          te.roster_mode, te.roster_confirmed_at, te.roster_revision,
           (SELECT COUNT(*) FROM team_entry_players ep WHERE ep.team_entry_id=te.id) AS roster_count,
           COALESCE(te.age_group_id, c.age_group_id) as entry_age_group_id,
           ag.name as age_group_name
@@ -815,13 +816,17 @@ module.exports = {
       }
 
       const entryRes = await client.query(
-        'SELECT id FROM team_entries WHERE id = ? AND team_id = ? FOR UPDATE',
+        'SELECT id,roster_mode FROM team_entries WHERE id = ? AND team_id = ? FOR UPDATE',
         [entryId, teamId]
       );
 
       if (entryRes.rows.length === 0) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Team entry not found' });
+      }
+
+      if(entryRes.rows[0].roster_mode==='manual'){
+        await client.query('ROLLBACK');return res.status(409).json({error:'Manage staff and confirm the roster through the team data center'});
       }
 
       if (uniqueStaffIds.length > 0) {
@@ -1080,7 +1085,7 @@ module.exports = {
           te.gender as entry_gender,
           te.age_group_id as entry_age_group_id,
           ag.name as age_group_name,
-          t.id, t.name, t.code, t.logo_url, t.coach, te.status, te.registered_at
+          t.id, t.name, t.name_th, t.name_en, t.code, t.logo_url, t.coach, te.status, te.registered_at
         FROM teams t
         JOIN team_entries te ON t.id = te.team_id
         LEFT JOIN age_groups ag ON ag.id = te.age_group_id
@@ -1104,6 +1109,8 @@ module.exports = {
         SELECT DISTINCT
           t.id,
           t.name,
+          t.name_th,
+          t.name_en,
           t.code,
           t.logo_url,
           t.coach,

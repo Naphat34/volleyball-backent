@@ -633,7 +633,7 @@ exports.getMyTeamStaff = async (req, res) => {
 
     // 2. ดึงข้อมูล Staff ของทีมนั้น
     const staffRes = await db.query(
-      'SELECT * FROM team_staff WHERE team_id = ? ORDER BY role ASC, first_name ASC, last_name ASC',
+      'SELECT * FROM team_staff WHERE team_id = ? AND is_active=1 ORDER BY role ASC, first_name ASC, last_name ASC',
       [teamId]
     );
 
@@ -797,6 +797,9 @@ exports.updateMyStaffEntries = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Staff not found' });
     }
+
+    const manualEntries=(await client.query("SELECT id FROM team_entries WHERE team_id=? AND roster_mode='manual'",[teamId])).rows;
+    if(manualEntries.length){await client.query('ROLLBACK');return res.status(409).json({error:'Manage staff assignments through the team data center'});}
 
     if (uniqueEntryIds.length > 0) {
       const placeholders = uniqueEntryIds.map(() => '?').join(',');

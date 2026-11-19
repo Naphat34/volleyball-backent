@@ -11,7 +11,7 @@ test('PostgreSQL lineup approval is atomic, validates current registration and i
         await db.query("INSERT INTO age_groups(id,name) VALUES(1,'Open')");
         await db.query("INSERT INTO teams(id,name,code,gender) VALUES(1,'Home','HOME','Male'),(2,'Away','AWAY','Male')");
         const competition = (await db.query("INSERT INTO competitions(title,sport,gender,age_group_id,status,start_date,max_players,max_sets) VALUES('Approval cup','Volleyball','Male',1,'open','2099-01-01',14,5) RETURNING id")).insertId;
-        await db.query('INSERT INTO team_entries(team_id,competition_id) VALUES(1,?),(2,?)',[competition,competition]);
+        await db.query("INSERT INTO team_entries(team_id,competition_id,roster_mode) VALUES(1,?,'auto'),(2,?,'auto')",[competition,competition]);
         for (const team of [1,2]) for (let number=1;number<=6;number++) {
             await db.query("INSERT INTO players(id,team_id,number,first_name,gender,position) VALUES(?,?,?,'Athlete','Male','OH')",[team*10+number,team,number]);
         }

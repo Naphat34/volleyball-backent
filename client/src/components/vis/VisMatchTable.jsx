@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import MatchDashboardScore from './MatchDashboardScore';
 import ScorerActionDropdown from '../scorer/ScorerActionDropdown';
 import { dashboardMatchStatus, dashboardMatchStatusLabel, visStatusLabel } from '../../utils/vis/dashboardStatus';
+import {visMatchGender} from '../../utils/vis/dashboardLayout';
 
 export default function VisMatchTable({ group, th, user, onClaim, onRelease, sortHeader, sortState, date, busy, onSettings, onStats, onPDF, onExport }) {
     const displayNames = useDisplayNames();
@@ -25,16 +26,16 @@ export default function VisMatchTable({ group, th, user, onClaim, onRelease, sor
                     const resultMismatch = manual && m.status === 'completed' && ['review', 'confirmed'].includes(m.vis_summary?.status)
                         && ['home', 'away'].some(side => Number(m.vis_summary.setsWon?.[side] || 0) !== Number(m.official_summary?.setsWon?.[side] || 0));
                     const matchStatus = dashboardMatchStatus(m);
-                    const gender = ['male', 'men', 'M'].includes(m.gender) ? (th ? 'ชาย' : 'Men') : ['female', 'women', 'F'].includes(m.gender) ? (th ? 'หญิง' : 'Women') : m.gender;
+                    const category=visMatchGender(m);
+                    const gender = category==='Male' ? (th ? 'ชาย' : 'Male') : category==='Female' ? (th ? 'หญิง' : 'Female') : ui(m.gender);
                     return <tr key={m.id}>
                         <td className="vd-number"><span>{m.match_number || '—'}</span></td>
                         <td className="vd-date">{m.match_date ? String(m.match_date).slice(0, 10) : '—'}</td>
                         <td className="vd-time">{m.start_time ? String(m.start_time).slice(0, 5) : '—'}</td>
                         <td className="vd-match"><strong><span>{(displayNames.matchTeamName(m, 'home')) || (ui('TBA'))}</span> <i>{ui("vs")}</i> <span>{(displayNames.matchTeamName(m, 'away')) || (ui('TBA'))}</span></strong>
-                            {(m.home_team_name_en || m.away_team_name_en) && <small>{(m.home_team_name_en || displayNames.matchTeamName(m, 'home')) || (ui('TBA'))}{' '}{ui("vs")}{' '}{(m.away_team_name_en || displayNames.matchTeamName(m, 'away')) || (ui('TBA'))}</small>}
-                            <small>{([m.age_group_name || m.category, m.round_name, m.pool_name && (th ? 'สาย ' : 'Pool ') + m.pool_name].filter(Boolean).join(' · ')) || (ui('VIMS'))} · <span className="vd-match-id" title={String(m.id)}>{m.id}</span></small>
+                            <small>{([displayNames.referenceName({name:m.age_group_name || m.category}), ui(m.round_name), m.pool_name && (th ? 'สาย ' : 'Pool ') + m.pool_name].filter(Boolean).join(' · ')) || (ui('VIMS'))} · <span className="vd-match-id" title={String(m.id)}>{m.id}</span></small>
                         </td>
-                        <td className="vd-competition"><span>{[gender, m.round_name, m.pool_name && 'Pool ' + m.pool_name].filter(Boolean).join(' · ') || '—'}</span><small>{m.location || '—'}</small></td>
+                        <td className="vd-competition"><span>{[gender, ui(m.round_name), m.pool_name && (th?'สาย ':'Pool ') + m.pool_name].filter(Boolean).join(' · ') || '—'}</span><small>{displayNames.matchLocation(m) || '—'}</small></td>
                         <td className="vd-score"><MatchDashboardScore match={m} th={th} />{resultMismatch && <small role="status" className="vd-error">{th ? 'ผลสถิติกับสกอร์ไม่ตรงกัน กรุณาตรวจสอบ' : 'Statistics and scorer results differ. Please review.'}</small>}</td>
                         <td><div className="vd-badges"><span className={`vd-badge vd-${matchStatus}`} title={ui(`VIMS · {0}`, [visStatusLabel(m, th)])}>{dashboardMatchStatusLabel(m, th)}</span>
                             <span className="vd-badge vd-source">{manual ? (th ? 'สร้างเองโดยสกอร์' : 'Scorer-created') : m.is_offline_vis ? ui('Offline') : m.is_custom_vis ? m.published ? th ? ui('เผยแพร่แล้ว') : ui('Published') : th ? ui('สร้างเอง') : ui('Custom') : th ? ui('จากเซิร์ฟเวอร์') : ui('Server')}</span>

@@ -10,10 +10,15 @@ exports.overview = async (req, res) => {
         const scope=access.scopeSql(req.user,'m.competition_id'), customScope=access.scopeSql(req.user,'v.competition_id');
         const regular = await connection.query(`SELECT m.*, c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en, COALESCE(c.max_sets, m.max_sets, 5) AS max_sets,
             COALESCE(ms.home_sets,m.home_set_score) AS home_set_score, COALESCE(ms.away_sets,m.away_set_score) AS away_set_score,
-            ag.name AS age_group_name, ht.name AS home_team, at.name AS away_team, ht.code AS home_team_code, at.code AS away_team_code
+            ag.name AS age_group_name, ht.name AS home_team, at.name AS away_team, ht.code AS home_team_code, at.code AS away_team_code,
+            ht.name_th AS home_team_name_th, ht.name_en AS home_team_name_en,
+            at.name_th AS away_team_name_th, at.name_en AS away_team_name_en,
+            venue.name_th AS location_th, venue.name_en AS location_en
             FROM matches m LEFT JOIN competitions c ON c.id=m.competition_id
             LEFT JOIN age_groups ag ON ag.id=COALESCE(m.age_group_id,c.age_group_id)
             LEFT JOIN teams ht ON ht.id=m.home_team_id LEFT JOIN teams at ON at.id=m.away_team_id
+            LEFT JOIN stadiums venue ON venue.id=COALESCE(m.stadium_id,c.stadium_id)
+                AND (NULLIF(TRIM(m.location),'') IS NULL OR TRIM(m.location) IN (venue.name,venue.name_th,venue.name_en))
             LEFT JOIN (SELECT match_id, SUM(CASE WHEN home_score>away_score THEN 1 ELSE 0 END) AS home_sets, SUM(CASE WHEN away_score>home_score THEN 1 ELSE 0 END) AS away_sets
                 FROM match_sets WHERE end_time IS NOT NULL GROUP BY match_id) ms ON ms.match_id=m.id
             WHERE m.manual_owner_id IS NULL AND ${scope.sql} ORDER BY m.id DESC`,scope.params);

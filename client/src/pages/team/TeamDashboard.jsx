@@ -1,3 +1,4 @@
+import TeamDataCenter from '../../components/team/TeamDataCenter';
 import { GuardedForm, GuardedButton } from '../../components/ui/GuardedAction';
 import TeamStaffAssignments from '../../components/team/TeamStaffAssignments';
 import PlayerExcelImport from '../../components/team/PlayerExcelImport';
@@ -192,7 +193,7 @@ export default function TeamDashboard() {
     };
 
     const [activeTab, setActiveTab] = useState(() => {
-        return sessionStorage.getItem('teamActiveTab') || 'roster';
+        return sessionStorage.getItem('teamActiveTab') || 'data_center';
     });
     const [players, setPlayers] = useState([]);
     const [staff, setStaff] = useState([]);
@@ -217,7 +218,8 @@ export default function TeamDashboard() {
         setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, is_playing: newIsPlaying } : p));
 
         try {
-            await api.updatePlayer(player.id, { is_playing: newIsPlaying });
+            const saved = await api.updatePlayer(player.id, { is_playing: newIsPlaying, master_revision: player.master_revision });
+            setPlayers(previous => previous.map(row => row.id === player.id ? {...row,master_revision:saved.data.master_revision} : row));
         } catch {
             // Revert on error
             setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, is_playing: player.is_playing } : p));
@@ -501,6 +503,8 @@ export default function TeamDashboard() {
                 setStaff(resStaff.data || []);
                 setMyCompetitions(resCompetitions.data || []);
                 setMyMatches(resMatches.data || []);
+            } else if (activeTab === 'data_center') {
+                const resTeam=await api.getMyTeam();setTeamInfo(resTeam.data);
             } else if (activeTab === 'team_info') {
                 const resTeam = await api.getMyTeam();
                 setTeamInfo(resTeam.data);
@@ -694,7 +698,7 @@ export default function TeamDashboard() {
         setPlayerDocuments({ identity_document_url: p.identity_document_url || '', student_certificate_url: p.student_certificate_url || '', guardian_consent_url: p.guardian_consent_url || '' });
         setPlayerForm({
             first_name_th: p.first_name_th || '', last_name_th: p.last_name_th || '', first_name_en: p.first_name_en || '', last_name_en: p.last_name_en || '',
-            number: p.number ?? '', first_name: cleanPersonText(p.first_name), last_name: cleanPersonText(p.last_name),
+            master_revision: p.master_revision, number: p.number ?? '', first_name: cleanPersonText(p.first_name), last_name: cleanPersonText(p.last_name),
             nickname: cleanPersonText(p.nickname), position: p.position ?? 'OH', height_cm: cleanPositiveNumberText(p.height_cm),
             weight: cleanPositiveNumberText(p.weight), birth_date: p.birth_date ? p.birth_date.split('T')[0] : '',
             nationality: p.nationality ?? '', photo: p.photo ?? '', gender: getTeamGender(teamInfo?.gender || teamInfo?.category) || p.gender || 'Male',
@@ -745,7 +749,7 @@ export default function TeamDashboard() {
         setEditingStaffId(s.id);
         setStaffForm({
             first_name: s.first_name || '', last_name: s.last_name || '',
-            role: s.role || 'Head Coach', gender: s.gender || 'Male'
+            role: s.role || 'Head Coach', gender: s.gender || 'Male', master_revision: s.master_revision
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -1218,6 +1222,7 @@ export default function TeamDashboard() {
                 <aside className="w-full md:w-64 bg-white/95 border-b md:border-b-0 md:border-r border-blue-100 flex flex-col shadow-sm">
                     <div className="p-3 md:p-4 flex flex-col flex-1 overflow-y-auto">
                         <nav className="flex flex-row md:flex-col space-x-4 md:space-x-0 md:space-y-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0" aria-label={ui("Tabs")}>
+                            <TabButton active={activeTab === 'data_center'} onClick={() => setActiveTab('data_center')} icon={<Shield size={18} className="mr-2" />} label={language === 'THA' ? 'ศูนย์ข้อมูลทีม' : 'Team data center'} />
                             <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Home size={18} className="mr-2" />} label={language === 'THA' ? ui('ภาพรวมทีม') : ui('Team Overview')} />
                             <TabButton active={activeTab === 'team_info'} onClick={() => setActiveTab('team_info')} icon={<Building2 size={18} className="mr-2" />} label={language === 'THA' ? ui('ข้อมูลทีม') : ui('Team Information')} />
                             <TabButton active={activeTab === 'competitions'} onClick={() => setActiveTab('competitions')} icon={<Trophy size={18} className="mr-2" />} label={t('team.tabCompetitions')} />
@@ -1305,6 +1310,7 @@ export default function TeamDashboard() {
                         </div>
                     </section>}
                     {/* ========================== ROSTER TAB ========================== */}
+                    {activeTab === 'data_center' && <TeamDataCenter key={teamInfo?.id || 'none'} />}
                     {activeTab === 'roster' && (
                         <div className="space-y-4">
                             <div className={isPlayerModalOpen ? 'fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 p-3 sm:p-6' : 'hidden'} onMouseDown={(event) => { if (event.target === event.currentTarget) setIsPlayerModalOpen(false); }}>
@@ -1802,7 +1808,7 @@ export default function TeamDashboard() {
                                                             <div>
                                                                 <div className="font-medium text-gray-900">{getAgeGroupLabel(c)} / {getGenderLabel(c.gender)}</div>
                                                                 <div className="mt-1 text-xs text-gray-500">{ui("Registration:")}{' '}{(c.registration_status) || (ui('pending'))}</div>
-                                                                <div className="mt-1 text-xs text-blue-700">{c.roster_count || 0} {language === 'THA' ? 'คน' : 'players'} · {c.roster_locked_at ? (language === 'THA' ? 'ล็อกรายชื่อแล้ว' : 'Roster locked') : (language === 'THA' ? 'ซิงก์อัตโนมัติ' : 'Auto sync')}</div>
+                                                                <div className="mt-1 text-xs text-blue-700">{c.roster_count || 0} {language === 'THA' ? 'คน' : 'players'} · {c.roster_locked_at ? (language === 'THA' ? 'ล็อกรายชื่อแล้ว' : 'Roster locked') : c.roster_mode==='manual' ? (c.roster_confirmed_at ? (language==='THA'?'ยืนยันแล้ว':'Confirmed') : (language==='THA'?'รอเลือกรายชื่อและยืนยัน':'Selection and confirmation required')) : (language === 'THA' ? 'ซิงก์อัตโนมัติ' : 'Auto sync')}</div>
                                                                 {c.roster_sync_error && <p className="mt-1 max-w-lg text-xs text-red-600">{c.roster_sync_error}</p>}
                                                             </div>
                                                             <div className="flex flex-wrap items-center gap-2">
@@ -2250,13 +2256,14 @@ export default function TeamDashboard() {
                         <div className="flex items-start justify-between border-b p-5">
                             <div><h3 className="text-lg font-bold">{language === 'THA' ? 'รายชื่อนักกีฬา' : 'Competition players'}</h3>
                                 <p>{normalizeCompetitionTitle(entryRosterModal.competition)} · {entryRosterModal.entry.age_group_name} / {entryRosterModal.entry.competition_gender}</p>
-                                <p className="mt-2 text-sm">{entryRosterModal.entry.roster_locked_at ? (language === 'THA' ? 'ล็อกรายชื่อแล้ว' : 'Roster locked') : (language === 'THA' ? 'ซิงก์จากทะเบียนทีมอัตโนมัติ' : 'Automatically synced from team register')}</p>
+                                <p className="mt-2 text-sm">{entryRosterModal.entry.roster_locked_at ? (language === 'THA' ? 'ล็อกรายชื่อแล้ว' : 'Roster locked') : entryRosterModal.entry.roster_mode==='manual' ? (language==='THA'?'เลือกและยืนยันรายชื่อที่ศูนย์ข้อมูลทีม':'Select and confirm in Team data center') : (language === 'THA' ? 'ซิงก์จากทะเบียนทีมอัตโนมัติ' : 'Automatically synced from team register')}</p>
                             </div>
                             <GuardedButton type="button" onClick={() => setEntryRosterModal(null)} aria-label={language === 'THA' ? 'ปิด' : 'Close'}><X size={20} /></GuardedButton>
                         </div>
                         <div className="overflow-auto p-5">
                             {entryRosterModal.entry.roster_sync_error && <p role="alert" className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">{entryRosterModal.entry.roster_sync_error}</p>}
-                            <p className="mb-4 text-sm text-gray-600">{language === 'THA' ? 'แก้ไขรายชื่อและเบอร์ที่หน้าจัดการนักกีฬา ระบบซิงก์ทะเบียนทีมจนกว่าแมตช์ของทีมในรายการนี้จะเป็น Live การตั้งค่าแมตช์ การส่งไลน์อัพ และการปิดรับสมัครไม่ล็อกรายชื่อ เมื่อเริ่มแข่งขันแล้วจะเก็บรายชื่อที่ใช้แข่งขันไว้' : 'Edit players and jersey numbers in the team register. Sync stops only when a match for this team becomes Live. Match setup, lineup submission and registration closure do not lock the roster. Rosters used in competition remain saved.'}</p>
+                            {entryRosterModal.entry.roster_mode==='manual'&&<GuardedButton type="button" onClick={()=>{setEntryRosterModal(null);setActiveTab('data_center');}}>{language==='THA'?'เปิดศูนย์ข้อมูลทีม':'Open team data center'}</GuardedButton>}
+                            {entryRosterModal.entry.roster_mode!=='manual'&&<p className="mb-4 text-sm text-gray-600">{language === 'THA' ? 'แก้ไขรายชื่อและเบอร์ที่หน้าจัดการนักกีฬา ระบบซิงก์ทะเบียนทีมจนกว่าแมตช์ของทีมในรายการนี้จะเป็น Live การตั้งค่าแมตช์ การส่งไลน์อัพ และการปิดรับสมัครไม่ล็อกรายชื่อ เมื่อเริ่มแข่งขันแล้วจะเก็บรายชื่อที่ใช้แข่งขันไว้' : 'Edit players and jersey numbers in the team register. Sync stops only when a match for this team becomes Live. Match setup, lineup submission and registration closure do not lock the roster. Rosters used in competition remain saved.'}</p>}
                             <p className="mb-3 font-semibold">{language === 'THA' ? 'รายชื่อในรายการ' : 'Registered players'}: {entryRosterPlayers.filter(p => Number(p.selected) === 1).length} / {entryRosterModal.entry.max_players || '—'}</p>
                             <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="border p-2">#</th><th className="border p-2">{language === 'THA' ? 'ชื่อ–นามสกุล' : 'Name'}</th><th className="border p-2">{language === 'THA' ? 'บทบาท' : 'Role'}</th></tr></thead>
                                 <tbody>{entryRosterPlayers.filter(p => Number(p.selected) === 1).map(p => <tr key={p.id}><td className="border p-2">{p.entry_number}</td><td className="border p-2">{displayNames.personFirstName(p)} {displayNames.personLastName(p)}</td><td className="border p-2">{p.entry_role || '—'} {Number(p.entry_is_captain) === 1 ? '(C)' : ''}</td></tr>)}</tbody></table></div>

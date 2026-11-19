@@ -1,4 +1,5 @@
 import useUiTranslation from '../../hooks/useUiTranslation';
+import useDisplayNames from '../../hooks/useDisplayNames';
 import { visCompetitionName, visCompetitionKey } from '../../utils/vis/dashboardLayout';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -20,6 +21,7 @@ const normalizeStatus = status => {
 
 export default function AdminVis() {
     const ui = useUiTranslation();
+    const displayNames = useDisplayNames();
     const { matchId } = useParams();
     const navigate = useNavigate();
     const { language } = useLanguage();
@@ -93,10 +95,10 @@ export default function AdminVis() {
         catch { /* Clear the local session even when the server is unavailable. */ }
         finally { clearAuthSession(); navigate('/login', { replace: true }); }
     };
-    const competitionLabel = match => [match.competition_name, match.age_group_name || match.category,
+    const competitionLabel = match => [displayNames.competitionName(match), displayNames.referenceName({name:match.age_group_name || match.category}),
         getPublicGenderLabel(match.gender, language)].filter(Boolean).join(' · ');
     const visibleMatches = !matchId && !gate.serverMatchesLoaded ? matches.filter(match => match.is_custom_vis || match.is_offline_vis) : matches;
-    const competitions = [...new Map(visibleMatches.filter(match => match.competition_id).map(match => [visCompetitionKey(match.competition_name), visCompetitionName(match.competition_name)])).entries()]
+    const competitions = [...new Map(visibleMatches.filter(match => match.competition_id).map(match => [visCompetitionKey(match.competition_name), visCompetitionName(displayNames.competitionName(match))])).entries()]
         .sort((a, b) => a[1].localeCompare(b[1], th ? 'th' : 'en'));
     const activeMatch = matchId ? matches.find(match => String(match.id) === matchId) : null;
 

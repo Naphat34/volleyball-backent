@@ -1306,6 +1306,7 @@ module.exports = {
             if (!Number.isInteger(normalizedSetNumber) || normalizedSetNumber < 1) {
                 return res.status(400).json({ error: "Valid set number is required" });
             }
+            await require('../utils/manualTeamRoster').assertManualRostersReady(db,matchId);
 
             const hasStartTime = await hasTableColumn('match_sets', 'start_time');
             if (hasStartTime) {
@@ -1376,7 +1377,7 @@ module.exports = {
             res.json({ success: true });
         } catch (err) {
             console.error("StartSet Error:", err);
-            res.status(500).json({ error: err.message });
+            res.status(err.status||500).json({ error: err.message });
         }
     },
 

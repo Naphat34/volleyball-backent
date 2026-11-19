@@ -57,6 +57,7 @@ exports.command = async (req, res) => {
         connection = await db.connect();
         await connection.beginTransaction();
         const match = await getMatch(connection, req.params.matchId, true);
+        if(['RALLY','STAT','TIMEOUT','SUBSTITUTION','SUBSTITUTIONS','LIBERO_REPLACEMENT'].includes(command.type))await require('../utils/manualTeamRoster').assertManualRostersReady(connection,match.id);
         if (match.manual_owner_id) {
             assertStatisticsWriter(req.user, match);
             if (command.type === 'CONFIGURE_SETTINGS') fail('กติกาและรายชื่อของแมตช์นี้จัดการโดยสกอร์', 403);

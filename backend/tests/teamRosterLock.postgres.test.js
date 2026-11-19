@@ -19,6 +19,7 @@ test('only Live freezes rosters; setup, lineups, dates and registration closure 
         await c.query('INSERT INTO match_lineups(match_id,team_id,set_number) VALUES(?,1,1)',[match.insertId]);
         assert.equal(Number((await loadTeamRosterEntries(c,1))[0].has_history),1);
         assert.equal(Number((await loadTeamRosterEntries(c,2))[0].has_history),0);
+        await c.query("UPDATE team_entries SET roster_mode='auto'");
         await syncTeamEntries(c,1);
         await syncTeamEntries(c,2);
         const entries = (await c.query('SELECT id,roster_locked_at FROM team_entries ORDER BY id')).rows;
@@ -80,7 +81,7 @@ test('starting a set syncs the latest team athletes before the Live lock', async
         await db.query("INSERT INTO age_groups(id,name) VALUES(1,'Open')");
         await db.query("INSERT INTO teams(id,name,code,gender) VALUES(1,'Home','HOME','Male'),(2,'Away','AWAY','Male')");
         const comp = await db.query("INSERT INTO competitions(title,sport,gender,age_group_id,start_date,status,max_players) VALUES('Start cup','Volleyball','Male',1,'2099-01-01','closed',14) RETURNING id");
-        await db.query('INSERT INTO team_entries(team_id,competition_id) VALUES(1,?),(2,?)',[comp.insertId,comp.insertId]);
+        await db.query("INSERT INTO team_entries(team_id,competition_id,roster_mode) VALUES(1,?,'auto'),(2,?,'auto')",[comp.insertId,comp.insertId]);
         await db.query("INSERT INTO players(team_id,number,first_name,gender) VALUES(1,1,'Home','Male'),(2,2,'Away','Male')");
         const match = await db.query("INSERT INTO matches(competition_id,home_team_id,away_team_id,status) VALUES(?,1,2,'scheduled') RETURNING id",[comp.insertId]);
         await db.query('UPDATE matches SET match_setup=? WHERE id=?',[JSON.stringify({home:{name:'Home',players:[{id:999,number:99}],staff:[]},away:{name:'Away',players:[],staff:[]}}),match.insertId]);

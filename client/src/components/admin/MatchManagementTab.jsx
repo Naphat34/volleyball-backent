@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { Toast } from './AdminShared';
-import { formatThaiDate, formatThaiTime, formatForInput } from '../../utils/formatters';
+import { formatForInput } from '../../utils/formatters';
+import { fixtureDate, fixtureTime } from '../../utils/i18n/fixtureDates';
 import ScoreSheet from '../../pages/reports/ScoreSheet';
 
 const normalizeRoundName = (value) => {
@@ -121,11 +122,13 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
     }, [getCompetitionAgeGroupId, getRelatedCompetitions, selectedCompId]);
 
     const getTeamOptionLabel = useCallback((team) => {
-        const ageGroup = team?.age_group_name || 'General';
+        const ageGroup = displayNames.referenceName({name:team?.age_group_name}) || ui('General');
         const gender = team?.entry_gender || team?.competition_gender || team?.gender || '';
-        const status = team?.status ? ` / ${team.status}` : '';
-        return `${team.name} (${team.code || '-'}) - ${ageGroup}${gender ? ` / ${gender}` : ''}${status}`;
-    }, []);
+        const statusNames = {approved:['อนุมัติแล้ว','Approved'],pending:['รออนุมัติ','Pending approval'],rejected:['ไม่อนุมัติ','Rejected'],match:['ทีมในแมตช์','Match team']};
+        const selectedStatus = statusNames[team?.status]?.[language === 'ENG' ? 1 : 0] || ui(team?.status);
+        const status = selectedStatus ? ` / ${selectedStatus}` : '';
+        return `${displayNames.teamName(team)} (${team.code || '-'}) - ${ageGroup}${gender ? ` / ${ui(gender)}` : ''}${status}`;
+    }, [displayNames,ui,language]);
 
     // --- API Functions ---
     const fetchCompetitions = useCallback(async () => {
@@ -634,7 +637,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                     onClick={() => setFilterGender(g)}
                                     className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${filterGender === g ? 'bg-white text-blue-600 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                                 >
-                                    {g}
+                                    {ui(g)}
                                 </GuardedButton>
                             ))}
                         </div>
@@ -649,7 +652,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                         >
                             <option value="All">{ui("All")}</option>
                             {pageAgeGroups.map(ag => (
-                                <option key={ag.id} value={ag.id}>{ag.name}</option>
+                                <option key={ag.id} value={ag.id}>{displayNames.referenceName(ag)}</option>
                             ))}
                         </select>
                     </div>
@@ -716,11 +719,11 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-sm text-gray-900 leading-snug">
-                                                {match.round_name}
+                                                {ui(match.round_name)}
                                             </div>
                                             {match.pool_name && (
                                                 <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-bold text-gray-500 uppercase">{ui("Pool")}{match.pool_name}
+                                                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] font-bold text-gray-500 uppercase">{ui("Pool")} {match.pool_name}
                                                     </span>
                                                 </div>
                                             )}
@@ -734,7 +737,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                         ) : <Shield size={12} className="text-gray-300" />}
                                                     </div>
                                                     <span className={`text-[13px] font-bold truncate ${match.home_set_score > match.away_set_score && match.status === 'completed' ? 'text-blue-600' : 'text-gray-700'}`}>
-                                                        {(displayNames.teamName(registeredTeams.find(t => t.id == match.home_team_id)) || displayNames.matchTeamName(match, 'home')) || (ui('TBD'))}
+                                                        {displayNames.matchTeamName(match, 'home') || displayNames.teamName(registeredTeams.find(t => t.id == match.home_team_id)) || ui('TBD')}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2.5">
@@ -744,7 +747,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                         ) : <Shield size={12} className="text-gray-300" />}
                                                     </div>
                                                     <span className={`text-[13px] font-bold truncate ${match.away_set_score > match.home_set_score && match.status === 'completed' ? 'text-blue-600' : 'text-gray-700'}`}>
-                                                        {(displayNames.teamName(registeredTeams.find(t => t.id == match.away_team_id)) || displayNames.matchTeamName(match, 'away')) || (ui('TBD'))}
+                                                        {displayNames.matchTeamName(match, 'away') || displayNames.teamName(registeredTeams.find(t => t.id == match.away_team_id)) || ui('TBD')}
                                                     </span>
                                                 </div>
                                             </div>
@@ -771,18 +774,18 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                             <div className="flex flex-col gap-1.5 min-w-[120px]">
                                                 <div className="flex items-center gap-2 text-xs font-bold text-gray-600">
                                                     <Calendar size={14} className="text-blue-600" />
-                                                    {match.match_date ? formatThaiDate(match.match_date) : match.start_time && match.start_time.includes('T') ? formatThaiDate(match.start_time) : ui('TBD')}
+                                                    {fixtureDate(match.match_date || (match.start_time?.includes('T') ? match.start_time : null), language) || ui('TBD')}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500">
                                                     <Clock size={14} className="text-indigo-400" />
-                                                    {match.start_time ? match.start_time.includes('T') ? formatThaiTime(match.start_time) : match.start_time.substring(0, 5) : ui('TBD')}
+                                                    {fixtureTime(match.start_time) || ui('TBD')}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2 text-xs font-medium text-gray-600 max-w-[150px]">
                                                 <MapPin size={14} className="text-rose-500 shrink-0" />
-                                                <span className="truncate">{(match.location) || (ui('TBD'))}</span>
+                                                <span className="truncate" title={displayNames.matchLocation(match)}>{displayNames.matchLocation(match) || ui('TBD')}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -793,7 +796,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                                             ? 'bg-purple-50 text-purple-600 border-purple-100'
                                                             : 'bg-blue-50 text-blue-600 border-blue-100'
                                                     }`}>
-                                                    {(match.gender) || (ui('Male'))}
+                                                    {ui(match.gender || 'Male')}
                                                 </span>
                                                 {match.status === 'completed' && (
                                                     <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 uppercase">
@@ -864,7 +867,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                     >
                                         <option value="">{ui("-- Select Category --")}</option>
                                         {modalAgeGroups.map(ag => (
-                                            <option key={ag.id} value={ag.id}>{ag.name}</option>
+                                            <option key={ag.id} value={ag.id}>{displayNames.referenceName(ag)}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -939,7 +942,7 @@ export default function MatchManagementTab({ initialCompetitionId, initialMatchI
                                             className={modalInputClass}
                                         >
                                             {availableGenders.length > 0 ? availableGenders.map(g => (
-                                                <option key={g} value={g}>{g}</option>
+                                                <option key={g} value={g}>{ui(g)}</option>
                                             )) : (
                                                 <>
                                                     <option value="Male">{ui("Male")}</option>

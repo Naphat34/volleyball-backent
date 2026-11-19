@@ -17,14 +17,14 @@ export default function LoginLayout({ language, setLanguage, t, formError, recov
                     <span className="login-status"><span aria-hidden="true" />{ui("Online Login")}</span>
                 </header>
                 <div className="login-card-body">
-                    
+
                     {formError && <div role="alert" className="login-error"><p>{formError}</p><Link to={recoveryPath}>{th ? ui('เข้าสู่ระบบด้วยบัญชีอื่น') : ui('Sign in with another account')}</Link></div>}
                     <GuardedForm onSubmit={handleSubmit} className="login-form" aria-busy={submitting}>
                         <div><label htmlFor="auth-username">{ui("Username")}</label><input id="auth-username" name="username" autoComplete="username" type="text" required onChange={handleChange} disabled={submitting} /></div>
                         <div><label htmlFor="auth-password">{ui("Password")}</label><input id="auth-password" name="password" autoComplete="current-password" type="password" required onChange={handleChange} disabled={submitting} /></div>
                         <GuardedButton className="login-submit" type="submit" disabled={submitting}>{submitting ? th ? ui('กำลังเข้าสู่ระบบ…') : ui('Signing in…') : th ? ui('เข้าสู่ระบบ') : ui('Sign in')}</GuardedButton>
                     </GuardedForm>
-                    <footer className="login-footer">VOLLEY</footer>
+                    <footer className="login-footer">Volley Version 2.0.0 build19112026</footer>
                 </div>
             </section>
         </main>

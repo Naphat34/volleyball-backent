@@ -21,7 +21,9 @@ test('scoped scorer creates master people, registration links, snapshots and aud
         const staff=(extra={})=>({id:'new-staff',create_master:true,first_name:'New',last_name:'Coach',role:'Head Coach',...extra});
         const count=async table=>Number((await d.query(`SELECT count(*) AS count FROM ${table}`)).rows[0].count);
         let body=await payload();body.draft.home.players.push(athlete());body.draft.home.staff.push(staff());
+        await d.query('UPDATE team_entries SET roster_confirmed_at=CURRENT_TIMESTAMP WHERE id=1');
         let res=await invoke(c,'save',body,{matchId:1},user);assert.equal(res.code,200,JSON.stringify(res.data));assert.equal(res.data.createdMaster.length,2);
+        assert.ok((await d.query('SELECT roster_confirmed_at FROM team_entries WHERE id=1')).rows[0].roster_confirmed_at,'Scorer additions preserve the existing confirmation');
         const player=(await d.query("SELECT * FROM players WHERE team_id=10")).rows[0];
         assert.equal(player.first_name_en,'New');assert.equal(player.is_captain,0);assert.equal(player.is_libero1,0);
         assert.equal(await count('team_entry_players'),1);assert.equal(await count('team_entry_staff'),1);

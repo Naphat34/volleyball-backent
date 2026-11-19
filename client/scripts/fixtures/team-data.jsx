@@ -1,0 +1,20 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {LanguageProvider,useLanguage} from '../../src/context/LanguageContext';
+import {api} from '../../src/api';
+import TeamDataCenter from '../../src/components/team/TeamDataCenter';
+import TeamRosterRequests from '../../src/components/admin/TeamRosterRequests';
+import '../../src/index.css';
+import '../../src/styles/AppTheme.css';
+localStorage.setItem('language','ENG');
+const players=Array.from({length:7},(_,i)=>({id:i+1,number:i+1,first_name:`Player ${i+1}`,last_name:'Family',gender:'Male',position:'OH',birth_date:'2010-01-01',is_active:1,master_revision:0}));
+const data={team:{id:1,name:'Home',gender:'Male'},players,staff:[{id:1,first_name:'Head',last_name:'Coach',role:'Head Coach',is_active:1,master_revision:0}],entries:[{id:1,competition_title:'Cup',competition_gender:'Male',age_group_name:'Open',roster_revision:0,roster_mode:'manual',max_players:14}],requests:[]};
+api.getTeamDataCenter=async()=>({data:structuredClone(data)});
+api.getTeamDataHistory=async()=>({data:[]});
+api.getTeamEntrySelection=async()=>({data:{entry:data.entries[0],players:players.slice(0,6).map(p=>({player_id:p.id,number:p.number,role:'OH',is_captain:0,is_libero1:0,is_libero2:0,master_revision:0})),staff_ids:[],eligibility:players.map(p=>({id:p.id,revision:0,reason:null}))}});
+api.saveTeamEntrySelection=async(id,payload)=>{window.savedSelection=payload;data.entries[0].roster_confirmed_at=new Date().toISOString();return {data:{success:true}};};
+api.getTeamRosterRequests=async()=>({data:{requests:[{id:1,team_name:'Home',competition_title:'Cup',requested_username:'Team staff',status:'pending',reason:'Replace athlete',before_data:{players:[{player_id:1,number:1,role:'OH'}]},proposal:{players:[{player_id:2,number:2,role:'OH'}]}}],players,staff:[]}});
+api.decideTeamRosterRequest=async payload=>{window.savedDecision=payload;return {data:{success:true}};};
+api.addPlayer=async payload=>{window.savedPlayer=payload;return {data:{id:8}};};
+function Fixture(){const {setLanguage}=useLanguage();return <><button onClick={()=>setLanguage('ENG')}>Use English</button><button onClick={()=>setLanguage('THA')}>Use Thai</button>{location.search.includes('admin')?<TeamRosterRequests/>:<TeamDataCenter/>}</>;}
+createRoot(document.getElementById('root')).render(<LanguageProvider><Fixture/></LanguageProvider>);

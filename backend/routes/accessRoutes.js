@@ -14,6 +14,7 @@ router.put('/users/:id',c.updateUser);
 router.put('/users/:id/competitions',c.setCompetitions);
 router.get('/reviews',c.reviews);
 router.get('/matches/:kind/:id/preview',c.preview);
+router.get('/matches/:kind/:id/vims-detail',c.vimsDetail);
 router.put('/matches/:kind/:id/competition',c.linkCompetition);
 router.get('/matches/:kind/:id/:domain/correction',corrections.load);
 router.put('/matches/:kind/:id/:domain/correction',corrections.save);

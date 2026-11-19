@@ -42,11 +42,12 @@ test('admin overview route requires approved authentication and admin permission
     const file = require.resolve('../routes/adminRoutes');
     const routes = [], middleware = [];
     const router = { use: (...handlers) => middleware.push(...handlers), get: (path, ...handlers) => routes.push({ path, handlers }), post() {}, put() {}, delete() {} };
-    const auth = { verifyApprovedToken() {}, isAdmin() {}, canManageTeams() {} }, overview = () => {};
+    const monitor = () => {};
+    const auth = { verifyApprovedToken() {}, hasPermission(permission) { assert.equal(permission, 'vims.monitor'); return monitor; }, canManageTeams() {} }, overview = () => {};
     const scope = { module: { exports: {} }, require: name => name === 'express' ? { Router: () => router } : name.includes('authMiddleware') ? auth : name.includes('adminVisController') ? { overview } : {} };
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), scope);
     assert.equal(middleware[0], auth.verifyApprovedToken);
     const route = routes.find(item => item.path === '/vis/overview');
-    assert.equal(route.handlers[0], auth.isAdmin);
+    assert.equal(route.handlers[0], monitor);
     assert.equal(route.handlers[1], overview);
 });

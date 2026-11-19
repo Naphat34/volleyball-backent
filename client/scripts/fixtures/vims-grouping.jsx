@@ -1,0 +1,17 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {BrowserRouter} from 'react-router-dom';
+import {LanguageProvider} from '../../src/context/LanguageContext';
+import {setAuthSession,getAuthSessionVersion} from '../../src/auth/authStorage';
+import VisTheme from '../../src/components/vis/VisTheme';
+import AdminVis from '../../src/pages/vis/AdminVis';
+import {api} from '../../src/api';
+import {getVisMatchGate} from '../../src/offline/visMatchGate';
+import '../../src/index.css';
+import '../../src/styles/AppTheme.css';
+const user={id:5,role:'vims_operator',username:'Fixture VIMS'};
+setAuthSession({token:'fixture-only',user});localStorage.setItem('language','ENG');
+const matches=Array.from({length:12},(_,index)=>({id:index+1,match_number:index+1,competition_id:index%2?20:10,competition_name:`รายการทดสอบ (${index%2?'Female':'Male'})`,competition_name_th:'รายการทดสอบ',competition_name_en:'Youth Cup',gender:index%2?'Female':'Male',home_team:'ทีมเหย้า',away_team:'ทีมเยือน',home_team_name_th:'ทีมเหย้า',home_team_name_en:'Alpha',away_team_name_th:'ทีมเยือน',away_team_name_en:'Beta',location:'สนามทดสอบ',location_th:'สนามทดสอบ',location_en:'English Gym',age_group_name:'ประชาชน',home_team_id:1,away_team_id:2,status:'scheduled',match_date:'2026-11-25',start_time:'08:30:00',round_name:'Preliminary',pool_name:'A',vis_summary:{status:'server'}})).reverse();
+getVisMatchGate(`${user.id}:${getAuthSessionVersion()}`).serverMatchesLoaded=true;
+api.getVisMatches=async()=>({data:matches,serverMatchCount:matches.length});
+createRoot(document.getElementById('root')).render(<LanguageProvider><VisTheme><BrowserRouter><AdminVis/></BrowserRouter></VisTheme></LanguageProvider>);

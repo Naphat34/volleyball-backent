@@ -45,7 +45,7 @@ function withAthleteTransaction(database, handler, { syncRoster = false } = {}) 
         try {
             connection = await database.connect();
             await connection.beginTransaction();
-            let rosterTeamId;
+            let rosterTeamId,beforeMaster;
             if (syncRoster) {
                 if (syncRoster === 'admin') {
                     rosterTeamId = req.params.teamId;
@@ -58,6 +58,11 @@ function withAthleteTransaction(database, handler, { syncRoster = false } = {}) 
                     rosterTeamId = user.rows[0]?.team_id;
                 }
                 await require('./automaticEntryRoster').syncTeamEntries(connection, rosterTeamId);
+                if(rosterTeamId){
+                    if(req.params?.id)beforeMaster=(await connection.query('SELECT * FROM players WHERE id=? AND team_id=? FOR UPDATE',[req.params.id,rosterTeamId])).rows[0];
+                    if(beforeMaster&&req.user?.role==='team_staff'&&(req.body?.master_revision!==undefined||['first_name','last_name','first_name_th','last_name_th','first_name_en','last_name_en','birth_date','number','position'].some(key=>req.body?.[key]!==undefined))&&Number(req.body?.master_revision)!==Number(beforeMaster.master_revision))throw Object.assign(new Error('Athlete was changed on another screen; reload before saving'),{status:409});
+                    if(!req.params?.id||['first_name','last_name','first_name_th','last_name_th','first_name_en','last_name_en','birth_date'].some(key=>req.body?.[key]!==undefined))await require('./teamMasterIntegrity').checkDuplicatePerson(connection,'players',rosterTeamId,req.body||{},beforeMaster);
+                }
                 if (rosterTeamId && req.body?.number !== undefined) await validateTeamPlayerNumber(connection, rosterTeamId, req.body.number, req.params?.id ?? null);
             }
             await handler(req, reply, connection);
@@ -69,6 +74,14 @@ function withAthleteTransaction(database, handler, { syncRoster = false } = {}) 
                     payload = {...payload,...Object.fromEntries(names.map(field => [field,req.body[field]]))};
                 }
                 if (syncRoster) await require('./automaticEntryRoster').syncTeamEntries(connection, rosterTeamId);
+                if(rosterTeamId){
+                    const masterId=req.params?.id||payload?.id;
+                    if(masterId){
+                        await connection.query('UPDATE players SET master_revision=master_revision+1 WHERE id=? AND team_id=?',[masterId,rosterTeamId]);
+                        const after=(await connection.query('SELECT * FROM players WHERE id=? AND team_id=?',[masterId,rosterTeamId])).rows[0];
+                        if(after){await require('./teamMasterIntegrity').history(connection,req,rosterTeamId,'player',beforeMaster,after,beforeMaster?'master.update':'master.create');if(payload&&typeof payload==='object')payload={...payload,master_revision:after.master_revision};}
+                    }
+                }
                 await connection.commit();
             }
             else await connection.rollback();
@@ -76,7 +89,7 @@ function withAthleteTransaction(database, handler, { syncRoster = false } = {}) 
         } catch (error) {
             if (connection) await connection.rollback();
             const failure = athleteError(error);
-            return res.status(failure.status).json({ error: failure.message });
+            return res.status(failure.status).json({ error: failure.message,...(error.candidates?{candidates:error.candidates,duplicate:error.duplicate}:{}) });
         } finally { connection?.release(); }
     };
 }

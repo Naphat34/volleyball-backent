@@ -1,7 +1,7 @@
 import { visCompetitionName, visCompetitionKey } from './dashboardLayout.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupVisMatches, visMatchSortValue } from './dashboardLayout.js';
+import { groupVisMatches, visMatchSortValue, visMatchGender } from './dashboardLayout.js';
 
 test('grouped page preserves row order and reports counts across all filtered pages', () => {
     const matches = [
@@ -35,4 +35,16 @@ test('competition selector combines gender divisions while retaining the competi
     assert.equal(visCompetitionKey('Youth Cup (Male)'), visCompetitionKey('Youth Cup (Female)'));
     assert.equal(visCompetitionName('Youth Cup (U15)'), 'Youth Cup (U15)');
     assert.notEqual(visCompetitionKey('Youth Cup'), visCompetitionKey('Senior Cup'));
+});
+test('VIMS can combine gender categories by title, preserving match order and page totals',()=>{
+    const rows=[{id:1,competition_id:10,competition_name:'Cup (Male)',gender:'Male',match_number:1},{id:2,competition_id:20,competition_name:'Cup (Female)',gender:'Female',match_number:2},{id:3,competition_id:10,competition_name:'Cup (Male)',gender:'Male',match_number:3}];
+    const groups=groupVisMatches(rows.slice(0,2),rows,{combineByName:true});
+    assert.equal(groups.length,1);assert.equal(groups[0].title,'Cup');assert.equal(groups[0].total,3);
+    assert.deepEqual(groups[0].matches.map(match=>match.match_number),[1,2]);
+    const female=rows.filter(match=>visMatchGender(match)==='Female');
+    assert.deepEqual(female.map(match=>match.id),[2]);
+    assert.equal(groupVisMatches(female,female,{combineByName:true})[0].total,1);
+    assert.equal(groupVisMatches([...rows,{id:4,competition_name:'Other Cup'},{id:5,competition_name:'Cup',is_custom_vis:true}],undefined,{combineByName:true}).length,3);
+    assert.equal(visMatchGender({gender:'FEMALE'}),'Female');
+    assert.equal(visMatchGender({competition_gender:'ชาย'}),'Male');
 });

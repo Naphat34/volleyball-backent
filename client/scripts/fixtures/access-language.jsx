@@ -1,0 +1,40 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { LanguageProvider } from '../../src/context/LanguageContext';
+import VisTheme from '../../src/components/vis/VisTheme';
+import AccessCenter from '../../src/pages/admin/AccessCenter';
+import { api } from '../../src/api';
+import { setAuthSession } from '../../src/auth/authStorage';
+import '../../src/index.css';
+import '../../src/styles/AppTheme.css';
+
+const role = new URLSearchParams(location.search).get('role') || 'super_admin_scorer';
+const user = {id:1,username:'Test recorder',role};
+setAuthSession({token:'fixture-token',user});
+localStorage.setItem('language','ENG');
+const competition = {id:7,title:'รายการไทย',title_th:'รายการไทย',title_en:'English Cup',access_group_key:'cup',access_group_title:'รายการไทย'};
+const match = {id:42,public_id:'10000000-0000-4000-8000-000000000042',competition_id:7,competition_name:'รายการไทย',competition_name_th:'รายการไทย',competition_name_en:'English Cup',home_team:'ทีมไทย',away_team:'ทีมเยือน',home_team_name_th:'ทีมไทย',home_team_name_en:'Home Team',away_team_name_th:'ทีมเยือน',away_team_name_en:'Away Team',match_number:19,status:'completed'};
+const domain=role.includes('vims')?'vims':'score';
+api.accessSession=async()=>({data:user});
+api.accessCompetitions=async()=>({data:[competition]});
+const vimsReviews=[];
+api.accessMatches=async()=>({data:{matches:[{...match,vims_count:3,home_set_score:2,away_set_score:0,match_date:'2026-11-25',start_time:'08:30:00',location:'English Gym',gender:'Male',vims_review_status:role==='vims_operator'?vimsReviews[0]?.status:undefined}],custom:[]}});
+const accounts=[{id:2,username:'Fixture scorer',role:'scorer',status:'active',competition_ids:[7]},
+    {id:3,username:'Fixture admin',role:'super_admin',status:'active',competition_ids:[]},
+    ...Array.from({length:21},(_,index)=>({id:index+10,username:`Person ${index+1}`,role:'vims_operator',status:'active',competition_ids:[7]}))];
+window.accessFixture={accounts,calls:[],fail:false};
+window.accessFixture.returnVims=()=>{Object.assign(vimsReviews[0],{status:'returned',reason:'Please check event 5',decided_username:'Reviewer',decided_at:'2026-11-19T07:00:00Z'});};
+api.accessUsers=async()=>({data:accounts.map(account=>({...account,competition_ids:[...account.competition_ids]}))});
+api.accessSetCompetitions=async(id,ids)=>{window.accessFixture.calls.push({action:'grants',id,ids});if(window.accessFixture.fail)throw {response:{data:{error:'Access denied'}}};accounts.find(account=>account.id===id).competition_ids=ids;return {data:{success:true}};};
+api.accessUpdateUser=async(id,patch)=>{window.accessFixture.calls.push({action:'status',id,patch});Object.assign(accounts.find(account=>account.id===id),patch);return {data:{success:true}};};
+api.accessCreateUser=async form=>{window.accessFixture.calls.push({action:'create',form});accounts.push({...form,id:100,status:'active'});return {data:{success:true}};};
+api.accessCatalog=async()=>({data:{managed_roles:['scorer','vims_operator','organizer']}});
+api.accessReviews=async()=>({data:role==='vims_operator'?vimsReviews:[{id:1,match_id:42,competition_id:7,...{competition_name:competition.title,competition_name_th:competition.title_th,competition_name_en:competition.title_en},domain,revision:1,status:'submitted',submitted_username:'Test recorder',reason:''}]});
+api.accessVimsDetail=async()=>({data:{match:{...match,home_set_score:2,away_set_score:0,location:'English Gym'},roster:{home:{players:[{id:1,number:7,first_name:'First',last_name:'Player'}],staff:[]},away:{players:[],staff:[]}},sets:[{set_number:1,home_score:25,away_score:20}],statistics:[{set_number:1,team:'home',player_id:1,skill:'A',grade:'#',count:3}],events:[{id:1,set_number:1,team:'home',player_id:1,skill:'A',grade:'#'}],eventCount:3,eventPages:1,lineups:{lineups:{home:[1],away:[]},phase:'PLAYING'},reviews:vimsReviews,readiness:{canSubmit:!vimsReviews.length,checks:['competition','completed','statistics','offline','revision','writer'].map(key=>({key,ok:key!=='revision'||!vimsReviews.length})),warnings:['vims_unfinished']}}});
+const detailResponse=api.accessVimsDetail;
+api.accessVimsDetail=async(...args)=>{if(window.accessFixture.fail)throw {response:{data:{error:'Access denied'}}};return detailResponse(...args);};
+api.accessPreview=async()=>({data:{match:{id:42},sets:[{set_number:1,home_score:25,away_score:20}],statistics:[]}});
+api.accessCorrection=async()=>({data:{id:42,kind:'match',domain,revision:1,home_team_id:1,away_team_id:2,roster:[],events:[{id:1,set_number:1,team_id:1,skill:domain==='score'?'POINT':'A',grade:'#',score_home:1,score_away:0}]}});
+api.accessReview=async(kind,id,domain,action)=>{window.accessFixture.calls.push({action:'review',kind,id,domain,command:action});if(role==='vims_operator'&&action==='submit')vimsReviews.unshift({id:1,match_id:42,competition_id:7,domain:'vims',revision:1,status:'submitted',submitted_username:user.username,submitted_at:'2026-11-19T06:00:00Z'});return {data:{success:true}};};
+createRoot(document.getElementById('root')).render(<LanguageProvider><VisTheme><BrowserRouter><AccessCenter/></BrowserRouter></VisTheme></LanguageProvider>);

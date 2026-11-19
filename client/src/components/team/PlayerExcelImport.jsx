@@ -31,7 +31,7 @@ export default function PlayerExcelImport({ gender, players, onImported, languag
             const { default: ExcelJS } = await import('exceljs');
             const workbook = new ExcelJS.Workbook();
             const sheet = workbook.addWorksheet('Players');
-            sheet.columns = columns.map(([key, title]) => ({ key, header: title, width: 22 }));
+            sheet.columns = columns.map(([key, title]) => ({ key, header: th ? title : key, width: 22 }));
             sheet.getRow(1).font = { bold: true };
             sheet.addRow({ number: 1, first_name: 'ตัวอย่างชื่อ', last_name: 'ตัวอย่างนามสกุล', position: 'OH', birth_date: '2010-01-31' });
             sheet.getColumn('birth_date').numFmt = '@';
@@ -91,7 +91,7 @@ export default function PlayerExcelImport({ gender, players, onImported, languag
                 const name = `${data.first_name} ${data.last_name}`.trim().toLowerCase();
                 if (seen.has(name)) errors.push(label('ชื่อซ้ำในทีม/ไฟล์ กรุณาตรวจสอบ', 'Duplicate name in team/file'));
                 seen.add(name);
-                imported.push({ row: index, data: { ...data, gender }, error: errors.join('; ') });
+                imported.push({ row: index, data: { ...data, gender }, error: errors.join('; '), selected: errors.length===0 });
             });
             if (!imported.length) throw new Error(label('ไม่พบรายชื่อนักกีฬา', 'No players found'));
             setRows(imported);
@@ -107,15 +107,16 @@ export default function PlayerExcelImport({ gender, players, onImported, languag
         let saved = 0;
         const failed = [];
         for (const row of rows) {
+            if (!row.selected || row.error) { failed.push(row); continue; }
             try {
                 await api.addPlayer(row.data);
                 saved++;
             } catch (error) {
-                failed.push({ ...row, error: error.response?.data?.error || label('บันทึกไม่สำเร็จ กรุณาตรวจรายชื่อในทีมก่อนลองใหม่', 'Save failed; check team roster before retrying') });
+                failed.push({ ...row, selected: false, error: error.response?.data?.error || label('บันทึกไม่สำเร็จ กรุณาตรวจรายชื่อในทีมก่อนลองใหม่', 'Save failed; check team roster before retrying') });
             }
         }
         setRows(failed.length ? failed : null);
-        setMessage(label(`บันทึกสำเร็จ ${saved} คน ไม่สำเร็จ ${failed.length} คน`, `Saved ${saved}; failed ${failed.length}`));
+        setMessage(label(`บันทึกสำเร็จ ${saved} คน คงเหลือให้ตรวจ ${failed.length} แถว`, `Saved ${saved}; remaining ${failed.length}`));
         setBusy(false);
         await onImported();
     };
@@ -131,8 +132,8 @@ export default function PlayerExcelImport({ gender, players, onImported, languag
             <div className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-md bg-white p-5">
                 <div className="flex justify-between gap-4"><h3 className="text-lg font-bold">{label('ตรวจสอบรายชื่อก่อนนำเข้า', 'Review players before importing')} ({rows.length})</h3><GuardedButton type="button" disabled={busy} onClick={() => setRows(null)} aria-label={label('ปิด', 'Close')}><X /></GuardedButton></div>
                 <p className="my-3 text-sm">{label('ใช้แผ่นงานแรก วันเกิดเป็น ค.ศ. YYYY-MM-DD เพศตามประเภททีม กรุณาลบแถวตัวอย่างก่อนนำเข้า แถวที่ผิดต้องแก้ในไฟล์แล้วเลือกใหม่', 'Uses the first worksheet. Dates: YYYY-MM-DD (CE). Gender follows the team. Remove the example row. Fix invalid rows in the file and select it again.')}</p>
-                <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{['แถว / Row', 'เบอร์ / No.', 'ชื่อ / Name', 'ตำแหน่ง / Position', 'วันเกิด / Birth date', 'ผลตรวจ / Validation'].map(title => <th key={title} className="border p-2">{title}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.row}><td className="border p-2">{row.row}</td><td className="border p-2">{row.data.number}</td><td className="border p-2">{row.data.first_name} {row.data.last_name}</td><td className="border p-2">{row.data.position}</td><td className="border p-2">{row.data.birth_date}</td><td className="border p-2 text-red-700">{row.error || '✓'}</td></tr>)}</tbody></table></div>
-                <div className="mt-4 flex justify-end gap-3"><GuardedButton type="button" disabled={busy} onClick={() => setRows(null)} className="rounded border px-4 py-2">{label('ปิด', 'Close')}</GuardedButton><GuardedButton type="button" disabled={busy || rows.some(row => row.error)} onClick={save} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{busy ? label('กำลังบันทึก…', 'Saving…') : label('ยืนยันนำเข้า', 'Confirm import')}</GuardedButton></div>
+                <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{['แถว / Row', 'เบอร์ / No.', 'ชื่อ / Name', 'ตำแหน่ง / Position', 'วันเกิด / Birth date', 'ผลตรวจ / Validation'].map(title => <th key={title} className="border p-2">{title}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.row}><td className="border p-2"><input type="checkbox" aria-label={label("เลือกแถว ","Select row ")+row.row} checked={Boolean(row.selected)} disabled={busy||Boolean(row.error)} onChange={event=>setRows(previous=>previous.map(item=>item.row===row.row?{...item,selected:event.target.checked}:item))}/> {row.row}</td><td className="border p-2">{row.data.number}</td><td className="border p-2">{row.data.first_name} {row.data.last_name}</td><td className="border p-2">{row.data.position}</td><td className="border p-2">{row.data.birth_date}</td><td className="border p-2 text-red-700">{row.error || '✓'}</td></tr>)}</tbody></table></div>
+                <div className="mt-4 flex justify-end gap-3"><GuardedButton type="button" disabled={busy} onClick={() => setRows(null)} className="rounded border px-4 py-2">{label('ปิด', 'Close')}</GuardedButton><GuardedButton type="button" disabled={busy || !rows.some(row => row.selected&&!row.error)} onClick={save} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{busy ? label('กำลังบันทึก…', 'Saving…') : label('นำเข้าแถวที่เลือก', 'Import selected rows')}</GuardedButton></div>
             </div>
         </div>}
     </div>;

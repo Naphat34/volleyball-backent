@@ -12,7 +12,7 @@ async function authorize(c,req){
     return competition;
 }
 async function approved(c,id){return (await c.query("SELECT DISTINCT t.id,t.public_id,t.name,t.name_th,t.name_en FROM team_entries e JOIN teams t ON t.id=e.team_id WHERE e.competition_id=? AND e.status='approved' ORDER BY t.id",[id])).rows;}
-const pickMatch=match=>Object.fromEntries(['id','public_id','home_team_id','away_team_id','match_number','round_name','pool_name','match_date','start_time','location','status','home_set_score','away_set_score','winner_team_id','result_type','forfeit_reason','phase','slot_key','home_source','away_source'].map(key=>[key,match[key]]));
+const pickMatch=match=>Object.fromEntries(['id','public_id','home_team_id','away_team_id','match_number','round_name','pool_name','match_date','start_time','location','stadium_id','status','home_set_score','away_set_score','winner_team_id','result_type','forfeit_reason','phase','slot_key','home_source','away_source'].map(key=>[key,match[key]]));
 exports.read=async(req,res)=>{
     try{
         const competition=await authorize(db,req),workflow=await s.read(db,competition.id);
@@ -139,12 +139,22 @@ exports.mutate=async(req,res)=>{
                     r.check(!date||(/^\d{4}-\d{2}-\d{2}$/.test(date)&&!Number.isNaN(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date),'Invalid match date');
                     r.check(!time||/^([01]\d|2[0-3]):[0-5]\d$/.test(time),'Invalid start time');
                     r.check(!time||date,'Set match date before time');r.check(location.length<=255,'Venue name is too long');
-                    return {match,number,date,time,location,round};
+                    const hasStadium=Object.hasOwn(input,'stadium_id');
+                    const stadiumId=hasStadium&&input.stadium_id!==null&&input.stadium_id!==''?Number(input.stadium_id):null;
+                    r.check(!hasStadium||stadiumId===null||(Number.isSafeInteger(stadiumId)&&stadiumId>0),'Invalid stadium');
+                    return {match,number,date,time,location,round,hasStadium,stadiumId};
                 });
+                const venueIds=[...new Set(updates.filter(update=>update.hasStadium&&update.stadiumId!==null).map(update=>update.stadiumId))];
+                const venues=venueIds.length?(await c.query(`SELECT id,name FROM stadiums WHERE id IN (${venueIds.map(()=>'?').join(',')}) ORDER BY id FOR SHARE`,venueIds)).rows:[];
+                for(const update of updates)if(update.hasStadium){
+                    const venue=venues.find(item=>Number(item.id)===update.stadiumId);
+                    r.check(update.stadiumId===null||venue,'Stadium not found');
+                    update.location=venue?.name||'';
+                }
                 const others=(await c.query('SELECT id,match_number FROM matches WHERE competition_id=?',[id])).rows.filter(match=>!seen.has(String(match.id)));
                 const numbers=new Set(others.map(match=>String(match.match_number)));
                 for(const update of updates){r.check(!numbers.has(update.number),'Duplicate match number');numbers.add(update.number);await s.lockMatch(c,update.match.id);r.check(!await s.started(c,(await c.query('SELECT * FROM matches WHERE id=?',[update.match.id])).rows[0]),'Cannot reschedule a started match');
-                    await c.query('UPDATE matches SET match_number=?,round_name=?,match_date=?,start_time=?,location=? WHERE id=?',[update.number,update.round,update.date||null,update.time?update.time+':00':null,update.location||null,update.match.id]);
+                    await c.query('UPDATE matches SET match_number=?,round_name=?,match_date=?,start_time=?,location=?,stadium_id=? WHERE id=?',[update.number,update.round,update.date||null,update.time?update.time+':00':null,update.location||null,update.hasStadium?update.stadiumId:update.match.stadium_id??null,update.match.id]);
                 }
             }else if(action==='qualify'){
                 r.check(row.state.status==='groups'&&!row.state.invalidated,'ต้องจัดการผังเดิมที่ผลเปลี่ยนก่อนยืนยันอันดับใหม่');

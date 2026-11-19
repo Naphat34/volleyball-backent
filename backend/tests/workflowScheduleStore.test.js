@@ -8,6 +8,7 @@ test('advance schedules resolve confirmed pool ranks and preserve waiting draw f
     try{
         const d=h.db,c=require('../controllers/competitionWorkflowController'),s=require('../utils/competitionWorkflowStore');
         await d.query("INSERT INTO users(id,username,password_hash,role,status) VALUES(1,'Admin','x','super_admin','active')");
+        await d.query("INSERT INTO stadiums(id,name,name_th,name_en) VALUES(1,'สนามทะเบียน','สนามทะเบียน','Registered Gym')");
         for(let id=1;id<=4;id++)await d.query('INSERT INTO teams(id,name,code) VALUES(?,?,?)',[id,`Team ${id}`,`T${id}`]);
         for(const competitionId of [1,2]){
             await d.query("INSERT INTO competitions(id,title,sport,gender,max_sets) VALUES(?,?,'volleyball','Male',3)",[competitionId,`Competition ${competitionId}`]);
@@ -31,6 +32,15 @@ test('advance schedules resolve confirmed pool ranks and preserve waiting draw f
             assert.equal((await call('schedule',{matches:[{...entry,match_date:'2026-02-30'}]})).code,409);
             assert.equal((await call('schedule',{matches:[{...entry,id:999}]})).code,409);
             await ok('schedule',{matches:[entry]});
+            assert.equal((await call('schedule',{matches:[{...entry,stadium_id:999999}]})).code,409);
+            assert.equal((await call('schedule',{matches:[{...entry,stadium_id:-1}]})).code,409);
+            await ok('schedule',{matches:[{...entry,stadium_id:1,location:'Untrusted name'}]});
+            let venue=(await d.query('SELECT stadium_id,location FROM matches WHERE id=?',[semi.id])).rows[0];
+            assert.equal(venue.stadium_id,1);assert.equal(venue.location,'สนามทะเบียน');
+            await ok('schedule',{matches:[{...entry,stadium_id:null}]});
+            venue=(await d.query('SELECT stadium_id,location FROM matches WHERE id=?',[semi.id])).rows[0];
+            assert.equal(venue.stadium_id,null);assert.equal(venue.location,null);
+            await ok('schedule',{matches:[{...entry,stadium_id:1}]});
             const waiting=await require('../utils/workflowSchedule').attachScheduleSources(d,knockout);
             assert.equal(waiting[0].awaiting_teams,true);
             assert.match(waiting[0].home_source_label_en,competitionId===1?/Rank 1 Pool A/:/Awaiting draw/);
@@ -47,7 +57,7 @@ test('advance schedules resolve confirmed pool ranks and preserve waiting draw f
             const resolved=knockout.find(match=>match.id===semi.id);
             assert.deepEqual([resolved.home_team_id,resolved.away_team_id],[1,4]);
             assert.deepEqual(JSON.parse(resolved.home_source),{type:'pool',pool:'A',rank:1});
-            assert.equal(String(resolved.match_number),'29');assert.equal(resolved.location,'Court 2');
+            assert.equal(String(resolved.match_number),'29');assert.equal(resolved.location,'สนามทะเบียน');assert.equal(resolved.stadium_id,1);
             assert.equal(resolved.round_name,'รอบรองชนะเลิศ');assert.equal(resolved.slot_key,'R4-1');
             const normalized=require('../utils/matchSchedule').normalizeMatchSchedule(resolved);
             assert.equal(normalized.match_date,'2026-11-20');assert.equal(normalized.start_time,'14:30');

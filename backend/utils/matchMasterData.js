@@ -80,12 +80,13 @@ async function createMatchMasterData(connection,req,match,input,current){
                 if(!staffRoles.has(role))fail('ตำแหน่งเจ้าหน้าที่ทีมไม่ถูกต้อง / Invalid team staff role');
                 const insert='INSERT INTO team_staff(team_id,first_name,last_name,role) VALUES(?,?,?,?)';
                 personId=(await connection.query(sqlDialect(insert,insert+' RETURNING id'),[teamId,first,last,role])).insertId;
-                if(entry)await connection.query('INSERT INTO team_entry_staff(team_entry_id,staff_id) VALUES(?,?)',[entry.id,personId]);
+                if(entry)await connection.query('INSERT INTO team_entry_staff(team_entry_id,staff_id,staff_snapshot) VALUES(?,?,?)',[entry.id,personId,JSON.stringify({first_name:first,last_name:last,role})]);
                 current.availableStaff[side].push({id:personId});
                 Object.assign(row,{id:personId,first_name:first,last_name:last,role});
             }
             delete row.create_master;
             created.push({kind,side,id:personId,teamId,entryId:entry?.id||null});
+            if(entry?.roster_mode==='manual')await connection.query('UPDATE team_entries SET roster_source_hash=NULL,roster_revision=roster_revision+1 WHERE id=?',[entry.id]);
             await connection.query('INSERT INTO audit_logs(user_id,username,role,action,entity_type,entity_id,details,created_at) VALUES(?,?,?,?,?,?,?,NOW())',
                 [req.user.id,req.user.username||null,req.user.role,'match.master.create',kind==='players'?'player':'team_staff',String(personId),JSON.stringify({matchId:match.id,teamId,entryId:entry?.id||null,side})]);
         }

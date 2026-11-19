@@ -38,7 +38,8 @@ function buildAdminVisMatch(row, actions = [], custom = false, now = Date.now())
     const current = custom ? view(payload) : null;
     const input = custom ? current.match : row;
     const match = custom ? input : dashboardMatch(row, actions);
-    const result = Object.fromEntries(fields.filter(key => match[key] !== undefined).map(key => [key, match[key]]));
+    const displayFields = ['home_team_name_th', 'home_team_name_en', 'away_team_name_th', 'away_team_name_en', 'location_th', 'location_en'];
+    const result = Object.fromEntries([...fields, ...displayFields].filter(key => match[key] !== undefined).map(key => [key, match[key]]));
     result.is_custom_vis = custom;
     result.referee_1_id = custom ? null : row.referee_1_id || null;
     result.referee_2_id = custom ? null : row.referee_2_id || null;

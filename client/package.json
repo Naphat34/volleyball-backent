@@ -4,6 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:team-data": "node scripts/checkTeamData.mjs",
+    "test:vims-grouping": "node --test src/utils/vis/dashboardLayout.test.js && node scripts/checkVimsGrouping.mjs",
+    "test:workflow-venue": "node scripts/checkWorkflowVenue.mjs",
+    "test:fixture-language": "node --test src/utils/i18n/fixtureDates.test.js && node scripts/checkFixtureLanguage.mjs",
+    "test:access-language": "node --test src/utils/i18n/accessCopy.test.js src/utils/competitionAccessGroups.test.js src/utils/vis/reviewCenter.test.js && node scripts/checkAccessLanguage.mjs",
     "test:admin-workspace": "node --test src/utils/adminWorkspace.test.js src/utils/adminMatchRoutes.test.js src/utils/navigation/loginReturnTo.test.js src/utils/competitionAccessGroups.test.js src/offline/entryRouting.test.js src/offline/accessRouting.test.js",
     "test:adminscorer-language": "node --test src/utils/scorer/adminScorerCompetitionNames.test.js src/offline/scorerDashboardCache.test.js && node scripts/checkAdminScorerLanguage.mjs",
     "test:scoresheet-roster": "node --test src/utils/reports/scoresheetRoster.test.js && node scripts/checkScoresheetRoster.mjs",

@@ -48,17 +48,33 @@ exports.competitions=endpoint(async(req,res)=>{
 exports.matches=endpoint(async(req,res)=>{
     const scope=scopeSql(req.user,'m.competition_id');
     const worker=['scorer','vims_operator'].includes(req.user.role);
-    const matches=(await db.query(`SELECT m.id,m.public_id,m.competition_id,m.status,m.match_number,m.manual_owner_id,
-        c.title AS competition_name,h.name AS home_team,a.name AS away_team
+    const matches=(await db.query(`SELECT m.id,m.public_id,m.competition_id,m.status,m.match_number,m.manual_owner_id,m.manual_vis_shared,m.manual_vis_assignee_id,
+        m.match_date,m.start_time,m.location,COALESCE(m.gender,c.gender) AS gender,m.round_name,m.pool_name,m.home_set_score,m.away_set_score,m.home_team_id,m.away_team_id,
+        venue.name_th AS location_th,venue.name_en AS location_en,ag.name AS age_group_name,
+        (SELECT COUNT(*) FROM match_actions va WHERE va.match_id=m.id AND va.action_type='VIS_STAT') AS vims_count,
+        (SELECT vr.status FROM match_reviews vr WHERE vr.match_id=m.id AND vr.domain='vims' ORDER BY vr.revision DESC LIMIT 1) AS vims_review_status,
+        c.title AS competition_name,c.title_th AS competition_name_th,c.title_en AS competition_name_en,
+        h.name AS home_team,a.name AS away_team,h.name_th AS home_team_name_th,h.name_en AS home_team_name_en,
+        a.name_th AS away_team_name_th,a.name_en AS away_team_name_en
         FROM matches m LEFT JOIN competitions c ON c.id=m.competition_id
+        LEFT JOIN age_groups ag ON ag.id=COALESCE(m.age_group_id,c.age_group_id)
+        LEFT JOIN stadiums venue ON venue.id=COALESCE(m.stadium_id,c.stadium_id)
+            AND (NULLIF(TRIM(m.location),'') IS NULL OR TRIM(m.location) IN(venue.name,venue.name_th,venue.name_en))
         LEFT JOIN teams h ON h.id=m.home_team_id LEFT JOIN teams a ON a.id=m.away_team_id WHERE (${scope.sql})${worker?' OR (m.manual_owner_id=? AND m.competition_id IS NULL)':''} ORDER BY m.id DESC`,[...scope.params,...(worker?[req.user.id]:[])])).rows;
     const customScope=scopeSql(req.user,'v.competition_id');
-    const custom=roleHasPermission(req.user.role,'vims.monitor')||req.user.role==='vims_operator'?(await db.query(`SELECT v.id,v.competition_id,v.owner_id,v.payload,c.title AS competition_name
+    const custom=roleHasPermission(req.user.role,'vims.monitor')||req.user.role==='vims_operator'?(await db.query(`SELECT v.id,v.competition_id,v.owner_id,v.payload,c.title AS competition_name,c.title_th AS competition_name_th,c.title_en AS competition_name_en,
+        (SELECT vr.status FROM match_reviews vr WHERE vr.custom_match_id=v.id AND vr.domain='vims' ORDER BY vr.revision DESC LIMIT 1) AS vims_review_status
         FROM custom_vis_matches v LEFT JOIN competitions c ON c.id=v.competition_id WHERE (${customScope.sql})${req.user.role==='vims_operator'?' OR (v.owner_id=? AND v.competition_id IS NULL)':''} ORDER BY v.created_at DESC`,[...customScope.params,...(req.user.role==='vims_operator'?[req.user.id]:[])])).rows:[];
     const customSummary=custom.map(({payload,...row})=>{
         const snapshot=typeof payload==='string'?JSON.parse(payload):payload;
+        const current=require('../utils/customVis').view(snapshot);
         return {...row,title:snapshot.config.title,home_team:snapshot.config.home.name,away_team:snapshot.config.away.name,
-            status:require('../utils/customVis').view(snapshot).match.status};
+            vims_count:(snapshot.actions||[]).length,gender:snapshot.config.gender,match_date:snapshot.config.date,start_time:snapshot.config.time,location:snapshot.config.location,
+            home_team_id:current.match.home_team_id,away_team_id:current.match.away_team_id,
+            home_set_score:current.state.setsWon.home,away_set_score:current.state.setsWon.away,
+            home_team_name_th:snapshot.config.home.name_th,home_team_name_en:snapshot.config.home.name_en,
+            away_team_name_th:snapshot.config.away.name_th,away_team_name_en:snapshot.config.away.name_en,
+            status:current.match.status};
     });
     res.json({matches,custom:customSummary});
 });
@@ -168,7 +184,7 @@ exports.reviews=endpoint(async(req,res)=>{
     const domain=domainOf(req.user)||(worker?(req.user.role==='scorer'?'score':'vims'):null);
     if(!domain&&!isSystemAdmin(req.user))throw denied();
     const scope=scopeSql(req.user,'r.competition_id');
-    res.json((await db.query(`SELECT r.*,c.title AS competition_name,u.username AS submitted_username FROM match_reviews r
+    res.json((await db.query(`SELECT r.*,c.title AS competition_name,c.title_th AS competition_name_th,c.title_en AS competition_name_en,u.username AS submitted_username FROM match_reviews r
         JOIN competitions c ON c.id=r.competition_id JOIN users u ON u.id=r.submitted_by
         WHERE ${scope.sql}${domain?' AND r.domain=?':''}${worker?' AND r.submitted_by=?':''} ORDER BY r.id DESC`,[...scope.params,...(domain?[domain]:[]),...(worker?[req.user.id]:[])])).rows);
 });
@@ -200,6 +216,7 @@ exports.review=endpoint(async(req,res)=>{
             if(domain==='score')await require('../utils/reviewValidation').validateScore(c,row);
             if(custom&&(payload.lifecycle!=='review'||require('../utils/customVis').view(payload).state.phase!=='MATCH_FINISHED'))throw denied('Complete the statistics match before submission',409);
             if(!custom&&domain==='vims'){
+                if(row.status!=='completed')throw denied('Complete the match before submitting statistics',409);
                 const count=Number((await c.query("SELECT COUNT(*) AS count FROM match_actions WHERE match_id=? AND action_type='VIS_STAT'",[id])).rows[0].count);
                 if(!count)throw denied('No statistics to submit',409);
                 const state=typeof row.vis_state==='string'?JSON.parse(row.vis_state):row.vis_state;
@@ -256,3 +273,11 @@ exports.preview=endpoint(async(req,res)=>{
     res.json({match:publicProjection(row),sets,statistics:publicProjection(statistics)});
 });
 module.exports.domainOf=domainOf;
+exports.vimsDetail=endpoint(async(req,res)=>{
+    const c=await db.connect();
+    try {
+        await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+        const detail=await require('../utils/vimsReviewDetail').loadVimsReviewDetail(c,req.user,req.params.kind,req.params.id,Number(req.query.eventPage??1));
+        await c.query('ROLLBACK');res.setHeader('Cache-Control','no-store');res.json(detail);
+    }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
+});

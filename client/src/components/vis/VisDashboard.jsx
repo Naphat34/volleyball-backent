@@ -20,8 +20,9 @@ import { exportVisMatch } from '../../utils/vis/visMatchFiles';
 import './VisDashboard.css';
 import VisOfflinePanel from './VisOfflinePanel';
 import VisMatchTable from './VisMatchTable';
-import { groupVisMatches, visMatchSortValue, visCompetitionName, visCompetitionKey } from '../../utils/vis/dashboardLayout';
+import { groupVisMatches, visMatchSortValue, visCompetitionName, visCompetitionKey, visMatchGender } from '../../utils/vis/dashboardLayout';
 import { dashboardMatchStatus, visStatuses } from '../../utils/vis/dashboardStatus';
+import {getScorerTeamOptions} from '../../utils/scorer/scorerTeamNames';
 
 const statuses = { scheduled: ['ยังไม่เริ่ม', 'Scheduled'], live: ['กำลังแข่งขัน / บันทึก', 'Live / Recording'], completed: ['จบแล้ว', 'Finished'], cancelled: ['ยกเลิก', 'Cancelled'] };
 export default function VisDashboard({ th, user, matches, matchId, loading, error, competitions, competitionLabel,
@@ -36,26 +37,28 @@ export default function VisDashboard({ th, user, matches, matchId, loading, erro
     const [colors, setColors] = useState({ home: '#6366f1', away: '#f43f5e' });
     const [offlineOpen, setOfflineOpen] = useState(false);
     const [visStatus, setVisStatus] = useState('');
+    const [gender,setGender]=useState('');
     const connectionFailed = connected === false || Boolean(error);
     const connectionStatus = connectionFailed ? 'error' : connected === true ? 'success' : 'pending';
     const query = search.trim().toLocaleLowerCase();
     const customTitles = [...new Set(matches.filter(m => m.is_custom_vis || m.manual_owner_id).map(m => m.competition_name))];
     const navbarCompetition = competition.startsWith('custom:') ? competition.slice(7)
-        : competition ? visCompetitionName(matches.find(match => competition.startsWith('name:') ? visCompetitionKey(match.competition_name) === competition : String(match.competition_id) === competition)?.competition_name)
+        : competition ? visCompetitionName(displayNames.competitionName(matches.find(match => competition.startsWith('name:') ? visCompetitionKey(match.competition_name) === competition : String(match.competition_id) === competition)))
         : th ? 'ทุกรายการแข่งขัน' : 'All competitions';
-    const teamNames = [...new Set(matches.flatMap(m => [m.home_team, m.away_team]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+    const teamNames = getScorerTeamOptions(matches,language);
     const filtered = matches.filter(m => (!competition || (competition.startsWith('custom:') ? (m.is_custom_vis || m.manual_owner_id) && m.competition_name === competition.slice(7) : competition.startsWith('name:') ? Boolean(m.competition_id) && visCompetitionKey(m.competition_name) === competition : String(m.competition_id) === competition))
         && (!status || dashboardMatchStatus(m) === status) && (!visStatus || m.vis_summary?.status === visStatus) && (!team || [m.home_team, m.away_team].includes(team))
-        && (!query || [m.home_team, m.away_team, m.competition_name, m.match_number, m.location].some(value => String(value || '').toLocaleLowerCase().includes(query))))
+        && (!gender || visMatchGender(m) === gender)
+        && (!query || [m.home_team, m.away_team, m.competition_name, m.match_number, m.location, displayNames.matchTeamName(m,'home'),displayNames.matchTeamName(m,'away'),displayNames.competitionName(m),displayNames.matchLocation(m)].some(value => String(value || '').toLocaleLowerCase().includes(query))))
         .sort((a, b) => {
             const value = m => visMatchSortValue(m, sort.field, competitionLabel);
             return String(value(a)).localeCompare(String(value(b)), th ? 'th' : 'en', { numeric: true }) * (sort.descending ? -1 : 1);
         });
     const pages = Math.max(1, Math.ceil(filtered.length / pageSize)), currentPage = Math.min(page, pages);
     const rows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-    const groups = groupVisMatches(rows, filtered);
+    const groups = groupVisMatches(rows, filtered, {combineByName:true}).map(group=>({...group,title:visCompetitionName(displayNames.competitionName(group.matches[0]))||group.title}));
     const sortState = field => sort.field === field ? sort.descending ? 'descending' : 'ascending' : 'none';
-    const reset = () => { setSearch(''); setCompetition(''); setStatus(''); setVisStatus(''); setTeam(''); setPage(1); };
+    const reset = () => { setSearch(''); setCompetition(''); setStatus(''); setVisStatus(''); setTeam(''); setGender(''); setPage(1); };
     const run = async action => { setBusy(true); setNotice(''); try { await action(); } catch (error) { setNotice(error.response?.data?.error || error.message || 'ดำเนินการไม่สำเร็จ'); } finally { setBusy(false); } };
     const openDialog = (match, mode) => run(async () => {
         const [state, roster] = await Promise.all([api.getVisState(match.id), api.getMatchRosterData(match.id)]);
@@ -65,7 +68,7 @@ export default function VisDashboard({ th, user, matches, matchId, loading, erro
         setDialog({ mode, match: { ...match, ...roster.data.match }, teams, events: state.data.events, state: state.data.state });
     });
     const pdf = match => run(async () => { const response = await api.getMatchScoresheetData(match.id); await previewVisMatchResultPDF(response.data, { language }); });
-    const sortHeader = (field, label) => <GuardedButton aria-label={`${label} · ${sort.field === field && sort.descending ? 'เรียงจากมากไปน้อย' : 'เรียงจากน้อยไปมาก'}`} onClick={() => { setSort(previous => ({ field, descending: previous.field === field ? !previous.descending : false })); setPage(1); }}>{ui(label)}<span className={sort.field === field ? 'vd-sort-active' : ''}>{sort.field === field ? sort.descending ? <SystemChevronDown size={14} /> : <SystemChevronUp size={14} /> : <SystemArrowUpDown size={14} />}</span></GuardedButton>;
+    const sortHeader = (field, label) => <GuardedButton aria-label={`${label} · ${sort.field === field && sort.descending ? (th?'เรียงจากมากไปน้อย':'Sort descending') : (th?'เรียงจากน้อยไปมาก':'Sort ascending')}`} onClick={() => { setSort(previous => ({ field, descending: previous.field === field ? !previous.descending : false })); setPage(1); }}>{ui(label)}<span className={sort.field === field ? 'vd-sort-active' : ''}>{sort.field === field ? sort.descending ? <SystemChevronDown size={14} /> : <SystemChevronUp size={14} /> : <SystemArrowUpDown size={14} />}</span></GuardedButton>;
     const date = value => { if (!value) return '—'; const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString(th ? 'th-TH' : 'en-GB', { timeZone: 'Asia/Bangkok', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }); };
     return <div className="vis-dash">
         {create && <VisCreateMatch sources={matches} matchId={create.id} onClose={() => { setCreate(null); reload(); }} onSaved={(id, start) => { setCreate(null); reload(); if (start) navigate(`/adminvis/match/${id}`); }} />}
@@ -77,7 +80,7 @@ export default function VisDashboard({ th, user, matches, matchId, loading, erro
         <header className="vd-account-bar"><Link to="/adminvis" className="vd-brand">{ui("VOLLEY")}{' '}<span>{ui("/ VIMS")}</span>{navbarCompetition && <> / {navbarCompetition}</>}</Link><div className="vd-account"><VisThemeToggle compact /><FullscreenToggle className="vd-fullscreen-toggle" />
             <div className="vd-languages" aria-label={ui("ภาษา")}>{[['THA', 'ไทย'], ['ENG', 'EN']].map(([value, label]) => <GuardedButton key={value} aria-pressed={language === value} className={language === value ? 'is-active' : ''} onClick={() => setLanguage(value)}>{ui(label)}</GuardedButton>)}</div>
             <span>{(displayNames.personFirstName(user) || user?.username) || (ui('Statistician'))} <b className="vd-badge">{ui("VIMS")}</b></span>
-            <Link to="/access-center">ส่งตรวจ / ตรวจสถานะ</Link><details className="vd-sync"><summary className={`vd-connection-status is-${connectionStatus}`}><UiCircle size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" className="inline-block shrink-0 align-middle" /><span role="status">{loading ? ui('กำลังโหลด') : connectionFailed ? (th ? 'เชื่อมต่อไม่สำเร็จ' : 'Connection failed') : connected === true ? ui('ข้อมูลล่าสุด') : (th ? 'รอเชื่อมต่อ' : 'Awaiting connection')}{lastUpdated && !Number.isNaN(new Date(lastUpdated).getTime()) && <time dateTime={new Date(lastUpdated).toISOString()} className="vd-connection-time"> · {date(lastUpdated)}</time>}</span></summary><div><p>{ui("โหลดข้อมูลเมื่อ")}{' '}{date(lastUpdated)}</p><p>{ui("แมตช์ที่แสดง")}{' '}{matches.length}{' '}{ui("รายการ")}</p><p>{ui("เผยแพร่")}{' '}{matches.filter(m => m.published).length}{' '}{ui("รายการ")}</p><p>{ui("แมตช์ในเครื่องต้องกดซิงค์เพื่อบันทึกขึ้นเซิร์ฟเวอร์")}</p><GuardedButton onClick={reload} disabled={loading}>{ui("โหลดข้อมูลอีกครั้ง")}</GuardedButton></div></details>
+            <Link to="/access-center">{th?'ส่งตรวจ / ตรวจสถานะ':'Review / status'}</Link><details className="vd-sync"><summary className={`vd-connection-status is-${connectionStatus}`}><UiCircle size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" className="inline-block shrink-0 align-middle" /><span role="status">{loading ? ui('กำลังโหลด') : connectionFailed ? (th ? 'เชื่อมต่อไม่สำเร็จ' : 'Connection failed') : connected === true ? ui('ข้อมูลล่าสุด') : (th ? 'รอเชื่อมต่อ' : 'Awaiting connection')}{lastUpdated && !Number.isNaN(new Date(lastUpdated).getTime()) && <time dateTime={new Date(lastUpdated).toISOString()} className="vd-connection-time"> · {date(lastUpdated)}</time>}</span></summary><div><p>{ui("โหลดข้อมูลเมื่อ")}{' '}{date(lastUpdated)}</p><p>{ui("แมตช์ที่แสดง")}{' '}{matches.length}{' '}{ui("รายการ")}</p><p>{ui("เผยแพร่")}{' '}{matches.filter(m => m.published).length}{' '}{ui("รายการ")}</p><p>{ui("แมตช์ในเครื่องต้องกดซิงค์เพื่อบันทึกขึ้นเซิร์ฟเวอร์")}</p><GuardedButton onClick={reload} disabled={loading}>{ui("โหลดข้อมูลอีกครั้ง")}</GuardedButton></div></details>
             {user?.role === 'admin' && <Link to="/admin">{ui("Admin")}</Link>}<GuardedButton disabled={loggingOut} onClick={logout} aria-label={ui("ออกจากระบบ")}><LogOut size={18} aria-hidden="true" /></GuardedButton>
         </div></header>
         <main className="vd-main"><AccessStatus /><div className="vd-heading"><h1>{th ? ui('การแข่งขัน') : ui('Matches')}</h1><div className="vd-actions">
@@ -97,8 +100,9 @@ export default function VisDashboard({ th, user, matches, matchId, loading, erro
             <select aria-label={ui("การแข่งขัน")} value={competition} onChange={event => { setCompetition(event.target.value); setPage(1); }}><option value="">{th ? ui('ทุกรายการแข่งขัน') : ui('All competitions')}</option>{competitions.map(([id, label]) => <option key={id} value={id}>{ui(label)}</option>)}{customTitles.map(title => <option key={title} value={`custom:${title}`}>{ui(title)}{' '}{ui("· VIMS")}</option>)}</select>
             <select aria-label={ui("สถานะแข่งขัน")} value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option value="">{th ? ui('ทุกสถานะแข่งขัน') : ui('All match statuses')}</option>{Object.entries(statuses).map(([value, labels]) => <option key={value} value={value}>{labels[th ? 0 : 1]}</option>)}</select>
             <select aria-label={ui("สถานะการบันทึก VIMS")} value={visStatus} onChange={event => { setVisStatus(event.target.value); setPage(1); }}><option value="">{th ? ui('ทุกสถานะ VIMS') : ui('All VIMS statuses')}</option>{Object.entries(visStatuses).map(([value, labels]) => <option key={value} value={value}>{labels[th ? 0 : 1]}</option>)}</select>
-            <select aria-label={ui("ทีม")} value={team} onChange={event => { setTeam(event.target.value); setPage(1); }}><option value="">{th ? ui('ทุกทีม') : ui('All teams')}</option>{teamNames.map(name => <option key={name}>{name}</option>)}</select>
-            {(search || competition || status || visStatus || team) && <GuardedButton className="vd-muted" onClick={reset}>{ui("ล้างตัวกรอง")}</GuardedButton>}
+            <select aria-label={ui("ทีม")} value={team} onChange={event => { setTeam(event.target.value); setPage(1); }}><option value="">{th ? ui('ทุกทีม') : ui('All teams')}</option>{teamNames.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+            <select aria-label={th?'ประเภท':'Gender'} value={gender} onChange={event=>{setGender(event.target.value);setPage(1);}}><option value="">{th?'ทุกประเภท':'All genders'}</option><option value="Male">{th?'ชาย':'Male'}</option><option value="Female">{th?'หญิง':'Female'}</option></select>
+            {(search || competition || status || visStatus || team || gender) && <GuardedButton className="vd-muted" onClick={reset}>{ui("ล้างตัวกรอง")}</GuardedButton>}
         </div>
         <div className="vd-results-summary" role="status"><strong>{filtered.length}</strong> {th ? ui('แมตช์') : ui('matches')}</div>
         {loading || !rows.length || matchId ? <div className="vd-empty" role="status">{loading ? th ? ui('กำลังโหลดแมตช์') : ui('Loading matches...') : (error) || (th ? ui('ไม่พบแมตช์') : ui('No matches found'))}</div> : groups.map(group => <VisMatchTable key={group.key} group={group} th={th} user={user} onClaim={m => run(async () => { await api.claimManualStatistics(m.id); reload(); })} onRelease={m => run(async () => { await api.releaseManualStatistics(m.id); reload(); })} sortHeader={sortHeader} sortState={sortState} statuses={statuses} date={date} busy={busy}
