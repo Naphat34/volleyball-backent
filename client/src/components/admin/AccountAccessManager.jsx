@@ -1,3 +1,4 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Search, Plus, X, ChevronLeft, ChevronRight, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { api } from '../../api';
@@ -27,9 +28,9 @@ export default function AccountAccessManager({users,groups,roles,names,system,lo
     const visibleGroups=groups.filter(group=>group.title.toLocaleLowerCase().includes(grantSearch.toLocaleLowerCase()));
     const picked=creating?selectedCompetitionGroups(groups,form.competition_ids):grantKeys;
     const choose=keys=>creating?setForm(previous=>({...previous,competition_ids:expandSelectedGroups(groups,keys)})):setGrantKeys(keys);
-    const close=()=>{
+    const close=async ()=>{
         if(lock.current)return;
-        if(dirty&&!window.confirm(ui('ทิ้งการเปลี่ยนแปลงที่ยังไม่บันทึกหรือไม่?')))return;
+        if(dirty&&!(await confirmAction(ui('ทิ้งการเปลี่ยนแปลงที่ยังไม่บันทึกหรือไม่?'), dialog.current)))return;
         setEditing(null);setError('');
     };
     useEffect(()=>{
@@ -56,9 +57,9 @@ export default function AccountAccessManager({users,groups,roles,names,system,lo
     const saveAccess=event=>{event.preventDefault();void run(async()=>{
         await api.accessSetCompetitions(editing.id,expandSelectedGroups(groups,grantKeys));setBaseline([...grantKeys]);
     },'บันทึกสิทธิ์แล้ว');};
-    const saveStatus=event=>{
+    const saveStatus=async event=>{
         event.preventDefault();
-        if(['inactive','banned','rejected'].includes(status)&&!window.confirm(ui('ยืนยันเปลี่ยนสถานะบัญชี {0} เป็น {1}?',[editing.username,ui(stateCopy[status])])))return;
+        if(['inactive','banned','rejected'].includes(status)&&!(await confirmAction(ui('ยืนยันเปลี่ยนสถานะบัญชี {0} เป็น {1}?',[editing.username,ui(stateCopy[status])]), dialog.current)))return;
         void run(async()=>{await api.accessUpdateUser(editing.id,{status});setSavedStatus(status);},'เปลี่ยนสถานะแล้ว');
     };
     const create=event=>{event.preventDefault();void run(async()=>{

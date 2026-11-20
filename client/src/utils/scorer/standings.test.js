@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { buildPoolStandings } from './standingsPools.js';
 
 test('knockout results do not enter pool standings and confirmed same-pool draw order is respected', () => {
     const teams=[{id:1,name:'Alpha',workflow_pool:'A',workflow_rank:2},{id:2,name:'Beta',workflow_pool:'A',workflow_rank:1}];
@@ -27,4 +28,25 @@ test('a straight-set result awards 3 points and skips unfinished or tied results
     assert.equal(rows[0].played, 1);
     assert.equal(rows[0].points_won, 50);
     assert.equal(rows[1].points_won, 38);
+});
+
+test('each pool ranks only its own matches and excludes the knockout round', () => {
+    const registered = [1, 2, 3, 4, 5, 6].map(id => ({ id, name: String(id) }));
+    const match = (id, home, away, fields) => ({
+        id, home_team_id: home, away_team_id: away, status: 'completed',
+        home_set_score: 2, away_set_score: 0, ...fields,
+    });
+    const boards = buildPoolStandings({ id: 10, max_sets: 3 }, registered, [
+        match(1, 1, 2, { pool_name: 'A', status: 'scheduled' }),
+        match(2, 2, 1, {}),
+        match(3, 3, 4, { pool_name: 'B' }),
+        match(4, 1, 3, { workflow_phase: 'knockout' }),
+        match(5, 1, 2, { round_name: 'รอบชิงชนะเลิศ' }),
+        match(6, 1, 4, {}),
+        match(7, 5, 6, {}),
+    ]);
+    assert.deepEqual(boards.map(board => board.pool), ['A', 'B', '']);
+    assert.deepEqual(boards.map(board => board.matches.map(item => item.id)), [[1, 2], [3], [7]]);
+    assert.deepEqual(boards.map(board => board.standings.map(team => team.id)), [[2, 1], [3, 4], [5, 6]]);
+    assert.ok(boards.every(board => board.standings.every(team => team.played === 1)));
 });

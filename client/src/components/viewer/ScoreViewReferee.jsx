@@ -1,20 +1,62 @@
 import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useEffectEvent, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Clock, RefreshCw, ArrowRightLeft, Wifi, WifiOff, MonitorPlay, PauseCircle, Smartphone, Monitor } from 'lucide-react';
 import { io } from 'socket.io-client';
 import Swal from 'sweetalert2';
 import { api } from '../../api';
+import { getAuthToken, getStoredUser } from '../../auth/authStorage';
 import CourtView from '../scorer/CourtView.jsx';
+import useScorerTranslation from '../scorer/useScorerTranslation';
 import { getContrastClass } from '../../utils/common/colorUtils';
+import { SCORER_TIMEOUT_MS } from '../../utils/scorer/scorerHelpers';
+import '../scorer/ScorerTimeout.css';
 
 const getSocketServerUrl = () => {
     const apiUrl = import.meta.env.VITE_API_URL;
     if (!apiUrl) return `${window.location.protocol}//${window.location.hostname}:3000`;
     return apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 };
+
+function RefereeTimeout({ startedAt, title, teamName, teamColor }) {
+    const [now, setNow] = useState(Date.now);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const timestamp = Date.now();
+            setNow(timestamp);
+            if (timestamp >= startedAt + SCORER_TIMEOUT_MS) clearInterval(timer);
+        }, 100);
+        return () => clearInterval(timer);
+    }, [startedAt]);
+
+    const remaining = Math.min(SCORER_TIMEOUT_MS, startedAt + SCORER_TIMEOUT_MS - now);
+    if (remaining <= 0) return null;
+    const seconds = Math.ceil(remaining / 1000);
+
+    return (
+        <div className="referee-timeout-overlay">
+            <section role="dialog" aria-label={title} className="scorer-timeout-popup">
+                <h2 className="scorer-timeout-title">{title}</h2>
+                {teamName && <div className="scorer-timeout-team mt-2">
+                    <span className="scorer-timeout-team-color" style={{ backgroundColor: teamColor }} aria-hidden="true" />
+                    <span>{teamName}</span>
+                </div>}
+                <div role="timer" className={`scorer-timeout-clock ${seconds <= 5 ? 'scorer-timeout-urgent' : ''}`}>
+                    <svg viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+                        <circle className="scorer-timeout-track" cx="100" cy="100" r="92" />
+                        <circle className="scorer-timeout-remaining" cx="100" cy="100" r="92" pathLength="100"
+                            strokeDasharray="100" strokeDashoffset={100 * (1 - remaining / SCORER_TIMEOUT_MS)}
+                            transform="rotate(-90 100 100)" />
+                    </svg>
+                    <span>00:{String(seconds).padStart(2, '0')}</span>
+                </div>
+            </section>
+        </div>
+    );
+}
 
 const getRequestDetails = (request) => {
     const details = request?.details || {};
@@ -112,6 +154,7 @@ const StatsTable = ({ challenges, timeouts, substitutions, leftTeam, rightTeam, 
 };
 
 export default function ScoreViewReferee() {
+    const st = useScorerTranslation();
     const displayNames = useDisplayNames();
     const ui = useUiTranslation();
     const { matchId } = useParams();
@@ -130,6 +173,8 @@ export default function ScoreViewReferee() {
 
     // --- STATE MANAGEMENT ---
     const [matchData, setMatchData] = useState(() => loadState('matchData', { teamHome: "HOME", teamAway: "AWAY", currentSet: 1 }));
+    const [requestConnection, setRequestConnection] = useState('checking');
+    const [activeTimeout, setActiveTimeout] = useState(null);
     const [isVertical, setIsVertical] = useState(() => loadState('isVertical', true));
     const [score, setScore] = useState(() => loadState('score', { home: 0, away: 0 }));
     const [setsWon, setSetsWon] = useState(() => loadState('setsWon', { home: 0, away: 0 }));
@@ -159,6 +204,10 @@ export default function ScoreViewReferee() {
         try {
             const res = await api.getLiveState(matchId);
             const state = res.data;
+            const startedAt = Number(state.timeoutStartTime);
+            setActiveTimeout(state.showTimeoutTimer && Number.isFinite(startedAt) && startedAt > 0
+                ? { startedAt, team: state.timeoutTeam === 'home' || state.timeoutTeam === 'away' ? state.timeoutTeam : null }
+                : null);
 
             // Set all states from the fetched data, with fallbacks
             if (state.matchData) {
@@ -216,90 +265,115 @@ export default function ScoreViewReferee() {
     }, [matchId, refreshData]);
 
     // --- EFFECT: REAL-TIME REQUEST NOTIFICATIONS FOR REFEREE ---
+    const refreshFromSocket = useEffectEvent(() => { void refreshData(); });
+
     useEffect(() => {
-        const socketUrl = getSocketServerUrl();
-        const socket = io(socketUrl);
+        const socket = io(getSocketServerUrl(), { auth: { token: getAuthToken() }, withCredentials: true });
+        const requests = new Map();
+        const outcomes = new Map();
+        const queue = [];
+        let activeAlert = null;
+        let disposed = false;
+        let wantsAlerts = getStoredUser()?.role === 'referee';
+        let joinAttempt = 0;
+        const requestTypes = new Set(['TIMEOUT', 'SUBSTITUTION', 'CHALLENGE']);
 
-        socket.on('connect', () => {
-            socket.emit('join_match', { matchId, role: 'referee' });
-        });
-
-        if (socket.connected) {
-            socket.emit('join_match', { matchId, role: 'referee' });
+        function join() {
+            const attempt = ++joinAttempt;
+            const role = wantsAlerts ? 'referee_alerts' : 'referee';
+            setRequestConnection(wantsAlerts ? 'checking' : 'public');
+            socket.timeout(4000).emit('join_match', { matchId, role }, (error, result) => {
+                if (disposed || attempt !== joinAttempt || !socket.connected) return;
+                if (wantsAlerts) {
+                    setRequestConnection(error ? 'unavailable' : result?.joined && result.refereeAlerts ? 'ready' : 'public');
+                }
+            });
         }
 
-        let activeAlertId = null;
-        const visibleRequestTypes = new Set(['TIMEOUT', 'SUBSTITUTION', 'CHALLENGE']);
+        socket.on('connect', join);
+        const resetRequestConnection = () => {
+            joinAttempt++;
+            setRequestConnection(wantsAlerts ? 'unavailable' : 'public');
+        };
+        socket.on('disconnect', resetRequestConnection);
+        socket.on('connect_error', resetRequestConnection);
+        socket.on('join_error', () => {
+            if (!wantsAlerts) return;
+            wantsAlerts = false;
+            join();
+        });
+        if (socket.connected) join();
 
-        const showRequestAlert = (request, { playSound = false } = {}) => {
-            const requestType = String(request?.request_type || '').toUpperCase();
-            if (!visibleRequestTypes.has(requestType)) return;
+        function showNextAlert() {
+            if (disposed || activeAlert || !queue.length) return;
+            const item = queue.shift();
+            const request = requests.get(item.id);
+            const outcome = outcomes.get(item.id);
+            activeAlert = item;
+
+            if (outcome) {
+                const title = outcome.cancelled ? 'คำขอถูกยกเลิก'
+                    : outcome.status === 'APPROVED' ? 'คำขอได้รับการอนุมัติ (Approved)' : 'คำขอถูกปฏิเสธ (Rejected)';
+                const summary = request && buildRequestAlert(request, ui, displayNames);
+                void Swal.fire({ uiTextLocalized: true, toast: true, position: 'top-end',
+                    title: ui(title), text: summary?.title, icon: outcome.status === 'APPROVED' ? 'success' : 'info',
+                    showConfirmButton: false, timer: 3000 }).then(finishAlert);
+                return;
+            }
 
             const alert = buildRequestAlert(request, ui, displayNames);
-            if (!alert) return;
+            const timed = request.request_type !== 'CHALLENGE';
+            const sound = new Audio('/sounds/notification.mp3');
+            void sound.play().catch(() => {});
+            void Swal.fire({ uiTextLocalized: true, ...alert, showConfirmButton: true, confirmButtonText: ui('OK'),
+                footer: ui('Waiting for scorer'), allowOutsideClick: false, timer: timed ? 15000 : undefined,
+                timerProgressBar: timed }).then(finishAlert);
+        }
 
-            activeAlertId = request.id;
+        function finishAlert() {
+            activeAlert = null;
+            showNextAlert();
+        }
 
-            if (playSound) {
-                try {
-                    const audio = new Audio('/sounds/notification.mp3');
-                    audio.play().catch(() => {});
-                } catch {
-                    // Notification sound is optional.
-                }
-            }
-
-            Swal.fire({ uiTextLocalized: true,
-                title: alert.title,
-                text: alert.text,
-                icon: alert.icon,
-                showConfirmButton: true,
-                confirmButtonText: ui('OK'),
-                confirmButtonColor: '#3085d6',
-                allowOutsideClick: false,
-                timer: requestType === 'CHALLENGE' ? undefined : 15000,
-                timerProgressBar: requestType !== 'CHALLENGE'
-            });
-        };
-
-        socket.on('new_staff_request', (request) => {
-            showRequestAlert(request, { playSound: true });
+        socket.on('new_staff_request', request => {
+            if (!requestTypes.has(request?.request_type) || request.id == null) return;
+            const id = String(request.id);
+            if (requests.has(id)) return;
+            requests.set(id, request);
+            queue.push({ id, result: false });
+            showNextAlert();
         });
 
-        socket.on('request_updated', (request) => {
-            if (activeAlertId && Number(request.id) === Number(activeAlertId)) {
-                showRequestAlert(request);
+        socket.on('request_updated', request => {
+            const id = String(request?.id);
+            if (!requests.has(id) || outcomes.has(id)) return;
+            requests.set(id, request);
+            if (activeAlert?.id === id && !activeAlert.result && Swal.isVisible()) {
+                const { text: updatedText } = buildRequestAlert(request, ui, displayNames);
+                Swal.update({ text: updatedText });
             }
         });
 
-        socket.on('request_processed', (data) => {
-            if (activeAlertId && Number(data.id) === Number(activeAlertId)) {
-                Swal.close();
-                activeAlertId = null;
-                
-                Swal.fire({ uiTextLocalized: true,
-                    toast: true,
-                    position: 'top-end',
-                    icon: data.status === 'APPROVED' ? 'success' : 'error',
-                    title: data.status === 'APPROVED' ? ui('คำขอได้รับการอนุมัติ (Approved)') : ui('คำขอถูกปฏิเสธ (Rejected)'),
-                    showConfirmButton: false,
-                    timer: 3000
-                });
-            }
+        socket.on('request_processed', result => {
+            const id = String(result?.id);
+            if (outcomes.has(id)) return;
+            outcomes.set(id, result);
+            if (!requests.has(id) || queue.some(item => item.id === id)) return;
+            queue.unshift({ id, result: true });
+            if (activeAlert?.id === id && !activeAlert.result) Swal.close();
+            showNextAlert();
         });
 
-        socket.on('match_updated', () => {
-            refreshData();
-        });
+        socket.on('match_updated', () => refreshFromSocket());
 
         return () => {
-            socket.off('new_staff_request');
-            socket.off('request_updated');
-            socket.off('request_processed');
-            socket.off('match_updated');
+            disposed = true;
+            if (activeAlert) Swal.close();
+            socket.off('disconnect', resetRequestConnection);
+            socket.off('connect_error', resetRequestConnection);
             socket.disconnect();
         };
-    }, [matchId, refreshData, ui, displayNames]);
+    }, [matchId, ui, displayNames]);
 
     // --- EFFECT: CONNECTION CHECK ---
     useEffect(() => {
@@ -334,6 +408,12 @@ export default function ScoreViewReferee() {
 
     return (
         <div className="h-screen w-screen bg-slate-50 text-slate-800 flex flex-col overflow-hidden font-sans select-none">
+            {requestConnection === 'ready' && activeTimeout && (
+                <RefereeTimeout key={activeTimeout.startedAt} startedAt={activeTimeout.startedAt}
+                    title={st('Timeout')}
+                    teamName={activeTimeout.team ? displayNames.matchTeamName(matchData, activeTimeout.team) : ''}
+                    teamColor={teamColors[activeTimeout.team]} />
+            )}
             {/* 2. Main Content Area: Responsive Layout for Court + Stats */}
             <div className={`flex-1 flex overflow-hidden relative ${isVertical ? 'flex-col' : 'flex-row'}`}>
                 
@@ -376,7 +456,8 @@ export default function ScoreViewReferee() {
                     {/* Court View Area (Always centered, takes more space) */}
                     <div className="flex-1 relative bg-slate-100/50 flex items-center justify-center overflow-hidden p-2 md:p-6">
                     <div className="w-full h-full max-w-7xl flex items-center justify-center">
-                        <CourtView 
+                        <CourtView
+                            jerseyTokens
                             homePositions={effectiveIsHomeLeft ? homeLineup : awayLineup}
                             awayPositions={effectiveIsHomeLeft ? awayLineup : homeLineup}
                             servingSide={servingTeam ? ((servingTeam === leftTeam.code) ? 'left' : 'right') : null}
@@ -388,7 +469,7 @@ export default function ScoreViewReferee() {
                             disableLibero={true}
                             isReadOnly={true}
                             hideTokens={isSetupPhase}
-                            tokenNumberClass="text-5xl sm:text-6xl md:text-7xl xl:text-8xl"
+                            tokenNumberClass="text-3xl sm:text-4xl md:text-5xl xl:text-6xl"
                             tokenBoxClass="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 xl:w-32 xl:h-32"
                             className="max-w-none"
                         />
@@ -448,8 +529,8 @@ export default function ScoreViewReferee() {
             
 
             {/* 5. Footer */}
-            <div className="bg-slate-200 px-6 py-3 flex justify-between items-center text-sm text-slate-600 shrink-0 border-t border-slate-300">
-                <div className="flex items-center gap-2">
+            <div className="bg-slate-200 px-3 py-3 flex flex-wrap justify-between items-center gap-3 text-sm text-slate-600 shrink-0 border-t border-slate-300 sm:px-6">
+                <div className="flex flex-wrap items-center gap-2">
                     {isConnected ? (
                         <div className="flex items-center gap-2 text-green-600">
                             <Wifi size={16} /> <span className="font-bold">{ui("Connected")}</span>
@@ -460,9 +541,17 @@ export default function ScoreViewReferee() {
                         </div>
                     )}
                     <span className="text-slate-500 ml-2 hidden sm:inline">{ui("Last update:")}{' '}{new Date(lastUpdated).toLocaleTimeString()}</span>
+                    <span role="status" className={`rounded-full px-2 py-1 text-xs font-semibold ${requestConnection === 'ready' ? 'bg-emerald-100 text-emerald-900' : 'bg-white text-slate-700'}`}>
+                        {ui({
+                            ready: 'พร้อมรับคำขอทีม',
+                            public: 'ดูคะแนนสดเท่านั้น',
+                            checking: 'กำลังตรวจสิทธิ์รับคำขอ',
+                            unavailable: 'ยังยืนยันสิทธิ์รับคำขอไม่ได้',
+                        }[requestConnection])}
+                    </span>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                     <GuardedButton
                         onClick={() => {
                             const newVertical = !isVertical;

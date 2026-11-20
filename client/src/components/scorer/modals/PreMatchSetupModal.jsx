@@ -1,3 +1,4 @@
+import { showNotice } from '../../../utils/i18n/alerts.js';
 import { GuardedButton, GuardedForm } from '../../ui/GuardedAction';
 import { X, ChevronRight, ChevronLeft, ChevronsRight, RotateCcw, AlertCircle, Info, Calendar, FileText, MapPin, User, Plus, Pencil, Save, LoaderCircle, Swords, CheckCircle, ChevronDown as UiChevronDown } from 'lucide-react';
 import useDisplayNames from '../../../hooks/useDisplayNames';
@@ -481,7 +482,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
             const targetPlayers = targetTeam === 'home' ? finalHome : finalAway;
 
             if (targetPlayers.length < 6) {
-                alert(st("กรุณาเพิ่มนักกีฬาอย่างน้อย 6 คนใน Roster ของทีมนี้"));
+                void showNotice(st("กรุณาเพิ่มนักกีฬาอย่างน้อย 6 คนใน Roster ของทีมนี้"), 'warning');
                 return;
             }
             onConfirm({
@@ -505,7 +506,7 @@ const PreMatchSetupModal = ({ isOpen, match, teamHome, teamAway, homeRoster, awa
             const finalAway = selAway.filter(p => p.selected);
 
             if (finalHome.length < 6 || finalAway.length < 6) {
-                alert(st("กรุณาเพิ่มนักกีฬาอย่างน้อยทีมละ 6 คนใน Roster"));
+                void showNotice(st("กรุณาเพิ่มนักกีฬาอย่างน้อยทีมละ 6 คนใน Roster"), 'warning');
                 return;
             }
             setStep(3);

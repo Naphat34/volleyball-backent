@@ -1,3 +1,4 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
 import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { GuardedButton } from '../ui/GuardedAction';
 import { ArrowUpRight as UiArrowUpRight } from 'lucide-react';
@@ -36,7 +37,7 @@ export default function ScorerMatchModal({ source, canConfirm = false, onClose, 
     const dirty = Boolean(draft && JSON.stringify(draft) !== JSON.stringify(baseline));
     const pendingMaster=['home','away'].reduce((total,side)=>total+['players','staff'].reduce((sum,key)=>sum+(draft?.[side]?.[key]?.filter(person=>person.create_master===true).length||0),0),0);
     const [validation, setValidation] = useState([]);
-    const close = () => { if (!actionLock.current && (!dirty || window.confirm(t('มีข้อมูลที่ยังไม่บันทึก ต้องการทิ้งการแก้ไขหรือไม่?', 'Discard unsaved changes?')))) onClose(); };
+    const close = async () => { if (!actionLock.current && (!dirty || (await confirmAction(t('มีข้อมูลที่ยังไม่บันทึก ต้องการทิ้งการแก้ไขหรือไม่?', 'Discard unsaved changes?'), dialog.current)))) onClose(); };
     const cancelRequest = useCallback(() => { sequence.current++; }, []);
     const online = () => navigator.onLine && getAccessSession().kind === 'online';
     const requestSnapshot = useCallback(async () => {
@@ -111,7 +112,7 @@ export default function ScorerMatchModal({ source, canConfirm = false, onClose, 
         if (JSON.stringify([snapshot.roster, snapshot.sheet, snapshot.manual]) !== JSON.stringify([latest.roster, latest.sheet, latest.manual])) {
             setAcknowledged(false); throw Error(t('ข้อมูลเปลี่ยนระหว่างตรวจสอบ กรุณาตรวจข้อมูลล่าสุดและรับรองอีกครั้ง', 'Data changed during review. Check and acknowledge the latest data again.'));
         }
-        if (!window.confirm(t('ยืนยันผลแมตช์นี้? หลังยืนยันจะล็อกการแก้ไขผล และยังแยกจากตารางคะแนนทางการ', 'Confirm this result? Editing will be locked. This remains separate from official standings.'))) return;
+        if (!(await confirmAction(t('ยืนยันผลแมตช์นี้? หลังยืนยันจะล็อกการแก้ไขผล และยังแยกจากตารางคะแนนทางการ', 'Confirm this result? Editing will be locked. This remains separate from official standings.'), dialog.current))) return;
         await api.confirmManualScorerMatch(matchId);
         if (!mounted.current) return;
         setSnapshot({ ...latest, manual: { ...latest.manual, match: { ...latest.manual.match, manual_lifecycle: 'confirmed' } } });
@@ -131,7 +132,7 @@ export default function ScorerMatchModal({ source, canConfirm = false, onClose, 
             {validation.length > 0 && <ul className="smm-error" role="alert">{validation.map((failure, index) => <li key={index}><GuardedButton type="button" onClick={() => setTab(failure.tab)}>{failure.message}</GuardedButton></li>)}</ul>}
             {notice && <p className="smm-notice" role="status">{ui(notice)}</p>}
             {pendingMaster>0&&<p className="smm-notice" role="status">{t(`มีบุคคลใหม่ ${pendingMaster} คน รอสร้างในข้อมูลหลัก เมื่อบันทึกจะใช้งานได้ทันที การนำออกจากแมตช์ภายหลังจะไม่ลบข้อมูลหลัก`,`${pendingMaster} new people will be created in master data when saved and immediately available. Removing them from this match later does not delete master data.`)}</p>}
-            {error && <div className="smm-error" role="alert"><p>{error === 'OFFLINE' ? t('ออฟไลน์หรือไม่ได้อยู่ในโหมดออนไลน์ ข้อมูลด้านล่างมาจากรายการเดิม ยังไม่ได้ตรวจจากเซิร์ฟเวอร์', 'Offline or not in online mode. Only existing list data is shown; server data is not verified.') : ui(error)}</p><GuardedButton disabled={loading || saving} onClick={() => { if (!dirty || window.confirm(t('โหลดข้อมูลใหม่และทิ้งการแก้ไข?', 'Reload and discard changes?'))) void load(); }}>{t('ลองใหม่', 'Retry')}</GuardedButton></div>}
+            {error && <div className="smm-error" role="alert"><p>{error === 'OFFLINE' ? t('ออฟไลน์หรือไม่ได้อยู่ในโหมดออนไลน์ ข้อมูลด้านล่างมาจากรายการเดิม ยังไม่ได้ตรวจจากเซิร์ฟเวอร์', 'Offline or not in online mode. Only existing list data is shown; server data is not verified.') : ui(error)}</p><GuardedButton disabled={loading || saving} onClick={async () => { if (!dirty || (await confirmAction(t('โหลดข้อมูลใหม่และทิ้งการแก้ไข?', 'Reload and discard changes?'), dialog.current))) void load(); }}>{t('ลองใหม่', 'Retry')}</GuardedButton></div>}
             {snapshot?.errors.map(failure => <p className="smm-error" role="alert" key={failure.section}>{failure.section}: {failure.message} <GuardedButton disabled={loading || saving} onClick={() => void load()}>{t('ลองใหม่', 'Retry')}</GuardedButton></p>)}
             {loading ? <p role="status">{t('กำลังอ่านข้อมูลล่าสุด…', 'Loading latest data…')}</p> : <>
                 {draft && ['overview', 'roster', 'staff', 'officials'].includes(tab) && <>

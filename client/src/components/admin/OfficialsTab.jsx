@@ -1,6 +1,8 @@
+import { showNotice, confirmAction } from '../../utils/i18n/alerts.js';
 import { GuardedButton } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
+import { readLanguage } from '../../utils/i18n/language.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api';
 import { User, Plus, Edit2, Trash2, X, Save, Flag, FileText } from 'lucide-react';
@@ -58,12 +60,13 @@ export default function Referees({ darkMode = false }) {
             fetchData();
         } catch (err) {
             console.error("Error saving official:", err);
-            alert(ui('Failed to save data. Please check console.'));
+            void showNotice(ui('Failed to save data. Please check console.'), 'error');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this official?')) return;
+        const message = readLanguage() === 'THA' ? 'ยืนยันการลบเจ้าหน้าที่คนนี้หรือไม่?' : 'Are you sure you want to delete this official?';
+        if (!(await confirmAction(message))) return;
         try {
             if (activeTab === 'referee') await api.deleteReferee(id);
             else if (activeTab === 'scorer') await api.deleteScorer(id);
@@ -71,7 +74,7 @@ export default function Referees({ darkMode = false }) {
             fetchData();
         } catch (err) {
             console.error("Error deleting official:", err);
-            alert(ui('Failed to delete.'));
+            void showNotice(ui('Failed to delete.'), 'error');
         }
     };
 

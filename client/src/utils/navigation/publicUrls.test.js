@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { identifier, remember, publicUrl, internalUrl, pathReferences } from './publicUrls.js';
+import { identifier, remember, rememberResponse, rememberOfflineMatch, hasReplacedMatchPublicId, publicUrl, internalUrl, pathReferences } from './publicUrls.js';
 
 const memory = new Map();
 globalThis.localStorage = { getItem: key => memory.get(key) || null, setItem: (key,value) => memory.set(key,String(value)) };
@@ -51,4 +51,30 @@ test('URL schema covers all API reference classes while excluding static routes'
     assert.equal(pathReferences('/vis-custom/offline-permit','api').length,0);
     assert.equal(pathReferences('/my-team/entries/11/players','api')[0].entity,'team_entries');
     assert.equal(pathReferences('/match/7/requests/11','api').length,2);
+    assert.deepEqual(pathReferences('/match/7/requests/pending','api').map(ref => ref.entity), ['matches']);
+    assert.deepEqual(pathReferences('/match/7/court-station/requests/pending','api').map(ref => ref.entity), ['matches']);
+});
+
+test('a fresh match list supersedes the cached UUID without rebinding old match links', async () => {
+    const id = '812';
+    const oldUuid = 'b1453b48-9ccc-459a-82af-498a212de3a5';
+    const currentUuid = '83513b48-6ccc-459a-82af-498a212de3a5';
+    remember({ entity: 'matches', id, public_id: oldUuid });
+    rememberResponse([{ id, public_id: currentUuid }], '/scorer/matches');
+    rememberOfflineMatch({ id, cache: { [`/scorer/match/${id}`]: { public_id: oldUuid } } });
+
+    assert.equal(await publicUrl(`/match/${id}`), `/match/${currentUuid}`);
+    assert.equal(await internalUrl(`/match/${currentUuid}`), `/match/${id}`);
+    assert.equal(hasReplacedMatchPublicId(id), true);
+
+    const fetchBefore = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Identifier not found' }), { status: 404 });
+    try {
+        await assert.rejects(internalUrl(`/match/${oldUuid}`), { status: 404 });
+        const reloaded = await import('./publicUrls.js?reload-replaced-match');
+        assert.equal(reloaded.hasReplacedMatchPublicId(id), true);
+        await assert.rejects(reloaded.internalUrl(`/match/${oldUuid}`), { status: 404 });
+    } finally {
+        globalThis.fetch = fetchBefore;
+    }
 });

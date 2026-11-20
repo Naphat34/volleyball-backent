@@ -257,6 +257,11 @@ export const api = {
   getMatchEvents: (matchId) => apiClient.get(`/scorer/match/${matchId}/events`),
   updateLiveState: (matchId, state) => apiClient.put(`/scorer/match/${matchId}/state`, { state }),
   getLiveState: (matchId) => apiClient.get(`/scorer/match/${matchId}/state`),
+  getCourtStationStatus: (matchId, side, token) => apiClient.get(`/match/${matchId}/court-station/status`, {
+    params: { side }, timeout: 4000, ...(token && { headers: { 'X-Court-Station': token } })
+  }),
+  manageCourtPairing: (matchId, side, action) => apiClient.post(`/match/${matchId}/court-station/pins`, { side, action }),
+  unlockCourtStation: (matchId, side, pin) => apiClient.post(`/match/${matchId}/court-station/unlock`, { side, pin }),
   getMatchLineups: (matchId) => apiClient.get(`/scorer/match/${matchId}/lineup`),
 
   // --- Officials (Referees/Scorers/LineJudges) ---

@@ -4,12 +4,14 @@ export const getTeamCode = (teamName) => {
     return teamName.substring(0, 3).toUpperCase();
 };
 
+export const SCORER_TIMEOUT_MS = 30000;
+
 // Keep the wire format identical for automatic saves and explicit workflow saves.
 const liveStateFields = [
     'matchData', 'workflowStep', 'score', 'setsWon', 'timeouts', 'challenges',
     'substitutions', 'servingTeam', 'isHomeLeft', 'homeRoster', 'awayRoster',
     'homeLineup', 'awayLineup', 'homeLiberos', 'awayLiberos', 'homeLiberoSwaps',
-    'awayLiberoSwaps', 'teamColors', 'showTimeoutTimer', 'timeoutStartTime',
+    'awayLiberoSwaps', 'teamColors', 'showTimeoutTimer', 'timeoutStartTime', 'timeoutTeam',
     'matchDuration', 'isTimerRunning', 'setTimerStartedAt', 'subTracker', 'referees', 'matchSignatures',
     'currentChallengeReview', 'firstServeSet1', 'lineupSetup', 'completedSets'
 ];

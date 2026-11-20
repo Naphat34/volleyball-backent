@@ -3,6 +3,8 @@ const { getMatchTeamStaff } = require('../utils/matchTeamStaff');
 const { refreshTeamEntries, restoreSnapshot } = require('../utils/automaticEntryRoster');
 const { applyMatchSetup, setupPlayers, setupStaff, parseSetup, normalizeTeam } = require('../utils/matchSetup');
 const db = require('../config/db');
+const { randomUUID } = require('node:crypto');
+const { isStationPaused } = require('./courtStationController');
 const { normalizeNames, playerNameFields } = require('../utils/bilingualNames');
 const { normalizeVisGrade, normalizeVisSkill } = require('../config/visCodes');
 
@@ -548,6 +550,16 @@ module.exports = {
             let savedState = persisted.rows[0]?.live_state;
             try { if (typeof savedState === 'string') savedState = JSON.parse(savedState); } catch { savedState = null; }
             if (savedState?.offlineAwaitingConfirmation) officialState.offlineAwaitingConfirmation = true;
+            delete officialState.courtStationRevision;
+            if (typeof officialState.isHomeLeft === 'boolean') {
+                const sameAssignment = savedState?.isHomeLeft === officialState.isHomeLeft
+                    && isStationPaused(savedState) === isStationPaused(officialState)
+                    && Number(savedState?.matchData?.currentSet || savedState?.matchData?.current_set || 1)
+                        === Number(officialState.matchData?.currentSet || officialState.matchData?.current_set || 1);
+                officialState.courtStationRevision = sameAssignment && savedState.courtStationRevision
+                    ? savedState.courtStationRevision
+                    : randomUUID();
+            }
             const statePayload = JSON.stringify(officialState);
             await db.query(
                 'UPDATE matches SET live_state = ? WHERE id = ?',

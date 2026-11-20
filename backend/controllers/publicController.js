@@ -163,7 +163,7 @@ module.exports = {
                 SELECT
                     m.id,
                     wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.match_number,
-                    m.round_name,
+                    m.round_name, COALESCE(NULLIF(TRIM(wm.pool_name), ''), m.pool_name) AS pool_name,
                     m.competition_id,
                     c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en,
                     c.max_sets,
@@ -202,7 +202,7 @@ module.exports = {
                 SELECT
                     m.id, m.public_id,
                     wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.match_number,
-                    m.round_name,
+                    m.round_name, COALESCE(NULLIF(TRIM(wm.pool_name), ''), m.pool_name) AS pool_name,
                     m.competition_id,
                     c.title AS competition_name, c.title_th AS competition_name_th, c.title_en AS competition_name_en,
                     c.max_sets,

@@ -4,9 +4,23 @@ import { localRead } from './localRead.js';
 import { nextSyncBatch, assertAcknowledged } from './syncBatch.js';
 import { applyScorerCache, hydrateScorerCache, scorerStorageSnapshot } from './scorerCache.js';
 import EventQueue from '../utils/scorer/eventQueue.js';
-import { internalUrl, rememberOfflineMatch } from '../utils/navigation/publicUrls.js';
+import { cachedMatchPublicId, hasReplacedMatchPublicId, internalUrl, rememberOfflineMatch } from '../utils/navigation/publicUrls.js';
 const activeKey = id => `scorer_offline_active_${id}`;
-export const scorerOfflineActive = id => localStorage.getItem(activeKey(id)) === '1';
+const recordPublicId = record => record.cache?.[`/scorer/match/${record.id}`]?.public_id;
+export function setScorerOfflineActive(record) {
+    const publicId = recordPublicId(record);
+    if (hasReplacedMatchPublicId(record.id) && (!publicId || publicId !== cachedMatchPublicId(record.id))) {
+        throw Error('แมตช์ในเครื่องอ้างอิงรหัสเดิม กรุณาสำรองข้อมูลก่อนตรวจสอบแมตช์ใหม่');
+    }
+    localStorage.setItem(activeKey(record.id), publicId || '1');
+}
+export function scorerOfflineActive(id) {
+    const active = localStorage.getItem(activeKey(id));
+    if (!active) return false;
+    const current = cachedMatchPublicId(id);
+    if (active === '1') return !hasReplacedMatchPublicId(id);
+    return !current || active === current;
+}
 const owner = (options) => {
     const grant = getOfflineUser(options), user = getStoredUser();
     if (!grant || String(user?.id) !== String(grant.id)) throw Error('กรุณาปลดล็อก PIN หรือต่ออายุสิทธิ์ Offline ของบัญชีนี้');
@@ -101,7 +115,7 @@ export async function prepareScorer(client, id) {
         persisted = true;
         for (const key of Object.keys(localStorage)) if (key.startsWith(`match_${id}_`)) localStorage.removeItem(key);
         for (const [key, value] of Object.entries(record.localStorage)) localStorage.setItem(key, value);
-        localStorage.setItem(activeKey(id), '1');
+        setScorerOfflineActive(record);
         return record;
     } catch (error) {
         if (!checkout) error.message += ' · หากเครือข่ายหลุดหลังจอง ให้ใช้บัญชีและเบราว์เซอร์เดิมดาวน์โหลดแมตช์นี้ซ้ำ';
@@ -178,6 +192,8 @@ export async function syncScorer(client, id, release = false) {
         return current;
     });
     try {
+        const publicId = recordPublicId(record);
+        if (!publicId && hasReplacedMatchPublicId(id)) throw Error('ไม่สามารถยืนยันแมตช์ของคิวเดิมได้ กรุณาสำรองข้อมูลไว้ก่อน');
         let saved;
         do {
             const batch = nextSyncBatch(record.queue), finalRelease = release && batch.length === record.queue.length;
@@ -187,7 +203,7 @@ export async function syncScorer(client, id, release = false) {
                 current.sentIds = [...new Set([...current.sentIds, ...batch.map(op => op.id)])];
                 return current;
             });
-            saved = (await client.post(`/scorer/match/${id}/offline-sync`, { deviceId: deviceId(), fingerprint: record.fingerprint, operations: batch, release: finalRelease }, { timeout: 60000 })).data;
+            saved = (await client.post(`/scorer/match/${publicId || id}/offline-sync`, { deviceId: deviceId(), fingerprint: record.fingerprint, operations: batch, release: finalRelease }, { timeout: 60000 })).data;
             assertAcknowledged(batch, saved.acknowledged, 'id');
             if (!saved.fingerprint || (finalRelease && !saved.released)) throw Error('เซิร์ฟเวอร์ยังไม่ยืนยันการซิงค์และคืนสิทธิ์ กรุณาลองใหม่');
             const acknowledged = new Set(batch.map(op => op.id));

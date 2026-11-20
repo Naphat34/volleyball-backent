@@ -11,6 +11,7 @@ const { createCorsOptions } = require('./config/security');
 const { rejectCrossOriginMutations, securityHeaders } = require('./config/security');
 const jwt = require('jsonwebtoken');
 const db = require('./config/db');
+const { canJoinStaffRoom } = require('./controllers/courtStationController');
 const { getJwtSecret } = require('./config/security');
 const { roleHasPermission } = require('./config/permissions');
 const { createSocketMonitor } = require('./utils/socketMonitor');
@@ -143,7 +144,7 @@ function createSocketIo(server) {
     return require('./utils/accessScope').loadCapabilities(db,user);
   };
 
-  const canJoinMatchRoom = async ({ socket, matchId, role, side }) => {
+  const canJoinMatchRoom = async ({ socket, matchId, role, side, stationToken }) => {
     if (/^custom-[a-f0-9-]{36}$/i.test(String(matchId)) && role === 'viewer') {
       try {
         const user = await getSocketUser(socket);
@@ -155,8 +156,18 @@ function createSocketIo(server) {
       } catch { return false; }
     }
     if (!matchId || !/^\d+$/.test(String(matchId))) return false;
-    if (!['viewer', 'referee', 'staff', 'scorer'].includes(String(role || 'viewer'))) return false;
+    if (!['viewer', 'referee', 'referee_alerts', 'staff', 'scorer'].includes(String(role || 'viewer'))) return false;
     const manual = (await db.query('SELECT competition_id, manual_owner_id, manual_published, manual_lifecycle, manual_vis_shared, status FROM matches WHERE id=?', [matchId])).rows[0];
+    if (role === 'referee_alerts') {
+      if (!manual || (manual.manual_owner_id && (!Number(manual.manual_published) || manual.manual_lifecycle === 'draft'))) return false;
+      try {
+        const user = await getSocketUser(socket);
+        if (user?.role !== 'referee' || !roleHasPermission(user.role, 'match.view')) return false;
+        await require('./utils/accessScope').assertCompetition(db, user, manual.competition_id);
+        socket.user = user;
+        return true;
+      } catch { return false; }
+    }
     if (manual?.manual_owner_id) {
       let user;
       try { user = await getSocketUser(socket); } catch { user = null; }
@@ -185,6 +196,7 @@ function createSocketIo(server) {
     const match = matchResult.rows[0];
     if (!match) return false;
     const expectedTeamId = side === 'home' ? match.home_team_id : match.away_team_id;
+    if (stationToken) return canJoinStaffRoom(matchId, user, stationToken, expectedTeamId);
     return String(expectedTeamId) === String(user.team_id);
   };
 
@@ -192,12 +204,14 @@ function createSocketIo(server) {
   io.to=room=>{
     const target=baseTo(room),emit=target.emit;
     target.emit=function(event,...args){
-      if(/^match_.*:(score|operations)$/.test(String(room))){
+      if(/^match_.*:(score|operations|referee)$/.test(String(room))){
         for(const socketId of io.sockets.adapter.rooms.get(room)||[]){
           const socket=io.sockets.sockets.get(socketId);
-          if(socket?.lastJoin)void canJoinMatchRoom({socket,...socket.lastJoin}).then(allowed=>{
+          const join = socket?.lastJoin;
+          if(join)void canJoinMatchRoom({socket,...join}).then(allowed=>{
+            if (socket.lastJoin !== join || !socket.rooms.has(room)) return;
             if(allowed)socket.emit(event,...args);else socket.leave(room);
-          }).catch(()=>socket.leave(room));
+          }).catch(()=>{ if (socket.lastJoin === join) socket.leave(room); });
         }
         return true;
       }
@@ -221,9 +235,11 @@ function createSocketIo(server) {
     socketMonitor.onConnect(socket);
     console.log(`🔌 Socket connected: ${socket.id}`);
 
-    socket.on('join_match', async ({ matchId, role = 'viewer', side }) => {
-      const allowed = await canJoinMatchRoom({ socket, matchId, role, side });
+    socket.on('join_match', async ({ matchId, role = 'viewer', side, stationToken }, acknowledge) => {
+      const allowed = await canJoinMatchRoom({ socket, matchId, role, side, stationToken });
+      if (!socket.connected) return;
       if (!allowed) {
+        if (typeof acknowledge === 'function') acknowledge({ joined: false, refereeAlerts: false });
         socket.emit('join_error', { error: 'Not authorized to join this match room' });
         return;
       }
@@ -231,11 +247,13 @@ function createSocketIo(server) {
       socket.join(`match_${matchId}`);
       if(role==='scorer') socket.join(`match_${matchId}:score`);
       if(['scorer','staff'].includes(role))socket.join(`match_${matchId}:operations`);
+      if(role==='referee_alerts') socket.join(`match_${matchId}:referee`);
       socket.matchId = matchId;
       socket.role = role;
       socket.side = side;
       socketMonitor.onJoin(socket, matchId, role, side);
-      socket.lastJoin={matchId,role,side};
+      socket.lastJoin={matchId,role,side,stationToken};
+      if (typeof acknowledge === 'function') acknowledge({ joined: true, refereeAlerts: role === 'referee_alerts' });
       console.log(`👤 Socket ${socket.id} joined room match_${matchId} as ${role} (${side || 'N/A'})`);
 
       updateAndEmitStatus(io, matchId);

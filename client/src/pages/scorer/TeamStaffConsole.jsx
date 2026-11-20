@@ -1,9 +1,11 @@
+import TeamCourtStation from './TeamCourtStation';
 import { GuardedButton } from '../../components/ui/GuardedAction';
 import JerseyToken from '../../components/scorer/JerseyToken';
 import { Clock, Flag, Users, ChevronLeft, RefreshCcw, Loader2, Check, X, ArrowRight as UiArrowRight } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useOptionalLanguage } from '../../context/LanguageContext';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 
@@ -13,6 +15,30 @@ import { isPlayerLibero, filterActivePlayers, getPlayerId, getPlayerNumber as re
 import { getAuthToken, getStoredUser } from '../../auth/authStorage';
 import { hydrateStaffPlayer } from '../../utils/scorer/staffRoster';
 import { createStaffLiveStateGate } from '../../utils/scorer/staffLiveStateGate';
+
+const preMatchSteps = [
+    ['COIN_TOSS', 'เสี่ยงเหรียญ', 'Coin toss'],
+    ['LINEUP', 'จัดผู้เล่นตัวจริง', 'Starting lineup'],
+    ['START', 'เริ่มแข่งขัน', 'Start play'],
+];
+
+const waitingCopy = {
+    COIN_TOSS: ['รอผลเสี่ยงเหรียญ', 'Waiting for the coin toss result', 'เมื่อผู้บันทึกคะแนนบันทึกผลแล้ว ระบบจะแสดงขั้นตอนถัดไปที่นี่', 'The next step will appear here once the scorer records the result.'],
+    LINEUP: ['รอเริ่มการแข่งขัน', 'Waiting for play to start', 'ติดตามการเริ่มแข่งขันจากโต๊ะบันทึกคะแนน', 'Follow the scorer for the start of play.'],
+    SET_ENDING: ['กำลังสรุปผลเซต', 'Set result pending'],
+    SET_FINISHED: ['จบเซต', 'Set complete'],
+    MATCH_FINISHED: ['จบการแข่งขัน', 'Match complete'],
+};
+
+function ConnectionStatus({ label, status, connected }) {
+    return (
+        <div className="flex items-center gap-x-2 gap-y-1 text-sm font-semibold">
+            <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${connected ? 'bg-emerald-600' : 'bg-amber-600'}`} />
+            <span className="text-slate-600">{label}</span>
+            <span className={connected ? 'text-emerald-800' : 'text-amber-900'}>{status}</span>
+        </div>
+    );
+}
 
 // Normalize and compare gender values for roster filtering
 const normalizeGender = (g) => String(g || '').trim().toLowerCase();
@@ -69,10 +95,35 @@ const hydratePlayerMap = (playerMap = {}, rosterList = []) => (
 );
 
 export default function TeamStaffConsole() {
+    const { matchId } = useParams();
+    const { language } = useOptionalLanguage();
+    return (
+        <TeamCourtStation key={matchId} matchId={matchId} thai={language === 'THA'}>
+            {station => <TeamStaffMatch
+                key={JSON.stringify([station.side, station.teamId, station.revision, Boolean(station.token)])}
+                station={station} />}
+        </TeamCourtStation>
+    );
+}
+
+function TeamStaffMatch({ station }) {
     const displayNames = useDisplayNames();
     const ui = useUiTranslation();
+    const { language } = useOptionalLanguage();
+    const thai = language === 'THA';
     const { matchId } = useParams();
     const navigate = useNavigate();
+    const { side: stationSide, teamId: stationTeamId, token: stationToken, revision: stationRevision } = station;
+    const stationLocked = Boolean(stationSide && !stationToken);
+    const requestRoot = `/match/${matchId}${stationSide ? '/court-station' : ''}`;
+    const requestConfig = useMemo(() => stationToken
+        ? { headers: { 'X-Court-Station': stationToken, 'X-Court-Revision': stationRevision } }
+        : undefined, [stationToken, stationRevision]);
+    const submitRequest = data => client.post(`${requestRoot}/request`, data, requestConfig);
+    const updateRequest = useCallback((requestId, data) => client.put(
+        `${requestRoot}/requests/${requestId}`, data,
+        requestConfig
+    ), [requestRoot, requestConfig]);
 
     const [matchData, setMatchData] = useState(null);
     const [teamInfo, setTeamInfo] = useState(null);
@@ -210,10 +261,11 @@ export default function TeamStaffConsole() {
             if (acceptLive) setWorkflowStep(live?.workflowStep || (m.first_serve_team_id ? 'LINEUP' : 'COIN_TOSS'));
 
             const user = getStoredUser();
-            const isHome = String(m.home_team_id) === String(user?.team_id);
-            const isAway = String(m.away_team_id) === String(user?.team_id);
+            const isHome = String(m.home_team_id) === String(stationTeamId ?? user?.team_id);
+            const isAway = String(m.away_team_id) === String(stationTeamId ?? user?.team_id);
 
-            if (!isHome && !isAway) {
+            const isParticipant = [m.home_team_id, m.away_team_id].some(id => String(id) === String(user?.team_id));
+            if (!isParticipant || (!isHome && !isAway)) {
                 Swal.fire({uiTextLocalized:true,title:ui('ไม่อนุญาตให้เข้าถึง'),text:ui('ทีมของคุณไม่มีส่วนเกี่ยวข้องกับการแข่งขันนี้'),icon:'error'});
                 navigate('/team-dashboard');
                 return;
@@ -237,7 +289,7 @@ export default function TeamStaffConsole() {
             setMatchData(previous => !acceptLive && previous ? previous : mergedMatchData);
 
             setTeamInfo({
-                id: user.team_id,
+                id: stationTeamId ?? user.team_id,
                 name: isHome ? m.home_team_name : m.away_team_name,
                 name_th: isHome ? m.home_team_name_th : m.away_team_name_th,
                 name_en: isHome ? m.home_team_name_en : m.away_team_name_en,
@@ -286,7 +338,7 @@ export default function TeamStaffConsole() {
                     const lineupRes = await client.get(`/scorer/match/${matchId}/lineup`);
                     if (!isCurrent()) return;
                     const allLineups = lineupRes.data || [];
-                    const teamLineupObj = allLineups.find(l => String(l.team_id) === String(user.team_id));
+                    const teamLineupObj = allLineups.find(l => String(l.team_id) === String(stationTeamId ?? user.team_id));
                     setLineup(teamLineupObj ? hydrateLineupPlayers(teamLineupObj.lineup, currentRoster) : []);
                 } catch (err) {
                     console.error("Failed to load starting lineup fallback:", err);
@@ -294,9 +346,11 @@ export default function TeamStaffConsole() {
             }
 
             try {
-                const reqRes = await client.get(`/match/${matchId}/requests/pending`);
+                const reqRes = stationLocked
+                    ? { data: [] }
+                    : await client.get(`${requestRoot}/requests/pending`, requestConfig);
                 if (!isCurrent()) return;
-                const myPendingLineup = reqRes.data.find(r => String(r.team_id) === String(user.team_id) && r.request_type === 'LINEUP');
+                const myPendingLineup = reqRes.data.find(r => String(r.team_id) === String(stationTeamId ?? user.team_id) && r.request_type === 'LINEUP');
                 setHasPendingLineup(!!myPendingLineup);
                 if (myPendingLineup) {
                     let pendingLineupDetails = myPendingLineup.details || {};
@@ -317,10 +371,10 @@ export default function TeamStaffConsole() {
                     }
                 }
 
-                const myPendingSub = reqRes.data.find(r => String(r.team_id) === String(user.team_id) && r.request_type === 'SUBSTITUTION');
+                const myPendingSub = reqRes.data.find(r => String(r.team_id) === String(stationTeamId ?? user.team_id) && r.request_type === 'SUBSTITUTION');
                 setHasPendingSubstitution(!!myPendingSub);
 
-                const myPendingChallenge = reqRes.data.find(r => String(r.team_id) === String(user.team_id) && r.request_type === 'CHALLENGE');
+                const myPendingChallenge = reqRes.data.find(r => String(r.team_id) === String(stationTeamId ?? user.team_id) && r.request_type === 'CHALLENGE');
                 setHasPendingChallenge(!!myPendingChallenge);
 
                 if (myPendingLineup) {
@@ -372,12 +426,14 @@ export default function TeamStaffConsole() {
             source.gate.finishPoll(token);
             if (liveStateGateRef.current === source) setIsLoading(false);
         }
-    }, [matchId, navigate, checkAndPromptLineup, ui]);
+    }, [matchId, navigate, checkAndPromptLineup, ui, stationTeamId, stationLocked, requestRoot, requestConfig]);
 
     // --- EFFECT: SOCKET.IO FOR REAL-TIME UPDATES ---
     useEffect(() => {
         if (!teamId || !teamSide) return;
         const source = liveStateGateRef.current;
+        const socketMatchId = stationSide ? matchData?.id : matchId;
+        if (!socketMatchId) return;
 
         const socketUrl = getSocketServerUrl(`${window.location.protocol}//${window.location.hostname}:3000`);
         const socket = io(socketUrl, {
@@ -385,30 +441,23 @@ export default function TeamStaffConsole() {
             withCredentials: true
         });
 
-        socket.on('connect', () => {
+        const joinMatch = () => {
             setIsConnected(true);
             socket.emit('join_match', {
-                matchId,
-                role: 'staff',
-                teamId,
-                side: teamSide
+                matchId: socketMatchId,
+                role: stationLocked ? 'viewer' : 'staff',
+                side: teamSide,
+                ...(stationToken && { stationToken })
             });
-        });
+        };
+        socket.on('connect', joinMatch);
 
         socket.on('disconnect', () => {
             setIsConnected(false);
             setIsScorerConnected(false);
         });
 
-        if (socket.connected) {
-            setIsConnected(true);
-            socket.emit('join_match', {
-                matchId,
-                role: 'staff',
-                teamId,
-                side: teamSide
-            });
-        }
+        if (socket.connected) joinMatch();
 
         socket.on('connection_status_update', (statuses) => {
             setIsScorerConnected(statuses.scorer || false);
@@ -529,7 +578,7 @@ export default function TeamStaffConsole() {
             socket.off('match_updated');
             socket.disconnect();
         };
-    }, [matchId, teamId, teamSide, fetchData, checkAndPromptLineup, ui]);
+    }, [matchId, matchData?.id, teamId, teamSide, fetchData, checkAndPromptLineup, ui, stationSide, stationLocked, stationToken]);
 
     useEffect(() => {
         fetchData();
@@ -552,7 +601,7 @@ export default function TeamStaffConsole() {
 
         if (result.isConfirmed) {
             try {
-                const res = await client.post(`/match/${matchId}/request`, {
+                const res = await submitRequest({
                     team_id: teamInfo.id,
                     request_type: type
                 });
@@ -578,7 +627,7 @@ export default function TeamStaffConsole() {
             try {
                 // We'll just call the delete endpoint if available, or just ignore and reset locally. Let's send a DELETE or PUT CANCELLED.
                 // Assuming the backend has a way to reject/delete, we'll try DELETE or just PUT status: REJECTED
-                await client.put(`/match/${matchId}/requests/${activeRequestIdRef.current}`, { status: 'REJECTED' });
+                await updateRequest(activeRequestIdRef.current, { status: 'REJECTED' });
                 setHasPendingSubstitution(false);
                 setPendingSubstitutions([]);
                 activeRequestIdRef.current = null;
@@ -592,7 +641,7 @@ export default function TeamStaffConsole() {
         setShowChallengeModal(false);
         if (activeChallengeRequestId) {
             try {
-                await client.put(`/match/${matchId}/requests/${activeChallengeRequestId}`, { status: 'REJECTED' });
+                await updateRequest(activeChallengeRequestId, { status: 'REJECTED' });
             } catch (err) {
                 console.error('Failed to cancel request on timeout', err);
             }
@@ -609,7 +658,7 @@ export default function TeamStaffConsole() {
             position: 'top-end',
             showConfirmButton: false
         });
-    }, [activeChallengeRequestId, matchId, ui]);
+    }, [activeChallengeRequestId, updateRequest, ui]);
 
     // Video Challenge Effects & Handlers
     useEffect(() => {
@@ -630,7 +679,7 @@ export default function TeamStaffConsole() {
         if (stats.challenges <= 0 || workflowStep === 'RALLY') return;
         
         try {
-            const res = await client.post(`/match/${matchId}/request`, {
+            const res = await submitRequest({
                 team_id: teamInfo.id,
                 request_type: 'CHALLENGE',
                 details: { lastAction: null, reason: null }
@@ -653,7 +702,7 @@ export default function TeamStaffConsole() {
     const handleCancelChallengeRequest = async () => {
         if (activeChallengeRequestId && hasPendingChallenge) {
             try {
-                await client.put(`/match/${matchId}/requests/${activeChallengeRequestId}`, { status: 'REJECTED' });
+                await updateRequest(activeChallengeRequestId, { status: 'REJECTED' });
                 setHasPendingChallenge(false);
                 setActiveChallengeRequestId(null);
                 setShowChallengeModal(false);
@@ -667,7 +716,7 @@ export default function TeamStaffConsole() {
         setIsLastActionChallenge(choice);
         if (activeChallengeRequestId) {
             try {
-                await client.put(`/match/${matchId}/requests/${activeChallengeRequestId}`, {
+                await updateRequest(activeChallengeRequestId, {
                     details: { lastAction: choice, reason: selectedChallengeReason, submittedAt: new Date().toISOString() }
                 });
             } catch (err) {
@@ -682,7 +731,7 @@ export default function TeamStaffConsole() {
         
         if (activeChallengeRequestId) {
             try {
-                await client.put(`/match/${matchId}/requests/${activeChallengeRequestId}`, {
+                await updateRequest(activeChallengeRequestId, {
                     details: { lastAction: isLastActionChallenge, reason: reason, submittedAt: new Date().toISOString() }
                 });
                 Swal.fire({ uiTextLocalized: true,
@@ -705,7 +754,7 @@ export default function TeamStaffConsole() {
         
         setIsSubmittingLineup(true);
         try {
-            const res = await client.post(`/match/${matchId}/request`, {
+            const res = await submitRequest({
                 team_id: teamInfo.id,
                 request_type: 'SUBSTITUTION',
                 details: { pairs: pendingSubstitutions }
@@ -1016,7 +1065,7 @@ export default function TeamStaffConsole() {
 
         if (result.isConfirmed) {
             try {
-                await client.put(`/match/${matchId}/requests/${activeRequestIdRef.current}`, { status: 'REJECTED' });
+                await updateRequest(activeRequestIdRef.current, { status: 'REJECTED' });
                 setLineup([]);
                 setTempLineup(Array(6).fill(null));
                 setSelectedPlayerForLineup(null);
@@ -1063,7 +1112,7 @@ export default function TeamStaffConsole() {
                 is_libero: isPlayerLibero(p)
             }));
 
-            const res = await client.post(`/match/${matchId}/request`, {
+            const res = await submitRequest({
                 team_id: teamInfo.id,
                 request_type: 'LINEUP',
                 details: {
@@ -1101,36 +1150,56 @@ export default function TeamStaffConsole() {
     const hasConfirmedLineup = lineup.length === 6 && lineup.every(p => p && (p.id || p.player_id));
     const currentSetNumber = Number(matchData?.current_set || matchData?.currentSet || 1);
     const lineupTargetSet = currentSetNumber;
-    const shouldShowLineupCard = !hasPendingLineup && workflowStep === 'LINEUP' && !hasConfirmedLineup;
-    const shouldShowActionCards = !hasPendingLineup && !shouldShowLineupCard &&
+    const shouldShowLineupCard = !stationLocked && !hasPendingLineup && workflowStep === 'LINEUP' && !hasConfirmedLineup;
+    const shouldShowActionCards = !stationLocked && !hasPendingLineup && !shouldShowLineupCard &&
         ['SERVING', 'READY', 'RALLY', 'CHALLENGE_REVIEW'].includes(workflowStep);
     const hasChallengeSystem = matchData?.has_challenge === true || matchData?.has_challenge === 'true' || matchData?.has_challenge === 1 || matchData?.has_challenge === '1' || matchData?.hasChallenge === true || matchData?.hasChallenge === 'true' || matchData?.hasChallenge === 1 || matchData?.hasChallenge === '1';
-    const mainClassName = isSettingLineup
-        ? 'flex-1 min-h-0 p-3 md:p-5 xl:p-6 grid grid-cols-1 gap-4 md:gap-5 w-full max-w-[1040px] mx-auto items-stretch overflow-y-auto'
-        : 'flex-1 min-h-0 p-3 md:p-5 xl:p-6 grid grid-cols-1 gap-4 md:gap-5 w-full max-w-[680px] mx-auto items-center overflow-y-auto';
+    const waiting = stationLocked || (!isSettingLineup && !hasPendingLineup && !shouldShowLineupCard && !shouldShowActionCards);
+    const phase = waitingCopy[workflowStep];
+    const waitingTitle = phase?.[thai ? 0 : 1]
+        || (stationLocked && stationTeamId ? displayNames.teamName(teamInfo) : ui("Waiting for match workflow"));
+    const waitingDescription = phase?.[thai ? 2 : 3];
+    const currentStep = preMatchSteps.findIndex(([step]) => step === workflowStep);
+    const mainClassName = waiting
+        ? 'mx-auto grid w-full max-w-[1120px] content-start gap-4 p-4 sm:p-6 landscape:min-[960px]:grid-cols-[minmax(0,1fr)_minmax(16rem,0.5fr)]'
+        : 'mx-auto grid w-full max-w-[1040px] content-start gap-4 p-4 sm:p-6';
+    const connectionStatuses = (
+        <>
+            <ConnectionStatus label={thai ? 'ระบบ' : 'System'} connected={isConnected}
+                status={isConnected ? (thai ? 'ออนไลน์' : 'Online') : (thai ? 'กำลังเชื่อมต่อ' : 'Connecting')} />
+            <ConnectionStatus label={thai ? 'ผู้บันทึกคะแนน' : 'Scorer'} connected={isScorerConnected}
+                status={isScorerConnected ? (thai ? 'ออนไลน์' : 'Online') : (thai ? 'ออฟไลน์' : 'Offline')} />
+        </>
+    );
 
     return (
-        <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none text-slate-900">
-            <header className="bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 md:px-6 shadow-sm flex items-center justify-between sticky top-0 z-50">
-                <div className="flex items-center gap-3 min-w-0">
-                    <GuardedButton onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center active:scale-95 transition" aria-label={ui("Back")}><ChevronLeft /></GuardedButton>
-                    <div>
-                        <h1 className="font-semibold text-base md:text-lg leading-tight truncate max-w-[220px] md:max-w-[360px] text-slate-950">{displayNames.teamName(teamInfo)}</h1>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <p className="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">{ui("Staff Console")}</p>
+        <div className="min-h-dvh bg-slate-100 font-sans text-slate-900">
+            <header className="sticky top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
+                <div className="mx-auto w-full max-w-[1120px] px-4 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <GuardedButton onClick={() => navigate(-1)} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={ui("Back")}>
+                            <ChevronLeft aria-hidden="true" />
+                        </GuardedButton>
+                        <h1 className="text-sm font-semibold text-slate-700 sm:text-base">{ui("Staff Console")}</h1>
+                        {!waiting && <div className="ml-auto hidden flex-wrap justify-end gap-x-4 sm:flex" role="status">{connectionStatuses}</div>}
+                    </div>
+                    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-white sm:gap-5 sm:px-5">
+                        <span className="break-words text-right text-sm font-semibold sm:text-lg">{displayNames.matchTeamName(matchData, 'home')}</span>
+                        <div className="min-w-[72px] text-center sm:min-w-[100px]">
+                            <div className="text-xs font-semibold text-slate-300">{ui("SET")}{' '}{currentSetNumber}</div>
+                            <div className="text-2xl font-bold leading-tight tabular-nums sm:text-4xl">
+                                {matchData.score_home ?? matchData.scoreHome ?? 0}–{matchData.score_away ?? matchData.scoreAway ?? 0}
+                            </div>
                         </div>
+                        <span className="break-words text-sm font-semibold sm:text-lg">{displayNames.matchTeamName(matchData, 'away')}</span>
                     </div>
-                </div>
-                <div className="text-right rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 min-w-[116px]">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">{ui("SET")}{' '}{matchData?.current_set || matchData?.currentSet || 1}</div>
-                    <div className="text-2xl font-black tabular-nums text-slate-950 leading-tight">
-                        {matchData?.score_home ?? matchData?.scoreHome ?? 0} - {matchData?.score_away ?? matchData?.scoreAway ?? 0}
-                    </div>
+                    {!waiting && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 sm:hidden" role="status">{connectionStatuses}</div>}
                 </div>
             </header>
+            {station.controls}
             {rosterError && <div role="alert" className="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 {ui('Could not load the match roster. Please retry.')}
-                <GuardedButton type="button" onClick={fetchData} className="ml-3 underline font-semibold">{ui('Retry')}</GuardedButton>
+                <GuardedButton type="button" onClick={fetchData} className="ml-3 min-h-11 px-2 underline font-semibold">{ui('Retry')}</GuardedButton>
             </div>}
 
             <main className={mainClassName}>
@@ -1479,20 +1548,20 @@ export default function TeamStaffConsole() {
 
                 {/* RIGHT SIDE: Action Buttons or Substitution Mode */}
                 {!isSettingLineup && (
-                    <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-5 flex flex-col gap-4 justify-center min-h-[360px] lg:min-h-0">
-                        {hasPendingLineup ? (
+                    <section className={waiting ? "min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" : "min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col gap-4 md:p-5"}>
+                        {!stationLocked && hasPendingLineup ? (
                             <div className="w-full min-h-48 rounded-xl border border-amber-200 bg-amber-50/70 p-6 flex flex-col items-center justify-center text-center gap-4">
                                 <Loader2 size={44} className="animate-spin text-amber-600" />
                                 <div>
                                     <h2 className="text-2xl md:text-3xl font-semibold text-slate-950">{ui("Waiting for scorer")}</h2>
                                     <p className="mt-2 text-sm md:text-base text-slate-600">{ui("LineUp has been sent. The action cards will appear after the scorer accepts it.")}</p>
                                 </div>
-                                <GuardedButton onClick={handleClearConfirmedLineup} className="mt-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 active:scale-95 transition">{ui("Cancel & Clear LineUp")}</GuardedButton>
+                                <GuardedButton onClick={handleClearConfirmedLineup} className="mt-2 min-h-11 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 active:scale-95 transition">{ui("Cancel & Clear LineUp")}</GuardedButton>
                             </div>
                         ) : shouldShowLineupCard ? (
                             <GuardedButton onClick={handleStartLineup} className="w-full min-h-48 rounded-xl flex overflow-hidden border border-emerald-200 bg-white shadow-sm active:scale-[0.99] transition-all hover:shadow-md hover:-translate-y-0.5 group">
                                 <div className="flex-1 p-6 flex flex-col justify-center gap-2 border-l-4 border-emerald-500">
-                                    <span className="text-slate-950 text-3xl md:text-4xl font-semibold tracking-tight">{ui("Set LineUp")}</span>
+                                    <span className="text-slate-950 text-3xl md:text-4xl font-semibold tracking-tight">{thai ? 'จัดผู้เล่นตัวจริง' : 'Set starting lineup'}</span>
                                     <span className="text-slate-500 text-sm md:text-base">{ui("Prepare starting six for Set")}{' '}{lineupTargetSet}</span>
                                 </div>
                                 <div className="w-24 bg-emerald-50 p-6 flex items-center justify-center border-l border-emerald-100">
@@ -1500,11 +1569,46 @@ export default function TeamStaffConsole() {
                                 </div>
                             </GuardedButton>
                         ) : !shouldShowActionCards ? (
-                            <div className="w-full min-h-48 rounded-xl border border-slate-200 bg-slate-50 p-6 flex flex-col items-center justify-center text-center gap-3">
-                                <Flag size={38} className="text-slate-400" />
-                                <h2 className="text-2xl font-semibold text-slate-950">{ui("Waiting for match workflow")}</h2>
-                                <p className="text-sm md:text-base text-slate-600">{ui("Current status:")}{' '}{(workflowStep) || (ui('READY'))}</p>
-                            </div>
+                            <>
+                                <div className="mb-4 flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                                    <Flag size={22} aria-hidden="true" />
+                                </div>
+                                <div role="status">
+                                    <h2 className="text-2xl font-semibold leading-tight text-slate-950 sm:text-3xl">{waitingTitle}</h2>
+                                    {waitingDescription && <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">{waitingDescription}</p>}
+                                </div>
+                                {stationLocked && stationTeamId && (
+                                    <div className="mt-4 border-t border-slate-200 pt-4">
+                                        {phase && <h3 className="font-semibold">{displayNames.teamName(teamInfo)}</h3>}
+                                        {!station.paused && <p className="mt-1 text-sm text-slate-600">{thai ? 'จับคู่ iPad กับโต๊ะบันทึกคะแนนเพื่อเปิดการส่งคำขอ' : 'Pair this iPad with the scorer to enable match requests.'}</p>}
+                                        {lineup.some(Boolean) && <p className="mt-2 text-sm text-slate-700">
+                                            {thai ? 'ผู้เล่นในสนาม' : 'On court'}{' · '}
+                                            {lineup.filter(Boolean).map(player => getPlayerNumber(player)).join(' · ')}
+                                        </p>}
+                                        {roster.length > 0 && <details className="mt-3 text-sm text-slate-700">
+                                            <summary className="min-h-11 cursor-pointer py-3 font-semibold">{thai ? 'รายชื่อผู้เล่น' : 'Team roster'}</summary>
+                                            <ul className="grid gap-2 sm:grid-cols-2">
+                                                {roster.map(player => <li key={getPlayerId(player)}>
+                                                    <span className="mr-2 font-semibold">{getPlayerNumber(player)}</span>{displayNames.personName(player)}
+                                                </li>)}
+                                            </ul>
+                                        </details>}
+                                    </div>
+                                )}
+                                {currentStep >= 0 && (
+                                    <ol aria-label={thai ? 'ขั้นตอนก่อนแข่งขัน' : 'Pre-match steps'} className="mt-6 grid gap-2 min-[520px]:grid-cols-3">
+                                        {preMatchSteps.map(([step, th, en], index) => (
+                                            <li key={step} aria-current={index === currentStep ? 'step' : undefined}
+                                                className={`flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium ${index === currentStep ? 'bg-blue-100 text-blue-950' : 'bg-slate-100 text-slate-700'}`}>
+                                                <span aria-hidden="true" className={`grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${index === currentStep ? 'bg-blue-700 text-white' : 'bg-white text-slate-600'}`}>
+                                                    {index < currentStep ? <Check size={14} /> : index + 1}
+                                                </span>
+                                                <span>{thai ? th : en}</span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+                            </>
                         ) : isSubstitutionMode ? (
                             <div className="flex flex-col h-full">
                                 {/* Player Selection Roster */}
@@ -1727,35 +1831,15 @@ export default function TeamStaffConsole() {
                         })()}
                     </section>
                 )}
+                {waiting && (
+                    <aside className="self-start rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <h2 className="mb-3 text-base font-semibold text-slate-950">{thai ? 'การเชื่อมต่อ' : 'Connection'}</h2>
+                        <div className="flex flex-wrap gap-x-5 gap-y-3 landscape:min-[960px]:flex-col" role="status">
+                            {connectionStatuses}
+                        </div>
+                    </aside>
+                )}
             </main>
-
-            <footer className="bg-white/95 border-t border-slate-200 px-4 py-2.5 md:px-6 shadow-[0_-1px_8px_rgba(15,23,42,0.04)]">
-                <div className="mx-auto flex w-full max-w-[1040px] items-center justify-between gap-3 text-[11px] font-semibold text-slate-500">
-                    <span className="truncate">{ui("Match staff console")}</span>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                        <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" title={ui("สถานะเชื่อมต่อกับเซิร์ฟเวอร์")}>
-                            <span className="relative flex h-1.5 w-1.5">
-                                {!isConnected && (
-                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
-                                )}
-                                <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
-                            </span>
-                            <span className={`uppercase tracking-wider ${isConnected ? 'text-emerald-700' : 'text-rose-600'}`}>{ui("System:")}{isConnected ? ui('Online') : ui('Syncing')}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" title={ui("สถานะการเชื่อมต่อกับเจ้าหน้าที่โต๊ะบันทึกสกอร์")}>
-                            <span className="relative flex h-1.5 w-1.5">
-                                {isScorerConnected && (
-                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                                )}
-                                <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isScorerConnected ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
-                            </span>
-                            <span className={`uppercase tracking-wider ${isScorerConnected ? 'text-emerald-700' : 'text-rose-600'}`}>{ui("Scorer:")}{isScorerConnected ? ui('Online') : ui('Offline')}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </footer>
 
             {showChallengeModal && (
                 <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">

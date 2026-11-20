@@ -43,9 +43,9 @@ class EventQueue {
     /**
      * Gets the next item to sync (the oldest pending item).
      */
-    static peek() {
+    static peek(matches = () => true) {
         const queue = this.getQueue();
-        return queue.find(e => e.status === 'pending') || null;
+        return queue.find(e => e.status === 'pending' && matches(e)) || null;
     }
 
     /**

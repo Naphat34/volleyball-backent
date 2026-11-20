@@ -57,6 +57,7 @@ export function BrowserRouter({ children }) {
   const [location, setLocation] = useState(getLocationSnapshot);
   const [decoded, setDecoded] = useState(null);
   const [error, setError] = useState('');
+  const isMatchLink = /^\/(?:scorer|staff|match|scoresheet|roster-verification|match-centre)\//.test(location.pathname);
 
   useEffect(() => {
     let active = true;
@@ -65,9 +66,15 @@ export function BrowserRouter({ children }) {
       const url = new URL(to, window.location.origin);
       setDecoded({ pathname: url.pathname, search: url.search, hash: url.hash, state: location.state });
       setError('');
-    }).catch(failure => { if (active) { setDecoded(null); setError(failure.message); } });
+    }).catch(failure => {
+      if (!active) return;
+      setDecoded(null);
+      setError(failure.status === 404 && isMatchLink
+        ? 'ไม่พบแมตช์จากลิงก์นี้ กรุณาเปิดจากรายการแมตช์ล่าสุด'
+        : failure.message);
+    });
     return () => { active = false; };
-  }, [location]);
+  }, [location, isMatchLink]);
 
   useEffect(() => {
     const refresh = () => setLocation(getLocationSnapshot());
@@ -83,7 +90,8 @@ export function BrowserRouter({ children }) {
   }, []);
 
   const value = useMemo(() => ({ location, decoded, navigate }), [location, decoded, navigate]);
-  return <RouterContext.Provider value={value}>{error ? <main role="alert" className="p-8"><p>{error}</p><a href="/">กลับหน้าหลัก</a></main> : decoded ? children : <p role="status" className="p-8">กำลังเปิดหน้า…</p>}</RouterContext.Provider>;
+  const matchList = location.pathname.startsWith('/scorer/') ? '/adminscorer' : '/matches';
+  return <RouterContext.Provider value={value}>{error ? <main role="alert" className="p-8"><p>{error}</p><a href={isMatchLink ? matchList : '/'}>{isMatchLink ? 'กลับรายการแมตช์' : 'กลับหน้าหลัก'}</a></main> : decoded ? children : <p role="status" className="p-8">กำลังเปิดหน้า…</p>}</RouterContext.Provider>;
 }
 
 export function Routes({ children }) {

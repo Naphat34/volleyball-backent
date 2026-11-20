@@ -1,3 +1,4 @@
+import { showNotice } from '../../utils/i18n/alerts.js';
 import { GuardedForm, GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
@@ -124,7 +125,7 @@ export default function CreateTeam() {
       const res = await api.uploadImage(dataUrl, 'team_logo');
       setFormData({ ...formData, logo_url: res.data.url });
     } catch (error) {
-      alert(error.response?.data?.error || error.message);
+      void showNotice(error.response?.data?.error || error.message, 'error');
     } finally {
       event.target.value = '';
     }
@@ -144,13 +145,13 @@ export default function CreateTeam() {
         await api.joinCompetition(competitionId);
       }
 
-      alert(ui('Team created successfully.'));
+      await showNotice(ui('Team created successfully.'), 'success', { acknowledge: true });
 
       const user = getStoredUser();
       navigate(user?.role === 'super_admin' ? '/admin-dashboard' : '/team-dashboard');
       window.location.reload();
     } catch (err) {
-      alert((err.response?.data?.error) || (ui('Failed to create team')));
+      void showNotice((err.response?.data?.error) || (ui('Failed to create team')), 'error');
       setLoading(false);
     }
   };

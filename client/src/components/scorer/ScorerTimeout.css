@@ -1,0 +1,135 @@
+.swal2-popup.scorer-timeout-popup,
+.referee-timeout-overlay .scorer-timeout-popup {
+    --timeout-clock: #1e293b;
+    --timeout-track: #dbe3ef;
+    --timeout-ring: #64748b;
+    --timeout-urgent: #9a4d00;
+    --timeout-urgent-ring: #d97706;
+    --timeout-action: #b42332;
+    --timeout-action-hover: #fff1f2;
+    width: min(100%, 29rem);
+    padding: clamp(0.75rem, 3dvh, 1.75rem);
+    background: var(--app-surface, #fff);
+    border-radius: 1.25rem;
+    box-shadow: 0 24px 64px rgb(0 0 0 / 28%);
+}
+
+:is(html[data-app-theme="dark"], .scorer-dark-theme) :is(.swal2-popup.scorer-timeout-popup, .referee-timeout-overlay .scorer-timeout-popup) {
+    --timeout-clock: #f8fafc;
+    --timeout-track: #263449;
+    --timeout-ring: #93a8c4;
+    --timeout-urgent: #fbbf24;
+    --timeout-urgent-ring: #fbbf24;
+    --timeout-action: #fda4af;
+    --timeout-action-hover: #302035;
+    background: #101b2d;
+    border-color: #34455e;
+}
+
+.scorer-timeout-popup .scorer-timeout-title {
+    padding: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--timeout-clock);
+}
+
+.scorer-timeout-popup .swal2-html-container {
+    margin: 0;
+    padding: 0.6rem 0 0;
+}
+
+.scorer-timeout-team {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    font-size: clamp(1.15rem, 4vw, 1.6rem);
+    font-weight: 800;
+    overflow-wrap: anywhere;
+    color: var(--timeout-clock);
+}
+
+.scorer-timeout-team-color {
+    flex: 0 0 0.3rem;
+    height: 1em;
+    border-radius: 0.2rem;
+}
+
+.scorer-timeout-clock {
+    position: relative;
+    display: grid;
+    width: clamp(9rem, min(57vw, 46dvh), 15rem);
+    aspect-ratio: 1;
+    place-items: center;
+    margin: clamp(0.6rem, 2dvh, 1.15rem) auto 0;
+    color: var(--timeout-clock);
+    font-family: var(--font-sans, sans-serif);
+    font-size: clamp(2rem, min(12vw, 9.5dvh), 3.6rem);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.scorer-timeout-clock svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke-width: 10;
+}
+
+.scorer-timeout-track { stroke: var(--timeout-track); }
+.scorer-timeout-remaining {
+    stroke: var(--timeout-ring);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 100ms linear;
+}
+.scorer-timeout-urgent { color: var(--timeout-urgent); }
+.scorer-timeout-urgent .scorer-timeout-remaining { stroke: var(--timeout-urgent-ring); }
+
+.scorer-timeout-popup .swal2-actions {
+    width: 100%;
+    margin: clamp(0.75rem, 3dvh, 1.4rem) 0 0;
+}
+
+.scorer-timeout-popup .scorer-timeout-confirm {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--app-border, #94a3b8);
+    border-radius: 0.75rem;
+    background: transparent;
+    color: var(--timeout-action);
+    font-weight: 700;
+}
+
+.scorer-timeout-popup .scorer-timeout-confirm:hover {
+    background: var(--timeout-action-hover);
+}
+
+.scorer-timeout-popup .scorer-timeout-confirm:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+.referee-timeout-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1070;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgb(3 10 22 / 68%);
+}
+
+.referee-timeout-overlay .scorer-timeout-popup {
+    border: 1px solid var(--app-border, #dbe3ef);
+    text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scorer-timeout-remaining { transition: none; }
+}

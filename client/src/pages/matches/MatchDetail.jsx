@@ -1,9 +1,9 @@
-import { openPublicWindow } from '../../utils/navigation/publicUrls.js';
+import { openPublicWindow, publicIdPattern } from '../../utils/navigation/publicUrls.js';
 import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { LogOut, User, Edit3, Shield, Menu, X, Volleyball } from "lucide-react";
 import { api } from "../../api";
 import { cleanCompetitionTitle, formatThaiDate, formatThaiTime } from "../../utils/formatters";
@@ -17,6 +17,9 @@ const MatchDetail = () => {
     const displayNames = useDisplayNames();
     const ui = useUiTranslation();
   const { matchId } = useParams();
+  const { pathname } = useLocation();
+  const linkId = pathname.split('/')[2];
+  const matchReference = publicIdPattern.test(linkId || '') ? linkId : matchId;
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,22 +104,33 @@ const MatchDetail = () => {
   };
 
   useEffect(() => {
+    let active = true;
     const fetchMatchDetail = async () => {
+      setLoading(true);
+      setError("");
       try {
-        const res = await api.getMatchRosterData(matchId);
-        setData(res.data);
+        const res = await api.getMatchRosterData(matchReference);
+        if (active) setData(res.data);
       } catch (err) {
         console.error("Error fetching match detail:", err);
-        setError("ไม่สามารถโหลดข้อมูลการแข่งขันได้");
+        if (active) setError(err.response?.status === 404 ? 'not-found' : 'load-failed');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchMatchDetail();
-  }, [matchId]);
+    return () => { active = false; };
+  }, [matchReference]);
 
   if (loading) return <div className="p-10 text-center font-sans text-gray-500">{ui("กำลังโหลดข้อมูล...")}</div>;
-  if (error) return <div className="p-10 text-center font-sans text-red-500">{ui(error)}</div>;
+  if (error) return (
+    <main role="alert" className="p-10 text-center font-sans text-red-700">
+      <p>{error === 'not-found'
+        ? ui("ไม่พบแมตช์จากลิงก์นี้ กรุณาเปิดจากรายการแมตช์ล่าสุด")
+        : ui("ไม่สามารถโหลดข้อมูลการแข่งขันได้")}</p>
+      <Link to="/matches" className="mt-3 inline-flex min-h-11 items-center underline">{ui("กลับรายการแมตช์")}</Link>
+    </main>
+  );
   if (!data || !data.match) return <div className="p-10 text-center font-sans text-gray-500">{ui("ไม่พบข้อมูลการแข่งขัน")}</div>;
 
   const { match, home, away } = data;
@@ -293,7 +307,7 @@ const MatchDetail = () => {
                   <Volleyball size={80} aria-hidden="true" />
                 </div>
                 <GuardedButton
-                  onClick={() => openPublicWindow(`/match/${matchId}/referee`, '_blank')}
+                  onClick={() => openPublicWindow(`/match/${matchReference}/referee`, '_blank')}
                   className="bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 font-semibold py-2.5 px-6 rounded-md transition-colors text-sm"
                 >{ui("Open in a browser tab")}</GuardedButton>
               </div>

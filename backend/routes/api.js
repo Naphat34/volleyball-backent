@@ -24,6 +24,7 @@ const reportController = require('../controllers/reportController');
 const teamCompositionReportController = require('../controllers/teamCompositionReportController');
 const officialRoutes = require('./officialRoutes');
 const scorerRoutes = require('./scorerRoutes');
+const courtStation = require('../controllers/courtStationController');
 
 const uploadDir = path.join(__dirname, '..', 'uploads');
 const playerDocumentDir = path.join(__dirname, '..', 'private_player_documents');
@@ -217,6 +218,12 @@ router.post('/match-data/lineup', authMiddleware.canScoreMatches, matchControlle
 router.post('/match-data/action', authMiddleware.canScoreMatches, matchController.saveMatchAction);
 
 // --- Staff Requests & Lineup helpers ---
+router.post('/match/:matchId/court-station/pins', authMiddleware.canScoreMatches, courtStation.issuePin);
+router.get('/match/:matchId/court-station/status', courtStation.status);
+router.post('/match/:matchId/court-station/unlock', rateLimit({ windowMs: 60000, max: 12, keyPrefix: 'court-station-pin' }), courtStation.unlock);
+router.get('/match/:matchId/court-station/requests/pending', courtStation.stationAccess, matchController.getPendingRequests);
+router.post('/match/:matchId/court-station/request', courtStation.stationAccess, matchController.createRequest);
+router.put('/match/:matchId/court-station/requests/:requestId', courtStation.stationAccess, matchController.updateRequest);
 router.get('/match/:matchId/requests/pending', authMiddleware.canViewPendingMatchRequests, matchController.getPendingRequests);
 router.post('/match/:matchId/request', authMiddleware.canAccessOwnMatchTeam({ allowScorer: false, teamParam: 'team_id' }), matchController.createRequest);
 router.put('/match/:matchId/requests/:requestId', authMiddleware.canViewPendingMatchRequests, matchController.updateRequest);

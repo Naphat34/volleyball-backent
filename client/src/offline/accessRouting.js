@@ -1,7 +1,7 @@
 import { getAccessSession } from '../auth/authStorage.js';
 import { canEnterSection, loginIntent, sectionHome, roleHome } from './entryRouting.js';
 import { listLocal } from './offlineStore.js';
-import { scorerRecords } from './scorerOffline.js';
+import { scorerRecords, setScorerOfflineActive } from './scorerOffline.js';
 import { deviceId } from './offlineAuth.js';
 import { scorerStorageSnapshot } from './scorerCache.js';
 import { loginReturnTo } from '../utils/navigation/loginReturnTo.js';
@@ -36,10 +36,10 @@ export async function resolveAccess(options = {}, session = getAccessSession(), 
         if (record.released) return { ...decision, notice: `แมตช์ ${id} คืนสิทธิ์แล้ว กรุณาเลือกแมตช์อื่น หรือเปิดดูและสำรองจากรายการในเครื่อง` };
         if (record.deviceId && record.deviceId !== deviceId()) return { ...decision, notice: `แมตช์ ${id} เป็นข้อมูลของเครื่องอื่น กรุณาสำรองและตรวจสอบสิทธิ์เครื่องหลักก่อนบันทึก` };
         if (decision.section === 'scorer') {
+            setScorerOfflineActive(record);
             for (const [key, value] of Object.entries(scorerStorageSnapshot(record))) {
                 if (key.startsWith(`match_${record.id}_`)) localStorage.setItem(key, value);
             }
-            localStorage.setItem(`scorer_offline_active_${record.id}`, '1');
         }
         return { ...decision, path: decision.matchPath };
     } catch (error) {

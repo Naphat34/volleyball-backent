@@ -1,3 +1,5 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
+import { readLanguage } from '../../utils/i18n/language.js';
 import PublicAnchor from '../ui/PublicAnchor.jsx';
 import { GuardedButton, GuardedForm } from '../ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -133,8 +135,15 @@ export default function VisOfflinePanel({ matches, reload }) {
                     <GuardedButton disabled={busy || !model.unlocked} className="vop-button" type="button" onClick={() => run(async () => { const latest = await getLocal(record.id); await createLocal({ creationId: crypto.randomUUID(), importBackup: { config: latest.payload.config, match: latest.payload.match, actions: latest.payload.actions } }); setNotice('สร้างสำเนาใหม่แล้ว ต้นฉบับในเครื่องยังอยู่'); setConflict(null); })}>{ui("สร้างสำเนาเป็นแมตช์ใหม่")}</GuardedButton>
                     <GuardedButton disabled={busy || !model.canSync} className="vop-button" type="button" onClick={() => run(async () => {
                         await exportVisMatch(localView(record).match);
-                        if (!window.confirm(String(record.serverId).startsWith('custom-') ? 'ดาวน์โหลดสำรองแล้วหรือไม่? ข้อมูลเซิร์ฟเวอร์จะแทนที่ข้อมูลและคำสั่งรอซิงค์ของแมตช์นี้ในเครื่อง' : 'ดาวน์โหลดสำรองแล้วหรือไม่? ระบบจะคืนสิทธิ์และยุติคิวซิงค์ เก็บสำเนาในเครื่องไว้อ่านอย่างเดียว จากนั้นให้เปิดแมตช์บนเซิร์ฟเวอร์เพื่อตรวจสอบ')) return;
-                        if (!String(record.serverId).startsWith('custom-')) {
+                        const custom = String(record.serverId).startsWith('custom-');
+                        const thai = readLanguage() === 'THA';
+                        const message = custom
+                            ? (thai ? 'ดาวน์โหลดสำรองแล้วหรือไม่? ข้อมูลเซิร์ฟเวอร์จะแทนที่ข้อมูลและคำสั่งรอซิงค์ของแมตช์นี้ในเครื่อง'
+                                : 'Have you downloaded the backup? Server data will replace this match’s local data and pending sync actions.')
+                            : (thai ? 'ดาวน์โหลดสำรองแล้วหรือไม่? ระบบจะคืนสิทธิ์และยุติคิวซิงค์ เก็บสำเนาในเครื่องไว้อ่านอย่างเดียว จากนั้นให้เปิดแมตช์บนเซิร์ฟเวอร์เพื่อตรวจสอบ'
+                                : 'Have you downloaded the backup? Offline access will be released and pending sync actions cleared. A read-only copy will stay on this device. Open the match on the server to verify it.');
+                        if (!(await confirmAction(message))) return;
+                        if (!custom) {
                             await api.releaseOfflineAdminVis(record.serverId, { deviceId: deviceId(), offlineSession: record.payload.offlineSession });
                             await updateLocal(record.id, current => ({ ...current, released: true, queue: [] }));
                             setNotice('คืนสิทธิ์แล้ว สำเนาในเครื่องอ่านอย่างเดียว กรุณาเปิดแมตช์บนเซิร์ฟเวอร์เพื่อตรวจสอบ');

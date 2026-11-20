@@ -100,6 +100,12 @@ JPG, PNG, WebP หรือ GIF ขนาดไม่เกิน 2MB|JPG, PNG, 
 หน้าบันทึกคะแนนสด|Live Scorer Console
 เลือกแมตช์เพื่อบันทึกคะแนน|Select Match to Score
 เปิดหน้าผู้ตัดสิน|Open Referee View
+เปิดจอผู้ตัดสิน|Open referee screen
+เปิดรายละเอียดแมตช์|Open match details
+พร้อมรับคำขอทีม|Ready for team requests
+ดูคะแนนสดเท่านั้น|Live scores only
+กำลังตรวจสิทธิ์รับคำขอ|Checking request access
+ยังยืนยันสิทธิ์รับคำขอไม่ได้|Request access could not be verified
 พิมพ์ใบบันทึกคะแนนทางการ|Print Official Score Sheet
 ใบบันทึกคะแนนทางการ|Official Score Sheet
 หมายเลขแมตช์|Match No
@@ -667,6 +673,7 @@ ScorerControl · แมตช์ในเครื่อง|ScorerControl · Loc
 ไม่พบรายชื่อลิเบอโร่|No libero players found
 ล้าง|Clear
 รอผู้บันทึกคะแนน|Waiting for scorer
+คำขอถูกยกเลิก|Request cancelled
 ส่งรายชื่อแล้ว ปุ่มคำสั่งจะแสดงหลังผู้บันทึกคะแนนอนุมัติ|LineUp has been sent. The action cards will appear after the scorer accepts it.
 ยกเลิกและล้างผู้เล่นตัวจริง|Cancel & Clear LineUp
 เตรียมผู้เล่นตัวจริงหกคนสำหรับเซต|Prepare starting six for Set

@@ -1,3 +1,4 @@
+import { showNotice } from '../../utils/i18n/alerts.js';
 import { GuardedButton } from '../ui/GuardedAction';
 import { Swords, Calendar, MapPin, PlayCircle, Trophy, X, User, CheckCircle, FileText, Monitor, ChevronDown as UiChevronDown } from 'lucide-react';
 import useDisplayNames from '../../hooks/useDisplayNames';
@@ -276,7 +277,7 @@ export default function LiveScorerTab({ darkMode }) {
             setShowModal(false);
         } catch (error) {
             console.error("Failed to save match officials:", error);
-            alert(ui("Failed to save officials data. Please try again."));
+            void showNotice(ui("Failed to save officials data. Please try again."), 'error');
         }
     };
 

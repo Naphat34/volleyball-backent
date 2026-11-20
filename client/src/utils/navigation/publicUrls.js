@@ -1,3 +1,4 @@
+import { showNotice } from '../i18n/alerts.js';
 import schema from '../../../../backend/config/publicIdRoutes.json' with { type: 'json' };
 import { getAuthToken } from '../../auth/authStorage.js';
 
@@ -17,6 +18,16 @@ function persist() {
 export function remember(row, save = true) {
     if (!row?.id || !publicIdPattern.test(row.public_id)) return;
     const entry = { entity: row.entity, id: String(row.id), public_id: row.public_id.toLowerCase() };
+    if (entry.entity === 'matches') {
+        const previous = mappings.get(`matches:${entry.id}`) || mappings.get(`matchRecords:${entry.id}`);
+        if (previous && previous.public_id !== entry.public_id) {
+            mappings.delete(`matches:${previous.public_id}`);
+            mappings.delete(`matchRecords:${previous.public_id}`);
+        }
+        if (row.replacedPublicId || previous?.replacedPublicId || (previous && previous.public_id !== entry.public_id)) {
+            entry.replacedPublicId = true;
+        }
+    }
     mappings.set(`${entry.entity}:${entry.id}`, entry);
     mappings.set(`${entry.entity}:${entry.public_id}`, entry);
     if (['matches','custom_vis_matches'].includes(entry.entity)) {
@@ -26,12 +37,23 @@ export function remember(row, save = true) {
     if (save) persist();
 }
 
+export function hasReplacedMatchPublicId(id) {
+    hydrate();
+    return Boolean(mappings.get(`matches:${id}`)?.replacedPublicId);
+}
+
+export function cachedMatchPublicId(id) {
+    hydrate();
+    return mappings.get(`matches:${id}`)?.public_id;
+}
+
 export function rememberOfflineMatch(record) {
     hydrate();
     const id = String(record.id);
     const match = record.cache?.[`/scorer/match/${id}`];
-    if (match?.public_id) remember({ entity: 'matches', id, public_id: match.public_id });
-    else if (!mappings.has(`matchRecords:${id}`)) remember({ entity: 'matchRecords', id, public_id: crypto.randomUUID() });
+    if (!mappings.has(`matchRecords:${id}`)) {
+        remember({ entity: 'matchRecords', id, public_id: match?.public_id || crypto.randomUUID() });
+    }
 }
 
 // Seed mappings from records already authorized by normal API reads. This also
@@ -65,7 +87,9 @@ async function flush() {
                 body: JSON.stringify({ references: chunk.map(item => item.ref) }), signal: AbortSignal.timeout(15000),
             });
             const body = await response.json();
-            if (!response.ok || !Array.isArray(body.references) || body.references.length !== chunk.length) throw Error(body.error || 'Unable to resolve public identifiers');
+            if (!response.ok || !Array.isArray(body.references) || body.references.length !== chunk.length) {
+                throw Object.assign(Error(body.error || 'Unable to resolve public identifiers'), { status: response.status });
+            }
             body.references.forEach(row => remember(row,false)); persist();
             chunk.forEach((item,index) => item.resolve(body.references[index]));
         } catch (error) { chunk.forEach(item => item.reject(error)); }
@@ -149,5 +173,5 @@ export const internalUrl = to => translateUrl(to, { direction: 'internal' });
 
 export function openPublicWindow(to, target = '_blank') {
     const popup = window.open('about:blank', target);
-    void publicUrl(to).then(url => { if (popup) { popup.opener = null; popup.location.replace(url); } }).catch(error => { popup?.close(); window.alert(error.message); });
+    void publicUrl(to).then(url => { if (popup) { popup.opener = null; popup.location.replace(url); } }).catch(error => { popup?.close(); void showNotice(error.message, 'error'); });
 }

@@ -1,3 +1,4 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
 import {useEffect,useId,useRef,useState} from 'react';
 import {X} from 'lucide-react';
 import {api} from '../../api';
@@ -10,7 +11,7 @@ export default function TeamEntryEditor({entryId,data,onClose,onSaved,onReloadDa
     const [snapshot,setSnapshot]=useState(null),[players,setPlayers]=useState([]),[staff,setStaff]=useState([]),[search,setSearch]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[reason,setReason]=useState(''),[retry,setRetry]=useState(0);
     const entry=snapshot?.entry,locked=entry&&(entry.roster_locked_at||Number(entry.has_live_match)||Number(entry.has_completed_match));
     const dirty=snapshot&&(JSON.stringify(players)!==JSON.stringify(snapshot.players)||JSON.stringify(staff)!==JSON.stringify(snapshot.staff_ids));
-    const close=()=>{if(lock.current)return;if(dirty&&!window.confirm(t('ทิ้งการเลือกรายชื่อที่ยังไม่บันทึกหรือไม่?','Discard unsaved roster selection?')))return;onClose();};
+    const close=async ()=>{if(lock.current)return;if(dirty&&!(await confirmAction(t('ทิ้งการเลือกรายชื่อที่ยังไม่บันทึกหรือไม่?','Discard unsaved roster selection?'), dialog.current)))return;onClose();};
     useEffect(()=>{const element=dialog.current,previous=document.activeElement,overflow=document.body.style.overflow;element.showModal();document.body.style.overflow='hidden';return()=>{element.close();document.body.style.overflow=overflow;previous?.focus?.();};},[]);
     useEffect(()=>{let active=true;setLoading(true);setError('');api.getTeamEntrySelection(entryId).then(response=>{if(active){setSnapshot(response.data);setPlayers(response.data.players);setStaff(response.data.staff_ids);}}).catch(failure=>{if(active)setError(failure.response?.data?.error||failure.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[entryId,retry]);
     const eligibility=id=>snapshot?.eligibility.find(item=>item.id===id)?.reason;
@@ -21,7 +22,7 @@ export default function TeamEntryEditor({entryId,data,onClose,onSaved,onReloadDa
     const change=(pid,key,value)=>setPlayers(previous=>previous.map(row=>row.player_id===pid?{...row,[key]:value,...(key==='role'&&!['L','L1','L2'].includes(value)?{is_libero1:0,is_libero2:0}:{})}:row));
     const save=async confirm=>{
         if(lock.current||!snapshot)return;
-        if(confirm&&!window.confirm(t(`ยืนยันรายชื่อ ${players.length} คน สำหรับ ${entry.competition_title} ${entry.age_group_name}?`,`Confirm ${players.length} athletes for ${entry.competition_title} ${entry.age_group_name}?`)))return;
+        if(confirm&&!(await confirmAction(t(`ยืนยันรายชื่อ ${players.length} คน สำหรับ ${entry.competition_title} ${entry.age_group_name}?`,`Confirm ${players.length} athletes for ${entry.competition_title} ${entry.age_group_name}?`), dialog.current)))return;
         lock.current=true;setBusy(true);setError('');
         const payload={revision:entry.roster_revision,players,staff_ids:staff,confirm,reason};
         try{if(locked)await api.requestTeamEntryChange(entryId,payload);else await api.saveTeamEntrySelection(entryId,payload);await onSaved();}

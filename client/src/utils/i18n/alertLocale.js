@@ -268,12 +268,6 @@ export const installAlertLocalization = () => {
     Swal.mixin = (...args) => patchFire(originalMixin(...args));
     Object.defineProperty(Swal, '__volleyAlertMixinPatched', { value: true });
   }
-
-  if (typeof window !== 'undefined' && !window.__volleyAlertLocalePatched) {
-    const originalAlert = window.alert.bind(window);
-    window.alert = (message) => originalAlert(localizeAlertText(message));
-    Object.defineProperty(window, '__volleyAlertLocalePatched', { value: true });
-  }
 };
 
 installAlertLocalization();

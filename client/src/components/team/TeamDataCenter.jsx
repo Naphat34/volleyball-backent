@@ -1,3 +1,4 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
 import {useCallback,useEffect,useState} from 'react';
 import {Users,Search,Plus,ShieldCheck,History,RefreshCw} from 'lucide-react';
 import {api} from '../../api';
@@ -23,12 +24,12 @@ export default function TeamDataCenter(){
     const pages=Math.max(1,Math.ceil(filtered.length/15)),current=Math.min(page,pages);
     const changeTab=value=>{setTab(value);setPage(1);setSearch('');setSelected([]);setBulk('');setNotice('');};
     const status=async(row,active)=>{
-        if(!window.confirm(t(`${active?'คืนสถานะใช้งาน':'พักใช้งาน'} ${names.personName(row)}? รายงานการแข่งขันเดิมจะคงเดิม`,`${active?'Restore':'Archive'} ${names.personName(row)}? Historical match reports remain unchanged.`)))return;
+        if(!(await confirmAction(t(`${active?'คืนสถานะใช้งาน':'พักใช้งาน'} ${names.personName(row)}? รายงานการแข่งขันเดิมจะคงเดิม`,`${active?'Restore':'Archive'} ${names.personName(row)}? Historical match reports remain unchanged.`))))return;
         setBusy(true);setError('');try{await (tab==='players'?api.setTeamPlayerStatus:api.setTeamStaffStatus)(row.id,{is_active:active,master_revision:row.master_revision});await load();}catch(failure){setError(failure.response?.data?.error||failure.message);}finally{setBusy(false);}
     };
     const bulkSave=async()=>{
         const patch=bulk.startsWith('position:')?{position:bulk.slice(9)}:{is_active:Number(bulk)};
-        if(!window.confirm(t(`ยืนยันแก้ไข ${selected.length} คนพร้อมกัน: ${bulk}?`,`Apply ${bulk} to ${selected.length} selected records?`)))return;
+        if(!(await confirmAction(t(`ยืนยันแก้ไข ${selected.length} คนพร้อมกัน: ${bulk}?`,`Apply ${bulk} to ${selected.length} selected records?`))))return;
         setBusy(true);setError('');try{await api.updateTeamDataBulk({kind:tab,items:selected.map(id=>({id,revision:all.find(person=>person.id===id).master_revision})),patch});setSelected([]);setBulk('');setNotice(t('บันทึกการแก้ไขหลายรายการแล้ว','Bulk changes saved.'));await load();}catch(failure){setError(failure.response?.data?.error||failure.message);}finally{setBusy(false);}
     };
     return <section className="tdc">

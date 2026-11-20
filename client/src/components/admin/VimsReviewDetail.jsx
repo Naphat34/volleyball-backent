@@ -1,3 +1,4 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
 import {useEffect,useId,useRef,useState} from 'react';
 import {X,CheckCircle2,AlertTriangle} from 'lucide-react';
 import {Link} from 'react-router-dom';
@@ -30,7 +31,7 @@ export default function VimsReviewDetail({source,onClose,onSubmitted,onCorrectio
     const time=value=>value?new Date(value).toLocaleString(th?'th-TH':'en-GB',{timeZone:'Asia/Bangkok'}):'—';
     const submit=async()=>{
         if(actionLock.current||loading||error||!data?.readiness?.canSubmit||!acknowledged)return;
-        if(!window.confirm(t(`ยืนยันส่งตรวจสถิติ คู่ที่ ${match.match_number||match.id} ฉบับที่ ${Number(latest?.revision||0)+1}?`,`Submit statistics for match ${match.match_number||match.id}, revision ${Number(latest?.revision||0)+1}?`)))return;
+        if(!(await confirmAction(t(`ยืนยันส่งตรวจสถิติ คู่ที่ ${match.match_number||match.id} ฉบับที่ ${Number(latest?.revision||0)+1}?`,`Submit statistics for match ${match.match_number||match.id}, revision ${Number(latest?.revision||0)+1}?`))))return;
         actionLock.current=true;setSaving(true);setError('');
         try{await api.accessReview(source.kind,source.id,'vims','submit');setAcknowledged(false);setRetry(value=>value+1);await onSubmitted();}
         catch(failure){setError(failure.response?.data?.error||failure.message);}

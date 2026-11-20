@@ -1,10 +1,11 @@
 import { GuardedButton } from '../../components/ui/GuardedAction';
 import useDisplayNames from '../../hooks/useDisplayNames';
 import useUiTranslation from '../../hooks/useUiTranslation';
-import { calculateStandings as buildStandings } from '../../utils/scorer/standings';
+import { buildPoolStandings } from '../../utils/scorer/standingsPools';
+import { isMatchFinished } from '../../utils/scorer/standings';
 import { Feedback } from '../../components/ui/SystemUI';
 import PublicHeader from '../../components/layout/PublicHeader';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import client from '../../api';
 import { Trophy, Filter, X } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
@@ -15,88 +16,64 @@ export default function PublicStandings() {
     const ui = useUiTranslation();
 
     const { language, t } = useLanguage();
-    const [competitions, setCompetitions] = useState([]);
+    const [competitionResults, setCompetitionResults] = useState([]);
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [standings, setStandings] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [allMatches, setAllMatches] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [selectedTeam, setSelectedTeam] = useState(null);
 
-    // 1. ดึงรายการแข่งขัน
     useEffect(() => {
-        const fetchComps = async () => {
+        let active = true;
+        const loadStandings = async () => {
             try {
-                const res = await client.get('/public/competitions');
-                const openComps = res.data.filter(c => c.status?.toLowerCase() === 'open');
-                setCompetitions(openComps);
-                setSelectedCategory('all');
-            } catch (err) {
-                console.error("Error fetching competitions:", err);
-                setLoadError(true);
+                const { data } = await client.get('/public/competitions');
+                const open = data.filter(competition => competition.status?.toLowerCase() === 'open');
+                const results = await Promise.all(open.map(async competition => {
+                    const id = competition.public_id || competition.id;
+                    const [matches, teams] = await Promise.all([
+                        client.get(`/public/matches?competitionId=${id}`),
+                        client.get(`/public/competitions/${id}/teams`),
+                    ]);
+                    return { competition, matches: matches.data, teams: teams.data };
+                }));
+                if (active) setCompetitionResults(results);
+            } catch (error) {
+                console.error('Error loading standings:', error);
+                if (active) setLoadError(true);
+            } finally {
+                if (active) setLoading(false);
             }
         };
-        fetchComps();
+        void loadStandings();
+        return () => { active = false; };
     }, [reloadKey]);
 
-    // 2. คำนวณตารางคะแนนเมื่อเลือกรายการแข่งขัน
-    const calculateStandings = useCallback(async (categoryKey) => {
-        setLoading(true);
-        try {
-            const categoryGroup = categoryKey === 'all' ? null : groupPublicCompetitionCategories(competitions, language).find((item) => item.key === categoryKey);
-            const competitionIds = (categoryGroup?.items || competitions)
-                .map((competition) => competition.id)
-                .filter((id) => id !== undefined && id !== null && id !== '');
+    const categories = useMemo(() => groupPublicCompetitionCategories(
+        competitionResults.map(result => result.competition), language
+    ), [competitionResults, language]);
+    const boardsByCategory = useMemo(() => {
+        const results = new Map(competitionResults.map(result => [String(result.competition.id), result]));
+        return categories.filter(category => selectedCategory === 'all' || category.key === selectedCategory)
+            .map(category => ({
+                ...category,
+                boards: category.items.flatMap(competition => {
+                    const result = results.get(String(competition.id));
+                    return buildPoolStandings(competition, result.teams, result.matches);
+                }),
+            }))
+            .filter(category => category.boards.length);
+    }, [categories, competitionResults, selectedCategory]);
 
-            if (competitionIds.length === 0) {
-                setAllMatches([]);
-                setStandings([]);
-                return;
-            }
-
-            const [matchResults, teamResults] = await Promise.all([
-                Promise.all(competitionIds.map((id) => client.get(`/public/matches?competitionId=${id}`))),
-                Promise.all(competitionIds.map((id) => client.get(`/public/competitions/${id}/teams`)))
-            ]);
-
-            const matches = matchResults.flatMap((result) => result.data || []);
-            setAllMatches(matches);
-            const teamsByKey = new Map();
-            teamResults.flatMap((result) => result.data).forEach((team) => {
-                const key = String(team.id);
-                if (!teamsByKey.has(key)) teamsByKey.set(key, team);
-            });
-            const teams = Array.from(teamsByKey.values());
-
-            const standingsArray = buildStandings(teams, matches, competitions);
-
-            setStandings(standingsArray);
-
-        } catch (err) {
-            console.error("Error calculating standings:", err);
-                setLoadError(true);
-        } finally {
-            setLoading(false);
-        }
-    }, [competitions, language]);
-
-    useEffect(() => {
-        if (competitions.length === 0) return;
-        calculateStandings(selectedCategory);
-    }, [calculateStandings, competitions.length, selectedCategory, reloadKey]);
-
-    const getTeamName = (id) => {
-        const t = standings.find(s => s.id === id);
-        return t ? t.name : 'Unknown Team';
-    };
-    const categories = useMemo(() => groupPublicCompetitionCategories(competitions, language), [competitions, language]);
+    const history = selectedTeam?.matches.filter(match =>
+        isMatchFinished(match.status) && [match.home_team_id, match.away_team_id].some(id => String(id) === String(selectedTeam.id))
+    ).sort((a, b) => b.id - a.id) || [];
 
     return (
         <div className="app-page min-h-screen text-gray-800 font-sans pb-20">
             {/* Navbar */}
             <PublicHeader />
-            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? ui('โหลดข้อมูลไม่สำเร็จ') : ui('Unable to load data')} onRetry={() => { setLoadError(false); setReloadKey(key => key + 1); }} retryLabel={language === 'THA' ? 'ลองใหม่' : 'Retry'} /></div>}
+            {loadError && <div className="mx-auto max-w-[1400px] px-4 py-4"><Feedback error title={language === 'THA' ? ui('โหลดข้อมูลไม่สำเร็จ') : ui('Unable to load data')} onRetry={() => { setLoadError(false); setLoading(true); setSelectedCategory('all'); setReloadKey(key => key + 1); }} retryLabel={language === 'THA' ? 'ลองใหม่' : 'Retry'} /></div>}
             <div id="main-content" tabIndex={-1} />
 
             {/* Header */}
@@ -147,25 +124,23 @@ export default function PublicStandings() {
 
                         {/* Modal Body */}
                         <div className="p-0 overflow-y-auto">
-                            {allMatches.filter(m => m.home_team_id === selectedTeam.id || m.away_team_id === selectedTeam.id).length === 0 ? (
+                            {history.length === 0 ? (
                                 <div className="p-10 text-center text-gray-400">
                                     <p>{language === 'THA' ? ui('ยังไม่มีประวัติการแข่งขัน') : ui('No match history yet')}</p>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-100">
-                                    {allMatches
-                                        .filter(m => m.home_team_id === selectedTeam.id || m.away_team_id === selectedTeam.id)
-                                        .sort((a, b) => (b.id - a.id)) // เรียงตาม ID ล่าสุด (หรือใช้วันที่ถ้ามี)
-                                        .map((match, idx) => {
-                                            const isHome = match.home_team_id === selectedTeam.id;
+                                    {history.map(match => {
+                                            const isHome = String(match.home_team_id) === String(selectedTeam.id);
                                             const opponentId = isHome ? match.away_team_id : match.home_team_id;
-                                            const opponentName = getTeamName(opponentId);
+                                            const opponent = selectedTeam.teams.find(team => String(team.id) === String(opponentId));
+                                            const opponentName = opponent ? displayNames.teamName(opponent) : (isHome ? match.team_b_name : match.team_a_name);
                                             const myScore = isHome ? match.home_set_score : match.away_set_score;
                                             const opScore = isHome ? match.away_set_score : match.home_set_score;
                                             const isWin = parseInt(myScore) > parseInt(opScore);
 
                                             return (
-                                                <div key={idx} className="p-4 hover:bg-gray-50 transition flex items-center justify-between">
+                                                <div key={match.id} className="p-4 hover:bg-gray-50 transition flex items-center justify-between">
                                                     <div className="flex items-center gap-4 flex-1">
                                                         <div className={`w-1.5 h-12 rounded-full ${isWin ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                                         <div>
@@ -198,59 +173,78 @@ export default function PublicStandings() {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-900 mx-auto"></div>
                         <p className="mt-4 text-gray-500">{t('common.loading')}</p>
                     </div>
-                ) : standings.length === 0 ? (
+                ) : boardsByCategory.length === 0 ? (
                     <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-200">
                         <p className="text-gray-400">{language === 'THA' ? ui('ยังไม่มีข้อมูลการแข่งขันสำหรับรายการนี้') : ui('No standings information available for this tournament yet.')}</p>
                     </div>
                 ) : (
-                    <div className="bg-white/95 rounded-3xl shadow-xl border border-white overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
-                                    <tr>
-                                        <th className="px-4 py-3 text-center w-16">{ui("Rank")}</th>
-                                        <th className="px-4 py-3">{ui("Team")}</th>
-                                        <th className="px-2 py-3 text-center">{ui("Totals")}</th>
-                                        <th className="px-2 py-3 text-center text-green-600">{ui("Won")}</th>
-                                        <th className="px-2 py-3 text-center text-red-500">{ui("Lost")}</th>
-                                        <th className="px-4 py-3 text-center bg-blue-50 text-indigo-700 text-base">{ui("Points")}</th>
-                                        <th className="px-2 py-3 text-center border-l">{ui("Sets W")}</th>
-                                        <th className="px-2 py-3 text-center">{ui("Sets L")}</th>
-                                        <th className="px-2 py-3 text-center text-[10px]">{ui("Ratio")}</th>
-                                        <th className="px-2 py-3 text-center border-l">{ui("Pts W")}</th>
-                                        <th className="px-2 py-3 text-center">{ui("Pts L")}</th>
-                                        <th className="px-2 py-3 text-center text-[10px]">{ui("Ratio")}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {standings.map((team, index) => (
-                                        <tr key={team.id} className="hover:bg-gray-50 transition">
-                                            <td className="px-4 py-3 text-center font-bold text-gray-700">
-                                                {index + 1}
-                                            </td>
-                                            <td className="px-4 py-3 cursor-pointer group" onClick={() => setSelectedTeam(team)}>
-                                                <div className="flex items-center gap-3">
-                                                    {team.logo_url && <img src={team.logo_url} alt="" className="w-8 h-8 object-contain" />}
-                                                    <span className="font-bold text-gray-800 group-hover:text-blue-600 group-hover:underline decoration-indigo-600 underline-offset-2 transition-colors">
-                                                        {displayNames.teamName(team)}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-2 py-3 text-center">{team.played}</td>
-                                            <td className="px-2 py-3 text-center font-bold text-green-600">{team.won}</td>
-                                            <td className="px-2 py-3 text-center text-red-500">{team.lost}</td>
-                                            <td className="px-4 py-3 text-center font-semibold text-lg bg-blue-50 text-indigo-700">{team.points}</td>
-                                            <td className="px-2 py-3 text-center border-l">{team.sets_won}</td>
-                                            <td className="px-2 py-3 text-center">{team.sets_lost}</td>
-                                            <td className="px-2 py-3 text-center text-xs text-gray-500 font-mono">{team.setRatioStr}</td>
-                                            <td className="px-2 py-3 text-center border-l">{team.points_won}</td>
-                                            <td className="px-2 py-3 text-center">{team.points_lost}</td>
-                                            <td className="px-2 py-3 text-center text-xs text-gray-500 font-mono">{team.pointRatioStr}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                    <div className="space-y-8">
+                        {boardsByCategory.map(category => (
+                            <section key={category.key} className="space-y-4">
+                                <h2 className="text-xl font-bold text-gray-900">{category.label}</h2>
+                                {category.boards.map(board => {
+                                    const name = board.pool.replace(/^(?:สาย|pool)\s+/i, '');
+                                    const poolLabel = name
+                                        ? (language === 'THA' ? `สาย ${name}` : `Pool ${name}`)
+                                        : (language === 'THA' ? 'ไม่ระบุสาย' : 'No pool assigned');
+                                    return (
+                                        <section key={JSON.stringify([board.competition.id, board.pool])} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                            <div className="border-b border-gray-100 px-4 py-3">
+                                                <h3 className="font-bold text-gray-900">{poolLabel}</h3>
+                                                <p className="text-sm text-gray-600">{displayNames.competitionName(board.competition)}</p>
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table aria-label={`${category.label} · ${poolLabel} · ${displayNames.competitionName(board.competition)}`} className="w-full text-left border-collapse">
+                                                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold">
+                                                        <tr>
+                                                            <th className="px-4 py-3 text-center w-16">{ui("Rank")}</th>
+                                                            <th className="px-4 py-3">{ui("Team")}</th>
+                                                            <th className="px-2 py-3 text-center">{ui("Totals")}</th>
+                                                            <th className="px-2 py-3 text-center text-green-600">{ui("Won")}</th>
+                                                            <th className="px-2 py-3 text-center text-red-500">{ui("Lost")}</th>
+                                                            <th className="px-4 py-3 text-center bg-blue-50 text-indigo-700 text-base">{ui("Points")}</th>
+                                                            <th className="px-2 py-3 text-center border-l">{ui("Sets W")}</th>
+                                                            <th className="px-2 py-3 text-center">{ui("Sets L")}</th>
+                                                            <th className="px-2 py-3 text-center text-[10px]">{ui("Ratio")}</th>
+                                                            <th className="px-2 py-3 text-center border-l">{ui("Pts W")}</th>
+                                                            <th className="px-2 py-3 text-center">{ui("Pts L")}</th>
+                                                            <th className="px-2 py-3 text-center text-[10px]">{ui("Ratio")}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {board.standings.map((team, index) => (
+                                                            <tr key={team.id} className="hover:bg-gray-50 transition">
+                                                                <td className="px-4 py-3 text-center font-bold text-gray-700">
+                                                                    {index + 1}
+                                                                </td>
+                                                                <td className="px-4 py-3 cursor-pointer group" onClick={() => setSelectedTeam({ ...team, matches: board.matches, teams: board.teams })}>
+                                                                    <div className="flex items-center gap-3">
+                                                                        {team.logo_url && <img src={team.logo_url} alt="" className="w-8 h-8 object-contain" />}
+                                                                        <span className="font-bold text-gray-800 group-hover:text-blue-600 group-hover:underline decoration-indigo-600 underline-offset-2 transition-colors">
+                                                                            {displayNames.teamName(team)}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-2 py-3 text-center">{team.played}</td>
+                                                                <td className="px-2 py-3 text-center font-bold text-green-600">{team.won}</td>
+                                                                <td className="px-2 py-3 text-center text-red-500">{team.lost}</td>
+                                                                <td className="px-4 py-3 text-center font-semibold text-lg bg-blue-50 text-indigo-700">{team.points}</td>
+                                                                <td className="px-2 py-3 text-center border-l">{team.sets_won}</td>
+                                                                <td className="px-2 py-3 text-center">{team.sets_lost}</td>
+                                                                <td className="px-2 py-3 text-center text-xs text-gray-500 font-mono">{team.setRatioStr}</td>
+                                                                <td className="px-2 py-3 text-center border-l">{team.points_won}</td>
+                                                                <td className="px-2 py-3 text-center">{team.points_lost}</td>
+                                                                <td className="px-2 py-3 text-center text-xs text-gray-500 font-mono">{team.pointRatioStr}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </section>
+                                    );
+                                })}
+                            </section>
+                        ))}
                     </div>
                 )}
             </div>

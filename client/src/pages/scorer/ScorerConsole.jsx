@@ -14,10 +14,11 @@ import BatchSubstitutionModal from '../../components/scorer/modals/BatchSubstitu
 import { applySubstitutionBatch } from '../../utils/scorer/substitutionBatch';
 import { hasMatchPlayActivity, normalizeWorkflowStepForMatch } from '../../utils/scorer/scorerWorkflow';
 import { getConfiguredTeamColors, mergeConfiguredTeamColors } from '../../utils/scorer/configuredTeamColors';
-import { buildScorerLiveState, replaceLineupPlayer, isLineupSetupLocked, saveRosterApproval } from '../../utils/scorer/scorerHelpers';
+import { SCORER_TIMEOUT_MS, buildScorerLiveState, replaceLineupPlayer, isLineupSetupLocked, saveRosterApproval } from '../../utils/scorer/scorerHelpers';
 import { getSetElapsedSeconds, restoreSetTimer } from '../../utils/scorer/setTimer';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { hasReplacedMatchPublicId, publicIdPattern } from '../../utils/navigation/publicUrls';
 import { io } from 'socket.io-client';
 import {
     ListChecks, CheckCircle, X,  Loader, Wifi, WifiOff, CloudOff, CloudCheck, CloudUpload, CloudAlert,
@@ -35,6 +36,7 @@ import { getAuthToken, getStoredUser } from '../../auth/authStorage';
 import { scorerOfflineActive } from '../../offline/scorerOffline';
 import '../../components/scorer/ScorerTheme.css';
 import '../../components/scorer/ScorerResponsive.css';
+import '../../components/scorer/ScorerTimeout.css';
 
 // --- Imported Modals ---
 import ChallengeModal from '../../components/scorer/modals/ChallengeModal';
@@ -114,6 +116,11 @@ const mergeTeamColorsWithUniformDefaults = (uniformColors, currentColors = {}, m
 // MAIN COMPONENT (ScorerConsole)
 // -----------------------------------------------------------------------------
 export default function ScorerConsole() {
+    const { pathname } = useLocation();
+    return <ScorerMatchConsole key={pathname} />;
+}
+
+function ScorerMatchConsole() {
     const displayNames = useDisplayNames();
     const ui = useUiTranslation();
     const st = useScorerTranslation();
@@ -150,11 +157,18 @@ export default function ScorerConsole() {
     const { matchId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
+    const publicMatchId = /^\/scorer\/([^/]+)\/?$/.exec(location.pathname)?.[1];
+    const matchPublicId = publicIdPattern.test(publicMatchId || '') ? publicMatchId : null;
+    const isPreparedOffline = scorerOfflineActive(matchId);
+    const networkMatchId = isPreparedOffline ? matchId : (matchPublicId || matchId);
+    const [matchStorageId] = useState(() => !isPreparedOffline && hasReplacedMatchPublicId(matchId) && matchPublicId ? matchPublicId : matchId);
+    const [matchLoadError, setMatchLoadError] = useState('');
+    const missingMatchRef = useRef(false);
 
     // --- LOCAL STORAGE HELPER ---
     const loadState = (key, defaultValue) => {
         try {
-            const saved = localStorage.getItem(`match_${matchId}_${key}`);
+            const saved = localStorage.getItem(`match_${matchStorageId}_${key}`);
             return saved !== null ? JSON.parse(saved) : defaultValue;
         } catch {
             return defaultValue;
@@ -196,8 +210,8 @@ export default function ScorerConsole() {
         // stale socket echoes cannot replace a more recent local state.
         const now = Math.max(Date.now(), (Number(localStateUpdateTsRef.current) || 0) + 1);
         localStateUpdateTsRef.current = now;
-        localStorage.setItem(`match_${matchId}_updatedAt`, JSON.stringify(now));
-    }, [matchId]);
+        localStorage.setItem(`match_${matchStorageId}_updatedAt`, JSON.stringify(now));
+    }, [matchStorageId]);
 
     useEffect(() => {
         matchDataRef.current = matchData;
@@ -221,14 +235,14 @@ export default function ScorerConsole() {
 
     // 1. คะแนนปัจจุบัน (Score)
     const [score, setScore] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_score`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_score`);
         return saved ? JSON.parse(saved) : { home: 0, away: 0 };
     });
     const scoreRef = useRef(score);
     // 2. ขั้นตอนการทำงาน (Workflow Step) เพื่อไม่ให้เด้งกลับไปหน้า Roster ใหม่
     const [workflowStep, setWorkflowStep] = useState(() => {
         // ดึง workflowStep จาก localStorage เพื่อรักษาสถานะเมื่อรีเฟรช
-        const saved = localStorage.getItem(`match_${matchId}_workflowStep`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_workflowStep`);
         const parsed = saved ? JSON.parse(saved) : 'COIN_TOSS';
         return normalizeWorkflowStepForMatch(parsed, {
             score: loadState('score', { home: 0, away: 0 }),
@@ -246,7 +260,7 @@ export default function ScorerConsole() {
     }, [workflowStep]);
     // 3. ทีมที่ได้สิทธิ์เสิร์ฟ และ ฝั่งสนาม (ซ้าย-ขวา)
     const [servingTeam, setServingTeam] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_servingTeam`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_servingTeam`);
         return saved ? JSON.parse(saved) : null;
     });
     const servingTeamRef = useRef(servingTeam);
@@ -260,36 +274,36 @@ export default function ScorerConsole() {
     }, [servingTeam]);
 
     const [isHomeLeft, setIsHomeLeft] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_isHomeLeft`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_isHomeLeft`);
         return saved ? JSON.parse(saved) : true;
     });
     // 4. โควต้าการขอเวลานอก (Timeouts)
     const [timeouts, setTimeouts] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_timeouts`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_timeouts`);
         return saved ? JSON.parse(saved) : { home: 0, away: 0 };
     });
     // 5. โควต้าชาเลนจ์ (Challenges) (ปกติได้เซตละ 2 ครั้ง)
     const [challenges, setChallenges] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_challenges`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_challenges`);
         return saved ? JSON.parse(saved) : { home: 2, away: 2 };
     });
     // 6. ลิเบอโร่ (Liberos)
     const [homeLiberos, setHomeLiberos] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_homeLiberos`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_homeLiberos`);
         return saved ? JSON.parse(saved) : { l1: null, l2: null };
     });
     const [awayLiberos, setAwayLiberos] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_awayLiberos`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_awayLiberos`);
         return saved ? JSON.parse(saved) : { l1: null, l2: null };
     });
     // 7. ประวัติเหตุการณ์ (Match Events Log)
     const [matchEvents, setMatchEvents] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_matchEvents`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_matchEvents`);
         return saved ? JSON.parse(saved) : [];
     });
     // 8. ประวัติการเปลี่ยนตัว Libero (แยกจากโควต้าเปลี่ยนตัวปกติ)
     const [liberoTracker, setLiberoTracker] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_liberoTracker`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_liberoTracker`);
         return saved ? JSON.parse(saved) : {
             home: { onCourt: false, activeLibero: null, replacedPlayer: null, posIndex: null },
             away: { onCourt: false, activeLibero: null, replacedPlayer: null, posIndex: null }
@@ -314,8 +328,8 @@ export default function ScorerConsole() {
     const [lineupSetup, setLineupSetup] = useState(() => loadState('lineupSetup', {}));
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_lineupSetup`, JSON.stringify(lineupSetup));
-    }, [lineupSetup, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_lineupSetup`, JSON.stringify(lineupSetup));
+    }, [lineupSetup, matchId, matchStorageId]);
 
     const handleTeamColorChange = (team, color) => {
         if (isLineupSetupLocked(matchData.currentSet, lineupSetup, team, 'colorLocked')) return;
@@ -391,6 +405,7 @@ export default function ScorerConsole() {
 
     const [showTimeoutTimer, setShowTimeoutTimer] = useState(false);
     const [timeoutStartTime, setTimeoutStartTime] = useState(null);
+    const [timeoutTeam, setTimeoutTeam] = useState(null);
     const timeoutConfirmationPendingRef = useRef(false);
     const timeoutRequestContextRef = useRef(null);
 
@@ -407,11 +422,11 @@ export default function ScorerConsole() {
 
     useEffect(() => {
         if (pendingSetWinner) {
-            localStorage.setItem(`match_${matchId}_pendingSetWinner`, JSON.stringify(pendingSetWinner));
+            localStorage.setItem(`match_${matchStorageId}_pendingSetWinner`, JSON.stringify(pendingSetWinner));
         } else {
-            localStorage.removeItem(`match_${matchId}_pendingSetWinner`);
+            localStorage.removeItem(`match_${matchStorageId}_pendingSetWinner`);
         }
-    }, [matchId, pendingSetWinner]);
+    }, [matchId, pendingSetWinner, matchStorageId]);
 
     // Settings
     const [setsToWin, setSetsToWin] = useState(() => loadState('setsToWin', 3));
@@ -443,7 +458,7 @@ export default function ScorerConsole() {
             'lastSetHomeLiberos',
             'lastSetAwayLiberos',
             'liberoTracker'
-        ].forEach((key) => localStorage.removeItem(`match_${matchId}_${key}`));
+        ].forEach((key) => localStorage.removeItem(`match_${matchStorageId}_${key}`));
 
         const normalizeNavigationRoster = (players = []) => players
             .filter(isPlayingPlayer)
@@ -466,8 +481,8 @@ export default function ScorerConsole() {
             setHomeStaff(nextHomeStaff);
             setAwayStaff(nextAwayStaff);
 
-            localStorage.setItem(`match_${matchId}_homeRoster`, JSON.stringify(nextHomeRoster));
-            localStorage.setItem(`match_${matchId}_awayRoster`, JSON.stringify(nextAwayRoster));
+            localStorage.setItem(`match_${matchStorageId}_homeRoster`, JSON.stringify(nextHomeRoster));
+            localStorage.setItem(`match_${matchStorageId}_awayRoster`, JSON.stringify(nextAwayRoster));
         }
 
         setHomeLineup(Array(6).fill(null));
@@ -482,7 +497,7 @@ export default function ScorerConsole() {
             home: { onCourt: false, activeLibero: null, replacedPlayer: null, posIndex: null },
             away: { onCourt: false, activeLibero: null, replacedPlayer: null, posIndex: null }
         });
-    }, [location.state, matchId]);
+    }, [location.state, matchId, matchStorageId]);
 
     // --- REFRESH ROSTER FROM BACKEND ---
     const refreshRoster = useCallback(async (hId, aId) => {
@@ -545,7 +560,7 @@ export default function ScorerConsole() {
             let matchRosterData = null;
 
             try {
-                const rosterRes = await api.getMatchRosterData(matchId);
+                const rosterRes = await api.getMatchRosterData(networkMatchId);
                 matchRosterData = rosterRes.data;
             } catch (err) {
                 console.warn("Failed to fetch match roster data:", err);
@@ -606,8 +621,8 @@ export default function ScorerConsole() {
             setHomeRoster(activeHomeRoster);
             setAwayRoster(activeAwayRoster);
 
-            localStorage.setItem(`match_${matchId}_homeRoster`, JSON.stringify(activeHomeRoster));
-            localStorage.setItem(`match_${matchId}_awayRoster`, JSON.stringify(activeAwayRoster));
+            localStorage.setItem(`match_${matchStorageId}_homeRoster`, JSON.stringify(activeHomeRoster));
+            localStorage.setItem(`match_${matchStorageId}_awayRoster`, JSON.stringify(activeAwayRoster));
 
             return {
                 homeRoster: activeHomeRoster,
@@ -619,7 +634,7 @@ export default function ScorerConsole() {
             console.error("Error refreshing roster:", err);
             return null;
         }
-    }, [matchId]);
+    }, [matchStorageId, networkMatchId]);
 
     // Timer
     const [initialTimer] = useState(() => restoreSetTimer({
@@ -649,7 +664,7 @@ export default function ScorerConsole() {
     });
 
     const [subTracker, setSubTracker] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_subTracker`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_subTracker`);
         return saved ? JSON.parse(saved) : {
             home: { count: 0, positions: {}, usedPlayers: [] },
             away: { count: 0, positions: {}, usedPlayers: [] }
@@ -702,7 +717,7 @@ export default function ScorerConsole() {
         if (!isNewerState) return;
 
         localStateUpdateTsRef.current = serverUpdatedAt || Date.now();
-        localStorage.setItem(`match_${matchId}_updatedAt`, JSON.stringify(localStateUpdateTsRef.current));
+        localStorage.setItem(`match_${matchStorageId}_updatedAt`, JSON.stringify(localStateUpdateTsRef.current));
 
         if (live.matchData) setMatchData({ ...live.matchData, ...matchDataRef.current, currentSet: live.matchData.currentSet || matchDataRef.current.currentSet });
         if (live.workflowStep) setWorkflowStep(normalizedWorkflowStep);
@@ -721,7 +736,7 @@ export default function ScorerConsole() {
         if (typeof live.isHomeLeft === 'boolean') setIsHomeLeft(live.isHomeLeft);
         const readCachedMatchRoster = (side) => {
             try {
-                const savedRoster = localStorage.getItem(`match_${matchId}_${side}Roster`);
+                const savedRoster = localStorage.getItem(`match_${matchStorageId}_${side}Roster`);
                 return savedRoster ? JSON.parse(savedRoster) : [];
             } catch {
                 return [];
@@ -768,6 +783,7 @@ export default function ScorerConsole() {
         }
         if (live.showTimeoutTimer !== undefined) setShowTimeoutTimer(live.showTimeoutTimer);
         if (live.timeoutStartTime !== undefined) setTimeoutStartTime(live.timeoutStartTime);
+        if (live.timeoutTeam !== undefined) setTimeoutTeam(live.timeoutTeam);
         restoreMatchTimer({ ...live, workflowStep: normalizedWorkflowStep });
         if (live.subTracker) setSubTracker(live.subTracker);
         if (live.referees && (matchDataRef.current.status !== 'scheduled' || matchDataRef.current.first_serve_team_id)) setReferees(live.referees);
@@ -775,7 +791,7 @@ export default function ScorerConsole() {
         if (live.lineupSetup) setLineupSetup(live.lineupSetup);
         if (live.currentChallengeReview !== undefined) setCurrentChallengeReview(live.currentChallengeReview);
         if (live.firstServeSet1 !== undefined) setFirstServeSet1(live.firstServeSet1);
-    }, [matchId, restoreMatchTimer]);
+    }, [restoreMatchTimer, matchStorageId]);
 
     // --- EFFECT: SOCKET.IO FOR STAFF REQUESTS ---
     useEffect(() => {
@@ -801,7 +817,7 @@ export default function ScorerConsole() {
         }
 
         // ดึงข้อมูลเริ่มต้น (Initial Fetch) เพื่อกันกรณีตกหล่น
-        client.get(`/match/${matchId}/requests/pending`).then(res => {
+        client.get(`/match/${networkMatchId}/requests/pending`).then(res => {
             setPendingRequests(res.data || []);
         }).catch(error => console.error('Unable to load staff requests:', error));
 
@@ -900,7 +916,7 @@ export default function ScorerConsole() {
             socket.off('connection_status_update');
             socket.disconnect();
         };
-    }, [matchId, refreshRoster, applyRemoteLiveState]);
+    }, [matchId, refreshRoster, applyRemoteLiveState, networkMatchId]);
 
 
 
@@ -910,8 +926,10 @@ export default function ScorerConsole() {
 
         const syncQueue = async () => {
             if (scorerOfflineActive(matchId)) return;
-            const nextEvent = EventQueue.peek();
-            if (nextEvent && scorerOfflineActive(nextEvent.matchId)) return;
+            if (isLoading || matchLoadError || missingMatchRef.current) return;
+            const replaced = hasReplacedMatchPublicId(matchId);
+            const nextEvent = EventQueue.peek(event => String(event.matchId) === String(matchId)
+                && (event.matchPublicId ? event.matchPublicId === matchPublicId : !replaced));
             if (!nextEvent || isSyncing) {
                 setQueueCount(EventQueue.getQueue().length);
                 return;
@@ -922,7 +940,7 @@ export default function ScorerConsole() {
                 EventQueue.markSyncing(nextEvent.localId);
 
                 // Try to send to backend
-                await client.post(`/scorer/match/${nextEvent.matchId}/event`, {
+                await client.post(`/scorer/match/${nextEvent.matchPublicId || networkMatchId}/event`, {
                     set_number: nextEvent.details.set_number,
                     event_type: nextEvent.type,
                     team_id: nextEvent.details.team_id,
@@ -937,6 +955,7 @@ export default function ScorerConsole() {
             } catch (error) {
                 console.error("Sync failed for event:", nextEvent.localId, error);
                 EventQueue.fail(nextEvent.localId);
+                if (error.response?.status === 404) missingMatchRef.current = true;
             } finally {
                 setIsSyncing(false);
                 setQueueCount(EventQueue.getQueue().length);
@@ -951,7 +970,7 @@ export default function ScorerConsole() {
             isWorkerActive = false;
             clearInterval(interval);
         };
-    }, [isSyncing, matchId]);
+    }, [isSyncing, isLoading, matchLoadError, matchId, matchPublicId, networkMatchId]);
 
     const debounceTimeoutRef = useRef(null);
 
@@ -959,13 +978,13 @@ export default function ScorerConsole() {
         matchData, workflowStep, score, setsWon, timeouts, challenges, substitutions,
         servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup,
         homeLiberos, awayLiberos, homeLiberoSwaps, awayLiberoSwaps, teamColors,
-        showTimeoutTimer, timeoutStartTime, matchDuration, isTimerRunning, setTimerStartedAt,
+        showTimeoutTimer, timeoutStartTime, timeoutTeam, matchDuration, isTimerRunning, setTimerStartedAt,
         subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup, completedSets, matchEvents
     }, overrides), [
         matchData, workflowStep, score, setsWon, timeouts, challenges, substitutions,
         servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup,
         homeLiberos, awayLiberos, homeLiberoSwaps, awayLiberoSwaps, teamColors,
-        showTimeoutTimer, timeoutStartTime, matchDuration, isTimerRunning, setTimerStartedAt,
+        showTimeoutTimer, timeoutStartTime, timeoutTeam, matchDuration, isTimerRunning, setTimerStartedAt,
         subTracker, referees, matchSignatures, currentChallengeReview, firstServeSet1, lineupSetup, completedSets, matchEvents
     ]);
 
@@ -974,7 +993,7 @@ export default function ScorerConsole() {
         const generation = ++liveSyncGenerationRef.current;
         let syncActive = true;
         // ถ้าแมตช์จบแล้ว ไม่ควรเขียนข้อมูลทับอีกเพื่อป้องกันการสูญหายของลายเซ็นและข้อมูลอื่น
-        if (matchData?.status === 'completed') {
+        if (isLoading || matchLoadError || matchData?.status === 'completed') {
             return;
         }
 
@@ -990,13 +1009,13 @@ export default function ScorerConsole() {
                 timeouts, challenges, substitutions, matchEvents, servingTeam,
                 homeRoster, awayRoster, homeLineup, awayLineup, homeLiberos, awayLiberos,
                 history, setsToWin, matchDuration, isTimerRunning, setTimerStartedAt, lastLiberoSwap, teamColors,
-                homeLiberoSwaps, awayLiberoSwaps, showTimeoutTimer, timeoutStartTime, subTracker,
+                homeLiberoSwaps, awayLiberoSwaps, showTimeoutTimer, timeoutStartTime, timeoutTeam, subTracker,
                 matchSignatures, referees, postponedChallengeIds, currentChallengeReview, firstServeSet1
             };
 
             // 1. Save to localStorage for local persistence on refresh
             Object.entries(stateForLocalStorage).forEach(([key, value]) => {
-                localStorage.setItem(`match_${matchId}_${key}`, JSON.stringify(value));
+                localStorage.setItem(`match_${matchStorageId}_${key}`, JSON.stringify(value));
             });
 
             // 2. Save to backend for real-time sync with other devices
@@ -1009,16 +1028,17 @@ export default function ScorerConsole() {
                 updatedAt: updateTimestamp
             });
             const sendState = async () => {
-                if (!syncActive || generation !== liveSyncGenerationRef.current) return;
+                if (!syncActive || generation !== liveSyncGenerationRef.current || missingMatchRef.current) return;
                 setLiveSyncStatus('saving');
                 try {
-                    await api.updateLiveState(matchId, liveStateForServer);
+                    await api.updateLiveState(networkMatchId, liveStateForServer);
                     if (syncActive && generation === liveSyncGenerationRef.current) {
                         setLiveSyncStatus('saved');
                         if (!scorerOfflineActive(matchId)) setLastSyncedAt(Date.now());
                     }
                 } catch (error) {
                     console.error('Failed to sync state to server:', error);
+                    if (error.response?.status === 404) missingMatchRef.current = true;
                     if (syncActive && generation === liveSyncGenerationRef.current) setLiveSyncStatus('error');
                 }
             };
@@ -1030,81 +1050,81 @@ export default function ScorerConsole() {
             clearTimeout(debounceTimeoutRef.current);
             syncActive = false;
         };
-    }, [matchId, matchData, workflowStep, score, setsWon, completedSets, timeouts, challenges, substitutions, matchEvents, servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup, homeLiberos, awayLiberos, history, setsToWin, matchDuration, isTimerRunning, setTimerStartedAt, homeLiberoSwaps, awayLiberoSwaps, lastLiberoSwap, teamColors, showTimeoutTimer, timeoutStartTime, subTracker, matchSignatures, referees, postponedChallengeIds, currentChallengeReview, firstServeSet1, createLiveState]);
+    }, [matchId, networkMatchId, matchStorageId, isLoading, matchLoadError, matchData, workflowStep, score, setsWon, completedSets, timeouts, challenges, substitutions, matchEvents, servingTeam, isHomeLeft, homeRoster, awayRoster, homeLineup, awayLineup, homeLiberos, awayLiberos, history, setsToWin, matchDuration, isTimerRunning, setTimerStartedAt, homeLiberoSwaps, awayLiberoSwaps, lastLiberoSwap, teamColors, showTimeoutTimer, timeoutStartTime, timeoutTeam, subTracker, matchSignatures, referees, postponedChallengeIds, currentChallengeReview, firstServeSet1, createLiveState]);
 
     // เก็บ ID ผู้เล่นที่ถูกเปลี่ยนตัวออกด้วยกรณีพิเศษ (บาดเจ็บ/ให้ออก) ห้ามลงเล่นทั้งนัด
     const [disqualifiedPlayers, setDisqualifiedPlayers] = useState(() => {
-        const saved = localStorage.getItem(`match_${matchId}_disqualified`);
+        const saved = localStorage.getItem(`match_${matchStorageId}_disqualified`);
         return saved ? JSON.parse(saved) : { home: [], away: [] };
     });
 
     const [staffConnections, setStaffConnections] = useState({ home: false, away: false });
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_matchData`, JSON.stringify(matchData));
-    }, [matchData, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_matchData`, JSON.stringify(matchData));
+    }, [matchData, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_disqualified`, JSON.stringify(disqualifiedPlayers));
-    }, [disqualifiedPlayers, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_disqualified`, JSON.stringify(disqualifiedPlayers));
+    }, [disqualifiedPlayers, matchId, matchStorageId]);
     // ==========================================
     // AUTO-SAVE TO LOCAL STORAGE
     // ==========================================
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_score`, JSON.stringify(score));
-    }, [score, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_score`, JSON.stringify(score));
+    }, [score, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_workflowStep`, JSON.stringify(workflowStep));
-    }, [workflowStep, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_workflowStep`, JSON.stringify(workflowStep));
+    }, [workflowStep, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_servingTeam`, JSON.stringify(servingTeam));
-        localStorage.setItem(`match_${matchId}_isHomeLeft`, JSON.stringify(isHomeLeft));
-    }, [servingTeam, isHomeLeft, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_servingTeam`, JSON.stringify(servingTeam));
+        localStorage.setItem(`match_${matchStorageId}_isHomeLeft`, JSON.stringify(isHomeLeft));
+    }, [servingTeam, isHomeLeft, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_firstServeSet1`, JSON.stringify(firstServeSet1));
-    }, [firstServeSet1, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_firstServeSet1`, JSON.stringify(firstServeSet1));
+    }, [firstServeSet1, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_timeouts`, JSON.stringify(timeouts));
-        localStorage.setItem(`match_${matchId}_challenges`, JSON.stringify(challenges));
-    }, [timeouts, challenges, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_timeouts`, JSON.stringify(timeouts));
+        localStorage.setItem(`match_${matchStorageId}_challenges`, JSON.stringify(challenges));
+    }, [timeouts, challenges, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_homeLiberos`, JSON.stringify(homeLiberos));
-        localStorage.setItem(`match_${matchId}_awayLiberos`, JSON.stringify(awayLiberos));
-    }, [homeLiberos, awayLiberos, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_homeLiberos`, JSON.stringify(homeLiberos));
+        localStorage.setItem(`match_${matchStorageId}_awayLiberos`, JSON.stringify(awayLiberos));
+    }, [homeLiberos, awayLiberos, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_matchEvents`, JSON.stringify(matchEvents));
-    }, [matchEvents, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_matchEvents`, JSON.stringify(matchEvents));
+    }, [matchEvents, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_liberoTracker`, JSON.stringify(liberoTracker));
-    }, [liberoTracker, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_liberoTracker`, JSON.stringify(liberoTracker));
+    }, [liberoTracker, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_matchSignatures`, JSON.stringify(matchSignatures));
-    }, [matchSignatures, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_matchSignatures`, JSON.stringify(matchSignatures));
+    }, [matchSignatures, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_subTracker`, JSON.stringify(subTracker));
-    }, [subTracker, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_subTracker`, JSON.stringify(subTracker));
+    }, [subTracker, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_homeRoster`, JSON.stringify(homeRoster));
-        localStorage.setItem(`match_${matchId}_awayRoster`, JSON.stringify(awayRoster));
-    }, [homeRoster, awayRoster, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_homeRoster`, JSON.stringify(homeRoster));
+        localStorage.setItem(`match_${matchStorageId}_awayRoster`, JSON.stringify(awayRoster));
+    }, [homeRoster, awayRoster, matchId, matchStorageId]);
 
     useEffect(() => {
-        localStorage.setItem(`match_${matchId}_lastSetHomeLineup`, JSON.stringify(lastSetHomeLineup));
-        localStorage.setItem(`match_${matchId}_lastSetAwayLineup`, JSON.stringify(lastSetAwayLineup));
-        localStorage.setItem(`match_${matchId}_lastSetHomeLiberos`, JSON.stringify(lastSetHomeLiberos));
-        localStorage.setItem(`match_${matchId}_lastSetAwayLiberos`, JSON.stringify(lastSetAwayLiberos));
-    }, [lastSetHomeLineup, lastSetAwayLineup, lastSetHomeLiberos, lastSetAwayLiberos, matchId]);
+        localStorage.setItem(`match_${matchStorageId}_lastSetHomeLineup`, JSON.stringify(lastSetHomeLineup));
+        localStorage.setItem(`match_${matchStorageId}_lastSetAwayLineup`, JSON.stringify(lastSetAwayLineup));
+        localStorage.setItem(`match_${matchStorageId}_lastSetHomeLiberos`, JSON.stringify(lastSetHomeLiberos));
+        localStorage.setItem(`match_${matchStorageId}_lastSetAwayLiberos`, JSON.stringify(lastSetAwayLiberos));
+    }, [lastSetHomeLineup, lastSetAwayLineup, lastSetHomeLiberos, lastSetAwayLiberos, matchId, matchStorageId]);
 
 
 
@@ -1118,7 +1138,7 @@ export default function ScorerConsole() {
                 let currentMatch = matchDataRef.current;
 
                 // 1. ยิง API ดึงข้อมูลแมตช์เสมอ เพื่อเอา max_sets ที่ถูกต้องชัวร์ๆ
-                const resMatch = await api.getMatchById(matchId);
+                const resMatch = await api.getMatchById(networkMatchId);
                 const m = resMatch.data;
                 if (m.manual_owner_id && ['draft', 'confirmed'].includes(m.manual_lifecycle)) {
                     navigate(m.manual_lifecycle === 'confirmed' ? `/match/${matchId}/viewer` : '/adminscorer', { replace: true });
@@ -1215,7 +1235,7 @@ export default function ScorerConsole() {
                 const restoredIsHomeLeft = m.left_side_team_id
                     ? String(m.left_side_team_id) === String(m.home_team_id)
                     : null;
-                const hasLocalCourtSide = localStorage.getItem(`match_${matchId}_isHomeLeft`) !== null
+                const hasLocalCourtSide = localStorage.getItem(`match_${matchStorageId}_isHomeLeft`) !== null
                     || Boolean(localStateUpdateTsRef.current);
 
                 if (firstServeCode) {
@@ -1287,7 +1307,7 @@ export default function ScorerConsole() {
 
                 // ดึง Live State จาก Server เพื่อ Restore หลังรีเฟรช
                 try {
-                    const liveRes = await api.getLiveState(matchId);
+                    const liveRes = await api.getLiveState(networkMatchId);
                     const live = liveRes.data;
                     const liveCurrentSet = Number(live?.matchData?.currentSet ?? live?.matchData?.current_set);
                     const liveUpdatedAt = Number(live?.updatedAt) || 0;
@@ -1334,7 +1354,7 @@ export default function ScorerConsole() {
                         } else {
                             const updatedServerTs = serverUpdatedAt || Date.now();
                             localStateUpdateTsRef.current = updatedServerTs;
-                            localStorage.setItem(`match_${matchId}_updatedAt`, JSON.stringify(updatedServerTs));
+                            localStorage.setItem(`match_${matchStorageId}_updatedAt`, JSON.stringify(updatedServerTs));
                             if (live.workflowStep) setWorkflowStep(normalizedWorkflowStep);
                             if (live.score) {
                                 scoreRef.current = live.score;
@@ -1354,6 +1374,8 @@ export default function ScorerConsole() {
                             }
                             if (live.subTracker) setSubTracker(live.subTracker);
                             if (live.showTimeoutTimer !== undefined) setShowTimeoutTimer(live.showTimeoutTimer);
+                            if (live.timeoutStartTime !== undefined) setTimeoutStartTime(live.timeoutStartTime);
+                            if (live.timeoutTeam !== undefined) setTimeoutTeam(live.timeoutTeam);
                             if (live.currentChallengeReview !== undefined) setCurrentChallengeReview(live.currentChallengeReview);
                             if (live.matchSignatures) setMatchSignatures(live.matchSignatures);
                             if (live.lineupSetup) setLineupSetup(live.lineupSetup);
@@ -1362,7 +1384,7 @@ export default function ScorerConsole() {
 
                             const readCachedMatchRoster = (side) => {
                                 try {
-                                    const savedRoster = localStorage.getItem(`match_${matchId}_${side}Roster`);
+                                    const savedRoster = localStorage.getItem(`match_${matchStorageId}_${side}Roster`);
                                     return savedRoster ? JSON.parse(savedRoster) : [];
                                 } catch {
                                     return [];
@@ -1393,8 +1415,8 @@ export default function ScorerConsole() {
                             let restoredHomeLiberos = live.homeLiberos;
                             let restoredAwayLiberos = live.awayLiberos;
 
-                            const savedHomeRosterStr = localStorage.getItem(`match_${matchId}_homeRoster`);
-                            const savedAwayRosterStr = localStorage.getItem(`match_${matchId}_awayRoster`);
+                            const savedHomeRosterStr = localStorage.getItem(`match_${matchStorageId}_homeRoster`);
+                            const savedAwayRosterStr = localStorage.getItem(`match_${matchStorageId}_awayRoster`);
                             const keepLiberosInRoster = (liberos, roster = []) => {
                                 const findRosterPlayer = (player) => {
                                     if (!player) return null;
@@ -1450,6 +1472,7 @@ export default function ScorerConsole() {
 
             } catch (error) {
                 console.error("Error fetching match data:", error);
+                if (!silent || error.response?.status === 404) setMatchLoadError(error.response?.status === 404 ? 'not-found' : 'load-failed');
             } finally {
                 if (!silent) {
                     setIsLoading(false);
@@ -1458,7 +1481,7 @@ export default function ScorerConsole() {
         };
         fetchMatchDataRef.current = fetchMatchData;
         fetchMatchData();
-    }, [matchId, navigate, refreshRoster, restoreMatchTimer]);
+    }, [matchId, networkMatchId, matchStorageId, navigate, refreshRoster, restoreMatchTimer]);
 
 
     // --- API HELPER: SAVE EVENT (OFFLINE-FIRST) ---
@@ -1478,6 +1501,7 @@ export default function ScorerConsole() {
         // Push to local queue instead of direct API call
         const eventData = {
             matchId,
+            matchPublicId,
             type: eventType,
             local_event_id: localEventId,
             details: {
@@ -1495,7 +1519,7 @@ export default function ScorerConsole() {
         };
 
         if (scorerOfflineActive(matchId)) {
-            await api.saveMatchEvent(matchId, { ...eventData.details, details: eventData.details, event_type: eventType, local_event_id: localEventId });
+            await api.saveMatchEvent(networkMatchId, { ...eventData.details, details: eventData.details, event_type: eventType, local_event_id: localEventId });
         } else EventQueue.push(eventData);
         setQueueCount(EventQueue.getQueue().length);
 
@@ -1709,6 +1733,43 @@ export default function ScorerConsole() {
         markLocalStateUpdate();
         setIsHomeLeft(nextIsHomeLeft);
     }, [isHomeLeft, markLocalStateUpdate, saveStateToHistory]);
+
+    const showCourtPins = async () => {
+        const thai = language === 'THA';
+        const court = await Swal.fire({
+            titleText: thai ? 'เลือกฝั่งของ iPad' : 'Choose the iPad court',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: thai ? 'ฝั่ง A' : 'Court A',
+            denyButtonText: thai ? 'ฝั่ง B' : 'Court B',
+            cancelButtonText: thai ? 'ยกเลิก' : 'Cancel',
+        });
+        if (!(court.isConfirmed || court.isDenied)) return;
+        const side = court.isConfirmed ? 'A' : 'B';
+        const action = await Swal.fire({
+            titleText: thai ? `จัดการ iPad ฝั่ง ${side}` : `Manage court ${side} iPad`,
+            text: thai ? 'การออก PIN ใหม่หรือเพิกถอนจะยกเลิกสิทธิ์เครื่องเดิมของฝั่งนี้' : 'Issuing a PIN or revoking access disconnects the currently paired iPad on this court.',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: thai ? 'ออก PIN จับคู่' : 'Issue pairing PIN',
+            denyButtonText: thai ? 'เพิกถอนสิทธิ์' : 'Revoke access',
+            cancelButtonText: thai ? 'ยกเลิก' : 'Cancel',
+            focusCancel: true,
+        });
+        if (!(action.isConfirmed || action.isDenied)) return;
+        try {
+            const { data } = await api.manageCourtPairing(networkMatchId, side, action.isConfirmed ? 'issue' : 'revoke');
+            await Swal.fire({
+                titleText: data.revoked
+                    ? (thai ? `เพิกถอนสิทธิ์ฝั่ง ${side} แล้ว` : `Court ${side} access revoked`)
+                    : (thai ? `PIN จับคู่ฝั่ง ${side}` : `Court ${side} pairing PIN`),
+                text: data.pin,
+                confirmButtonText: thai ? 'ปิด' : 'Close',
+            });
+        } catch {
+            void Swal.fire({ icon: 'error', text: thai ? 'จัดการสิทธิ์ iPad ไม่สำเร็จ' : 'Could not manage iPad access.' });
+        }
+    };
 
     // --- CORE GAME LOGIC ---
     const rotateLineup = (currentLineup, teamCode) => {
@@ -1947,7 +2008,7 @@ export default function ScorerConsole() {
         };
 
         try {
-            const response = await api.endSet(matchId, payload);
+            const response = await api.endSet(networkMatchId, payload);
 
             if (response.data.success) {
                 setMatchDuration(finalDuration);
@@ -2011,7 +2072,7 @@ export default function ScorerConsole() {
         } finally {
             isFinishingSetRef.current = false;
         }
-    }, [matchData, language, matchDuration, isTimerRunning, setTimerStartedAt, matchId, setsWon.home, setsWon.away, setsToWin, saveStateToHistory, st]);
+    }, [matchData, language, matchDuration, isTimerRunning, setTimerStartedAt, setsWon.home, setsWon.away, setsToWin, saveStateToHistory, st, networkMatchId]);
 
     const resolvePendingSetWinner = useCallback(() => {
         if (pendingSetWinner?.winnerCode && pendingSetWinner?.finalScore) {
@@ -2062,7 +2123,7 @@ export default function ScorerConsole() {
         }
     }, [finishSet, isEndingSet, pendingSetWinner, resolvePendingSetWinner, st]);
 
-    const startNextSet = () => {
+    const startNextSet = async () => {
         if (isStartingNextSetRef.current || isStartingNextSet) return;
 
         const currentSetNumber = Number(matchData.currentSet || 1);
@@ -2080,6 +2141,23 @@ export default function ScorerConsole() {
 
         isStartingNextSetRef.current = true;
         setIsStartingNextSet(true);
+
+        const isTieBreak = (setsWon?.home === setsToWin - 1) && (setsWon.away === setsToWin - 1);
+        if (!isTieBreak) {
+            const result = await Swal.fire({
+                icon: 'question',
+                titleText: language === 'THA' ? 'ยืนยันสลับแดนสำหรับเซตถัดไป' : 'Confirm court switch for the next set',
+                showCancelButton: true,
+                focusCancel: true,
+                confirmButtonText: language === 'THA' ? 'สลับแดนและเริ่มเซต' : 'Switch courts and start set',
+                cancelButtonText: language === 'THA' ? 'ยกเลิก' : 'Cancel'
+            });
+            if (!result.isConfirmed) {
+                isStartingNextSetRef.current = false;
+                setIsStartingNextSet(false);
+                return;
+            }
+        }
 
         const highestCompletedSet = completedSets.reduce((maxSet, setInfo) => {
             const setNumber = Number(setInfo.set || 0);
@@ -2112,7 +2190,6 @@ export default function ScorerConsole() {
         setAwayLiberoSwaps({});
         setHistory([]);
 
-        const isTieBreak = (setsWon?.home === setsToWin - 1) && (setsWon.away === setsToWin - 1);
         setMatchData(prev => ({ ...prev, currentSet: nextSetNumber }));
 
         if (!isTieBreak) setIsHomeLeft(prev => !prev);
@@ -2163,7 +2240,7 @@ export default function ScorerConsole() {
             if (result.isConfirmed) {
                 const lastState = history[history.length - 1];
                 if (scorerOfflineActive(matchId)) {
-                    try { await client.post(`/scorer/match/${matchId}/undo`, { state: createLiveState(lastState), keepLocalIds: (lastState.matchEvents || []).map(event => event.local_event_id || event.id) }); }
+                    try { await client.post(`/scorer/match/${networkMatchId}/undo`, { state: createLiveState(lastState), keepLocalIds: (lastState.matchEvents || []).map(event => event.local_event_id || event.id) }); }
                     catch (error) { await Swal.fire({uiTextLocalized:true,title:st('ย้อนรายการไม่สำเร็จ'),text:st(error.message),icon:'error'}); return; }
                 }
 
@@ -2172,7 +2249,7 @@ export default function ScorerConsole() {
                     const batch = matchEvents.find(event => event.metadata?.type === 'SUBSTITUTION_BATCH' && !keep.has(event.id));
                     if (batch) {
                         try {
-                            await client.post('/scorer/match/' + matchId + '/undo-substitution-batch', { batchId: batch.local_event_id || batch.id, state: createLiveState(lastState) });
+                            await client.post('/scorer/match/' + networkMatchId + '/undo-substitution-batch', { batchId: batch.local_event_id || batch.id, state: createLiveState(lastState) });
                             for (const queued of EventQueue.getQueue()) if (String(queued.matchId) === String(matchId) && queued.local_event_id === (batch.local_event_id || batch.id)) EventQueue.remove(queued.localId);
                             setQueueCount(EventQueue.getQueue().length);
                             markLocalStateUpdate();
@@ -2222,7 +2299,7 @@ export default function ScorerConsole() {
         markLocalStateUpdate();
         const setNum = matchData.currentSet;
         try {
-            await api.startSet(matchId, { setNumber: setNum });
+            await api.startSet(networkMatchId, { setNumber: setNum });
         } catch (error) {
             console.error("Failed to save set start time:", error);
         }
@@ -2252,7 +2329,7 @@ export default function ScorerConsole() {
         setIsTimerRunning(true);
 
         try {
-            await api.updateLiveState(matchId, createLiveState({
+            await api.updateLiveState(networkMatchId, createLiveState({
                 workflowStep: 'SERVING',
                 matchDuration: 0,
                 setTimerStartedAt: startedAt,
@@ -2330,7 +2407,7 @@ export default function ScorerConsole() {
                 max_sets: data.setsToWin ? data.setsToWin * 2 - 1 : 5,
                 has_challenge: data.matchDetails?.hasChallenge !== undefined ? data.matchDetails.hasChallenge : null
             };
-            await api.updateMatchOfficials(matchId, payload);
+            await api.updateMatchOfficials(networkMatchId, payload);
         } catch (error) {
             console.error("Failed to update match officials:", error);
         }
@@ -2360,7 +2437,7 @@ export default function ScorerConsole() {
                 workflowStep: 'MATCH_FINISHED',
                 matchSignatures: finalSignatures
             });
-            await api.updateLiveState(matchId, liveStateForServer);
+            await api.updateLiveState(networkMatchId, liveStateForServer);
             await saveEventToBackend('MATCH_FINISHED', servingTeam || 'home', {
                 description: 'Match Finished',
                 finalScore: score,
@@ -2383,7 +2460,7 @@ export default function ScorerConsole() {
         ];
 
         keysToClear.forEach(key => {
-            localStorage.removeItem(`match_${matchId}_${key}`);
+            localStorage.removeItem(`match_${matchStorageId}_${key}`);
         });
 
         // 4. กลับสู่หน้าหลักตามสิทธิ์การใช้งาน (Role)
@@ -2406,7 +2483,7 @@ export default function ScorerConsole() {
                 const leftSideId = data.isHomeLeft ? matchData.teamHomeId : matchData.teamAwayId;
 
                 // ยิง API ไปบันทึกในตาราง matches
-                await api.saveCoinToss(matchId, {
+                await api.saveCoinToss(networkMatchId, {
                     first_serve_team_id: firstServeId,
                     left_side_team_id: leftSideId
                 });
@@ -2426,7 +2503,7 @@ export default function ScorerConsole() {
             setFirstServeSet1(data.servingTeam);
         }
         if (data.tossWinner) {
-            localStorage.setItem(`match_${matchId}_tossWinner`, data.tossWinner);
+            localStorage.setItem(`match_${matchStorageId}_tossWinner`, data.tossWinner);
         }
         if (typeof data.isHomeLeft === 'boolean') {
             setIsHomeLeft(data.isHomeLeft);
@@ -2481,7 +2558,7 @@ export default function ScorerConsole() {
                 workflowStep: 'SIGNATURES', // or current
                 matchSignatures: data // use new data
             });
-            await api.updateLiveState(matchId, liveStateForServer);
+            await api.updateLiveState(networkMatchId, liveStateForServer);
         } catch (error) {
             console.error("Failed to sync signatures to DB:", error);
         }
@@ -2547,13 +2624,13 @@ export default function ScorerConsole() {
                 max_sets: setsNeeded ? setsNeeded * 2 - 1 : 5,
                 has_challenge: data.matchDetails?.hasChallenge !== undefined ? data.matchDetails.hasChallenge : null
             };
-            await api.updateMatchOfficials(matchId, payload);
+            await api.updateMatchOfficials(networkMatchId, payload);
         } catch (error) {
             console.error("Failed to update match officials during setup:", error);
         }
 
         try {
-            await api.updateMatchRoster(matchId, {
+            await api.updateMatchRoster(networkMatchId, {
                 homePlayers: allHomeRoster,
                 awayPlayers: allAwayRoster
             });
@@ -2642,7 +2719,7 @@ export default function ScorerConsole() {
                     awayRoster: nextAwayRoster,
                     updatedAt: Date.now()
                 });
-                await api.updateLiveState(matchId, liveStateForServer);
+                await api.updateLiveState(networkMatchId, liveStateForServer);
             } catch (error) {
                 console.error("Failed to sync updated roster to server:", error);
             }
@@ -2704,7 +2781,7 @@ export default function ScorerConsole() {
 
     const handleLineupConfirm = async () => {
         if (homeLineup.some(p => !p) || awayLineup.some(p => !p)) {
-            alert(st("กรุณาเลือกผู้เล่นตัวจริงให้ครบทั้ง 6 ตำแหน่ง"));
+            void Swal.fire({ text: st("กรุณาเลือกผู้เล่นตัวจริงให้ครบทั้ง 6 ตำแหน่ง"), icon: 'warning' });
             return;
         }
 
@@ -2717,13 +2794,13 @@ export default function ScorerConsole() {
         // ✅ บันทึก Lineup ลงฐานข้อมูล
         try {
             await Promise.all([
-                api.saveLineup(matchId, {
+                api.saveLineup(networkMatchId, {
                     team_id: matchData.teamHomeId,
                     set_number: matchData.currentSet,
                     player_positions: taggedHome,
                     libero_id: homeLiberos.l1?.id
                 }),
-                api.saveLineup(matchId, {
+                api.saveLineup(networkMatchId, {
                     team_id: matchData.teamAwayId,
                     set_number: matchData.currentSet,
                     player_positions: taggedAway,
@@ -2804,38 +2881,62 @@ export default function ScorerConsole() {
         }));
         saveEventToBackend('TIMEOUT', teamCode);
         setTimeoutStartTime(Date.now());
+        setTimeoutTeam(teamCode);
         setShowTimeoutTimer(true);
 
         const teamName = getScorerTeamName(matchData, teamCode, language);
+        const timeoutDuration = SCORER_TIMEOUT_MS;
         let timerInterval;
         Swal.fire({
-            title: st(`เวลานอก (TIMEOUT) - {0}`, [teamName]),
-            html: st(`
-                <div style="font-size: 16px; color: #64748b; margin-bottom: 10px;">กำลังนับถอยหลังการขอเวลานอก</div>
-                <div style="font-size: 64px; font-weight: 900; color: #f59e0b; font-family: var(--font-sans);" id="timeout-countdown">30</div>
-                <div style="font-size: 14px; color: #94a3b8; margin-top: 10px;">วินาที</div>
-            `),
-            timer: 30000,
-            timerProgressBar: true,
+            titleText: st('Timeout'),
+            html: `
+                <div class="scorer-timeout-team">
+                    <span class="scorer-timeout-team-color" aria-hidden="true"></span>
+                    <span data-timeout-team></span>
+                </div>
+                <div class="scorer-timeout-clock">
+                    <svg viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+                        <circle class="scorer-timeout-track" cx="100" cy="100" r="92" />
+                        <circle class="scorer-timeout-remaining" cx="100" cy="100" r="92" pathLength="100"
+                            stroke-dasharray="100" transform="rotate(-90 100 100)" />
+                    </svg>
+                    <span data-timeout-countdown>00:30</span>
+                </div>
+            `,
+            customClass: { popup: 'scorer-timeout-popup', title: 'scorer-timeout-title', confirmButton: 'scorer-timeout-confirm' },
+            timer: timeoutDuration,
+            timerProgressBar: false,
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: true,
             confirmButtonText: st('ยกเลิกเวลานอกก่อนเวลา (Stop)'),
-            confirmButtonColor: '#ef4444',
-            didOpen: () => {
-                const content = Swal.getHtmlContainer().querySelector('#timeout-countdown');
-                timerInterval = setInterval(() => {
-                    const timerLeft = Swal.getTimerLeft();
-                    if (timerLeft) {
-                        const sec = Math.ceil(timerLeft / 1000);
-                        if (content) content.textContent = sec;
-                    }
-                }, 200);
+            buttonsStyling: false,
+            didOpen: (popup) => {
+                const content = popup.querySelector('.swal2-html-container');
+                const clock = content.querySelector('.scorer-timeout-clock');
+                const countdown = content.querySelector('[data-timeout-countdown]');
+                const ring = content.querySelector('.scorer-timeout-remaining');
+                content.querySelector('[data-timeout-team]').textContent = teamName;
+                content.querySelector('.scorer-timeout-team-color').style.backgroundColor = teamColors[teamCode];
+                clock.setAttribute('role', 'timer');
+                clock.setAttribute('aria-label', st('Timeout countdown'));
+
+                const updateCountdown = () => {
+                    const remaining = Math.max(0, Swal.getTimerLeft() ?? 0);
+                    const seconds = Math.ceil(remaining / 1000);
+                    const displayTime = `00:${String(seconds).padStart(2, '0')}`;
+                    if (countdown.textContent !== displayTime) countdown.textContent = displayTime;
+                    ring.style.strokeDashoffset = String(100 * (1 - remaining / timeoutDuration));
+                    clock.classList.toggle('scorer-timeout-urgent', seconds <= 5);
+                };
+                updateCountdown();
+                timerInterval = setInterval(updateCountdown, 100);
             },
             willClose: () => {
                 clearInterval(timerInterval);
                 setShowTimeoutTimer(false);
                 setTimeoutStartTime(null);
+                setTimeoutTeam(null);
             }
         });
     };
@@ -2849,7 +2950,7 @@ export default function ScorerConsole() {
         if (actionType === 'TIMEOUT') {
             if(timeoutConfirmationPendingRef.current||showTimeoutTimer)return;
             if (timeouts[teamCode] >= 2) {
-                alert(st("Timeout limit reached."));
+                void Swal.fire({ text: st("Timeout limit reached."), icon: 'warning' });
                 return;
             }
             timeoutConfirmationPendingRef.current=true;
@@ -2886,7 +2987,7 @@ export default function ScorerConsole() {
         const isCourtPos = typeof posIndex === 'number';
 
         if (isCourtPos && isPlayerLibero(player)) {
-            alert(st("ไม่สามารถเลือก Libero ลงเป็นผู้เล่น 6 คนแรกได้"));
+            void Swal.fire({ text: st("ไม่สามารถเลือก Libero ลงเป็นผู้เล่น 6 คนแรกได้"), icon: 'warning' });
             return;
         }
 
@@ -3043,7 +3144,7 @@ export default function ScorerConsole() {
             }
 
             if (request.request_type === 'CHALLENGE' && !isChallengeEnabledForMatch()) {
-                await client.put(`/match/${matchId}/requests/${request.id}`, { status: 'REJECTED' });
+                await client.put(`/match/${networkMatchId}/requests/${request.id}`, { status: 'REJECTED' });
                 setPendingRequests(prev => prev.filter(r => r.id !== request.id));
                 Swal.fire({
                     icon: 'info',
@@ -3074,7 +3175,7 @@ export default function ScorerConsole() {
                 : activeSetNumber;
 
             if (request.request_type === 'LINEUP' && lineupRequestSetNumber !== activeSetNumber) {
-                await client.put(`/match/${matchId}/requests/${request.id}`, {
+                await client.put(`/match/${networkMatchId}/requests/${request.id}`, {
                     status: 'REJECTED',
                     details: {
                         ...requestDetailsForApproval,
@@ -3094,14 +3195,14 @@ export default function ScorerConsole() {
             }
 
             if (request.request_type === 'LINEUP') {
-                const rosterResponse = await api.getMatchRosterData(matchId);
+                const rosterResponse = await api.getMatchRosterData(networkMatchId);
                 approvedRoster = rosterResponse.data?.[teamCode]?.players;
                 if (!Array.isArray(approvedRoster)) throw new Error('Could not load the match roster. Please retry.');
                 approvedLineup = resolveApprovedLineup(requestDetailsForApproval, approvedRoster);
 
             }
 
-            await client.put(`/match/${matchId}/requests/${request.id}`, { status: 'APPROVED' });
+            await client.put(`/match/${networkMatchId}/requests/${request.id}`, { status: 'APPROVED' });
 
             if (request.request_type === 'TIMEOUT') {
                 startTimeoutTimer(teamCode);
@@ -3232,7 +3333,7 @@ export default function ScorerConsole() {
 
     const handleRejectRequest = async (requestId) => {
         try {
-            await client.put(`/match/${matchId}/requests/${requestId}`, { status: 'REJECTED' });
+            await client.put(`/match/${networkMatchId}/requests/${requestId}`, { status: 'REJECTED' });
             setPendingRequests(prev => prev.filter(r => r.id !== requestId));
             setPostponedRequestIds(prev => prev.filter(id => id !== requestId));
         } catch (error) {
@@ -3318,7 +3419,7 @@ export default function ScorerConsole() {
         if (activeChallengeRequest) {
             setPostponedChallengeIds(prev => {
                 const next = prev.includes(activeChallengeRequest.id) ? prev : [...prev, activeChallengeRequest.id];
-                localStorage.setItem(`match_${matchId}_postponedChallengeIds`, JSON.stringify(next));
+                localStorage.setItem(`match_${matchStorageId}_postponedChallengeIds`, JSON.stringify(next));
                 return next;
             });
         }
@@ -3329,7 +3430,7 @@ export default function ScorerConsole() {
     const handleInvalidChallenge = async () => {
         if (activeChallengeRequest) {
             try {
-                await client.put(`/match/${matchId}/requests/${activeChallengeRequest.id}`, { status: 'REJECTED' });
+                await client.put(`/match/${networkMatchId}/requests/${activeChallengeRequest.id}`, { status: 'REJECTED' });
                 setPendingRequests(prev => prev.filter(r => r.id !== activeChallengeRequest.id));
                 setPostponedChallengeIds(prev => prev.filter(id => id !== activeChallengeRequest.id));
             } catch (err) {
@@ -3357,7 +3458,7 @@ export default function ScorerConsole() {
         }
         if (activeChallengeRequest) {
             try {
-                await client.put(`/match/${matchId}/requests/${activeChallengeRequest.id}`, {
+                await client.put(`/match/${networkMatchId}/requests/${activeChallengeRequest.id}`, {
                     status: 'APPROVED',
                     details: {
                         lastAction,
@@ -3373,7 +3474,7 @@ export default function ScorerConsole() {
                     lastAction
                 };
                 setCurrentChallengeReview(reviewObj);
-                localStorage.setItem(`match_${matchId}_currentChallengeReview`, JSON.stringify(reviewObj));
+                localStorage.setItem(`match_${matchStorageId}_currentChallengeReview`, JSON.stringify(reviewObj));
 
                 setPendingRequests(prev => prev.filter(r => r.id !== activeChallengeRequest.id));
                 setPostponedChallengeIds(prev => prev.filter(id => id !== activeChallengeRequest.id));
@@ -3451,7 +3552,7 @@ export default function ScorerConsole() {
         }, ...prev]);
 
         setCurrentChallengeReview(null);
-        localStorage.removeItem(`match_${matchId}_currentChallengeReview`);
+        localStorage.removeItem(`match_${matchStorageId}_currentChallengeReview`);
         setWorkflowStep('SERVING');
     };
 
@@ -3478,7 +3579,7 @@ export default function ScorerConsole() {
         }, ...prev]);
 
         setCurrentChallengeReview(null);
-        localStorage.removeItem(`match_${matchId}_currentChallengeReview`);
+        localStorage.removeItem(`match_${matchStorageId}_currentChallengeReview`);
         setWorkflowStep('SERVING');
     };
 
@@ -3938,6 +4039,17 @@ export default function ScorerConsole() {
     };
 
 
+    if (matchLoadError) return (
+        <main role="alert" className="mx-auto max-w-xl space-y-4 p-6">
+            <p>{matchLoadError === 'not-found'
+                ? (language === 'THA' ? 'ไม่พบแมตช์จากลิงก์นี้ กรุณาเปิดจากรายการแมตช์ล่าสุด' : 'This match link was not found. Open the match from the current list.')
+                : (language === 'THA' ? 'โหลดข้อมูลแมตช์ไม่สำเร็จ กรุณาลองอีกครั้ง' : 'Could not load the match. Try again.')}</p>
+            <GuardedButton onClick={() => navigate('/adminscorer', { replace: true })} className="min-h-11 rounded border px-4">
+                {language === 'THA' ? 'กลับรายการแมตช์' : 'Back to matches'}
+            </GuardedButton>
+        </main>
+    );
+
     if (isLoading) return (
         <div className="h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
             <div className="w-16 h-16 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -4219,6 +4331,10 @@ export default function ScorerConsole() {
                             className="relative z-10 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-700"
                         >
                             <ArrowLeftRight size={16} strokeWidth={2.5} />{st("Swap court side")}</GuardedButton>
+                        <GuardedButton type="button" onClick={showCourtPins}
+                            className="relative z-10 ml-2 min-h-11 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700">
+                            {language === 'THA' ? 'จับคู่ iPad' : 'Pair iPad'}
+                        </GuardedButton>
                     </div>
 
                     {/* OVERLAYS */}

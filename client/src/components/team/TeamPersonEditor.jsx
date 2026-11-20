@@ -1,3 +1,4 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
 import {useEffect,useId,useRef,useState} from 'react';
 import {X} from 'lucide-react';
 import {api} from '../../api';
@@ -10,7 +11,7 @@ export default function TeamPersonEditor({kind,row,team,people,onClose,onSaved})
     const build=person=>({first_name:person?.first_name||'',last_name:person?.last_name||'',first_name_th:person?.first_name_th||'',last_name_th:person?.last_name_th||'',first_name_en:person?.first_name_en||'',last_name_en:person?.last_name_en||'',birth_date:String(person?.birth_date||'').slice(0,10),number:person?.number??'',gender:team.gender||person?.gender||'Male',position:person?.position||'OH',role:person?.role||'Head Coach',master_revision:person?.master_revision??0});
     const [editing,setEditing]=useState(row),[form,setForm]=useState(()=>build(row)),[baseline,setBaseline]=useState(()=>JSON.stringify(build(row))),[busy,setBusy]=useState(false),[error,setError]=useState(''),[duplicates,setDuplicates]=useState(null),[allow,setAllow]=useState(false),[reason,setReason]=useState('');
     const dirty=JSON.stringify(form)!==baseline;
-    const close=()=>{if(lock.current)return;if(dirty&&!window.confirm(t('ทิ้งข้อมูลที่ยังไม่บันทึกหรือไม่?','Discard unsaved changes?')))return;onClose();};
+    const close=async ()=>{if(lock.current)return;if(dirty&&!(await confirmAction(t('ทิ้งข้อมูลที่ยังไม่บันทึกหรือไม่?','Discard unsaved changes?'), dialog.current)))return;onClose();};
     useEffect(()=>{const element=dialog.current,previous=document.activeElement,overflow=document.body.style.overflow;element.showModal();document.body.style.overflow='hidden';return()=>{element.close();document.body.style.overflow=overflow;previous?.focus?.();};},[]);
     const change=(key,value)=>{setForm(previous=>({...previous,[key]:value}));setError('');setDuplicates(null);setAllow(false);};
     const save=async event=>{

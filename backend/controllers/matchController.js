@@ -7,6 +7,25 @@ const { writeAuditLog } = require('../utils/auditLogger');
 const { roleHasPermission } = require('../config/permissions');
 const { attachDashboardSummaries } = require('../utils/matchDashboard');
 const { applyMatchSetup } = require('../utils/matchSetup');
+const { stationWriteGuard } = require('./courtStationController');
+
+const refereeRequestTypes = new Set(['TIMEOUT', 'SUBSTITUTION', 'CHALLENGE']);
+
+function refereeRequestView(request) {
+    const { id, request_type, team_name, team_name_th, team_name_en, details } = request;
+    const view = { id, request_type, team_name, team_name_th, team_name_en, details: {} };
+    if (request_type === 'SUBSTITUTION' && Array.isArray(details?.pairs)) {
+        view.details.pairs = details.pairs.map(pair => ({
+            outPlayer: { number: pair?.outPlayer?.number },
+            inPlayer: { number: pair?.inPlayer?.number }
+        }));
+    }
+    if (request_type === 'CHALLENGE') {
+        view.details.reason = details?.reason;
+        view.details.lastAction = details?.lastAction;
+    }
+    return view;
+}
 
 // Helper: สลับทีมสำหรับ Round Robin
 const rotateTeams = (teams) => {
@@ -215,7 +234,7 @@ module.exports = {
         try {
             const result = await db.query(sqlDialect(`
                 SELECT
-                    m.id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
+                    m.id, m.public_id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
                     m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status, m.vis_state, m.live_state,
                     m.match_number, m.pool_name, m.gender,
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
@@ -257,7 +276,7 @@ module.exports = {
                     m.id DESC
             `, `
                 SELECT
-                    m.id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
+                    m.id, m.public_id, m.match_setup, m.competition_id, c.title as competition_name, c.title_th as competition_name_th, c.title_en as competition_name_en, m.round_name,
                     m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status, m.vis_state, m.live_state,
                     m.match_number, m.pool_name, m.gender,
                     COALESCE(ms.home_set_score, m.home_set_score) AS home_set_score,
@@ -315,7 +334,7 @@ module.exports = {
         try {
             const result = await db.query(sqlDialect(`
                 SELECT
-                    m.id, m.match_setup, m.competition_id, m.round_name,
+                    m.id, m.public_id, m.match_setup, m.competition_id, m.round_name,
                     m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
@@ -360,7 +379,7 @@ module.exports = {
                     m.id ASC
             `, `
                 SELECT
-                    m.id, m.match_setup, m.competition_id, m.round_name,
+                    m.id, m.public_id, m.match_setup, m.competition_id, m.round_name,
                     m.start_time as raw_start_time, wm.phase AS workflow_phase, m.result_type, m.forfeit_reason, m.location, venue.name_th AS location_th, venue.name_en AS location_en, m.status,
                     m.match_number, m.pool_name, m.gender,
                     m.home_set_score, m.away_set_score, m.set_scores,
@@ -864,7 +883,7 @@ module.exports = {
         try {
             const { matchId } = req.params;
             const isScorer = roleHasPermission(req.user?.role, 'match.score');
-            const userTeamId = req.user?.team_id;
+            const userTeamId = req.stationTeamId ?? req.user?.team_id;
 
             if (!isScorer) {
                 if (!userTeamId) {
@@ -908,6 +927,9 @@ module.exports = {
         try {
             const { matchId } = req.params;
             const { team_id, request_type, details } = req.body;
+            if (req.stationTeamId && String(req.stationTeamId) !== String(team_id)) {
+                return res.status(403).json({ error: 'The court station is assigned to a different team' });
+            }
 
             if (!team_id || !request_type) {
                 return res.status(400).json({ error: 'team_id and request_type are required' });
@@ -925,15 +947,23 @@ module.exports = {
                 return res.status(403).json({ error: 'Team is not part of this match' });
             }
 
+            const params = [matchId, team_id, request_type, details ? JSON.stringify(details) : null];
+            const values = req.stationRevision
+                ? `SELECT ?, ?, ?, 'PENDING', ?, NOW() WHERE ${stationWriteGuard()}`
+                : "VALUES (?, ?, ?, 'PENDING', ?, NOW())";
+            if (req.stationRevision) {
+                const { side, pairingId, userId } = req.stationPairing;
+                params.push(matchId, req.stationRevision, side, pairingId, userId, Date.now());
+            }
             const result = await db.query(
-                sqlDialect(`INSERT INTO match_requests (match_id, team_id, request_type, status, details, created_at)
-                 VALUES (?, ?, ?, 'PENDING', ?, NOW())`, `INSERT INTO match_requests (match_id, team_id, request_type, status, details, created_at)
-                 VALUES (?, ?, ?, 'PENDING', ?, NOW()) RETURNING id`),
-                [matchId, team_id, request_type, details ? JSON.stringify(details) : null]
+                `INSERT INTO match_requests (match_id, team_id, request_type, status, details, created_at)
+                 ${values}${sqlDialect('', ' RETURNING id')}`,
+                params
             );
             const requestId = result.insertId || result.rows?.[0]?.id;
 
             if (!requestId) {
+                if (req.stationRevision) return res.status(409).json({ error: 'The court assignment or pairing changed. Refresh the station.' });
                 throw new Error('Failed to create staff request: missing inserted request id');
             }
 
@@ -953,6 +983,9 @@ module.exports = {
             const io = req.app.get('io');
             if (io) {
                 io.to(`match_${matchId}:score`).emit('new_staff_request', requestData);
+                if (refereeRequestTypes.has(requestData?.request_type)) {
+                    io.to(`match_${matchId}:referee`).emit('new_staff_request', refereeRequestView(requestData));
+                }
             }
 
             res.json({ success: true, requestId });
@@ -968,9 +1001,10 @@ module.exports = {
             const { matchId, requestId } = req.params;
             const { status, details } = req.body;
             const isScorer = roleHasPermission(req.user?.role, 'match.score');
+            const userTeamId = req.stationTeamId ?? req.user?.team_id;
 
             if (!isScorer) {
-                if (status !== 'REJECTED' || details !== undefined || !req.user?.team_id) {
+                if (status !== 'REJECTED' || details !== undefined || !userTeamId) {
                     return res.status(403).json({ error: 'Team staff can only cancel their own pending requests' });
                 }
 
@@ -980,7 +1014,7 @@ module.exports = {
                 );
                 const pendingRequest = requestRes.rows[0];
                 if (!pendingRequest) return res.status(404).json({ error: 'Request not found' });
-                if (String(pendingRequest.team_id) !== String(req.user.team_id)) {
+                if (String(pendingRequest.team_id) !== String(userTeamId)) {
                     return res.status(403).json({ error: 'You can only cancel your own team requests' });
                 }
                 if (String(pendingRequest.status).toUpperCase() !== 'PENDING') {
@@ -1022,10 +1056,16 @@ module.exports = {
 
             params.push(requestId, matchId);
             query += updates.join(', ') + ` WHERE id = ? AND match_id = ?`;
+            if (req.stationRevision) {
+                query += ` AND team_id = ? AND status = 'PENDING' AND ${stationWriteGuard()}`;
+                const { side, pairingId, userId } = req.stationPairing;
+                params.push(req.stationTeamId, matchId, req.stationRevision, side, pairingId, userId, Date.now());
+            }
 
             const result = await db.query(query, params);
             const affectedRows = result.affectedRows ?? result.rowCount ?? 0;
             if (affectedRows === 0) {
+                if (req.stationRevision) return res.status(409).json({ error: 'The court assignment or request changed.' });
                 return res.status(404).json({ error: "Request not found" });
             }
 
@@ -1045,9 +1085,16 @@ module.exports = {
             const io = req.app.get('io');
             if (io) {
                 if (status === 'APPROVED' || status === 'REJECTED') {
-                    io.to(`match_${matchId}`).emit('request_processed', { id: Number(requestId), status });
+                    const result = { id: Number(requestId), status };
+                    io.to(`match_${matchId}:operations`).emit('request_processed', result);
+                    if (refereeRequestTypes.has(requestData?.request_type)) {
+                        io.to(`match_${matchId}:referee`).emit('request_processed', { ...result, cancelled: !isScorer && status === 'REJECTED' });
+                    }
                 } else {
-                    io.to(`match_${matchId}`).emit('request_updated', requestData);
+                    io.to(`match_${matchId}:operations`).emit('request_updated', requestData);
+                    if (refereeRequestTypes.has(requestData?.request_type)) {
+                        io.to(`match_${matchId}:referee`).emit('request_updated', refereeRequestView(requestData));
+                    }
                 }
             }
 

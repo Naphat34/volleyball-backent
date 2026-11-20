@@ -78,7 +78,9 @@ async function boundary(req, res, next) {
         const bodyMatch = p.startsWith('/match-data/') ? req.body.match_id : null;
         if (match || bodyMatch) {
             const id = match?.[1] || bodyMatch;
-            if (req.user.role === 'team_staff' && /\/requests?(?:\/|$)|\/lineup\//.test(p)) return next();
+            if (req.user.role === 'team_staff' && (/\/requests?(?:\/|$)|\/lineup\//.test(p)
+                || (read && /\/court-station\/status$/.test(p))
+                || (req.method === 'POST' && /\/court-station\/unlock$/.test(p)))) return next();
             const vims = /\/vis(?:$|-offline-)/.test(p);
             const metadata = /^\/matches\/\d+$/.test(p);
             if (metadata && !read) {

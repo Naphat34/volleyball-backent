@@ -11,10 +11,11 @@ test('Socket rooms enforce current role/scope and never broadcast internal reque
     const h=await setup();let io,server;const clients=[];
     try{
         const d=h.db;
-        await d.query("INSERT INTO users(id,username,password_hash,role,status) VALUES(1,'Recorder','x','scorer','active'),(2,'Statistics','x','vims_operator','active'),(3,'Manager','x','super_admin_scorer','active')");
+        await d.query("INSERT INTO users(id,username,password_hash,role,status) VALUES(1,'Recorder','x','scorer','active'),(2,'Statistics','x','vims_operator','active'),(3,'Manager','x','super_admin_scorer','active'),(4,'Referee','x','referee','active')");
         await d.query("INSERT INTO competitions(id,title,sport,gender) VALUES(1,'Allowed','volleyball','Male'),(2,'Outside','volleyball','Female')");
-        for(const id of [1,2,3])await d.query('INSERT INTO user_competition_access(user_id,competition_id) VALUES(?,1)',[id]);
-        await d.query("INSERT INTO matches(id,competition_id) VALUES(1,1),(2,2)");
+        for(const id of [1,2,3,4])await d.query('INSERT INTO user_competition_access(user_id,competition_id) VALUES(?,1)',[id]);
+        await d.query("INSERT INTO teams(id,name,code) VALUES(11,'Home','HOME'),(22,'Away','AWAY')");
+        await d.query("INSERT INTO matches(id,competition_id,home_team_id,away_team_id) VALUES(1,1,11,22),(2,2,NULL,NULL)");
         const api=require('../server');server=http.createServer(api.app);io=api.createSocketIo(server);
         await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
         const origin=`http://127.0.0.1:${server.address().port}`;
@@ -35,12 +36,52 @@ test('Socket rooms enforce current role/scope and never broadcast internal reque
         let publicRequests=0;viewer.on('new_staff_request',()=>publicRequests++);
         const privateEvent=event(scorer,'new_staff_request');io.to('match_1:score').emit('new_staff_request',{id:1,details:'internal-only'});
         assert.equal((await privateEvent).details,'internal-only');
+        const referee = await open(4);
+        for (const [socket, matchId] of [[viewer,1],[vims,1],[referee,2]]) {
+            const denied = event(socket, 'join_error');
+            const ack = socket.timeout(3000).emitWithAck('join_match', { matchId, role: 'referee_alerts' });
+            await denied;
+            assert.deepEqual(await ack, { joined: false, refereeAlerts: false });
+        }
+        const refereeJoined = event(referee, 'connection_status_update');
+        assert.deepEqual(await referee.timeout(3000).emitWithAck('join_match', { matchId: 1, role: 'referee_alerts' }),
+            { joined: true, refereeAlerts: true });
+        await refereeJoined;
+        const matchController = require('../controllers/matchController');
+        async function request(method, body, user, requestId) {
+            const res = { code: 200, status(code) { this.code = code; return this; }, json(data) { this.data = data; } };
+            await matchController[method]({ body, user, params: { matchId: 1, requestId }, app: { get: () => io } }, res);
+            assert.equal(res.code, 200, JSON.stringify(res.data));
+            return res.data;
+        }
+        viewer.on('request_updated', () => publicRequests++);
+        viewer.on('request_processed', () => publicRequests++);
+        const team = { role: 'team_staff', team_id: 11 };
+        for (const requestType of ['TIMEOUT', 'SUBSTITUTION', 'CHALLENGE']) {
+            const delivered = event(referee, 'new_staff_request');
+            const created = await request('createRequest', { team_id: 11, request_type: requestType }, team);
+            assert.equal((await delivered).request_type, requestType);
+            if (requestType === 'CHALLENGE') {
+                const updated = event(referee, 'request_updated');
+                await request('updateRequest', { details: { reason: 'Ball in or out', lastAction: true } }, { role: 'scorer' }, created.requestId);
+                assert.deepEqual((await updated).details, { reason: 'Ball in or out', lastAction: true });
+            }
+            const processed = event(referee, 'request_processed');
+            const cancelled = requestType === 'CHALLENGE';
+            await request('updateRequest', { status: cancelled ? 'REJECTED' : 'APPROVED' }, cancelled ? team : { role: 'scorer' }, created.requestId);
+            assert.equal((await processed).cancelled, cancelled);
+        }
+
+        let refereeAfterRevocation = 0;
+        referee.on('new_staff_request', () => refereeAfterRevocation++);
+        await d.query('UPDATE user_competition_access SET revoked_at=NOW() WHERE user_id=4');
+        io.to('match_1:referee').emit('new_staff_request', { id: 'revoked' });
         const publicScore=event(viewer,'live_state_updated');io.to('match_1').emit('live_state_updated',{score:{home:8,away:5},offlineLease:{checkoutToken:'PRIVATE'}});
         const score=await publicScore;assert.deepEqual(score.score,{home:8,away:5});assert.equal(score.offlineLease,undefined);
         await d.query('UPDATE user_competition_access SET revoked_at=NOW() WHERE user_id=1');
         let afterRevocation=0;scorer.on('new_staff_request',()=>afterRevocation++);
         io.to('match_1:score').emit('new_staff_request',{id:2});await wait(150);
-        assert.equal(afterRevocation,0);assert.equal(publicRequests,0);
+        assert.equal(afterRevocation,0);assert.equal(publicRequests,0);assert.equal(refereeAfterRevocation,0);
     }finally{
         clients.forEach(socket=>socket.disconnect());
         if(io)await new Promise(resolve=>io.close(resolve));else if(server)await new Promise(resolve=>server.close(resolve));

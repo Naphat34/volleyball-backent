@@ -1,3 +1,4 @@
+import { confirmAction } from '../../utils/i18n/alerts.js';
 import {useCallback,useEffect,useState} from 'react';
 import {api} from '../../api';
 import {useLanguage} from '../../context/LanguageContext';
@@ -10,7 +11,7 @@ export default function TeamRosterRequests(){
     const load=useCallback(async()=>{setData((await api.getTeamRosterRequests()).data);},[]);
     useEffect(()=>{load().catch(e=>setError(e.response?.data?.error||e.message));},[load]);
     const decide=async(row,decision)=>{
-        if(busy||!window.confirm(t('ยืนยันดำเนินการคำขอนี้หรือไม่?','Confirm this roster decision?')))return;
+        if(busy||!(await confirmAction(t('ยืนยันดำเนินการคำขอนี้หรือไม่?','Confirm this roster decision?'))))return;
         setBusy(true);setError('');try{await api.decideTeamRosterRequest({request_id:row.id,decision,reason:notes[row.id]});await load();}catch(e){setError(e.response?.data?.error||e.message);}finally{setBusy(false);}
     };
     const person=(kind,id)=>{const row=data[kind].find(item=>Number(item.id)===Number(id));return row?`${row.first_name} ${row.last_name||''}`:`#${id}`;};
